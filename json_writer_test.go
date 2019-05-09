@@ -60,7 +60,7 @@ func TestJSONWriter(t *testing.T) {
 	defer func(f func() time.Time) {
 		now = f
 	}(now)
-	tm, _ := time.Parse("2006-01-02_15:04:05.000000", "2019-05-09_17:43:00.122044")
+	tm, _ := time.ParseInLocation("2006-01-02_15:04:05.000000", "2019-05-09_17:43:00.122044", time.Local)
 	now = func() time.Time {
 		tm = tm.Add(10 * time.Millisecond)
 		return tm
