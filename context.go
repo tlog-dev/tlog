@@ -15,6 +15,22 @@ func GetFullID(ctx context.Context) FullID {
 }
 
 func SpawnFromContext(ctx context.Context) *Span {
+	if DefaultLogger == nil {
+		return nil
+	}
+
 	id := GetFullID(ctx)
-	return DefaultLogger.Spawn(id)
+	if id.TraceID == 0 {
+		return nil
+	}
+
+	s := &Span{
+		l:        DefaultLogger,
+		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
+		Parent:   id.SpanID,
+		Location: funcentry(1),
+		Start:    now(),
+	}
+	DefaultLogger.SpanStarted(s)
+	return s
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/nikandfor/json"
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/examples/sub"
 )
 
 var (
@@ -25,6 +26,8 @@ func initComplexLogger() func() {
 	tw := tlog.NewTeeWriter(cw, jw)
 
 	ll = tlog.NewLogger(tw)
+
+	tlog.DefaultLogger = ll
 
 	return func() {
 		w.Flush()
@@ -48,6 +51,8 @@ func main() {
 	tr.Printf("main: %v", *str)
 
 	func1(tr.ID)
+
+	sub.Func1(tlog.FullID{}, 5)
 }
 
 func func1(id tlog.FullID) {

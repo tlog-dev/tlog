@@ -158,6 +158,23 @@ func Start() *Span {
 	return s
 }
 
+func Spawn(id FullID) *Span {
+	if DefaultLogger == nil || id.TraceID == 0 {
+		return nil
+	}
+
+	s := &Span{
+		l:        DefaultLogger,
+		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
+		Parent:   id.SpanID,
+		Location: funcentry(1),
+		Start:    now(),
+	}
+	DefaultLogger.SpanStarted(s)
+
+	return s
+}
+
 func (l *SimpleLogger) Printf(f string, args ...interface{}) {
 	if l == nil {
 		return

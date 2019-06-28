@@ -64,7 +64,7 @@ func (l Location) String() string {
 func cropFilename(fn, tp string) string {
 	p := strings.LastIndexByte(tp, '/')
 	if p == -1 {
-		return fn
+		return path.Base(fn)
 	}
 	tp = tp[:p]
 
