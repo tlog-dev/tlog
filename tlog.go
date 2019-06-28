@@ -16,6 +16,8 @@ type (
 	TraceID int64
 	SpanID  int64
 
+	Labels []string
+
 	FullID struct {
 		TraceID
 		SpanID
@@ -30,6 +32,7 @@ type (
 	}
 
 	Writer interface {
+		Labels(ls Labels)
 		SpanStarted(s *Span)
 		SpanFinished(s *Span)
 		Message(l *Message, s *Span)
@@ -44,7 +47,6 @@ type (
 
 	Span struct {
 		l Logger
-		_ noCopy
 
 		ID     FullID
 		Parent SpanID
@@ -60,6 +62,8 @@ type (
 	SimpleLogger struct {
 		Writer
 	}
+
+	initLogger struct{}
 
 	ConsoleWriter struct {
 		w  io.Writer
@@ -84,10 +88,6 @@ type (
 		mu      sync.Mutex
 		Writers []Writer
 	}
-
-	Depth int
-
-	noCopy struct{}
 )
 
 const (
@@ -101,13 +101,36 @@ var (
 	rnd = rand.New(rand.NewSource(now().UnixNano()))
 )
 
-var DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr))
+var (
+	DefaultLabels Labels
+	DefaultLogger Logger = initLogger{}
+)
+
+func init() {
+	h, err := os.Hostname()
+	if h == "" && err != nil {
+		h = err.Error()
+	}
+
+	DefaultLabels = Labels{
+		"_hostname=" + h,
+		fmt.Sprintf("_pid=%d", os.Getpid()),
+	}
+}
 
 func NewLogger(w Writer) Logger {
-	return &SimpleLogger{Writer: w}
+	l := &SimpleLogger{Writer: w}
+	l.Labels(DefaultLabels)
+	l.Printf("os.Args: %q", os.Args)
+
+	return l
 }
 
 func Printf(f string, args ...interface{}) {
+	if DefaultLogger == nil {
+		return
+	}
+
 	DefaultLogger.Message(
 		&Message{
 			Location: location(1),
@@ -119,7 +142,27 @@ func Printf(f string, args ...interface{}) {
 	)
 }
 
+func Start() *Span {
+	if DefaultLogger == nil {
+		return nil
+	}
+
+	s := &Span{
+		l:        DefaultLogger,
+		ID:       FullID{TraceID(rnd.Int63()), SpanID(rnd.Int63())},
+		Location: funcentry(1),
+		Start:    now(),
+	}
+	DefaultLogger.SpanStarted(s)
+
+	return s
+}
+
 func (l *SimpleLogger) Printf(f string, args ...interface{}) {
+	if l == nil {
+		return
+	}
+
 	l.Message(
 		&Message{
 			Location: location(1),
@@ -132,6 +175,10 @@ func (l *SimpleLogger) Printf(f string, args ...interface{}) {
 }
 
 func (l *SimpleLogger) Start() *Span {
+	if l == nil {
+		return nil
+	}
+
 	s := &Span{
 		l:        l,
 		ID:       FullID{TraceID(rnd.Int63()), SpanID(rnd.Int63())},
@@ -143,6 +190,10 @@ func (l *SimpleLogger) Start() *Span {
 }
 
 func (l *SimpleLogger) Spawn(id FullID) *Span {
+	if l == nil || id.TraceID == 0 {
+		return nil
+	}
+
 	s := &Span{
 		l:        l,
 		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
@@ -154,7 +205,60 @@ func (l *SimpleLogger) Spawn(id FullID) *Span {
 	return s
 }
 
+func (l initLogger) Labels(ls Labels)            { l.init(); DefaultLogger.Labels(ls) }
+func (l initLogger) Message(m *Message, s *Span) { l.init(); DefaultLogger.Message(m, s) }
+func (l initLogger) SpanStarted(s *Span)         { l.init(); DefaultLogger.SpanStarted(s) }
+func (l initLogger) SpanFinished(s *Span)        { l.init(); DefaultLogger.SpanFinished(s) }
+
+func (l initLogger) Printf(f string, args ...interface{}) {
+	l.init()
+	DefaultLogger.Message(
+		&Message{
+			Location: location(1),
+			Time:     time.Duration(now().UnixNano()),
+			Format:   f,
+			Args:     args,
+		},
+		nil,
+	)
+}
+
+func (l initLogger) Start() *Span {
+	l.init()
+
+	s := &Span{
+		l:        l,
+		ID:       FullID{TraceID(rnd.Int63()), SpanID(rnd.Int63())},
+		Location: funcentry(1),
+		Start:    now(),
+	}
+	DefaultLogger.SpanStarted(s)
+	return s
+}
+
+func (l initLogger) Spawn(id FullID) *Span {
+	l.init()
+
+	s := &Span{
+		l:        l,
+		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
+		Parent:   id.SpanID,
+		Location: funcentry(1),
+		Start:    now(),
+	}
+	l.SpanStarted(s)
+	return s
+}
+
+func (l initLogger) init() {
+	DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr))
+}
+
 func (s *Span) Printf(f string, args ...interface{}) {
+	if s == nil {
+		return
+	}
+
 	s.l.Message(
 		&Message{
 			Location: location(1),
@@ -167,6 +271,10 @@ func (s *Span) Printf(f string, args ...interface{}) {
 }
 
 func (s *Span) Finish() {
+	if s == nil {
+		return
+	}
+
 	s.Elapsed = now().Sub(s.Start)
 	s.l.SpanFinished(s)
 }
@@ -193,6 +301,18 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
 	fmt.Fprintf(w.w, "%v %-20v %v Span finished - elapsed %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
+}
+
+func (w *ConsoleWriter) Labels(ls Labels) {
+	w.Message(
+		&Message{
+			Location: location(1),
+			Time:     time.Duration(now().UnixNano()),
+			Format:   "Labels: %q",
+			Args:     []interface{}{ls},
+		},
+		nil,
+	)
 }
 
 func (w *FilterWriter) Message(m *Message, s *Span) {
@@ -250,6 +370,27 @@ func NewJSONWriter(w *json.Writer) *JSONWriter {
 		w:  w,
 		ls: make(map[Location]struct{}),
 	}
+}
+
+func (w *JSONWriter) Labels(ls Labels) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	w.w.ObjStart()
+
+	w.w.ObjKey([]byte("L"))
+
+	w.w.ArrayStart()
+
+	for _, l := range ls {
+		w.w.StringString(l)
+	}
+
+	w.w.ArrayEnd()
+
+	w.w.ObjEnd()
+
+	w.w.NewLine()
 }
 
 func (w *JSONWriter) Message(m *Message, s *Span) {
@@ -390,6 +531,15 @@ func NewTeeWriter(w ...Writer) *TeeWriter {
 	return &TeeWriter{Writers: w}
 }
 
+func (w *TeeWriter) Labels(ls Labels) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	for _, w := range w.Writers {
+		w.Labels(ls)
+	}
+}
+
 func (w *TeeWriter) Message(m *Message, s *Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -417,6 +567,44 @@ func (w *TeeWriter) SpanFinished(s *Span) {
 	}
 }
 
+func (ls *Labels) Set(k, v string) {
+	val := k
+	if v != "" {
+		val += "=" + v
+	}
+
+	for i, l := range *ls {
+		if l == k || strings.HasPrefix(l, k+"=") {
+			(*ls)[i] = val
+			return
+		}
+	}
+	*ls = append(*ls, val)
+}
+
+func (ls *Labels) Get(k string) (string, bool) {
+	for _, l := range *ls {
+		if l == k {
+			return "", true
+		} else if strings.HasPrefix(l, k+"=") {
+			return l[len(k)+1:], true
+		}
+	}
+	return "", false
+}
+
+func (ls *Labels) Del(k string) bool {
+	for i, l := range *ls {
+		if l == k || strings.HasPrefix(l, k+"=") {
+			ll := len(*ls) - 1
+			(*ls)[i] = (*ls)[ll]
+			(*ls) = (*ls)[:ll]
+			return true
+		}
+	}
+	return false
+}
+
 func (i TraceID) String() string {
 	return fmt.Sprintf("%016x", uint64(i))
 }
@@ -428,5 +616,3 @@ func (i SpanID) String() string {
 func (i FullID) String() string {
 	return i.TraceID.String() + ":" + i.SpanID.String()
 }
-
-func (*noCopy) Lock() {}
