@@ -44,6 +44,7 @@ type (
 
 	Span struct {
 		l Logger
+		_ noCopy
 
 		ID     FullID
 		Parent SpanID
@@ -53,11 +54,7 @@ type (
 		Start   time.Time
 		Elapsed time.Duration
 
-		Logs []*Message
-
 		Flags int
-
-		_ noCopy
 	}
 
 	SimpleLogger struct {
@@ -66,7 +63,6 @@ type (
 
 	ConsoleWriter struct {
 		w  io.Writer
-		f  int
 		tf string
 	}
 
@@ -89,11 +85,6 @@ type (
 		Writers []Writer
 	}
 
-	pos struct {
-		File string
-		Line int
-	}
-
 	Depth int
 
 	noCopy struct{}
@@ -106,34 +97,34 @@ const (
 )
 
 var (
-	now func() time.Time = time.Now
-	rnd                  = rand.New(rand.NewSource(now().UnixNano()))
+	now = time.Now
+	rnd = rand.New(rand.NewSource(now().UnixNano()))
 )
 
-var DefaultLogger Logger = NewLogger(NewConsoleWriter(os.Stderr))
+var DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr))
 
 func NewLogger(w Writer) Logger {
 	return &SimpleLogger{Writer: w}
 }
 
-func Printf(fmt string, args ...interface{}) {
+func Printf(f string, args ...interface{}) {
 	DefaultLogger.Message(
 		&Message{
 			Location: location(1),
 			Time:     time.Duration(now().UnixNano()),
-			Format:   fmt,
+			Format:   f,
 			Args:     args,
 		},
 		nil,
 	)
 }
 
-func (l *SimpleLogger) Printf(fmt string, args ...interface{}) {
+func (l *SimpleLogger) Printf(f string, args ...interface{}) {
 	l.Message(
 		&Message{
 			Location: location(1),
 			Time:     time.Duration(now().UnixNano()),
-			Format:   fmt,
+			Format:   f,
 			Args:     args,
 		},
 		nil,
@@ -163,12 +154,12 @@ func (l *SimpleLogger) Spawn(id FullID) *Span {
 	return s
 }
 
-func (s *Span) Printf(fmt string, args ...interface{}) {
+func (s *Span) Printf(f string, args ...interface{}) {
 	s.l.Message(
 		&Message{
 			Location: location(1),
 			Time:     now().Sub(s.Start),
-			Format:   fmt,
+			Format:   f,
 			Args:     args,
 		},
 		s,
@@ -395,11 +386,11 @@ func (w *JSONWriter) location(l Location) {
 	w.ls[l] = struct{}{}
 }
 
-func NewTeeWriter(w ...Writer) TeeWriter {
-	return TeeWriter{Writers: w}
+func NewTeeWriter(w ...Writer) *TeeWriter {
+	return &TeeWriter{Writers: w}
 }
 
-func (w TeeWriter) Message(m *Message, s *Span) {
+func (w *TeeWriter) Message(m *Message, s *Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -408,7 +399,7 @@ func (w TeeWriter) Message(m *Message, s *Span) {
 	}
 }
 
-func (w TeeWriter) SpanStarted(s *Span) {
+func (w *TeeWriter) SpanStarted(s *Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -417,7 +408,7 @@ func (w TeeWriter) SpanStarted(s *Span) {
 	}
 }
 
-func (w TeeWriter) SpanFinished(s *Span) {
+func (w *TeeWriter) SpanFinished(s *Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
