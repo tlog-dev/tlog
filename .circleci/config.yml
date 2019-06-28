@@ -9,6 +9,4 @@ jobs:
     steps:
       - checkout
 
-      - run: go test -race -v
-      - run: go run ./examples/example1.go
-      - run: go run ./examples/example2.go
+      - run: go test -race -v ./...
