@@ -11,8 +11,6 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.1 h1:9f412s+6RmYXLWZSEzVVgPGK7C2PphHj5RJrvfx9AWI=
 github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
-github.com/nikandfor/json v0.0.0-20190507215537-f83ad93efd11 h1:5K4Gr2RolJUdTUdLLtNIj8HajdeMaGeFm5EiQcYPQnw=
-github.com/nikandfor/json v0.0.0-20190507215537-f83ad93efd11/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/nikandfor/json v0.0.0-20190509212830-7e9c06792b3a h1:2xT4WF0zfCNNJQKNJlbRVNHy6+dajZ7pHX9dguMEnbo=
 github.com/nikandfor/json v0.0.0-20190509212830-7e9c06792b3a/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
