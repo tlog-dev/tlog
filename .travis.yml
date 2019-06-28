@@ -7,7 +7,9 @@ go:
   - "1.12"
 
 script:
-  - go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+  - go test -v -race -coverprofile=coverage.txt -covermode=atomic
+  - go run ./examples/example1.go
+  - go run ./examples/example2.go
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
