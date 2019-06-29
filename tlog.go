@@ -121,7 +121,7 @@ func init() {
 func NewLogger(w Writer) Logger {
 	l := &SimpleLogger{Writer: w}
 	l.Labels(DefaultLabels)
-	l.Printf("os.Args: %q", os.Args)
+	l.Printf("!os.Args: %q", os.Args)
 
 	return l
 }
@@ -313,11 +313,11 @@ func (w *ConsoleWriter) Message(m *Message, s *Span) {
 }
 
 func (w *ConsoleWriter) SpanStarted(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v %v Span started\n", s.Start.Format(w.tf), s.Location.String(), s.ID)
+	fmt.Fprintf(w.w, "%v %-20v %v !Span started\n", s.Start.Format(w.tf), s.Location.String(), s.ID)
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v %v Span finished - elapsed %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
+	fmt.Fprintf(w.w, "%v %-20v %v !Span finished - elapsed %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
@@ -325,7 +325,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 		&Message{
 			Location: location(1),
 			Time:     time.Duration(now().UnixNano()),
-			Format:   "Labels: %q",
+			Format:   "!Labels: %q",
 			Args:     []interface{}{ls},
 		},
 		nil,
