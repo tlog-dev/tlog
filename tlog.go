@@ -400,7 +400,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 	w.w.ArrayStart()
 
 	for _, l := range ls {
-		w.w.StringString(l)
+		w.w.SafeStringString(l)
 	}
 
 	w.w.ArrayEnd()
@@ -433,7 +433,7 @@ func (w *JSONWriter) Message(m *Message, s *Span) {
 	fmt.Fprintf(w.w, "%d", m.Time.Nanoseconds()/1000)
 
 	w.w.ObjKey([]byte("m"))
-	w.w.StringString(msg)
+	w.w.SafeStringString(msg)
 
 	if s != nil {
 		w.w.ObjKey([]byte("s"))
@@ -469,7 +469,7 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 
 	if s.Parent != 0 {
 		w.w.ObjKey([]byte("par"))
-		w.w.StringString(s.Parent.String())
+		fmt.Fprintf(w.w, "%d", s.Parent)
 	}
 
 	w.w.ObjKey([]byte("loc"))
@@ -527,7 +527,7 @@ func (w *JSONWriter) location(l Location) {
 	fmt.Fprintf(w.w, "%d", l)
 
 	w.w.ObjKey([]byte("f"))
-	w.w.StringString(file)
+	w.w.SafeStringString(file)
 
 	w.w.ObjKey([]byte("l"))
 	fmt.Fprintf(w.w, "%d", line)
