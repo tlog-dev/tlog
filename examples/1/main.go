@@ -21,12 +21,12 @@ func main() {
 
 	tlog.Printf("main: %d %q", *f, *str)
 
-	sub.Func1(tlog.FullID{}, 5)
+	sub.Func1(0, 5)
 
 	tr := tlog.Start()
 	defer tr.Finish()
 
-	ctx := tlog.WithFullID(context.Background(), tr.ID)
+	ctx := tlog.WithID(context.Background(), tr.ID)
 
 	sub.Func2(ctx, 9)
 }

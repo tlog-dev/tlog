@@ -6,7 +6,7 @@ import (
 	"github.com/nikandfor/tlog"
 )
 
-func Func1(id tlog.FullID, i int) {
+func Func1(id tlog.ID, i int) {
 	tr := tlog.Spawn(id)
 	defer tr.Finish()
 

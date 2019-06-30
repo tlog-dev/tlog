@@ -13,22 +13,16 @@ import (
 )
 
 type (
-	TraceID int64
-	SpanID  int64
+	ID int64
 
 	Labels []string
-
-	FullID struct {
-		TraceID
-		SpanID
-	}
 
 	Logger interface {
 		Writer
 
 		Printf(f string, args ...interface{})
 		Start() *Span
-		Spawn(FullID) *Span
+		Spawn(ID) *Span
 	}
 
 	Writer interface {
@@ -48,8 +42,8 @@ type (
 	Span struct {
 		l Logger
 
-		ID     FullID
-		Parent SpanID
+		ID     ID
+		Parent ID
 
 		Location Location
 
@@ -149,7 +143,7 @@ func Start() *Span {
 
 	s := &Span{
 		l:        DefaultLogger,
-		ID:       FullID{TraceID(rnd.Int63()), SpanID(rnd.Int63())},
+		ID:       ID(rnd.Int63()),
 		Location: funcentry(1),
 		Start:    now(),
 	}
@@ -158,15 +152,15 @@ func Start() *Span {
 	return s
 }
 
-func Spawn(id FullID) *Span {
-	if DefaultLogger == nil || id.TraceID == 0 {
+func Spawn(id ID) *Span {
+	if DefaultLogger == nil || id == 0 {
 		return nil
 	}
 
 	s := &Span{
 		l:        DefaultLogger,
-		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
-		Parent:   id.SpanID,
+		ID:       ID(rnd.Int63()),
+		Parent:   id,
 		Location: funcentry(1),
 		Start:    now(),
 	}
@@ -198,7 +192,7 @@ func (l *SimpleLogger) Start() *Span {
 
 	s := &Span{
 		l:        l,
-		ID:       FullID{TraceID(rnd.Int63()), SpanID(rnd.Int63())},
+		ID:       ID(rnd.Int63()),
 		Location: funcentry(1),
 		Start:    now(),
 	}
@@ -206,15 +200,15 @@ func (l *SimpleLogger) Start() *Span {
 	return s
 }
 
-func (l *SimpleLogger) Spawn(id FullID) *Span {
-	if l == nil || id.TraceID == 0 {
+func (l *SimpleLogger) Spawn(id ID) *Span {
+	if l == nil || id == 0 {
 		return nil
 	}
 
 	s := &Span{
 		l:        l,
-		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
-		Parent:   id.SpanID,
+		ID:       ID(rnd.Int63()),
+		Parent:   id,
 		Location: funcentry(1),
 		Start:    now(),
 	}
@@ -245,7 +239,7 @@ func (l initLogger) Start() *Span {
 
 	s := &Span{
 		l:        l,
-		ID:       FullID{TraceID(rnd.Int63()), SpanID(rnd.Int63())},
+		ID:       ID(rnd.Int63()),
 		Location: funcentry(1),
 		Start:    now(),
 	}
@@ -253,13 +247,13 @@ func (l initLogger) Start() *Span {
 	return s
 }
 
-func (l initLogger) Spawn(id FullID) *Span {
+func (l initLogger) Spawn(id ID) *Span {
 	l.init()
 
 	s := &Span{
 		l:        l,
-		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
-		Parent:   id.SpanID,
+		ID:       ID(rnd.Int63()),
+		Parent:   id,
 		Location: funcentry(1),
 		Start:    now(),
 	}
@@ -313,11 +307,11 @@ func (w *ConsoleWriter) Message(m *Message, s *Span) {
 }
 
 func (w *ConsoleWriter) SpanStarted(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v %v !Span started\n", s.Start.Format(w.tf), s.Location.String(), s.ID)
+	fmt.Fprintf(w.w, "%v %-20v !Span started  %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID)
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v %v !Span finished - elapsed %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
+	fmt.Fprintf(w.w, "%v %-20v !Span finished %v - elapsed %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
@@ -437,7 +431,7 @@ func (w *JSONWriter) Message(m *Message, s *Span) {
 
 	if s != nil {
 		w.w.ObjKey([]byte("s"))
-		fmt.Fprintf(w.w, "%d", s.ID.SpanID)
+		fmt.Fprintf(w.w, "%d", s.ID)
 	}
 
 	w.w.ObjEnd()
@@ -461,11 +455,8 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 
 	w.w.ObjStart()
 
-	w.w.ObjKey([]byte("tr"))
-	fmt.Fprintf(w.w, "%d", s.ID.TraceID)
-
 	w.w.ObjKey([]byte("id"))
-	fmt.Fprintf(w.w, "%d", s.ID.SpanID)
+	fmt.Fprintf(w.w, "%d", s.ID)
 
 	if s.Parent != 0 {
 		w.w.ObjKey([]byte("par"))
@@ -496,7 +487,7 @@ func (w *JSONWriter) SpanFinished(s *Span) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	fmt.Fprintf(w.w, "%d", s.ID.SpanID)
+	fmt.Fprintf(w.w, "%d", s.ID)
 
 	w.w.ObjKey([]byte("el"))
 	fmt.Fprintf(w.w, "%d", s.Elapsed.Nanoseconds()/1000)
@@ -622,14 +613,6 @@ func (ls *Labels) Del(k string) bool {
 	return false
 }
 
-func (i TraceID) String() string {
+func (i ID) String() string {
 	return fmt.Sprintf("%016x", uint64(i))
-}
-
-func (i SpanID) String() string {
-	return fmt.Sprintf("%016x", uint64(i))
-}
-
-func (i FullID) String() string {
-	return i.TraceID.String() + ":" + i.SpanID.String()
 }

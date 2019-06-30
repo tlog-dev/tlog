@@ -52,10 +52,10 @@ func main() {
 
 	func1(tr.ID)
 
-	sub.Func1(tlog.FullID{}, 5)
+	sub.Func1(0, 5)
 }
 
-func func1(id tlog.FullID) {
+func func1(id tlog.ID) {
 	tr := ll.Spawn(id)
 	defer tr.Finish()
 

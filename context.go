@@ -4,14 +4,13 @@ import "context"
 
 type key struct{}
 
-func WithFullID(ctx context.Context, id FullID) context.Context {
+func WithID(ctx context.Context, id ID) context.Context {
 	return context.WithValue(ctx, key{}, id)
 }
 
-func GetFullID(ctx context.Context) FullID {
+func GetID(ctx context.Context) ID {
 	v := ctx.Value(key{})
-	id, _ := v.(FullID)
-	return id
+	return v.(ID)
 }
 
 func SpawnFromContext(ctx context.Context) *Span {
@@ -19,15 +18,15 @@ func SpawnFromContext(ctx context.Context) *Span {
 		return nil
 	}
 
-	id := GetFullID(ctx)
-	if id.TraceID == 0 {
+	id := GetID(ctx)
+	if id == 0 {
 		return nil
 	}
 
 	s := &Span{
 		l:        DefaultLogger,
-		ID:       FullID{id.TraceID, SpanID(rnd.Int63())},
-		Parent:   id.SpanID,
+		ID:       ID(rnd.Int63()),
+		Parent:   id,
 		Location: funcentry(1),
 		Start:    now(),
 	}
