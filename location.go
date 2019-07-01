@@ -55,10 +55,14 @@ func (l Location) FuncFull() string {
 	return f.Name()
 }
 
-func (l Location) String() string {
+func (l Location) Short() string {
 	f := runtime.FuncForPC(uintptr(l))
 	file, line := f.FileLine(uintptr(l))
 	return fmt.Sprintf("%v:%d", path.Base(file), line)
+}
+
+func (l Location) String() string {
+	return fmt.Sprintf("% 8x", uintptr(l))
 }
 
 func cropFilename(fn, tp string) string {

@@ -23,13 +23,5 @@ func SpawnFromContext(ctx context.Context) *Span {
 		return nil
 	}
 
-	s := &Span{
-		l:        DefaultLogger,
-		ID:       ID(rnd.Int63()),
-		Parent:   id,
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	DefaultLogger.SpanStarted(s)
-	return s
+	return newspan(DefaultLogger, id)
 }

@@ -47,7 +47,7 @@ type (
 
 		Location Location
 
-		Start   time.Time
+		Started time.Time
 		Elapsed time.Duration
 
 		Flags int
@@ -82,6 +82,15 @@ type (
 		mu      sync.Mutex
 		Writers []Writer
 	}
+
+	Rand interface {
+		Int63() int64
+	}
+
+	ConcurrentRand struct {
+		mu  sync.Mutex
+		rnd Rand
+	}
 )
 
 const (
@@ -90,14 +99,15 @@ const (
 	FlagNone = 0
 )
 
-var (
-	now = time.Now
-	rnd = rand.New(rand.NewSource(now().UnixNano()))
+var ( // time, rand
+	now      = time.Now
+	rnd Rand = &ConcurrentRand{rnd: rand.New(rand.NewSource(now().UnixNano()))}
 )
 
-var (
-	DefaultLabels Labels
-	DefaultLogger Logger = initLogger{}
+var ( // defaults
+	DefaultLabels   Labels
+	DefaultLogger   Logger = initLogger{}
+	DumpDefaultInfo        = true
 )
 
 func init() {
@@ -114,25 +124,50 @@ func init() {
 
 func NewLogger(w Writer) Logger {
 	l := &SimpleLogger{Writer: w}
-	l.Labels(DefaultLabels)
-	l.Printf("!os.Args: %q", os.Args)
+	if DumpDefaultInfo {
+		l.Labels(DefaultLabels)
+		l.Printf("!os.Args: %q", os.Args)
+	}
 
 	return l
 }
 
 func Printf(f string, args ...interface{}) {
-	if DefaultLogger == nil {
+	newmessage(DefaultLogger, nil, f, args)
+}
+
+func newspan(l Logger, par ID) *Span {
+	s := &Span{
+		l:        l,
+		ID:       ID(rnd.Int63()),
+		Parent:   par,
+		Location: funcentry(2),
+		Started:  now(),
+	}
+	l.SpanStarted(s)
+	return s
+}
+
+func newmessage(l Logger, s *Span, f string, args []interface{}) {
+	if l == nil {
 		return
 	}
 
-	DefaultLogger.Message(
+	var t time.Duration
+	if s == nil {
+		t = time.Duration(now().UnixNano())
+	} else {
+		t = now().Sub(s.Started)
+	}
+
+	l.Message(
 		&Message{
-			Location: location(1),
-			Time:     time.Duration(now().UnixNano()),
+			Location: location(2),
+			Time:     t,
 			Format:   f,
 			Args:     args,
 		},
-		nil,
+		s,
 	)
 }
 
@@ -141,15 +176,7 @@ func Start() *Span {
 		return nil
 	}
 
-	s := &Span{
-		l:        DefaultLogger,
-		ID:       ID(rnd.Int63()),
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	DefaultLogger.SpanStarted(s)
-
-	return s
+	return newspan(DefaultLogger, 0)
 }
 
 func Spawn(id ID) *Span {
@@ -157,32 +184,11 @@ func Spawn(id ID) *Span {
 		return nil
 	}
 
-	s := &Span{
-		l:        DefaultLogger,
-		ID:       ID(rnd.Int63()),
-		Parent:   id,
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	DefaultLogger.SpanStarted(s)
-
-	return s
+	return newspan(DefaultLogger, id)
 }
 
 func (l *SimpleLogger) Printf(f string, args ...interface{}) {
-	if l == nil {
-		return
-	}
-
-	l.Message(
-		&Message{
-			Location: location(1),
-			Time:     time.Duration(now().UnixNano()),
-			Format:   f,
-			Args:     args,
-		},
-		nil,
-	)
+	newmessage(l, nil, f, args)
 }
 
 func (l *SimpleLogger) Start() *Span {
@@ -190,14 +196,7 @@ func (l *SimpleLogger) Start() *Span {
 		return nil
 	}
 
-	s := &Span{
-		l:        l,
-		ID:       ID(rnd.Int63()),
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	l.SpanStarted(s)
-	return s
+	return newspan(l, 0)
 }
 
 func (l *SimpleLogger) Spawn(id ID) *Span {
@@ -205,15 +204,7 @@ func (l *SimpleLogger) Spawn(id ID) *Span {
 		return nil
 	}
 
-	s := &Span{
-		l:        l,
-		ID:       ID(rnd.Int63()),
-		Parent:   id,
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	l.SpanStarted(s)
-	return s
+	return newspan(l, id)
 }
 
 func (l initLogger) Labels(ls Labels)            { l.init(); DefaultLogger.Labels(ls) }
@@ -223,42 +214,19 @@ func (l initLogger) SpanFinished(s *Span)        { l.init(); DefaultLogger.SpanF
 
 func (l initLogger) Printf(f string, args ...interface{}) {
 	l.init()
-	DefaultLogger.Message(
-		&Message{
-			Location: location(1),
-			Time:     time.Duration(now().UnixNano()),
-			Format:   f,
-			Args:     args,
-		},
-		nil,
-	)
+	newmessage(DefaultLogger, nil, f, args)
 }
 
 func (l initLogger) Start() *Span {
 	l.init()
 
-	s := &Span{
-		l:        l,
-		ID:       ID(rnd.Int63()),
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	DefaultLogger.SpanStarted(s)
-	return s
+	return newspan(DefaultLogger, 0)
 }
 
 func (l initLogger) Spawn(id ID) *Span {
 	l.init()
 
-	s := &Span{
-		l:        l,
-		ID:       ID(rnd.Int63()),
-		Parent:   id,
-		Location: funcentry(1),
-		Start:    now(),
-	}
-	l.SpanStarted(s)
-	return s
+	return newspan(DefaultLogger, id)
 }
 
 func (l initLogger) init() {
@@ -270,15 +238,7 @@ func (s *Span) Printf(f string, args ...interface{}) {
 		return
 	}
 
-	s.l.Message(
-		&Message{
-			Location: location(1),
-			Time:     now().Sub(s.Start),
-			Format:   f,
-			Args:     args,
-		},
-		s,
-	)
+	newmessage(s.l, s, f, args)
 }
 
 func (s *Span) Finish() {
@@ -286,7 +246,7 @@ func (s *Span) Finish() {
 		return
 	}
 
-	s.Elapsed = now().Sub(s.Start)
+	s.Elapsed = now().Sub(s.Started)
 	s.l.SpanFinished(s)
 }
 
@@ -307,11 +267,11 @@ func (w *ConsoleWriter) Message(m *Message, s *Span) {
 }
 
 func (w *ConsoleWriter) SpanStarted(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v !Span started  %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID)
+	fmt.Fprintf(w.w, "%v %-20v !Span started  %v\n", s.Started.Format(w.tf), s.Location.String(), s.ID)
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v !Span finished %v - elapsed %v\n", s.Start.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
+	fmt.Fprintf(w.w, "%v %-20v !Span finished %v - elapsed %v\n", s.Started.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
@@ -459,15 +419,15 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 	fmt.Fprintf(w.w, "%d", s.ID)
 
 	if s.Parent != 0 {
-		w.w.ObjKey([]byte("par"))
+		w.w.ObjKey([]byte("p"))
 		fmt.Fprintf(w.w, "%d", s.Parent)
 	}
 
-	w.w.ObjKey([]byte("loc"))
+	w.w.ObjKey([]byte("l"))
 	fmt.Fprintf(w.w, "%d", s.Location)
 
-	w.w.ObjKey([]byte("st"))
-	fmt.Fprintf(w.w, "%d", s.Start.UnixNano()/1000)
+	w.w.ObjKey([]byte("s"))
+	fmt.Fprintf(w.w, "%d", s.Started.UnixNano()/1000)
 
 	w.w.ObjEnd()
 
@@ -489,7 +449,7 @@ func (w *JSONWriter) SpanFinished(s *Span) {
 	w.w.ObjKey([]byte("id"))
 	fmt.Fprintf(w.w, "%d", s.ID)
 
-	w.w.ObjKey([]byte("el"))
+	w.w.ObjKey([]byte("e"))
 	fmt.Fprintf(w.w, "%d", s.Elapsed.Nanoseconds()/1000)
 
 	if s.Flags != 0 {
@@ -613,6 +573,40 @@ func (ls *Labels) Del(k string) bool {
 	return false
 }
 
+func (ls *Labels) Merge(b Labels) {
+out:
+	for _, add := range b {
+		for _, have := range *ls {
+			if add == have {
+				continue out
+			}
+		}
+
+		*ls = append(*ls, add)
+	}
+}
+
 func (i ID) String() string {
+	if i == 0 {
+		return "________________"
+	}
 	return fmt.Sprintf("%016x", uint64(i))
+}
+
+func (m *Message) AbsTime() time.Time {
+	return time.Unix(0, int64(m.Time))
+}
+
+func (m *Message) SpanID() ID {
+	if m == nil || m.Args == nil {
+		return 0
+	}
+	return m.Args[0].(ID)
+}
+
+func (r *ConcurrentRand) Int63() int64 {
+	defer r.mu.Unlock()
+	r.mu.Lock()
+
+	return r.rnd.Int63()
 }
