@@ -48,7 +48,7 @@ func TestJSONReader(t *testing.T) {
 
 	// read
 
-	Printf("\n%s", buf.Bytes())
+	//Printf("\n%s", buf.Bytes())
 
 	jr := json.NewReader(&buf)
 	r := NewJSONReader(jr)

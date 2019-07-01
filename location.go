@@ -10,54 +10,50 @@ import (
 type Location uintptr
 
 func location(s int) Location {
-	pc, _, _, _ := runtime.Caller(1 + s)
-	return Location(pc)
+	var pc [1]uintptr
+	runtime.Callers(2+s, pc[:])
+	return Location(pc[0])
+}
+
+func location_test() {
+	var pc [20]uintptr
+	n := runtime.Callers(0, pc[:])
+
+	fmt.Printf("-- []PC\n")
+	for i, pc := range pc[:n] {
+		f := runtime.FuncForPC(pc)
+		fn, l := f.FileLine(pc - 1)
+		fmt.Printf("%d %v %v %v\n", i, f.Name(), fn, l)
+	}
+
+	fmt.Printf("-- frames\n")
+	f := runtime.CallersFrames(pc[:n])
+	i := 0
+	for {
+		fr, more := f.Next()
+		fmt.Printf("%d %v %v %v\n", i, fr.Function, fr.File, fr.Line)
+		i++
+
+		if !more {
+			break
+		}
+	}
+
+	fmt.Printf("-- scarry\n")
+	for i, pc := range pc[:n] {
+		n, f, l := Location(pc).NameFileLine()
+		fmt.Printf("%d %v %v %v\n", i, n, f, l)
+	}
 }
 
 func funcentry(s int) Location {
-	pc, _, _, _ := runtime.Caller(1 + s)
-	f := runtime.FuncForPC(pc)
-	return Location(f.Entry())
-}
-
-func (l Location) Line() int {
-	f := runtime.FuncForPC(uintptr(l))
-	_, line := f.FileLine(uintptr(l))
-	return line
-}
-
-func (l Location) File() string {
-	f := runtime.FuncForPC(uintptr(l))
-	file, _ := f.FileLine(f.Entry())
-	return cropFilename(file, f.Name())
-}
-
-func (l Location) FileLine() (string, int) {
-	f := runtime.FuncForPC(uintptr(l))
-	file, line := f.FileLine(uintptr(l))
-	file = cropFilename(file, f.Name())
-	return file, line
-}
-
-func (l Location) FileBase() string {
-	f := runtime.FuncForPC(uintptr(l))
-	file, _ := f.FileLine(uintptr(l))
-	return path.Base(file)
-}
-
-func (l Location) Func() string {
-	f := runtime.FuncForPC(uintptr(l))
-	return path.Base(f.Name())
-}
-
-func (l Location) FuncFull() string {
-	f := runtime.FuncForPC(uintptr(l))
-	return f.Name()
+	var pc [1]uintptr
+	runtime.Callers(2+s, pc[:])
+	return Location(Location(pc[0]).Entry())
 }
 
 func (l Location) Short() string {
-	f := runtime.FuncForPC(uintptr(l))
-	file, line := f.FileLine(uintptr(l))
+	_, file, line := l.NameFileLine()
 	return fmt.Sprintf("%v:%d", path.Base(file), line)
 }
 
