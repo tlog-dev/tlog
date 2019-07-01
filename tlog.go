@@ -263,15 +263,15 @@ func (w *ConsoleWriter) Message(m *Message, s *Span) {
 	if l := len(m.Format); l == 0 || m.Format[l-1] != '\n' {
 		endl = "\n"
 	}
-	fmt.Fprintf(w.w, "%v %-20v "+m.Format+endl, append([]interface{}{t.Format(w.tf), m.Location.String()}, m.Args...)...)
+	fmt.Fprintf(w.w, "%v %-20v "+m.Format+endl, append([]interface{}{t.Format(w.tf), m.Location.Short()}, m.Args...)...)
 }
 
 func (w *ConsoleWriter) SpanStarted(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v !Span started  %v\n", s.Started.Format(w.tf), s.Location.String(), s.ID)
+	fmt.Fprintf(w.w, "%v %-20v !Span started  %v\n", s.Started.Format(w.tf), s.Location.Short(), s.ID)
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
-	fmt.Fprintf(w.w, "%v %-20v !Span finished %v - elapsed %v\n", s.Started.Format(w.tf), s.Location.String(), s.ID, s.Elapsed)
+	fmt.Fprintf(w.w, "%v %-20v !Span finished %v - elapsed %v\n", s.Started.Format(w.tf), s.Location.Short(), s.ID, s.Elapsed)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
