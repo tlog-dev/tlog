@@ -18,7 +18,11 @@ linters-settings:
     list-type: whitelist
     packages:
       - github.com/stretchr/testify/assert
+      - github.com/beorn7/perks/quantile
       - github.com/nikandfor/json
+      - github.com/nikandfor/app
+      - github.com/nikandfor/tlog
+      - github.com/pkg/errors
   misspell:
     locale: US
   lll:

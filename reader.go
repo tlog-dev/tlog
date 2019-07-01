@@ -69,7 +69,7 @@ func (r *JSONReader) Read() interface{} {
 
 func (r *JSONReader) labels() interface{} {
 	if r.r.Type() != json.Array {
-		return r.r.ErrorHere(errors.New("Array expected"))
+		return r.r.ErrorHere(errors.New("array expected"))
 	}
 
 	var res Labels
@@ -83,7 +83,7 @@ func (r *JSONReader) labels() interface{} {
 
 func (r *JSONReader) location() interface{} {
 	if r.r.Type() != json.Object {
-		return r.r.ErrorHere(errors.New("Object expected"))
+		return r.r.ErrorHere(errors.New("object expected"))
 	}
 
 	var l LocationInfo
@@ -122,7 +122,7 @@ func (r *JSONReader) location() interface{} {
 
 func (r *JSONReader) message() interface{} {
 	if r.r.Type() != json.Object {
-		return r.r.ErrorHere(errors.New("Object expected"))
+		return r.r.ErrorHere(errors.New("object expected"))
 	}
 
 	var m Message
@@ -165,7 +165,7 @@ func (r *JSONReader) message() interface{} {
 
 func (r *JSONReader) span() interface{} {
 	if r.r.Type() != json.Object {
-		return r.r.ErrorHere(errors.New("Object expected"))
+		return r.r.ErrorHere(errors.New("object expected"))
 	}
 
 	var s Span
@@ -213,7 +213,7 @@ func (r *JSONReader) span() interface{} {
 
 func (r *JSONReader) spanFinish() interface{} {
 	if r.r.Type() != json.Object {
-		return r.r.ErrorHere(errors.New("Object expected"))
+		return r.r.ErrorHere(errors.New("object expected"))
 	}
 
 	var s SpanFinish

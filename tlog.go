@@ -77,8 +77,7 @@ type (
 	}
 
 	FilterWriter struct {
-		w    Writer
-		args []string
+		w Writer
 
 		mu sync.RWMutex
 		c  map[Location]bool
@@ -452,16 +451,11 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 
 	_, _ = w.lb.w.Write(w.buf)
 
-	//	bt := *(*[]byte)(unsafe.Pointer(&m.Format))
-	//	_, _ = w.w.Write(bt)
-
 	_, _ = fmt.Fprintf(&w.lb, m.Format, m.Args...)
 
 	if w.lb.l != '\n' {
-		w.lb.w.Write(w.nl)
+		_, _ = w.lb.w.Write(w.nl)
 	}
-
-	return
 }
 
 func (w *ConsoleWriter) SpanStarted(s *Span) {
@@ -498,8 +492,6 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 	w.buf = b[:i]
 
 	_, _ = w.lb.w.Write(w.buf)
-
-	//	_, _ = fmt.Fprintf(w.w, "!Span started  %016x\n", int64(s.ID))
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
@@ -550,8 +542,6 @@ func (w *ConsoleWriter) SpanFinished(s *Span) {
 	w.buf = b
 
 	_, _ = w.lb.w.Write(w.buf)
-
-	//	_, _ = fmt.Fprintf(w.w, "!Span finished %016x - elapsed %v\n", int64(s.ID), s.Elapsed)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
@@ -638,8 +628,6 @@ func (w *JSONWriter) Labels(ls Labels) {
 }
 
 func (w *JSONWriter) Message(m Message, s *Span) {
-	//	msg := fmt.Sprintf(m.Format, m.Args...)
-
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -656,26 +644,22 @@ func (w *JSONWriter) Message(m Message, s *Span) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("l"))
-	//	fmt.Fprintf(w.w, "%d", m.Location)
 	b = strconv.AppendInt(b[:0], int64(m.Location), 10)
-	w.w.Write(b)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("t"))
-	//	fmt.Fprintf(w.w, "%d", m.Time.Nanoseconds()/1000)
-	b = strconv.AppendInt(b[:0], int64(m.Time.Nanoseconds()/1000), 10)
-	w.w.Write(b)
+	b = strconv.AppendInt(b[:0], m.Time.Nanoseconds()/1000, 10)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("m"))
-	//	w.w.SafeStringString(msg)
 	sw := w.w.StringWriter()
-	fmt.Fprintf(sw, m.Format, m.Args...)
+	_, _ = fmt.Fprintf(sw, m.Format, m.Args...)
 	sw.Close()
 
 	if s != nil {
 		w.w.ObjKey([]byte("s"))
-		//	fmt.Fprintf(w.w, "%d", s.ID)
 		b = strconv.AppendInt(b[:0], int64(s.ID), 10)
-		w.w.Write(b)
+		_, _ = w.w.Write(b)
 	}
 
 	w.w.ObjEnd()
@@ -704,26 +688,22 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	//	fmt.Fprintf(w.w, "%d", s.ID)
 	b = strconv.AppendInt(b[:0], int64(s.ID), 10)
-	w.w.Write(b)
+	_, _ = w.w.Write(b)
 
 	if s.Parent != 0 {
 		w.w.ObjKey([]byte("p"))
-		//	fmt.Fprintf(w.w, "%d", s.Parent)
 		b = strconv.AppendInt(b[:0], int64(s.Parent), 10)
-		w.w.Write(b)
+		_, _ = w.w.Write(b)
 	}
 
 	w.w.ObjKey([]byte("l"))
-	//	fmt.Fprintf(w.w, "%d", s.Location)
 	b = strconv.AppendInt(b[:0], int64(s.Location), 10)
-	w.w.Write(b)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("s"))
-	//	fmt.Fprintf(w.w, "%d", s.Started.UnixNano()/1000)
-	b = strconv.AppendInt(b[:0], int64(s.Started.UnixNano()/1000), 10)
-	w.w.Write(b)
+	b = strconv.AppendInt(b[:0], s.Started.UnixNano()/1000, 10)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjEnd()
 
@@ -747,20 +727,17 @@ func (w *JSONWriter) SpanFinished(s *Span) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	//	fmt.Fprintf(w.w, "%d", s.ID)
 	b = strconv.AppendInt(b[:0], int64(s.ID), 10)
-	w.w.Write(b)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("e"))
-	//	fmt.Fprintf(w.w, "%d", s.Elapsed.Nanoseconds()/1000)
-	b = strconv.AppendInt(b[:0], int64(s.Elapsed.Nanoseconds()/1000), 10)
-	w.w.Write(b)
+	b = strconv.AppendInt(b[:0], s.Elapsed.Nanoseconds()/1000, 10)
+	_, _ = w.w.Write(b)
 
 	if s.Flags != 0 {
 		w.w.ObjKey([]byte("F"))
-		//	fmt.Fprintf(w.w, "%x", s.Flags)
 		b = strconv.AppendInt(b[:0], int64(s.Flags), 10)
-		w.w.Write(b)
+		_, _ = w.w.Write(b)
 	}
 
 	w.w.ObjEnd()
@@ -785,17 +762,15 @@ func (w *JSONWriter) location(l Location) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("pc"))
-	//	fmt.Fprintf(w.w, "%d", l)
 	b = strconv.AppendInt(b[:0], int64(l), 10)
-	w.w.Write(b)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("f"))
 	w.w.SafeStringString(file)
 
 	w.w.ObjKey([]byte("l"))
-	//	fmt.Fprintf(w.w, "%d", line)
 	b = strconv.AppendInt(b[:0], int64(line), 10)
-	w.w.Write(b)
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("n"))
 	w.w.StringString(name)

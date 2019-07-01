@@ -11,8 +11,9 @@ import (
 	"github.com/beorn7/perks/quantile"
 	"github.com/nikandfor/app"
 	"github.com/nikandfor/json"
-	"github.com/nikandfor/tlog"
 	"github.com/pkg/errors"
+
+	"github.com/nikandfor/tlog"
 )
 
 func main() {
