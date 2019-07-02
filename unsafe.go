@@ -1,11 +1,10 @@
-//nolint
 package tlog
 
 import (
 	"unsafe"
-	_ "unsafe"
 )
 
+//nolint
 type (
 	funcID uint8
 
@@ -25,12 +24,13 @@ type (
 	}
 )
 
+//nolint
 const (
 	_PCDATA_InlTreeIndex = 1
 	_FUNCDATA_InlTree    = 2
 )
 
-func (l Location) NameFileLine() (name string, file string, line int) {
+func (l Location) NameFileLine() (name, file string, line int) {
 	pc := uintptr(l)
 
 	funcInfo := findfunc(pc)

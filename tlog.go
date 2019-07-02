@@ -1,3 +1,5 @@
+// tlog is an logger and a tracer in the one package.
+//
 package tlog
 
 import (
