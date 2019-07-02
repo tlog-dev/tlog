@@ -12,7 +12,7 @@ import (
 )
 
 func TestJSONReader(t *testing.T) {
-	DumpDefaultInfo = false
+	PrintStartupInfo = false
 	tm := time.Date(2019, time.July, 1, 10, 54, 10, 0, time.Local)
 	start := tm
 	now = func() time.Time {

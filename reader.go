@@ -17,9 +17,9 @@ type (
 
 	LocationInfo struct {
 		PC   Location
+		Func string
 		File string
 		Line int
-		Func string
 	}
 
 	SpanFinish struct {

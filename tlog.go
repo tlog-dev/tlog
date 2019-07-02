@@ -94,7 +94,7 @@ type (
 		Int63() int64
 	}
 
-	ConcurrentRand struct {
+	concurrentRand struct {
 		mu  sync.Mutex
 		rnd Rand
 	}
@@ -126,15 +126,15 @@ const ( // console writer flags
 
 var ( // time, rand
 	now      = time.Now
-	rnd Rand = &ConcurrentRand{rnd: rand.New(rand.NewSource(now().UnixNano()))}
+	rnd Rand = &concurrentRand{rnd: rand.New(rand.NewSource(now().UnixNano()))}
 
 	digits = []byte("0123456789abcdef")
 )
 
 var ( // defaults
-	DefaultLabels   Labels
-	DefaultLogger   Logger = initLogger{}
-	DumpDefaultInfo        = true
+	DefaultLabels    Labels
+	DefaultLogger    Logger = initLogger{}
+	PrintStartupInfo        = true
 )
 
 func init() {
@@ -151,7 +151,7 @@ func init() {
 
 func NewLogger(w Writer) Logger {
 	l := &SimpleLogger{Writer: w}
-	if DumpDefaultInfo {
+	if PrintStartupInfo {
 		l.Labels(DefaultLabels)
 		l.Printf("!os.Args: %q", os.Args)
 	}
@@ -896,7 +896,7 @@ func (m *Message) SpanID() ID {
 	return m.Args[0].(ID)
 }
 
-func (r *ConcurrentRand) Int63() int64 {
+func (r *concurrentRand) Int63() int64 {
 	defer r.mu.Unlock()
 	r.mu.Lock()
 
