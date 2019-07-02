@@ -37,7 +37,16 @@ func cropFilename(fn, tp string) string {
 	}
 	tp = tp[:p]
 
+again:
 	p = strings.Index(fn, tp)
+	if p == -1 {
+		p = strings.IndexByte(tp, '/')
+		if p == -1 {
+			return path.Base(fn)
+		}
+		tp = tp[p+1:]
+		goto again
+	}
 
 	return fn[p:]
 }
