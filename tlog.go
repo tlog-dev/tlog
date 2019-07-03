@@ -63,10 +63,9 @@ type (
 
 	ConsoleWriter struct {
 		mu  sync.Mutex
-		lb  lastByte
+		w   io.Writer
 		f   int
-		buf []byte
-		nl  []byte
+		buf bufWriter
 	}
 
 	JSONWriter struct {
@@ -97,10 +96,7 @@ type (
 		rnd Rand
 	}
 
-	lastByte struct {
-		w io.Writer
-		l byte
-	}
+	bufWriter []byte
 )
 
 const (
@@ -268,9 +264,8 @@ func (s *Span) Finish() {
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
-		lb: lastByte{w: w},
-		f:  f,
-		nl: []byte{'\n'},
+		w: w,
+		f: f,
 	}
 }
 
@@ -420,13 +415,11 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 
 	w.buildHeader(t, m.Location)
 
-	_, _ = w.lb.w.Write(w.buf)
+	_, _ = fmt.Fprintf(&w.buf, m.Format, m.Args...)
 
-	_, _ = fmt.Fprintf(&w.lb, m.Format, m.Args...)
+	w.buf.NewLine()
 
-	if w.lb.l != '\n' {
-		_, _ = w.lb.w.Write(w.nl)
-	}
+	_, _ = w.w.Write(w.buf)
 }
 
 func (w *ConsoleWriter) SpanStarted(s *Span) {
@@ -469,7 +462,7 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 
 	w.buf = b[:i]
 
-	_, _ = w.lb.w.Write(w.buf)
+	_, _ = w.w.Write(w.buf)
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
@@ -519,7 +512,7 @@ func (w *ConsoleWriter) SpanFinished(s *Span) {
 
 	w.buf = b
 
-	_, _ = w.lb.w.Write(w.buf)
+	_, _ = w.w.Write(w.buf)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
@@ -535,7 +528,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 }
 
 func (w *ConsoleWriter) grow(b []byte, l int) []byte {
-start:
+more:
 	b = b[:cap(b)]
 	if len(b) >= l {
 		return b
@@ -547,7 +540,7 @@ start:
 		0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0)
 
-	goto start
+	goto more
 }
 
 func (w *FilterWriter) Message(m Message, s *Span) {
@@ -899,11 +892,14 @@ func (r *concurrentRand) Int63() int64 {
 	return r.rnd.Int63()
 }
 
-func (w *lastByte) Write(p []byte) (int, error) {
-	l := len(p)
-	if l == 0 {
-		return 0, nil
+func (w *bufWriter) Write(p []byte) (int, error) {
+	*w = append(*w, p...)
+	return len(p), nil
+}
+
+func (w *bufWriter) NewLine() {
+	l := len(*w)
+	if l == 0 || (*w)[l-1] != '\n' {
+		*w = append(*w, '\n')
 	}
-	w.l = p[l-1]
-	return w.w.Write(p)
 }

@@ -5,8 +5,6 @@ github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/google/go-cmp v0.3.0 h1:crn/baboCvb5fXaQ0IJ1SGTsTVrWpDsCWC8EGETZijY=
-github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/json-iterator/go v1.1.6 h1:MrUvLMLTMxbqFJ9kzlvat/rYZqZnW3u4wkLzWTaFwKs=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/mailru/easyjson v0.0.0-20190403194419-1ea4449da983 h1:wL11wNW7dhKIcRCHSm4sHKPWz0tt4mwBsVodG7+Xyqg=
@@ -19,12 +17,6 @@ github.com/modern-go/reflect2 v1.0.1 h1:9f412s+6RmYXLWZSEzVVgPGK7C2PphHj5RJrvfx9
 github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/nikandfor/app v0.0.0-20190629224603-fdd47dfff29f h1:RrtSeam+UU/zepKonWXk/7fYRSt3sF2saWuveEEYjHY=
 github.com/nikandfor/app v0.0.0-20190629224603-fdd47dfff29f/go.mod h1:vM2VNlKNWQqhYS0LlOzjd/fzZCPSfmMEsmSxbdKhxEU=
-github.com/nikandfor/json v0.0.0-20190630075741-99db5b364786 h1:mVCycMC/tMAzmTk2tEzhEnw1vhKyxsSamZu/UHETWw8=
-github.com/nikandfor/json v0.0.0-20190630075741-99db5b364786/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
-github.com/nikandfor/json v0.0.0-20190701082235-7e5395a3be18 h1:iXsQYCC4T3osRInK31kgO/yNjeJH2F2Yvjj3du8BiO0=
-github.com/nikandfor/json v0.0.0-20190701082235-7e5395a3be18/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
-github.com/nikandfor/json v0.0.0-20190701083953-fc7feb429b13 h1:0khmuvchAF7jSRstE9OsZMKNU6Y6D8s5UcGX6dXm5ew=
-github.com/nikandfor/json v0.0.0-20190701083953-fc7feb429b13/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/nikandfor/json v0.0.0-20190701084832-c9c430a55a3f h1:/xzq6qDXuajgMyrVaM+WeLFjIl6wrb4Iaq2p7MaxrRU=
 github.com/nikandfor/json v0.0.0-20190701084832-c9c430a55a3f/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
@@ -35,5 +27,3 @@ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+
 github.com/stretchr/objx v0.2.0/go.mod h1:qt09Ya8vawLte6SNmTgCsAVtYtaKzEcn8ATUoHMkEqE=
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
-gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
-gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
