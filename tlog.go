@@ -61,8 +61,6 @@ type (
 		Writer
 	}
 
-	initLogger struct{}
-
 	ConsoleWriter struct {
 		mu  sync.Mutex
 		lb  lastByte
@@ -132,29 +130,46 @@ var ( // time, rand
 )
 
 var ( // defaults
-	DefaultLabels    Labels
-	DefaultLogger    Logger = initLogger{}
-	PrintStartupInfo        = true
+	DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr, LstdFlags))
 )
 
-func init() {
-	h, err := os.Hostname()
-	if h == "" && err != nil {
-		h = err.Error()
+func DumpLabelsWithDefaults(l Logger, labels ...string) {
+	var ll Labels
+
+	for _, lab := range labels {
+		switch {
+		case strings.HasPrefix(lab, "_hostname"):
+			if lab != "_hostname" {
+				break
+			}
+			h, err := os.Hostname()
+			if h == "" {
+				if err != nil {
+					h = err.Error()
+				}
+			}
+
+			ll.Set("_hostname", h)
+
+			continue
+		case strings.HasPrefix(lab, "_pid"):
+			if lab != "_pid" {
+				break
+			}
+
+			ll.Set("_pid", fmt.Sprintf("%d", os.Getpid()))
+
+			continue
+		}
+
+		ll = append(ll, lab)
 	}
 
-	DefaultLabels = Labels{
-		"_hostname=" + h,
-		fmt.Sprintf("_pid=%d", os.Getpid()),
-	}
+	l.Labels(ll)
 }
 
 func NewLogger(w Writer) Logger {
 	l := &SimpleLogger{Writer: w}
-	if PrintStartupInfo {
-		l.Labels(DefaultLabels)
-		l.Printf("!os.Args: %q", os.Args)
-	}
 
 	return l
 }
@@ -234,32 +249,6 @@ func (l *SimpleLogger) Spawn(id ID) *Span {
 	return newspan(l, id)
 }
 
-func (l initLogger) Labels(ls Labels)           { l.init(); DefaultLogger.Labels(ls) }
-func (l initLogger) Message(m Message, s *Span) { l.init(); DefaultLogger.Message(m, s) }
-func (l initLogger) SpanStarted(s *Span)        { l.init(); DefaultLogger.SpanStarted(s) }
-func (l initLogger) SpanFinished(s *Span)       { l.init(); DefaultLogger.SpanFinished(s) }
-
-func (l initLogger) Printf(f string, args ...interface{}) {
-	l.init()
-	newmessage(DefaultLogger, nil, f, args)
-}
-
-func (l initLogger) Start() *Span {
-	l.init()
-
-	return newspan(DefaultLogger, 0)
-}
-
-func (l initLogger) Spawn(id ID) *Span {
-	l.init()
-
-	return newspan(DefaultLogger, id)
-}
-
-func (l initLogger) init() {
-	DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr, LstdFlags))
-}
-
 func (s *Span) Printf(f string, args ...interface{}) {
 	if s == nil {
 		return
@@ -295,12 +284,7 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 			t = t.UTC()
 		}
 		if w.f&Ldate != 0 {
-			if len(b[i:]) < 15 {
-				b = append(b,
-					0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0)
-			}
+			b = w.grow(b, i+15)
 
 			y, m, d := t.Date()
 			for j := 3; j >= 0; j-- {
@@ -326,17 +310,13 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 			i++
 		}
 		if w.f&Ltime != 0 {
-			if len(b[i:]) < 12 {
-				b = append(b,
-					0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0,
-					0, 0)
-			}
+			b = w.grow(b, i+12)
 
 			if i != 0 {
 				b[i] = '_'
 				i++
 			}
+
 			h, m, s := t.Clock()
 
 			b[i] = '0' + byte(h/10)
@@ -361,13 +341,13 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 			i++
 		}
 		if w.f&(Lmilliseconds|Lmicroseconds) != 0 {
-			if len(b[i:]) < 10 {
-				b = append(b, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-			}
+			b = w.grow(b, i+12)
+
 			if i != 0 {
 				b[i] = '.'
 				i++
 			}
+
 			ns := t.Nanosecond() / 1e3
 			n := 6
 			if w.f&Lmicroseconds == 0 {
@@ -387,16 +367,7 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 	}
 	if w.f&(Llongfile|Lshortfile) != 0 {
 		W := i + 20
-		if len(b) < W+5 {
-			b = append(b,
-				0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0,
-			)
-		}
+		b = w.grow(b, W+5)
 
 		_, f, l := loc.NameFileLine()
 		if w.f&Lshortfile != 0 {
@@ -404,9 +375,7 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 		}
 		b = append(b[:i], f...)
 		i += len(f)
-		if len(b[i:]) < 10 {
-			b = append(b, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-		}
+		b = w.grow(b, i+10)
 
 		b[i] = ':'
 		i++
@@ -470,18 +439,15 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 
 	w.buildHeader(s.Started, s.Location)
 
+	loc, _, _ := s.Location.NameFileLine()
+
 	b := w.buf
 
-	b = append(b, "!Span started  "...)
+	b = append(b, "Span "...)
 	i := len(b)
-	if cap(b) >= i+17 {
-		b = b[:cap(b)]
-	} else {
-		b = append(b, 0, 0,
-			0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0)
-	}
+	b = b[:i]
+
+	b = w.grow(b, i+20)
 
 	id := s.ID
 	for j := 15; j >= 0; j-- {
@@ -489,8 +455,18 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 		id >>= 4
 	}
 	i += 16
-	b[i] = '\n'
+
+	b[i] = ' '
 	i++
+	b[i] = ' '
+	i++
+
+	b = b[:i]
+
+	b = append(b, loc...)
+	b = append(b, " started\n"...)
+	i = len(b)
+
 	w.buf = b[:i]
 
 	_, _ = w.lb.w.Write(w.buf)
@@ -506,39 +482,39 @@ func (w *ConsoleWriter) SpanFinished(s *Span) {
 
 	w.buildHeader(s.Started, s.Location)
 
+	loc, _, _ := s.Location.NameFileLine()
+
 	b := w.buf
 
-	b = append(b, "!Span finished "...)
+	b = append(b, "Span "...)
 	i := len(b)
-	if cap(b) >= i+16 {
-		b = b[:cap(b)]
-	} else {
-		b = append(b, 0, 0,
-			0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0)
-	}
+	b = b[:i]
+
+	b = w.grow(b, i+20)
 
 	id := s.ID
 	for j := 15; j >= 0; j-- {
-		b[i+j] = digits[id&0xf]
+		b[i+j] = digits[id&0x7]
 		id >>= 4
 	}
 	i += 16
 
-	b = append(b[:i], " - elapsed "...)
+	b[i] = ' '
+	i++
+	b[i] = ' '
+	i++
 
-	e := s.Elapsed.Seconds()
-	suff := "s"
-	if s.Elapsed < time.Second {
-		e *= 1000
-		suff = "ms"
-	}
+	b = b[:i]
 
-	pr := 2
-	b = strconv.AppendFloat(b, e, 'f', pr, 64)
+	b = append(b, loc...)
+	b = append(b, " finished - elapsed "...)
+	i = len(b)
 
-	b = append(b, suff...)
+	el := s.Elapsed
+	e := el.Seconds() * 1000
+
+	b = strconv.AppendFloat(b, e, 'f', 2, 64)
+
 	b = append(b, '\n')
 
 	w.buf = b
@@ -551,11 +527,27 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 		Message{
 			Location: location(1),
 			Time:     time.Duration(now().UnixNano()),
-			Format:   "!Labels: %q",
+			Format:   "Labels: %q",
 			Args:     []interface{}{ls},
 		},
 		nil,
 	)
+}
+
+func (w *ConsoleWriter) grow(b []byte, l int) []byte {
+start:
+	b = b[:cap(b)]
+	if len(b) >= l {
+		return b
+	}
+
+	b = append(b,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0)
+
+	goto start
 }
 
 func (w *FilterWriter) Message(m Message, s *Span) {
@@ -833,8 +825,12 @@ func (ls *Labels) Set(k, v string) {
 		val += "=" + v
 	}
 
-	for i, l := range *ls {
-		if l == k || strings.HasPrefix(l, k+"=") {
+	for i := 0; i < len(*ls); i++ {
+		l := (*ls)[i]
+		if l == "="+k {
+			(*ls)[i] = val
+			return
+		} else if l == k || strings.HasPrefix(l, k+"=") {
 			(*ls)[i] = val
 			return
 		}
@@ -853,28 +849,28 @@ func (ls *Labels) Get(k string) (string, bool) {
 	return "", false
 }
 
-func (ls *Labels) Del(k string) bool {
-	for i, l := range *ls {
-		if l == k || strings.HasPrefix(l, k+"=") {
-			ll := len(*ls) - 1
-			(*ls)[i] = (*ls)[ll]
-			(*ls) = (*ls)[:ll]
-			return true
+func (ls *Labels) Del(k string) {
+	for i := 0; i < len(*ls); i++ {
+		l := (*ls)[i]
+		if l == "="+k {
+			return
+		} else if l == k || strings.HasPrefix(l, k+"=") {
+			(*ls)[i] = "=" + k
 		}
 	}
-	return false
 }
 
 func (ls *Labels) Merge(b Labels) {
-out:
 	for _, add := range b {
-		for _, have := range *ls {
-			if add == have {
-				continue out
-			}
+		if add == "" {
+			continue
 		}
-
-		*ls = append(*ls, add)
+		kv := strings.SplitN(add, "=", 2)
+		if kv[0] == "" {
+			ls.Del(kv[1])
+		} else {
+			ls.Set(kv[0], kv[1])
+		}
 	}
 }
 

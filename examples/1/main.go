@@ -16,9 +16,6 @@ var (
 func main() {
 	flag.Parse()
 
-	tlog.DefaultLabels.Set("mylabel", "value")
-	tlog.DefaultLabels.Set("myflag", "")
-
 	tlog.Printf("main: %d %q", *f, *str)
 
 	sub.Func1(0, 5)

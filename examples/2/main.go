@@ -27,7 +27,7 @@ func initComplexLogger() func() {
 
 	ll = tlog.NewLogger(tw)
 
-	tlog.DefaultLogger = ll
+	tlog.DefaultLogger = ll // for sub
 
 	return func() {
 		w.Flush()
@@ -37,11 +37,11 @@ func initComplexLogger() func() {
 func main() {
 	flag.Parse()
 
-	tlog.DefaultLabels.Set("mylabel", "value")
-	tlog.DefaultLabels.Set("myflag", "")
-
 	cl := initComplexLogger()
 	defer cl()
+
+	tlog.DumpLabelsWithDefaults(ll, "_hostname", "_pid", "myown=label", "myflag")
+	ll.Printf("os.Args: %v", os.Args)
 
 	ll.Printf("main: %d", *f)
 
