@@ -99,7 +99,7 @@ type (
 	bufWriter []byte
 )
 
-const (
+const ( // flags
 	FlagError = 1 << iota
 
 	FlagNone = 0
@@ -112,6 +112,8 @@ const ( // console writer flags
 	Lmicroseconds
 	Lshortfile
 	Llongfile
+	Ltypefunc // pkg.(*Type).Func
+	Lfuncname // Func
 	LUTC
 	Lspans
 	LstdFlags = Ldate | Ltime
@@ -274,6 +276,9 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 	b = b[:cap(b)]
 	i := 0
 
+	var fname, file string = "<none>", "<none>"
+	var line int
+
 	if w.f&(Ldate|Ltime|Lmicroseconds) != 0 {
 		if w.f&LUTC != 0 {
 			t = t.UTC()
@@ -364,29 +369,66 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 		W := i + 20
 		b = w.grow(b, W+5)
 
-		_, f, l := loc.NameFileLine()
+		fname, file, line = loc.NameFileLine()
 		if w.f&Lshortfile != 0 {
-			f = path.Base(f)
+			file = path.Base(file)
 		}
-		b = append(b[:i], f...)
-		i += len(f)
+		b = append(b[:i], file...)
+		i += len(file)
 		b = w.grow(b, i+10)
 
 		b[i] = ':'
 		i++
 
 		j := 0
-		for q := 10; q < l; q *= 10 {
+		for q := 10; q < line; q *= 10 {
 			j++
 		}
 		n := j + 1
 		for ; j >= 0; j-- {
-			b[i+j] = '0' + byte(l%10)
-			l /= 10
+			b[i+j] = '0' + byte(line%10)
+			line /= 10
 		}
 		i += n
 
 		b = b[:cap(b)]
+
+		for i < W {
+			b[i] = ' '
+			i++
+		}
+
+		b[i] = ' '
+		i++
+		b[i] = ' '
+		i++
+	}
+	if w.f&(Ltypefunc|Lfuncname) != 0 {
+		if fname == "<none>" {
+			fname, file, line = loc.NameFileLine()
+		}
+		W := i + 20
+		if w.f&Ltypefunc != 0 {
+			fname = path.Base(fname)
+		} else {
+			W = i + 12
+			p := strings.Index(fname, ").")
+			if p == -1 {
+				fname = path.Ext(fname)
+				if len(fname) != 0 {
+					fname = fname[1:]
+				}
+			} else {
+				fname = fname[p+2:]
+			}
+		}
+
+		b = w.grow(b, W+5)
+
+		b = append(b[:i], fname...)
+		i += len(fname)
+
+		b = w.grow(b, i+4)
 
 		for i < W {
 			b[i] = ' '

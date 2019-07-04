@@ -21,7 +21,7 @@ func initComplexLogger() func() {
 
 	jw := tlog.NewJSONWriter(w)
 
-	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lspans)
+	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans)
 
 	tw := tlog.NewTeeWriter(cw, jw)
 
