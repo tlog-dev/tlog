@@ -27,6 +27,11 @@ type (
 		Printf(f string, args ...interface{})
 		Start() *Span
 		Spawn(ID) *Span
+
+		V(l int) Logger
+		Active() bool
+
+		SetLogLevel(v int)
 	}
 
 	Writer interface {
@@ -58,6 +63,11 @@ type (
 	}
 
 	SimpleLogger struct {
+		Writer
+		level int
+	}
+
+	NoOpLogger struct {
 		Writer
 	}
 
@@ -97,6 +107,14 @@ type (
 	}
 
 	bufWriter []byte
+)
+
+const ( // log levels
+	LevCritical = iota
+	LevError
+	LevInfo
+	LevDebug
+	LevTrace
 )
 
 const ( // flags
@@ -167,13 +185,20 @@ func DumpLabelsWithDefaults(l Logger, labels ...string) {
 }
 
 func NewLogger(w Writer) Logger {
-	l := &SimpleLogger{Writer: w}
+	l := &SimpleLogger{Writer: w, level: LevInfo}
 
 	return l
 }
 
 func Printf(f string, args ...interface{}) {
 	newmessage(DefaultLogger, nil, f, args)
+}
+
+func V(l int) Logger {
+	if DefaultLogger == nil {
+		return NoOpLogger{}
+	}
+	return DefaultLogger.V(l)
 }
 
 func newspan(l Logger, par ID) *Span {
@@ -246,6 +271,29 @@ func (l *SimpleLogger) Spawn(id ID) *Span {
 
 	return newspan(l, id)
 }
+
+func (l *SimpleLogger) V(lv int) Logger {
+	if l == nil || lv > l.level {
+		return NoOpLogger{}
+	}
+	return l
+}
+
+func (l *SimpleLogger) Active() bool { return true }
+
+func (l *SimpleLogger) SetLogLevel(v int) {
+	if l == nil {
+		return
+	}
+	l.level = v
+}
+
+func (NoOpLogger) Printf(string, ...interface{}) {}
+func (NoOpLogger) Start() *Span                  { return nil }
+func (NoOpLogger) Spawn(id ID) *Span             { return nil }
+func (NoOpLogger) V(int) Logger                  { return NoOpLogger{} }
+func (NoOpLogger) Active() bool                  { return false }
+func (NoOpLogger) SetLogLevel(int)               {}
 
 func (s *Span) Printf(f string, args ...interface{}) {
 	if s == nil {

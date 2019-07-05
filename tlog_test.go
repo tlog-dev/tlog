@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/nikandfor/json"
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,13 @@ import (
 func TestTlogParallel(t *testing.T) {
 	const M = 10
 	const N = 2
+
+	var buf bytes.Buffer
+
+	defer func(l Logger) {
+		DefaultLogger = l
+	}(DefaultLogger)
+	DefaultLogger = NewLogger(NewConsoleWriter(&buf, LstdFlags))
 
 	var wg sync.WaitGroup
 	wg.Add(M)
@@ -61,6 +69,41 @@ func TestLabels(t *testing.T) {
 
 	ll.Set("key2", "")
 	assert.ElementsMatch(t, Labels{"key=value", "key2"}, ll)
+}
+
+func TestVerbosity(t *testing.T) {
+	defer func(old func() time.Time) {
+		now = old
+	}(now)
+	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+
+	var buf bytes.Buffer
+
+	DefaultLogger = NewLogger(NewConsoleWriter(&buf, LstdFlags))
+
+	Printf("unconditional message")
+	V(LevError).Printf("Error level (enabled)")
+	V(LevDebug).Printf("Debug level (disabled)")
+
+	if l := V(LevInfo); l.Active() {
+		p := 10 + 20 // complex calculations
+		l.Printf("conditional calculations (enabled): %v", p)
+	}
+
+	if l := V(LevTrace); l.Active() {
+		p := 10 + 50 // complex calculations
+		l.Printf("conditional calculations (disabled): %v", p)
+		assert.Fail(t, "should not be here")
+	}
+
+	assert.Equal(t, `2019/07/05_23:49:41  unconditional message
+2019/07/05_23:49:42  Error level (enabled)
+2019/07/05_23:49:43  conditional calculations (enabled): 30
+`, string(buf.Bytes()))
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {
