@@ -17,7 +17,7 @@ func TestTlogParallel(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	defer func(l Logger) {
+	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
 	DefaultLogger = NewLogger(NewConsoleWriter(&buf, LstdFlags))
@@ -89,12 +89,12 @@ func TestVerbosity(t *testing.T) {
 	V(LevError).Printf("Error level (enabled)")
 	V(LevDebug).Printf("Debug level (disabled)")
 
-	if l := V(LevInfo); l.Active() {
+	if l := V(LevInfo); l != nil {
 		p := 10 + 20 // complex calculations
 		l.Printf("conditional calculations (enabled): %v", p)
 	}
 
-	if l := V(LevTrace); l.Active() {
+	if l := V(LevTrace); l != nil {
 		p := 10 + 50 // complex calculations
 		l.Printf("conditional calculations (disabled): %v", p)
 		assert.Fail(t, "should not be here")

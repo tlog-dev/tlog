@@ -14,7 +14,7 @@ var (
 	str = flag.String("str", "two", "string flag")
 )
 
-var ll tlog.Logger
+var ll *tlog.Logger
 
 func initComplexLogger() func() {
 	w := json.NewStreamWriterBuffer(os.Stderr, make([]byte, 0x10000))

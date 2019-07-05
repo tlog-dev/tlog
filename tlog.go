@@ -21,17 +21,9 @@ type (
 
 	Labels []string
 
-	Logger interface {
+	Logger struct {
 		Writer
-
-		Printf(f string, args ...interface{})
-		Start() *Span
-		Spawn(ID) *Span
-
-		V(l int) Logger
-		Active() bool
-
-		SetLogLevel(v int)
+		level int
 	}
 
 	Writer interface {
@@ -49,7 +41,7 @@ type (
 	}
 
 	Span struct {
-		l Logger
+		l *Logger
 
 		ID     ID
 		Parent ID
@@ -60,15 +52,6 @@ type (
 		Elapsed time.Duration
 
 		Flags int
-	}
-
-	SimpleLogger struct {
-		Writer
-		level int
-	}
-
-	NoOpLogger struct {
-		Writer
 	}
 
 	ConsoleWriter struct {
@@ -149,7 +132,7 @@ var ( // defaults
 	DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr, LstdFlags))
 )
 
-func DumpLabelsWithDefaults(l Logger, labels ...string) {
+func DumpLabelsWithDefaults(l *Logger, labels ...string) {
 	var ll Labels
 
 	for _, lab := range labels {
@@ -184,8 +167,8 @@ func DumpLabelsWithDefaults(l Logger, labels ...string) {
 	l.Labels(ll)
 }
 
-func NewLogger(w Writer) Logger {
-	l := &SimpleLogger{Writer: w, level: LevInfo}
+func NewLogger(w Writer) *Logger {
+	l := &Logger{Writer: w, level: LevInfo}
 
 	return l
 }
@@ -194,14 +177,11 @@ func Printf(f string, args ...interface{}) {
 	newmessage(DefaultLogger, nil, f, args)
 }
 
-func V(l int) Logger {
-	if DefaultLogger == nil {
-		return NoOpLogger{}
-	}
+func V(l int) *Logger {
 	return DefaultLogger.V(l)
 }
 
-func newspan(l Logger, par ID) *Span {
+func newspan(l *Logger, par ID) *Span {
 	s := &Span{
 		l:        l,
 		ID:       ID(rnd.Int63()),
@@ -213,7 +193,7 @@ func newspan(l Logger, par ID) *Span {
 	return s
 }
 
-func newmessage(l Logger, s *Span, f string, args []interface{}) {
+func newmessage(l *Logger, s *Span, f string, args []interface{}) {
 	if l == nil {
 		return
 	}
@@ -252,11 +232,11 @@ func Spawn(id ID) *Span {
 	return newspan(DefaultLogger, id)
 }
 
-func (l *SimpleLogger) Printf(f string, args ...interface{}) {
+func (l *Logger) Printf(f string, args ...interface{}) {
 	newmessage(l, nil, f, args)
 }
 
-func (l *SimpleLogger) Start() *Span {
+func (l *Logger) Start() *Span {
 	if l == nil {
 		return nil
 	}
@@ -264,7 +244,7 @@ func (l *SimpleLogger) Start() *Span {
 	return newspan(l, 0)
 }
 
-func (l *SimpleLogger) Spawn(id ID) *Span {
+func (l *Logger) Spawn(id ID) *Span {
 	if l == nil || id == 0 {
 		return nil
 	}
@@ -272,28 +252,19 @@ func (l *SimpleLogger) Spawn(id ID) *Span {
 	return newspan(l, id)
 }
 
-func (l *SimpleLogger) V(lv int) Logger {
+func (l *Logger) V(lv int) *Logger {
 	if l == nil || lv > l.level {
-		return NoOpLogger{}
+		return nil
 	}
 	return l
 }
 
-func (l *SimpleLogger) Active() bool { return true }
-
-func (l *SimpleLogger) SetLogLevel(v int) {
+func (l *Logger) SetLogLevel(v int) {
 	if l == nil {
 		return
 	}
 	l.level = v
 }
-
-func (NoOpLogger) Printf(string, ...interface{}) {}
-func (NoOpLogger) Start() *Span                  { return nil }
-func (NoOpLogger) Spawn(id ID) *Span             { return nil }
-func (NoOpLogger) V(int) Logger                  { return NoOpLogger{} }
-func (NoOpLogger) Active() bool                  { return false }
-func (NoOpLogger) SetLogLevel(int)               {}
 
 func (s *Span) Printf(f string, args ...interface{}) {
 	if s == nil {
