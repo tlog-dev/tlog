@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/nikandfor/json"
@@ -17,7 +19,9 @@ var (
 var ll *tlog.Logger
 
 func initComplexLogger() func() {
-	w := json.NewStreamWriterBuffer(os.Stderr, make([]byte, 0x10000))
+	var buf bytes.Buffer // imagine it is a log file
+
+	w := json.NewStreamWriter(&buf)
 
 	jw := tlog.NewJSONWriter(w)
 
@@ -27,10 +31,11 @@ func initComplexLogger() func() {
 
 	ll = tlog.NewLogger(tw)
 
-	tlog.DefaultLogger = ll // for sub
+	tlog.DefaultLogger = ll // sub package uses package interface (tlog.Printf)
 
 	return func() {
 		w.Flush()
+		fmt.Fprintf(os.Stderr, "%s", buf.Bytes())
 	}
 }
 
@@ -50,18 +55,23 @@ func main() {
 
 	tr.Printf("main: %v", *str)
 
-	func1(tr.ID)
+	var a A
+	a.func1(tr.ID)
 
 	sub.Func1(0, 5)
 }
 
-func func1(id tlog.ID) {
+type A struct{}
+
+func (*A) func1(id tlog.ID) {
 	tr := ll.Spawn(id)
 	defer tr.Finish()
 
 	ll.Printf("func1: %d", 3)
 
-	tr.Printf("func1: %v", "four")
+	func() {
+		tr.Printf("func1.1: %v", "four")
+	}()
 
 	tr.Flags |= tlog.FlagError
 }

@@ -20,6 +20,10 @@ func main() {
 
 	sub.Func1(0, 5)
 
+	work()
+}
+
+func work() {
 	tr := tlog.Start()
 	defer tr.Finish()
 
