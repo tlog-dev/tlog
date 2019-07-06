@@ -306,8 +306,7 @@ func TestMessageSpanID(t *testing.T) {
 func BenchmarkLogLoggerStd(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf bytes.Buffer
-	l := log.New(&buf, "", log.LstdFlags)
+	l := log.New(ioutil.Discard, "", log.LstdFlags)
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i)
@@ -317,8 +316,7 @@ func BenchmarkLogLoggerStd(b *testing.B) {
 func BenchmarkTlogConsoleLoggerStd(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf bytes.Buffer
-	l := New(NewConsoleWriter(&buf, LstdFlags))
+	l := New(NewConsoleWriter(ioutil.Discard, LstdFlags))
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i)
@@ -328,8 +326,7 @@ func BenchmarkTlogConsoleLoggerStd(b *testing.B) {
 func BenchmarkLogLoggerDetailed(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf bytes.Buffer
-	l := log.New(&buf, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+	l := log.New(ioutil.Discard, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i)
@@ -339,8 +336,7 @@ func BenchmarkLogLoggerDetailed(b *testing.B) {
 func BenchmarkTlogConsoleDetailed(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf bytes.Buffer
-	l := New(NewConsoleWriter(&buf, LdetFlags))
+	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags))
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
@@ -350,8 +346,7 @@ func BenchmarkTlogConsoleDetailed(b *testing.B) {
 func BenchmarkTlogTracesConsoleFull(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf bytes.Buffer
-	l := New(NewConsoleWriter(&buf, LdetFlags|Lspans))
+	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags|Lspans))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -363,8 +358,7 @@ func BenchmarkTlogTracesConsoleFull(b *testing.B) {
 func BenchmarkTlogTracesJSONFull(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf bytes.Buffer
-	l := New(NewJSONWriter(&buf))
+	l := New(NewJSONWriter(ioutil.Discard))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()

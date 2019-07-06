@@ -154,15 +154,17 @@ I fighted each alloc and each byte and even hacked runtime (see `unsafe.go`). So
 goos: linux
 goarch: amd64
 pkg: github.com/nikandfor/tlog
-BenchmarkLogLoggerStd-8            	 3000000	       446 ns/op	     157 B/op	       2 allocs/op
-BenchmarkTlogConsoleLoggerStd-8    	 2000000	       876 ns/op	     124 B/op	       2 allocs/op
-BenchmarkLogLoggerDetailed-8       	 1000000	      1382 ns/op	     323 B/op	       4 allocs/op
-BenchmarkTlogConsoleDetailed-8     	 1000000	      1309 ns/op	     286 B/op	       2 allocs/op
-BenchmarkTlogTracesConsoleFull-8   	  300000	      3726 ns/op	     764 B/op	       3 allocs/op
-BenchmarkTlogTracesJSONFull-8      	  500000	      3476 ns/op	     632 B/op	       3 allocs/op
+BenchmarkLogLoggerStd-8            	 3000000	       397 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogConsoleLoggerStd-8    	 2000000	       843 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLoggerDetailed-8       	 1000000	      1322 ns/op	     208 B/op	       4 allocs/op
+BenchmarkTlogConsoleDetailed-8     	 1000000	      1240 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesConsoleFull-8   	  500000	      3701 ns/op	     104 B/op	       3 allocs/op
+BenchmarkTlogTracesJSONFull-8      	  500000	      3413 ns/op	     104 B/op	       3 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
+
 1 more alloc in `TlogTraces` benchmarks is `*Span` allocation.
+
 2 more allocs in `LogLoggerDetailed` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
 
 # Roadmap
