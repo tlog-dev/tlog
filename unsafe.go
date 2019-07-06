@@ -30,6 +30,11 @@ const (
 	_FUNCDATA_InlTree    = 2
 )
 
+// NameFileLine returns function name, file and line number for location.
+//
+// This works only in the same binary where location was captured.
+//
+// This functions is a little bit modified version of runtime.(*Frames).Next().
 func (l Location) NameFileLine() (name, file string, line int) {
 	pc := uintptr(l)
 

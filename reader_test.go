@@ -28,7 +28,7 @@ func TestJSONReader(t *testing.T) {
 
 	jw := json.NewStreamWriter(&buf)
 	w := NewCustomJSONWriter(jw)
-	l := NewLogger(w)
+	l := New(w)
 
 	ls := Labels{"a=b", "c", "d=e"}
 	w.Labels(ls)

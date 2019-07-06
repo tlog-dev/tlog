@@ -27,7 +27,7 @@ func TestTlogParallel(t *testing.T) {
 	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
-	DefaultLogger = NewLogger(NewConsoleWriter(&buf, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
 
 	var wg sync.WaitGroup
 	wg.Add(M)
@@ -40,6 +40,33 @@ func TestTlogParallel(t *testing.T) {
 		}(j)
 	}
 	wg.Wait()
+}
+
+func TestPanicf(t *testing.T) {
+	defer func(l *Logger) {
+		DefaultLogger = l
+	}(DefaultLogger)
+	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
+
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
+
+	assert.Panics(t, func() {
+		Panicf("panic! %v", 1)
+	})
+
+	assert.Panics(t, func() {
+		DefaultLogger.Panicf("panic! %v", 2)
+	})
+
+	assert.Equal(t, `2019/07/06_19:45:26  panic! 1
+2019/07/06_19:45:27  panic! 2
+`, buf.String())
 }
 
 func TestLabels(t *testing.T) {
@@ -98,7 +125,7 @@ func TestVerbosity(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	DefaultLogger = NewLogger(NewConsoleWriter(&buf, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
 
 	Printf("unconditional message")
 	V(LevError).Printf("Error level (enabled)")
@@ -151,7 +178,7 @@ func TestSpan(t *testing.T) {
 	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
-	DefaultLogger = NewLogger(NewConsoleWriter(ioutil.Discard, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(ioutil.Discard, LstdFlags))
 
 	tr := Start()
 	assert.NotNil(t, tr)
@@ -196,7 +223,7 @@ func TestConsoleWriter(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	DefaultLogger = NewLogger(NewConsoleWriter(&buf, LdetFlags|Lspans|LUTC|Lfuncname))
+	DefaultLogger = New(NewConsoleWriter(&buf, LdetFlags|Lspans|LUTC|Lfuncname|Lmessagespan))
 
 	DefaultLogger.Labels(Labels{"a=b", "f"})
 
@@ -227,16 +254,16 @@ func TestConsoleWriter(t *testing.T) {
 
 	assert.Equal(t, `2019/07/06_09:06:20.000100  tlog_test.go:196      TestConsoleWriter  Labels: ["a=b" "f"]
 2019/07/06_09:06:21.000100  tlog_test.go:179      TestConsoleWriter  Span 2f0d18fb750b2d4a par ________________ started
-2019/07/06_09:06:22.000100  tlog_test.go:200      TestConsoleWriter  msg
+2019/07/06_09:06:22.000100  tlog_test.go:200      TestConsoleWriter  Span 2f0d18fb750b2d4a msg
 2019/07/06_09:06:23.000100  tlog_test.go:179      TestConsoleWriter  Span 250db1e09ea748af par 2f0d18fb750b2d4a started
 2019/07/06_09:06:23.000100  tlog_test.go:179      TestConsoleWriter  Span 250db1e09ea748af par 2f0d18fb750b2d4a finished - elapsed 1000.00ms Flags ff00000000000101
 2019/07/06_09:06:21.000100  tlog_test.go:179      TestConsoleWriter  Span 2f0d18fb750b2d4a par ________________ finished - elapsed 4000.00ms
-2019/07/06_09:06:26.000  tlog_test.go:213      tlog.TestConsoleWriter  message after finish with milliseconds
+2019/07/06_09:06:26.000  tlog_test.go:213      tlog.TestConsoleWriter  Span 2f0d18fb750b2d4a message after finish with milliseconds
 2019/07/06_09:06:27.000  Func          pointer receiver
 `, buf.String())
 }
 
-//line :239
+//line tlog_test.go:267
 func TestTeeWriter(t *testing.T) {
 	var buf1, buf2 bytes.Buffer
 
@@ -291,7 +318,7 @@ func BenchmarkTlogConsoleLoggerStd(b *testing.B) {
 	b.ReportAllocs()
 
 	var buf bytes.Buffer
-	l := NewLogger(NewConsoleWriter(&buf, LstdFlags))
+	l := New(NewConsoleWriter(&buf, LstdFlags))
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i)
@@ -313,7 +340,7 @@ func BenchmarkTlogConsoleDetailed(b *testing.B) {
 	b.ReportAllocs()
 
 	var buf bytes.Buffer
-	l := NewLogger(NewConsoleWriter(&buf, LdetFlags))
+	l := New(NewConsoleWriter(&buf, LdetFlags))
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
@@ -324,7 +351,7 @@ func BenchmarkTlogTracesConsoleFull(b *testing.B) {
 	b.ReportAllocs()
 
 	var buf bytes.Buffer
-	l := NewLogger(NewConsoleWriter(&buf, LdetFlags|Lspans))
+	l := New(NewConsoleWriter(&buf, LdetFlags|Lspans))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -337,7 +364,7 @@ func BenchmarkTlogTracesJSONFull(b *testing.B) {
 	b.ReportAllocs()
 
 	var buf bytes.Buffer
-	l := NewLogger(NewJSONWriter(&buf))
+	l := New(NewJSONWriter(&buf))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()

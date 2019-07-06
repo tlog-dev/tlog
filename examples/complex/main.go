@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nikandfor/json"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/examples/sub"
 )
@@ -21,20 +20,17 @@ var ll *tlog.Logger
 func initComplexLogger() func() {
 	var buf bytes.Buffer // imagine it is a log file
 
-	w := json.NewStreamWriter(&buf)
+	jw := tlog.NewJSONWriter(&buf)
 
-	jw := tlog.NewJSONWriter(w)
-
-	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans)
+	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
 
 	tw := tlog.NewTeeWriter(cw, jw)
 
-	ll = tlog.NewLogger(tw)
+	ll = tlog.New(tw)
 
 	tlog.DefaultLogger = ll // sub package uses package interface (tlog.Printf)
 
 	return func() {
-		w.Flush()
 		fmt.Fprintf(os.Stderr, "%s", buf.Bytes())
 	}
 }

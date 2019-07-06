@@ -160,7 +160,6 @@ BenchmarkLogLoggerDetailed-8       	 1000000	      1382 ns/op	     323 B/op	    
 BenchmarkTlogConsoleDetailed-8     	 1000000	      1309 ns/op	     286 B/op	       2 allocs/op
 BenchmarkTlogTracesConsoleFull-8   	  300000	      3726 ns/op	     764 B/op	       3 allocs/op
 BenchmarkTlogTracesJSONFull-8      	  500000	      3476 ns/op	     632 B/op	       3 allocs/op
-BenchmarkTlogWrite-8               	 1000000	      1185 ns/op	     132 B/op	       0 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 1 more alloc in `TlogTraces` benchmarks is `*Span` allocation.

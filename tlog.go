@@ -110,6 +110,7 @@ const ( // console writer flags
 	Lfuncname // Func
 	LUTC
 	Lspans
+	Lmessagespan
 	LstdFlags = Ldate | Ltime
 	LdetFlags = Ldate | Ltime | Lmicroseconds | Lshortfile
 )
@@ -122,7 +123,7 @@ var ( // time, rand
 )
 
 var ( // defaults
-	DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags))
 )
 
 func FillLabelsWithDefaults(labels ...string) Labels {
@@ -158,7 +159,7 @@ func FillLabelsWithDefaults(labels ...string) Labels {
 	return ll
 }
 
-func NewLogger(w Writer) *Logger {
+func New(w Writer) *Logger {
 	l := &Logger{Writer: w, level: LevInfo}
 
 	return l
@@ -166,6 +167,16 @@ func NewLogger(w Writer) *Logger {
 
 func Printf(f string, args ...interface{}) {
 	newmessage(DefaultLogger, nil, f, args)
+}
+
+func Panicf(f string, args ...interface{}) {
+	newmessage(DefaultLogger, nil, f, args)
+	panic(fmt.Sprintf(f, args...))
+}
+
+func Fatalf(f string, args ...interface{}) {
+	newmessage(DefaultLogger, nil, f, args)
+	os.Exit(1)
 }
 
 func V(l int) *Logger {
@@ -225,6 +236,16 @@ func Spawn(id ID) *Span {
 
 func (l *Logger) Printf(f string, args ...interface{}) {
 	newmessage(l, nil, f, args)
+}
+
+func (l *Logger) Panicf(f string, args ...interface{}) {
+	newmessage(l, nil, f, args)
+	panic(fmt.Sprintf(f, args...))
+}
+
+func (l *Logger) Fatalf(f string, args ...interface{}) {
+	newmessage(l, nil, f, args)
+	os.Exit(1)
 }
 
 func (l *Logger) Start() *Span {
@@ -473,6 +494,24 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 	}
 
 	w.buildHeader(t, m.Location)
+
+	if s != nil && w.f&Lmessagespan != 0 {
+		b := append(w.buf, "Span "...)
+		i := len(b)
+		b = w.grow(b, i+20)
+
+		id := s.ID
+		for j := 15; j >= 0; j-- {
+			b[i+j] = digits[id&0xf]
+			id >>= 4
+		}
+		i += 16
+
+		b[i] = ' '
+		i++
+
+		w.buf = b[:i]
+	}
 
 	_, _ = fmt.Fprintf(&w.buf, m.Format, m.Args...)
 

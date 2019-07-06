@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	tlog.DefaultLogger = tlog.NewLogger(tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
+	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
 
 	tlog.Printf("unconditional log message")
 
