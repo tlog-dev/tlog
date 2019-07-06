@@ -27,7 +27,7 @@ func work() {
 	tr := tlog.Start()
 	defer tr.Finish()
 
-	ctx := tlog.WithID(context.Background(), tr.ID)
+	ctx := tlog.ContextWithID(context.Background(), tr.ID)
 
 	sub.Func2(ctx, 9)
 }

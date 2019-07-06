@@ -4,13 +4,17 @@ import "context"
 
 type key struct{}
 
-func WithID(ctx context.Context, id ID) context.Context {
+func ContextWithID(ctx context.Context, id ID) context.Context {
+	if id == 0 {
+		return ctx
+	}
 	return context.WithValue(ctx, key{}, id)
 }
 
-func GetID(ctx context.Context) ID {
+func IDFromContext(ctx context.Context) ID {
 	v := ctx.Value(key{})
-	return v.(ID)
+	id, _ := v.(ID)
+	return id
 }
 
 func SpawnFromContext(ctx context.Context) *Span {
@@ -18,7 +22,7 @@ func SpawnFromContext(ctx context.Context) *Span {
 		return nil
 	}
 
-	id := GetID(ctx)
+	id := IDFromContext(ctx)
 	if id == 0 {
 		return nil
 	}

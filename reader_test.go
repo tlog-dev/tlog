@@ -27,7 +27,7 @@ func TestJSONReader(t *testing.T) {
 	var buf bytes.Buffer
 
 	jw := json.NewStreamWriter(&buf)
-	w := NewJSONWriter(jw)
+	w := NewCustomJSONWriter(jw)
 	l := NewLogger(w)
 
 	ls := Labels{"a=b", "c", "d=e"}
@@ -41,6 +41,7 @@ func TestJSONReader(t *testing.T) {
 	tr1 := l.Spawn(tr.ID)
 
 	tr1.Printf("msg3 %d", 7)
+	tr1.Flags |= FlagError
 
 	tr1.Finish()
 
@@ -135,6 +136,7 @@ func TestJSONReader(t *testing.T) {
 	if assert.True(t, ok) {
 		assert.Equal(t, f.ID, sp2.ID)
 		assert.Equal(t, 2*time.Second, f.Elapsed)
+		assert.Equal(t, FlagError, f.Flags)
 	}
 
 	v = r.Read()
@@ -142,6 +144,7 @@ func TestJSONReader(t *testing.T) {
 	if assert.True(t, ok) {
 		assert.Equal(t, f.ID, sp.ID)
 		assert.Equal(t, 5*time.Second, f.Elapsed)
+		assert.Equal(t, FlagNone, f.Flags)
 	}
 
 	v = r.Read()

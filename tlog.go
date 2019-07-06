@@ -68,13 +68,6 @@ type (
 		buf []byte
 	}
 
-	FilterWriter struct {
-		w Writer
-
-		mu sync.RWMutex
-		c  map[Location]bool
-	}
-
 	TeeWriter struct {
 		mu      sync.Mutex
 		Writers []Writer
@@ -132,7 +125,7 @@ var ( // defaults
 	DefaultLogger = NewLogger(NewConsoleWriter(os.Stderr, LstdFlags))
 )
 
-func DumpLabelsWithDefaults(l *Logger, labels ...string) {
+func FillLabelsWithDefaults(labels ...string) Labels {
 	var ll Labels
 
 	for _, lab := range labels {
@@ -142,10 +135,8 @@ func DumpLabelsWithDefaults(l *Logger, labels ...string) {
 				break
 			}
 			h, err := os.Hostname()
-			if h == "" {
-				if err != nil {
-					h = err.Error()
-				}
+			if h == "" && err != nil {
+				h = err.Error()
 			}
 
 			ll.Set("_hostname", h)
@@ -164,7 +155,7 @@ func DumpLabelsWithDefaults(l *Logger, labels ...string) {
 		ll = append(ll, lab)
 	}
 
-	l.Labels(ll)
+	return ll
 }
 
 func NewLogger(w Writer) *Logger {
@@ -283,6 +274,13 @@ func (s *Span) Finish() {
 	s.l.SpanFinished(s)
 }
 
+func (s *Span) SafeID() ID {
+	if s == nil {
+		return 0
+	}
+	return s.ID
+}
+
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
 		w: w,
@@ -369,7 +367,7 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 
 			ns := t.Nanosecond() / 1e3
 			n := 6
-			if w.f&Lmicroseconds == 0 {
+			if w.f&Lmilliseconds != 0 {
 				n = 3
 				ns /= 1e3
 			}
@@ -483,17 +481,11 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 	_, _ = w.w.Write(w.buf)
 }
 
-func (w *ConsoleWriter) SpanStarted(s *Span) {
-	if w.f&(Lspans) == 0 {
-		return
-	}
-
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
+func (w *ConsoleWriter) spanHeader(s *Span) []byte {
 	w.buildHeader(s.Started, s.Location)
 
 	loc, _, _ := s.Location.NameFileLine()
+	loc = path.Base(loc)
 
 	b := w.buf
 
@@ -501,79 +493,103 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 	i := len(b)
 	b = b[:i]
 
-	b = w.grow(b, i+20)
+	b = w.grow(b, i+40)
 
 	id := s.ID
 	for j := 15; j >= 0; j-- {
-		b[i+j] = digits[id&0x7]
+		b[i+j] = digits[id&0xf]
 		id >>= 4
+	}
+	i += 16
+
+	i += copy(b[i:], " par ")
+
+	id = s.Parent
+	if id == 0 {
+		for j := 15; j >= 0; j-- {
+			b[i+j] = '_'
+		}
+	} else {
+		for j := 15; j >= 0; j-- {
+			b[i+j] = digits[id&0xf]
+			id >>= 4
+		}
 	}
 	i += 16
 
 	b[i] = ' '
 	i++
-	b[i] = ' '
-	i++
+	//	b[i] = ' '
+	//	i++
 
 	b = b[:i]
 
-	b = append(b, loc...)
-	b = append(b, " started\n"...)
-	i = len(b)
+	//	b = append(b, loc...)
 
-	w.buf = b[:i]
+	return b
+}
 
-	_, _ = w.w.Write(w.buf)
+func (w *ConsoleWriter) SpanStarted(s *Span) {
+	if w.f&Lspans == 0 {
+		return
+	}
+
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	b := w.spanHeader(s)
+
+	b = append(b, "started\n"...)
+
+	w.buf = b
+
+	_, _ = w.w.Write(b)
 }
 
 func (w *ConsoleWriter) SpanFinished(s *Span) {
-	if w.f&(Lspans) == 0 {
+	if w.f&Lspans == 0 {
 		return
 	}
 
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	w.buildHeader(s.Started, s.Location)
+	b := w.spanHeader(s)
 
-	loc, _, _ := s.Location.NameFileLine()
-
-	b := w.buf
-
-	b = append(b, "Span "...)
+	b = append(b, "finished - elapsed "...)
 	i := len(b)
-	b = b[:i]
-
-	b = w.grow(b, i+20)
-
-	id := s.ID
-	for j := 15; j >= 0; j-- {
-		b[i+j] = digits[id&0x7]
-		id >>= 4
-	}
-	i += 16
-
-	b[i] = ' '
-	i++
-	b[i] = ' '
-	i++
-
-	b = b[:i]
-
-	b = append(b, loc...)
-	b = append(b, " finished - elapsed "...)
-	i = len(b)
 
 	el := s.Elapsed
 	e := el.Seconds() * 1000
 
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
+	b = append(b, "ms"...)
+
+	if s.Flags != 0 {
+		b = append(b, " Flags "...)
+		i = len(b)
+		b = w.grow(b, i+18)
+
+		F := s.Flags
+		j := 0
+		for q := uint64(0xf); q <= uint64(F) && j < 15; q <<= 4 {
+			j++
+		}
+		n := j + 1
+		for ; j >= 0; j-- {
+			b[i+j] = digits[F&0xf]
+			F >>= 4
+		}
+		i += n
+
+		b = b[:i]
+	}
 
 	b = append(b, '\n')
 
 	w.buf = b
 
-	_, _ = w.w.Write(w.buf)
+	_, _ = w.w.Write(b)
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) {
@@ -604,50 +620,11 @@ more:
 	goto more
 }
 
-func (w *FilterWriter) Message(m Message, s *Span) {
-	if !w.should(m.Location, true) {
-		return
-	}
-	w.w.Message(m, s)
+func NewJSONWriter(w io.Writer) *JSONWriter {
+	return NewCustomJSONWriter(json.NewStreamWriter(w))
 }
 
-func (w *FilterWriter) SpanStarted(s *Span) {
-	if !w.should(s.Location, false) {
-		return
-	}
-	w.w.SpanStarted(s)
-}
-
-func (w *FilterWriter) SpanFinished(s *Span) {
-	if !w.should(s.Location, false) {
-		return
-	}
-	w.w.SpanFinished(s)
-}
-
-func (w *FilterWriter) should(l Location, msg bool) bool {
-	w.mu.RLock()
-	r, ok := w.c[l]
-	w.mu.RUnlock()
-	if ok {
-		return r
-	}
-
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	r = w.compile(l, msg)
-
-	w.c[l] = r
-
-	return r
-}
-
-func (w *FilterWriter) compile(l Location, msg bool) (r bool) {
-	return false
-}
-
-func NewJSONWriter(w *json.Writer) *JSONWriter {
+func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 	return &JSONWriter{
 		w:  w,
 		ls: make(map[Location]struct{}),
@@ -655,6 +632,7 @@ func NewJSONWriter(w *json.Writer) *JSONWriter {
 }
 
 func (w *JSONWriter) Labels(ls Labels) {
+	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -676,6 +654,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 }
 
 func (w *JSONWriter) Message(m Message, s *Span) {
+	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -720,6 +699,7 @@ func (w *JSONWriter) Message(m Message, s *Span) {
 }
 
 func (w *JSONWriter) SpanStarted(s *Span) {
+	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -763,6 +743,7 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 }
 
 func (w *JSONWriter) SpanFinished(s *Span) {
+	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
