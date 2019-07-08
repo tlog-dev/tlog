@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"regexp"
 	"sync"
 	"testing"
@@ -16,6 +17,16 @@ type testt struct{}
 
 func (t *testt) Func(l *Logger) {
 	l.Printf("pointer receiver")
+}
+
+func (t *testt) testloc() Location {
+	return location(0)
+}
+
+func (t *testt) testloc2() Location {
+	return func() Location {
+		return location(0)
+	}()
 }
 
 func TestTlogParallel(t *testing.T) {
@@ -146,13 +157,18 @@ func TestVerbosity(t *testing.T) {
 
 	if l := V(LevTrace); l != nil {
 		p := 10 + 60 // complex calculations
-		l.Printf("trace: %v", p)
+		l.Printf("TRACE: %v", p)
 	}
+
+	tr := V(LevInfo).Start()
+	tr.Printf("traced msg")
+	tr.Finish()
 
 	assert.Equal(t, `2019/07/05_23:49:41  unconditional message
 2019/07/05_23:49:42  Error level (enabled)
 2019/07/05_23:49:43  conditional calculations (enabled): 30
-2019/07/05_23:49:44  trace: 70
+2019/07/05_23:49:44  TRACE: 70
+2019/07/05_23:49:46  traced msg
 `, string(buf.Bytes()))
 
 	(*Logger)(nil).SetLogLevel(-1)
@@ -186,6 +202,12 @@ func TestSpan(t *testing.T) {
 	tr2 := Spawn(tr.SafeID())
 	assert.NotNil(t, tr2)
 
+	tr = DefaultLogger.Start()
+	assert.NotNil(t, tr)
+
+	tr2 = DefaultLogger.Spawn(tr.SafeID())
+	assert.NotNil(t, tr2)
+
 	DefaultLogger = nil
 
 	tr = Start()
@@ -207,63 +229,6 @@ func TestSpan(t *testing.T) {
 	})
 }
 
-//line tlog_test.go:179
-func TestConsoleWriter(t *testing.T) {
-	defer func(old func() time.Time) {
-		now = old
-	}(now)
-	defer func(l *Logger) {
-		DefaultLogger = l
-	}(DefaultLogger)
-
-	tm := time.Date(2019, time.July, 6, 9, 06, 19, 100000, time.UTC)
-	now = func() time.Time {
-		tm = tm.Add(time.Second)
-		return tm
-	}
-
-	var buf bytes.Buffer
-	DefaultLogger = New(NewConsoleWriter(&buf, LdetFlags|Lspans|LUTC|Lfuncname|Lmessagespan))
-
-	DefaultLogger.Labels(Labels{"a=b", "f"})
-
-	tr := Start()
-
-	tr.Printf("msg")
-
-	tr1 := Spawn(tr.SafeID())
-
-	u := uint64(0xff << 56)
-	tr1.Flags |= FlagError | 0x100 | int(u)
-
-	tr1.Finish()
-
-	tr.Finish()
-
-	DefaultLogger.Writer.(*ConsoleWriter).f |= Lmilliseconds | Ltypefunc
-
-	tr.Printf("message after finish with milliseconds")
-
-	DefaultLogger.Writer.(*ConsoleWriter).f &^= Lshortfile | Ltypefunc
-
-	(&testt{}).Func(DefaultLogger)
-
-	DefaultLogger.Writer.(*ConsoleWriter).f &^= Lspans
-
-	tr.Finish()
-
-	assert.Equal(t, `2019/07/06_09:06:20.000100  tlog_test.go:196      TestConsoleWriter  Labels: ["a=b" "f"]
-2019/07/06_09:06:21.000100  tlog_test.go:179      TestConsoleWriter  Span 2f0d18fb750b2d4a par ________________ started
-2019/07/06_09:06:22.000100  tlog_test.go:200      TestConsoleWriter  Span 2f0d18fb750b2d4a msg
-2019/07/06_09:06:23.000100  tlog_test.go:179      TestConsoleWriter  Span 250db1e09ea748af par 2f0d18fb750b2d4a started
-2019/07/06_09:06:23.000100  tlog_test.go:179      TestConsoleWriter  Span 250db1e09ea748af par 2f0d18fb750b2d4a finished - elapsed 1000.00ms Flags ff00000000000101
-2019/07/06_09:06:21.000100  tlog_test.go:179      TestConsoleWriter  Span 2f0d18fb750b2d4a par ________________ finished - elapsed 4000.00ms
-2019/07/06_09:06:26.000  tlog_test.go:213      tlog.TestConsoleWriter  Span 2f0d18fb750b2d4a message after finish with milliseconds
-2019/07/06_09:06:27.000  Func          pointer receiver
-`, buf.String())
-}
-
-//line tlog_test.go:267
 func TestTeeWriter(t *testing.T) {
 	var buf1, buf2 bytes.Buffer
 
@@ -303,9 +268,165 @@ func TestMessageSpanID(t *testing.T) {
 	assert.Equal(t, ID(0), m.SpanID())
 }
 
-func BenchmarkLogLoggerStd(b *testing.B) {
-	b.ReportAllocs()
+func TestConsoleWriterAppendSegment(t *testing.T) {
+	b := []byte("prefix     ")
+	i := 7
 
+	var w ConsoleWriter
+
+	b, e := w.appendSegments(b, i, 20, "path/to/file.go", '/')
+	assert.Equal(t, "prefix path/to/file.go     ", string(b[:i+20]), "%q", string(b))
+	assert.Equal(t, 22, e)
+
+	b, e = w.appendSegments(b, i, 12, "path/to/file.go", '/')
+	assert.Equal(t, "prefix p/to/file.go", string(b[:i+12]), "%q", string(b))
+	assert.Equal(t, 19, e)
+
+	b, e = w.appendSegments(b, i, 11, "path/to/file.go", '/')
+	assert.Equal(t, "prefix p/t/file.go", string(b[:i+11]), "%q", string(b))
+	assert.Equal(t, 18, e)
+
+	b, e = w.appendSegments(b, i, 10, "path/to/file.go", '/')
+	assert.Equal(t, "prefix p/t/file.g", string(b[:i+10]), "%q", string(b))
+	assert.Equal(t, 17, e)
+
+	b, e = w.appendSegments(b, i, 9, "path/to/file.go", '/')
+	assert.Equal(t, "prefix p/t/file.", string(b[:i+9]), "%q", string(b))
+	assert.Equal(t, 16, e)
+}
+
+func TestConsoleWriterBuildHeader(t *testing.T) {
+	var w ConsoleWriter
+
+	tm := time.Date(2019, 7, 7, 8, 19, 30, 100200300, time.UTC)
+	loc := location(-1)
+
+	w.f = Ldate | Ltime | Lmilliseconds | LUTC
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(w.buf))
+
+	w.f = Ldate | Ltime | Lmicroseconds | LUTC
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(w.buf))
+
+	w.f = Llongfile
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "github.com/nikandfor/tlog/location.go:14  ", string(w.buf))
+
+	w.f = Lshortfile
+	w.shortfile = 20
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "location.go:14        ", string(w.buf))
+
+	w.f = Lshortfile
+	w.shortfile = 10
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "locatio:14  ", string(w.buf))
+
+	w.f = Lfuncname
+	w.funcname = 10
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "location    ", string(w.buf))
+
+	w.f = Lfuncname
+	w.funcname = 6
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "locati  ", string(w.buf))
+
+	w.f = Lfuncname
+	w.funcname = 15
+	w.buildHeader(tm, (&testt{}).testloc2())
+	assert.Equal(t, "testloc2.func1   ", string(w.buf))
+
+	w.f = Lfuncname
+	w.funcname = 12
+	w.buildHeader(tm, (&testt{}).testloc2())
+	assert.Equal(t, "testloc2.fu1  ", string(w.buf))
+
+	w.f = Ltypefunc
+	w.buildHeader(tm, loc)
+	assert.Equal(t, "tlog.location  ", string(w.buf))
+}
+
+func TestConsoleWriterSpans(t *testing.T) {
+	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.Local)
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+	rnd = rand.New(rand.NewSource(0))
+
+	w := NewConsoleWriter(ioutil.Discard, LdetFlags|Lspans|Lmessagespan)
+	l := New(w)
+
+	l.Labels(Labels{"a=b", "f"})
+
+	assert.Equal(t, `2019/07/07_16:31:11.000000  tlog_test.go:362      Labels: ["a=b" "f"]`+"\n", string(w.buf))
+
+	tr := l.Start()
+
+	assert.Equal(t, `2019/07/07_16:31:12.000000  tlog_test.go:351      Span 78fc2ffac2fd9401 par ________________ started`+"\n", string(w.buf))
+
+	tr1 := l.Spawn(tr.SafeID())
+
+	assert.Equal(t, `2019/07/07_16:31:13.000000  tlog_test.go:351      Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 started`+"\n", string(w.buf))
+
+	tr1.Printf("message")
+
+	assert.Equal(t, `2019/07/07_16:31:14.000000  tlog_test.go:374      Span 1f5b0412ffd341c0 message`+"\n", string(w.buf))
+
+	tr1.Finish()
+
+	assert.Equal(t, `2019/07/07_16:31:15.000000  tlog_test.go:351      Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 finished - elapsed 2000.00ms`+"\n", string(w.buf))
+
+	tr.Flags |= FlagError | 0x100
+
+	tr.Finish()
+
+	assert.Equal(t, `2019/07/07_16:31:16.000000  tlog_test.go:351      Span 78fc2ffac2fd9401 par ________________ finished - elapsed 4000.00ms Flags 101`+"\n", string(w.buf))
+}
+
+func TestJSONWriterSpans(t *testing.T) {
+	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.Local)
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+	rnd = rand.New(rand.NewSource(0))
+
+	var buf bytes.Buffer
+	w := NewJSONWriter(&buf)
+	l := New(w)
+
+	l.Labels(Labels{"a=b", "f"})
+
+	tr := l.Start()
+
+	tr1 := l.Spawn(tr.SafeID())
+
+	tr1.Printf("message")
+
+	tr1.Finish()
+
+	tr.Flags |= FlagError | 0x100
+
+	tr.Finish()
+
+	re := `{"L":\["a=b","f"\]}
+{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":389,"n":"tlog.TestJSONWriterSpans"}}
+{"s":{"id":8717895732742165505,"l":\d+,"s":1562506271000000}}
+{"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562506272000000}}
+{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":407,"n":"tlog.TestJSONWriterSpans"}}
+{"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
+{"f":{"id":2259404117704393152,"e":2000000}}
+{"f":{"id":8717895732742165505,"e":4000000,"F":257}}
+`
+	ok, err := regexp.Match(re, buf.Bytes())
+	assert.NoError(t, err)
+	assert.True(t, ok, "expected:\n%vactual:\n%v", re, buf.String())
+}
+
+func BenchmarkLogLoggerStd(b *testing.B) {
 	l := log.New(ioutil.Discard, "", log.LstdFlags)
 
 	for i := 0; i < b.N; i++ {

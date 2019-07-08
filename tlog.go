@@ -55,10 +55,12 @@ type (
 	}
 
 	ConsoleWriter struct {
-		mu  sync.Mutex
-		w   io.Writer
-		f   int
-		buf bufWriter
+		mu        sync.Mutex
+		w         io.Writer
+		f         int
+		shortfile int
+		funcname  int
+		buf       bufWriter
 	}
 
 	JSONWriter struct {
@@ -109,10 +111,10 @@ const ( // console writer flags
 	Ltypefunc // pkg.(*Type).Func
 	Lfuncname // Func
 	LUTC
-	Lspans
-	Lmessagespan
-	LstdFlags = Ldate | Ltime
-	LdetFlags = Ldate | Ltime | Lmicroseconds | Lshortfile
+	Lspans       // print Span start and finish event
+	Lmessagespan // add Span ID to trace messages
+	LstdFlags    = Ldate | Ltime
+	LdetFlags    = Ldate | Ltime | Lmicroseconds | Lshortfile
 )
 
 var ( // time, rand
@@ -304,9 +306,70 @@ func (s *Span) SafeID() ID {
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
-		w: w,
-		f: f,
+		w:         w,
+		f:         f,
+		shortfile: 20,
+		funcname:  17,
 	}
+}
+
+func (w *ConsoleWriter) grow(b []byte, l int) []byte {
+more:
+	b = b[:cap(b)]
+	if len(b) >= l {
+		return b
+	}
+
+	b = append(b,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0)
+
+	goto more
+}
+
+func (w *ConsoleWriter) appendSegments(b []byte, i, wid int, name string, s byte) ([]byte, int) {
+	b = w.grow(b, i+wid+5)
+	W := i + wid
+
+	if nl := len(name); nl <= wid {
+		i += copy(b[i:], name)
+		for j := i; j < W; j++ {
+			b[j] = ' '
+		}
+		return b, i
+	}
+
+	for i+2 < W {
+		if len(name) <= W-i {
+			i += copy(b[i:], name)
+			break
+		}
+
+		p := strings.IndexByte(name, s)
+		if p == -1 {
+			i += copy(b[i:], name[:W-i])
+			break
+		}
+
+		if len(name)-p < W-i {
+			copy(b[i:], name)
+			i = W - (len(name) - p)
+
+			b[i] = s
+			i++
+		} else {
+			b[i] = name[0]
+			i++
+			b[i] = s
+			i++
+		}
+
+		name = name[p+1:]
+	}
+
+	return b, i
 }
 
 func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
@@ -314,10 +377,10 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 	b = b[:cap(b)]
 	i := 0
 
-	var fname, file string = "<none>", "<none>"
-	var line int
+	var fname, file string
+	var line int = -1
 
-	if w.f&(Ldate|Ltime|Lmicroseconds) != 0 {
+	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
 		if w.f&LUTC != 0 {
 			t = t.UTC()
 		}
@@ -404,36 +467,45 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 		i++
 	}
 	if w.f&(Llongfile|Lshortfile) != 0 {
-		W := i + 20
-		b = w.grow(b, W+5)
-
 		fname, file, line = loc.NameFileLine()
 		if w.f&Lshortfile != 0 {
 			file = path.Base(file)
 		}
-		b = append(b[:i], file...)
-		i += len(file)
-		b = w.grow(b, i+10)
-
-		b[i] = ':'
-		i++
 
 		j := 0
 		for q := 10; q < line; q *= 10 {
 			j++
 		}
-		n := j + 1
+		n := 1 + j
+
+		var st int
+		if w.f&Lshortfile != 0 {
+			b, st = w.appendSegments(b, i, w.shortfile-n-1, file, '/')
+		} else {
+			b = append(b[:i], file...)
+			i += len(file)
+			st = i
+		}
+
+		b = w.grow(b, st+10)
+
+		b[st] = ':'
+		st++
+
 		for ; j >= 0; j-- {
-			b[i+j] = '0' + byte(line%10)
+			b[st+j] = '0' + byte(line%10)
 			line /= 10
 		}
-		i += n
+		st += n
 
-		b = b[:cap(b)]
-
-		for i < W {
-			b[i] = ' '
-			i++
+		if w.f&Lshortfile != 0 {
+			W := i + w.shortfile
+			for ; st < W; st++ {
+				b[st] = ' '
+			}
+			i += w.shortfile
+		} else {
+			i = st
 		}
 
 		b[i] = ' '
@@ -442,36 +514,45 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 		i++
 	}
 	if w.f&(Ltypefunc|Lfuncname) != 0 {
-		if fname == "<none>" {
+		if line == -1 {
 			fname, file, line = loc.NameFileLine()
 		}
-		W := i + 20
-		if w.f&Ltypefunc != 0 {
-			fname = path.Base(fname)
-		} else {
-			W = i + 12
+		fname = path.Base(fname)
+
+		if w.f&Lfuncname != 0 {
 			p := strings.Index(fname, ").")
 			if p == -1 {
-				fname = path.Ext(fname)
-				if len(fname) != 0 {
-					fname = fname[1:]
-				}
+				p = strings.IndexByte(fname, '.')
+				fname = fname[p+1:]
 			} else {
 				fname = fname[p+2:]
 			}
+
+			if l := len(fname); l <= w.funcname {
+				W := i + w.funcname
+				b = w.grow(b, W+4)
+				i += copy(b[i:], fname)
+				for ; i < W; i++ {
+					b[i] = ' '
+				}
+			} else {
+				i += copy(b[i:], fname[:w.funcname])
+				j := 1
+				for {
+					q := fname[l-j]
+					if q < '0' || '9' < q {
+						break
+					}
+					b[i-j] = fname[l-j]
+					j++
+				}
+			}
+		} else {
+			b = append(b[:i], fname...)
+			i += len(fname)
 		}
-
-		b = w.grow(b, W+5)
-
-		b = append(b[:i], fname...)
-		i += len(fname)
 
 		b = w.grow(b, i+4)
-
-		for i < W {
-			b[i] = ' '
-			i++
-		}
 
 		b[i] = ' '
 		i++
@@ -521,7 +602,7 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 }
 
 func (w *ConsoleWriter) spanHeader(s *Span) []byte {
-	w.buildHeader(s.Started, s.Location)
+	w.buildHeader(s.Started.Add(s.Elapsed), s.Location)
 
 	loc, _, _ := s.Location.NameFileLine()
 	loc = path.Base(loc)
@@ -641,22 +722,6 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 		},
 		nil,
 	)
-}
-
-func (w *ConsoleWriter) grow(b []byte, l int) []byte {
-more:
-	b = b[:cap(b)]
-	if len(b) >= l {
-		return b
-	}
-
-	b = append(b,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0)
-
-	goto more
 }
 
 func NewJSONWriter(w io.Writer) *JSONWriter {
