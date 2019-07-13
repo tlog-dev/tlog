@@ -28,8 +28,8 @@ type (
 
 	Writer interface {
 		Labels(ls Labels)
-		SpanStarted(s *Span)
-		SpanFinished(s *Span)
+		SpanStarted(s *Span, l Location)
+		SpanFinished(s *Span, el time.Duration)
 		Message(l Message, s *Span)
 	}
 
@@ -46,10 +46,7 @@ type (
 		ID     ID
 		Parent ID
 
-		Location Location
-
 		Started time.Time
-		Elapsed time.Duration
 
 		Flags int
 	}
@@ -186,14 +183,14 @@ func V(l int) *Logger {
 }
 
 func newspan(l *Logger, par ID) *Span {
+	loc := funcentry(2)
 	s := &Span{
-		l:        l,
-		ID:       ID(rnd.Int63()),
-		Parent:   par,
-		Location: funcentry(2),
-		Started:  now(),
+		l:       l,
+		ID:      ID(rnd.Int63()),
+		Parent:  par,
+		Started: now(),
 	}
-	l.SpanStarted(s)
+	l.SpanStarted(s, loc)
 	return s
 }
 
@@ -293,8 +290,8 @@ func (s *Span) Finish() {
 		return
 	}
 
-	s.Elapsed = now().Sub(s.Started)
-	s.l.SpanFinished(s)
+	el := now().Sub(s.Started)
+	s.l.SpanFinished(s, el)
 }
 
 func (s *Span) SafeID() ID {
@@ -468,6 +465,7 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 	}
 	if w.f&(Llongfile|Lshortfile) != 0 {
 		fname, file, line = loc.NameFileLine()
+
 		if w.f&Lshortfile != 0 {
 			file = path.Base(file)
 		}
@@ -601,11 +599,8 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 	_, _ = w.w.Write(w.buf)
 }
 
-func (w *ConsoleWriter) spanHeader(s *Span) []byte {
-	w.buildHeader(s.Started.Add(s.Elapsed), s.Location)
-
-	loc, _, _ := s.Location.NameFileLine()
-	loc = path.Base(loc)
+func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, loc Location) []byte {
+	w.buildHeader(tm, loc)
 
 	b := w.buf
 
@@ -649,7 +644,7 @@ func (w *ConsoleWriter) spanHeader(s *Span) []byte {
 	return b
 }
 
-func (w *ConsoleWriter) SpanStarted(s *Span) {
+func (w *ConsoleWriter) SpanStarted(s *Span, l Location) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -657,7 +652,7 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s)
+	b := w.spanHeader(s, s.Started, l)
 
 	b = append(b, "started\n"...)
 
@@ -666,7 +661,7 @@ func (w *ConsoleWriter) SpanStarted(s *Span) {
 	_, _ = w.w.Write(b)
 }
 
-func (w *ConsoleWriter) SpanFinished(s *Span) {
+func (w *ConsoleWriter) SpanFinished(s *Span, el time.Duration) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -674,12 +669,11 @@ func (w *ConsoleWriter) SpanFinished(s *Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s)
+	b := w.spanHeader(s, s.Started.Add(el), 0)
 
 	b = append(b, "finished - elapsed "...)
 	i := len(b)
 
-	el := s.Elapsed
 	e := el.Seconds() * 1000
 
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
@@ -802,13 +796,13 @@ func (w *JSONWriter) Message(m Message, s *Span) {
 	w.buf = b
 }
 
-func (w *JSONWriter) SpanStarted(s *Span) {
+func (w *JSONWriter) SpanStarted(s *Span, loc Location) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	if _, ok := w.ls[s.Location]; !ok {
-		w.location(s.Location)
+	if _, ok := w.ls[loc]; !ok {
+		w.location(loc)
 	}
 
 	b := w.buf
@@ -830,7 +824,7 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 	}
 
 	w.w.ObjKey([]byte("l"))
-	b = strconv.AppendInt(b[:0], int64(s.Location), 10)
+	b = strconv.AppendInt(b[:0], int64(loc), 10)
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("s"))
@@ -846,7 +840,7 @@ func (w *JSONWriter) SpanStarted(s *Span) {
 	w.buf = b
 }
 
-func (w *JSONWriter) SpanFinished(s *Span) {
+func (w *JSONWriter) SpanFinished(s *Span, el time.Duration) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -864,7 +858,7 @@ func (w *JSONWriter) SpanFinished(s *Span) {
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("e"))
-	b = strconv.AppendInt(b[:0], s.Elapsed.Nanoseconds()/1000, 10)
+	b = strconv.AppendInt(b[:0], el.Nanoseconds()/1000, 10)
 	_, _ = w.w.Write(b)
 
 	if s.Flags != 0 {
@@ -940,21 +934,21 @@ func (w *TeeWriter) Message(m Message, s *Span) {
 	}
 }
 
-func (w *TeeWriter) SpanStarted(s *Span) {
+func (w *TeeWriter) SpanStarted(s *Span, loc Location) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
 	for _, w := range w.Writers {
-		w.SpanStarted(s)
+		w.SpanStarted(s, loc)
 	}
 }
 
-func (w *TeeWriter) SpanFinished(s *Span) {
+func (w *TeeWriter) SpanFinished(s *Span, el time.Duration) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
 	for _, w := range w.Writers {
-		w.SpanFinished(s)
+		w.SpanFinished(s, el)
 	}
 }
 
