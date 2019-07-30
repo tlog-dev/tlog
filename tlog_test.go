@@ -20,12 +20,12 @@ func (t *testt) Func(l *Logger) {
 }
 
 func (t *testt) testloc() Location {
-	return location(0)
+	return Caller(0)
 }
 
 func (t *testt) testloc2() Location {
 	return func() Location {
-		return location(0)
+		return Caller(0)
 	}()
 }
 
@@ -299,7 +299,7 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	var w ConsoleWriter
 
 	tm := time.Date(2019, 7, 7, 8, 19, 30, 100200300, time.UTC)
-	loc := location(-1)
+	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
 	w.buildHeader(tm, loc)
@@ -328,12 +328,12 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	w.f = Lfuncname
 	w.funcname = 10
 	w.buildHeader(tm, loc)
-	assert.Equal(t, "location    ", string(w.buf))
+	assert.Equal(t, "Caller      ", string(w.buf))
 
 	w.f = Lfuncname
-	w.funcname = 6
+	w.funcname = 4
 	w.buildHeader(tm, loc)
-	assert.Equal(t, "locati  ", string(w.buf))
+	assert.Equal(t, "Call  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 15
@@ -347,7 +347,7 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Ltypefunc
 	w.buildHeader(tm, loc)
-	assert.Equal(t, "tlog.location  ", string(w.buf))
+	assert.Equal(t, "tlog.Caller  ", string(w.buf))
 }
 
 //line tlog_test.go:351

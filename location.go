@@ -9,13 +9,13 @@ import (
 
 type Location uintptr
 
-func location(s int) Location {
+func Caller(s int) Location {
 	var pc [1]uintptr
 	runtime.Callers(2+s, pc[:])
 	return Location(pc[0])
 }
 
-func funcentry(s int) Location {
+func Funcentry(s int) Location {
 	var pc [1]uintptr
 	runtime.Callers(2+s, pc[:])
 	return Location(Location(pc[0]).Entry())

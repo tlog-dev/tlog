@@ -12,7 +12,7 @@ func TestLocation(t *testing.T) {
 }
 
 func testLocationInside(t *testing.T) {
-	pc := location(0)
+	pc := Caller(0)
 	name, file, line := pc.NameFileLine()
 	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
 	assert.Equal(t, "location_test.go", path.Base(file))
@@ -20,14 +20,14 @@ func testLocationInside(t *testing.T) {
 }
 
 func TestLocationShort(t *testing.T) {
-	pc := location(0)
+	pc := Caller(0)
 	assert.Equal(t, "location_test.go:23", pc.Short())
 }
 
 func TestLocation2(t *testing.T) {
 	func() {
 		func() {
-			l := funcentry(0)
+			l := Funcentry(0)
 
 			assert.Equal(t, "location_test.go:29", l.Short())
 		}()

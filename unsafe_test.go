@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//line fifile.go:100
+//line unsafe_test.go:10
 func TestLocation3(t *testing.T) {
 	testInline(t)
 }
@@ -16,8 +16,8 @@ func testInline(t *testing.T) {
 }
 
 func testLocation3(t *testing.T) {
-	l := location(1)
-	assert.Equal(t, "fifile.go:105", l.Short())
+	l := Caller(1)
+	assert.Equal(t, "unsafe_test.go:15", l.Short())
 }
 
 func TestLocationZero(t *testing.T) {

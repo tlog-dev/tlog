@@ -183,7 +183,7 @@ func V(l int) *Logger {
 }
 
 func newspan(l *Logger, par ID) *Span {
-	loc := funcentry(2)
+	loc := Funcentry(2)
 	s := &Span{
 		l:       l,
 		ID:      ID(rnd.Int63()),
@@ -208,7 +208,7 @@ func newmessage(l *Logger, s *Span, f string, args []interface{}) {
 
 	l.Message(
 		Message{
-			Location: location(2),
+			Location: Caller(2),
 			Time:     t,
 			Format:   f,
 			Args:     args,
@@ -709,7 +709,7 @@ func (w *ConsoleWriter) SpanFinished(s *Span, el time.Duration) {
 func (w *ConsoleWriter) Labels(ls Labels) {
 	w.Message(
 		Message{
-			Location: location(1),
+			Location: Caller(1),
 			Time:     time.Duration(now().UnixNano()),
 			Format:   "Labels: %q",
 			Args:     []interface{}{ls},
