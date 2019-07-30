@@ -10,7 +10,9 @@
 TraceLog - distributed tracing and logging
 
 # Status
-It's still in active development phase. Not all features implemented yet but core features are here. Some API changes are possible. It evolves with my usage of it.
+It evolves as I use it. I still can change enything, but for now I'm quiet satisfied with most of details.
+
+As you can see it's tested a bit but bugs are possible. Please report if find.
 
 # Logger
 
@@ -19,11 +21,12 @@ Logging as usual.
 tlog.Printf("message: %v", "arguments")
 ```
 
-Verbosity is also supported. Error level is not propogated to the output. So you should prefix message yourself if you want.
+## Conditional logging
+There is some kind of verbosity levels.
 ```golang
-tlog.V(tlog.LevDebug).Printf("DEBUG: conditional message")
+tlog.V(tlog.DebugLevel).Printf("DEBUG: conditional message")
 
-if l := tlog.V(tlog.LevTrace); l != nil {
+if l := tlog.V(tlog.TraceLevel); l != nil {
     p := 1 + 2 // complex calculations here that will not be executed if log level is not high enough
     l.Printf("result: %v", p)
 }
@@ -31,6 +34,50 @@ if l := tlog.V(tlog.LevTrace); l != nil {
 tlog.Printf("unconditional message") // prints anyway
 ```
 
+Actually it's not verbosity levels but debug topics. Each conditional operation have some topics it belongs to. And you can configure Logger precisely, which topics at which locations are enabled at each moment (concurrent usage/update is supported).
+```golang
+func main() {
+    // ...
+    tlog.SetFilters(*filtersFlag)
+}
+
+// path/to/module/and/file.go
+
+func (t *Conn) Send(/*...*/) {
+    // ...
+    tlog.V("encrypt").Printf("tls encoding debug data")
+    // ...
+    tlog.V("telemetry,debug").Printf("telemetry ...")
+    // ...
+    if l := tlog.V("read,error"); l != nil {
+        // prepare and log message
+    }
+}
+```
+`filtersFlag` is a comma separated list of filters such as
+```
+# all messages with topics are enabled
+telemetry
+encryption
+debug
+trace
+
+# all topics at specified location are enabled
+module         # child modules are not enabled
+module/*
+module/and/file.go
+file.go
+(*Conn)        # all Conn methods are enabled
+Conn           # short form
+Conn.Send      # one method
+Send           # function or method of any object
+
+# enable specific topics at specific location
+module=encryption
+Conn=encryption+telemetry # multiple topics for location separated by '+'
+```
+
+## Logger object
 Logger can be created separately. All the same operations available there.
 ```golang
 l := tlog.New(...)
@@ -73,6 +120,10 @@ l := tlog.New(w)
 ### ProtobufWriter
 
 Coming soon...
+
+### Your the best writer ever
+
+You could implement your own writer.
 
 # Tracing
 
