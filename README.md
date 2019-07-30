@@ -12,9 +12,7 @@ TraceLog - distributed tracing and logging
 # Status
 It's still in active development phase. Not all features implemented yet but core features are here. Some API changes are possible. It evolves with my usage of it.
 
-# Features
-
-## Logger
+# Logger
 
 Logging as usual.
 ```golang
