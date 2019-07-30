@@ -138,40 +138,45 @@ func TestVerbosity(t *testing.T) {
 
 	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
 
-	Printf("unconditional message")
-	V(LevError).Printf("Error level (enabled)")
-	V(LevDebug).Printf("Debug level (disabled)")
+	V("any_topic").Printf("All conditionals are disabled by default")
 
-	if l := V(LevInfo); l != nil {
+	DefaultLogger.SetFilter("topic1,tlog=topic3")
+
+	Printf("unconditional message")
+	V("topic1").Printf("topic1 message (enabled)")
+	V("topic2").Printf("topic2 message (disabled)")
+
+	if l := V("topic3"); l != nil {
 		p := 10 + 20 // complex calculations
 		l.Printf("conditional calculations (enabled): %v", p)
 	}
 
-	if l := V(LevTrace); l != nil {
+	if l := V("topic4"); l != nil {
 		p := 10 + 50 // complex calculations
 		l.Printf("conditional calculations (disabled): %v", p)
 		assert.Fail(t, "should not be here")
 	}
 
-	DefaultLogger.SetLogLevel(7)
+	DefaultLogger.SetFilter("topic1,tlog=TRACE")
 
-	if l := V(LevTrace); l != nil {
+	if l := V("TRACE"); l != nil {
 		p := 10 + 60 // complex calculations
 		l.Printf("TRACE: %v", p)
 	}
 
-	tr := V(LevInfo).Start()
+	tr := V("topic1").Start()
 	tr.Printf("traced msg")
 	tr.Finish()
 
 	assert.Equal(t, `2019/07/05_23:49:41  unconditional message
-2019/07/05_23:49:42  Error level (enabled)
+2019/07/05_23:49:42  topic1 message (enabled)
 2019/07/05_23:49:43  conditional calculations (enabled): 30
 2019/07/05_23:49:44  TRACE: 70
 2019/07/05_23:49:46  traced msg
 `, string(buf.Bytes()))
 
-	(*Logger)(nil).SetLogLevel(-1)
+	(*Logger)(nil).V("a,b,c").Printf("nothing")
+	(*Logger)(nil).SetFilter("a,b,c")
 }
 
 func TestDumpLabelsWithDefault(t *testing.T) {

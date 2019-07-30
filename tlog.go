@@ -8,7 +8,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 type (
@@ -18,7 +20,7 @@ type (
 
 	Logger struct {
 		Writer
-		level int
+		filter *filter
 	}
 
 	Writer interface {
@@ -131,7 +133,7 @@ func FillLabelsWithDefaults(labels ...string) Labels {
 }
 
 func New(w Writer) *Logger {
-	l := &Logger{Writer: w, level: LevInfo}
+	l := &Logger{Writer: w}
 
 	return l
 }
@@ -150,8 +152,8 @@ func Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func V(l int) *Logger {
-	return DefaultLogger.V(l)
+func V(topic string) *Logger {
+	return DefaultLogger.V(topic)
 }
 
 func newspan(l *Logger, par ID) *Span {
@@ -235,18 +237,23 @@ func (l *Logger) Spawn(id ID) *Span {
 	return newspan(l, id)
 }
 
-func (l *Logger) V(lv int) *Logger {
-	if l == nil || lv > l.level {
+func (l *Logger) V(tp string) *Logger {
+	if l == nil {
+		return nil
+	}
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	if !f.match(tp) {
 		return nil
 	}
 	return l
 }
 
-func (l *Logger) SetLogLevel(v int) {
+func (l *Logger) SetFilter(filter string) {
 	if l == nil {
 		return
 	}
-	l.level = v
+	f := newFilter(filter)
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
 }
 
 func (s *Span) Printf(f string, args ...interface{}) {
