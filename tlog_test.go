@@ -177,6 +177,12 @@ func TestVerbosity(t *testing.T) {
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")
 	(*Logger)(nil).SetFilter("a,b,c")
+
+	SetLogLevel(7)
+	assert.Equal(t, TraceFilter, DefaultLogger.filter.f)
+
+	SetLogLevel(0)
+	assert.Nil(t, DefaultLogger.filter)
 }
 
 func TestSetFilter(t *testing.T) {

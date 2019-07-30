@@ -58,7 +58,7 @@ type (
 	}
 )
 
-const ( // flags
+const ( // span flags
 	FlagError = 1 << iota
 
 	FlagNone = 0
@@ -78,6 +78,20 @@ const ( // console writer flags
 	Lmessagespan // add Span ID to trace messages
 	LstdFlags    = Ldate | Ltime
 	LdetFlags    = Ldate | Ltime | Lmicroseconds | Lshortfile
+)
+
+const ( // log levels
+	CriticalLevel = "critical"
+	ErrorLevel    = "error"
+	InfoLevel     = "info"
+	DebugLevel    = "debug"
+	TraceLevel    = "trace"
+
+	CriticalFilter = CriticalLevel
+	ErrorFilter    = CriticalFilter + "+" + ErrorLevel
+	InfoFilter     = ErrorFilter + "+" + InfoLevel
+	DebugFilter    = InfoFilter + "+" + DebugLevel
+	TraceFilter    = DebugFilter + "+" + TraceLevel
 )
 
 var ( // time, rand
@@ -150,6 +164,10 @@ func V(topic string) *Logger {
 
 func SetFilter(f string) {
 	DefaultLogger.SetFilter(f)
+}
+
+func SetLogLevel(l int) {
+	DefaultLogger.SetLogLevel(l)
 }
 
 func newspan(l *Logger, par ID) *Span {
@@ -253,6 +271,23 @@ func (l *Logger) SetFilter(filters string) {
 		f = newFilter(filters)
 	}
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
+}
+
+func (l *Logger) SetLogLevel(lev int) {
+	switch {
+	case lev <= 0:
+		l.SetFilter("")
+	case lev == 1:
+		l.SetFilter(CriticalFilter)
+	case lev == 2:
+		l.SetFilter(ErrorFilter)
+	case lev == 3:
+		l.SetFilter(InfoFilter)
+	case lev == 4:
+		l.SetFilter(DebugFilter)
+	default:
+		l.SetFilter(TraceFilter)
+	}
 }
 
 func (s *Span) Printf(f string, args ...interface{}) {
