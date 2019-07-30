@@ -124,6 +124,7 @@ func TestLabels(t *testing.T) {
 	assert.Equal(t, "", v)
 }
 
+//line /path/to/github.com/nikandfor/tlog/tlog_test.go:128
 func TestVerbosity(t *testing.T) {
 	defer func(old func() time.Time) {
 		now = old
@@ -136,7 +137,7 @@ func TestVerbosity(t *testing.T) {
 
 	var buf bytes.Buffer
 
-	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(&buf, Lnone))
 
 	V("any_topic").Printf("All conditionals are disabled by default")
 
@@ -168,21 +169,33 @@ func TestVerbosity(t *testing.T) {
 	tr.Printf("traced msg")
 	tr.Finish()
 
-	assert.Equal(t, `2019/07/05_23:49:41  unconditional message
-2019/07/05_23:49:42  topic1 message (enabled)
-2019/07/05_23:49:43  conditional calculations (enabled): 30
-2019/07/05_23:49:44  TRACE: 70
-2019/07/05_23:49:46  traced msg
+	assert.Equal(t, `unconditional message
+topic1 message (enabled)
+conditional calculations (enabled): 30
+TRACE: 70
+traced msg
 `, string(buf.Bytes()))
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")
 	(*Logger)(nil).SetFilter("a,b,c")
 
-	SetLogLevel(7)
-	assert.Equal(t, TraceFilter, DefaultLogger.filter.f)
-
 	SetLogLevel(0)
 	assert.Nil(t, DefaultLogger.filter)
+
+	SetLogLevel(1)
+	assert.Equal(t, CriticalFilter, DefaultLogger.filter.f)
+
+	SetLogLevel(2)
+	assert.Equal(t, ErrorFilter, DefaultLogger.filter.f)
+
+	SetLogLevel(3)
+	assert.Equal(t, InfoFilter, DefaultLogger.filter.f)
+
+	SetLogLevel(4)
+	assert.Equal(t, DebugFilter, DefaultLogger.filter.f)
+
+	SetLogLevel(5)
+	assert.Equal(t, TraceFilter, DefaultLogger.filter.f)
 }
 
 func TestSetFilter(t *testing.T) {

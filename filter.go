@@ -147,6 +147,11 @@ func (f *filter) matchType(pt, name string) bool {
 
 	s := regexp.MustCompile(`(\w+)(\.\((\*?)(\w+)\))?\.((\w+)(\.\w+)*)`).FindStringSubmatch(tp)
 	s = s[1:]
+
+	if pt == s[0] { // pkg
+		return true
+	}
+
 	if s[1] == "" { // no (*Type) (It's function)
 		return false
 	}

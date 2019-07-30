@@ -102,6 +102,8 @@ func TestFilterMatchType(t *testing.T) {
 		assert.False(t, ff.matchType(p, "long/path.(*Type).Func"), "%v", p)
 	}
 
+	assert.True(t, ff.matchType("path", "path.(*Type).Func"))
+
 	assert.False(t, ff.matchType("(*Type).Func", "long/path.(Type).Func"))
 
 	assert.False(t, ff.matchType("%$^", "long/path.(Type).Func"))

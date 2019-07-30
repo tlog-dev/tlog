@@ -78,6 +78,7 @@ const ( // console writer flags
 	Lmessagespan // add Span ID to trace messages
 	LstdFlags    = Ldate | Ltime
 	LdetFlags    = Ldate | Ltime | Lmicroseconds | Lshortfile
+	Lnone        = 0
 )
 
 const ( // log levels
