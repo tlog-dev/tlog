@@ -348,6 +348,9 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	w.f = Ltypefunc
 	w.buildHeader(tm, loc)
 	assert.Equal(t, "tlog.Caller  ", string(w.buf))
+
+	w.buildHeader(tm, (&testt{}).testloc2())
+	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(w.buf))
 }
 
 //line tlog_test.go:351
