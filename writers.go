@@ -34,6 +34,8 @@ type (
 		Writers []Writer
 	}
 
+	Discard struct{}
+
 	bufWriter []byte
 )
 
@@ -687,6 +689,11 @@ func (w *TeeWriter) SpanFinished(s *Span, el time.Duration) {
 		w.SpanFinished(s, el)
 	}
 }
+
+func (w Discard) Labels(Labels)                     {}
+func (w Discard) Message(Message, *Span)            {}
+func (w Discard) SpanStarted(*Span, Location)       {}
+func (w Discard) SpanFinished(*Span, time.Duration) {}
 
 func (w *bufWriter) Write(p []byte) (int, error) {
 	*w = append(*w, p...)

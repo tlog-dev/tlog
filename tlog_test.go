@@ -179,6 +179,49 @@ func TestVerbosity(t *testing.T) {
 	(*Logger)(nil).SetFilter("a,b,c")
 }
 
+func TestSetFilter(t *testing.T) {
+	const N = 100
+
+	l := New(Discard{})
+
+	var wg sync.WaitGroup
+	wg.Add(4)
+
+	go func() {
+		defer wg.Done()
+
+		for i := 0; i < N; i++ {
+			l.SetFilter("topic,topic2")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		for i := 0; i < N; i++ {
+			l.SetFilter("topic,topic3")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		for i := 0; i < N; i++ {
+			l.SetFilter("")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		for i := 0; i < N; i++ {
+			l.V("topic")
+		}
+	}()
+
+	wg.Wait()
+}
+
 func TestDumpLabelsWithDefault(t *testing.T) {
 	assert.Equal(t, Labels{"a", "b", "c"}, FillLabelsWithDefaults("a", "b", "c"))
 

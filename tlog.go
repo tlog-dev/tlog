@@ -248,11 +248,14 @@ func (l *Logger) V(tp string) *Logger {
 	return l
 }
 
-func (l *Logger) SetFilter(filter string) {
+func (l *Logger) SetFilter(filters string) {
 	if l == nil {
 		return
 	}
-	f := newFilter(filter)
+	var f *filter
+	if filters != "" {
+		f = newFilter(filters)
+	}
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
 }
 
