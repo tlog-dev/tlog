@@ -140,7 +140,7 @@ func TestVerbosity(t *testing.T) {
 
 	V("any_topic").Printf("All conditionals are disabled by default")
 
-	DefaultLogger.SetFilter("topic1,tlog=topic3")
+	SetFilter("topic1,tlog=topic3")
 
 	Printf("unconditional message")
 	V("topic1").Printf("topic1 message (enabled)")

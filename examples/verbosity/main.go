@@ -8,14 +8,15 @@ import (
 
 func main() {
 	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
+	tlog.SetFilter("critical,error,info")
 
 	tlog.Printf("unconditional log message")
 
-	tlog.V(tlog.LevError).Printf("simple condition")
+	tlog.V("error").Printf("simple condition")
 
-	tlog.V(tlog.LevTrace).Printf("simple condition (will not be printed)")
+	tlog.V("trace").Printf("simple condition (will not be printed)")
 
-	if l := tlog.V(tlog.LevInfo); l != nil {
+	if l := tlog.V("info"); l != nil {
 		p := 1 + 3 // make complex calculations here
 		l.Printf("then log the result: %v", p)
 		tlog.Printf("you may use returned `l' logger or package interface")
@@ -34,7 +35,7 @@ func funcUnconditionalTrace() {
 }
 
 func funcConditionalTrace(id tlog.ID) {
-	tr := tlog.V(tlog.LevDebug).Spawn(id)
+	tr := tlog.V("debug").Spawn(id)
 	defer tr.Finish()
 
 	tr.Printf("will not be printed because of verbosity condition of the trace")

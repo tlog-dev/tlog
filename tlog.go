@@ -58,14 +58,6 @@ type (
 	}
 )
 
-const ( // log levels
-	LevCritical = iota
-	LevError
-	LevInfo
-	LevDebug
-	LevTrace
-)
-
 const ( // flags
 	FlagError = 1 << iota
 
@@ -154,6 +146,10 @@ func Fatalf(f string, args ...interface{}) {
 
 func V(topic string) *Logger {
 	return DefaultLogger.V(topic)
+}
+
+func SetFilter(f string) {
+	DefaultLogger.SetFilter(f)
 }
 
 func newspan(l *Logger, par ID) *Span {
