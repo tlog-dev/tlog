@@ -21,13 +21,9 @@ func Funcentry(s int) Location {
 	return Location(Location(pc[0]).Entry())
 }
 
-func (l Location) Short() string {
+func (l Location) String() string {
 	_, file, line := l.NameFileLine()
 	return fmt.Sprintf("%v:%d", path.Base(file), line)
-}
-
-func (l Location) String() string {
-	return fmt.Sprintf("% 8x", uintptr(l))
 }
 
 func cropFilename(fn, tp string) string {

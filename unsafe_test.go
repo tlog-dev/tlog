@@ -17,7 +17,7 @@ func testInline(t *testing.T) {
 
 func testLocation3(t *testing.T) {
 	l := Caller(1)
-	assert.Equal(t, "unsafe_test.go:15", l.Short())
+	assert.Equal(t, "unsafe_test.go:15", l.String())
 }
 
 func TestLocationZero(t *testing.T) {

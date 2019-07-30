@@ -21,7 +21,7 @@ func testLocationInside(t *testing.T) {
 
 func TestLocationShort(t *testing.T) {
 	pc := Caller(0)
-	assert.Equal(t, "location_test.go:23", pc.Short())
+	assert.Equal(t, "location_test.go:23", pc.String())
 }
 
 func TestLocation2(t *testing.T) {
@@ -29,14 +29,9 @@ func TestLocation2(t *testing.T) {
 		func() {
 			l := Funcentry(0)
 
-			assert.Equal(t, "location_test.go:29", l.Short())
+			assert.Equal(t, "location_test.go:29", l.String())
 		}()
 	}()
-}
-
-func TestLocationString(t *testing.T) {
-	pc := Location(0x12345)
-	assert.Equal(t, "   12345", pc.String())
 }
 
 func TestLocationCropFileName(t *testing.T) {
