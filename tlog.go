@@ -159,8 +159,15 @@ func Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func V(topic string) *Logger {
-	return DefaultLogger.V(topic)
+func V(tp string) *Logger {
+	if DefaultLogger == nil {
+		return nil
+	}
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&DefaultLogger.filter))))
+	if !f.match(tp) {
+		return nil
+	}
+	return DefaultLogger
 }
 
 func SetFilter(f string) {
