@@ -25,7 +25,7 @@ type (
 
 	Writer interface {
 		Labels(ls Labels)
-		SpanStarted(s *Span, l Location)
+		SpanStarted(s *Span, parent ID, l Location)
 		SpanFinished(s *Span, el time.Duration)
 		Message(l Message, s *Span)
 	}
@@ -40,8 +40,7 @@ type (
 	Span struct {
 		l *Logger
 
-		ID     ID
-		Parent ID
+		ID ID
 
 		Started time.Time
 
@@ -183,10 +182,9 @@ func newspan(l *Logger, par ID) *Span {
 	s := &Span{
 		l:       l,
 		ID:      ID(rnd.Int63()),
-		Parent:  par,
 		Started: now(),
 	}
-	l.SpanStarted(s, loc)
+	l.SpanStarted(s, par, loc)
 	return s
 }
 

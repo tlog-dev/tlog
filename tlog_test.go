@@ -306,7 +306,7 @@ func TestTeeWriter(t *testing.T) {
 
 	w.Labels(Labels{"a=b", "f"})
 	w.Message(Message{Format: "msg"}, nil)
-	w.SpanStarted(&Span{ID: 100, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, 0)
+	w.SpanStarted(&Span{ID: 100, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, 0, 0)
 	w.SpanFinished(&Span{ID: 100}, time.Second)
 
 	assert.Equal(t, `{"L":["a=b","f"]}
@@ -450,7 +450,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	tr1.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:15.000000  .:0                   Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 finished - elapsed 2000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:15.000000  .:0                   Span 1f5b0412ffd341c0 par ________________ finished - elapsed 2000.00ms`+"\n", string(w.buf))
 
 	tr.Flags |= FlagError | 0x100
 

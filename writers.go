@@ -337,7 +337,7 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 	_, _ = w.w.Write(w.buf)
 }
 
-func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, loc Location) []byte {
+func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, par ID, loc Location) []byte {
 	w.buildHeader(tm, loc)
 
 	b := w.buf
@@ -357,7 +357,7 @@ func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, loc Location) []byte {
 
 	i += copy(b[i:], " par ")
 
-	id = s.Parent
+	id = par
 	if id == 0 {
 		for j := 15; j >= 0; j-- {
 			b[i+j] = '_'
@@ -382,7 +382,7 @@ func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, loc Location) []byte {
 	return b
 }
 
-func (w *ConsoleWriter) SpanStarted(s *Span, l Location) {
+func (w *ConsoleWriter) SpanStarted(s *Span, par ID, l Location) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -390,7 +390,7 @@ func (w *ConsoleWriter) SpanStarted(s *Span, l Location) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s, s.Started, l)
+	b := w.spanHeader(s, s.Started, par, l)
 
 	b = append(b, "started\n"...)
 
@@ -407,7 +407,7 @@ func (w *ConsoleWriter) SpanFinished(s *Span, el time.Duration) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s, s.Started.Add(el), 0)
+	b := w.spanHeader(s, s.Started.Add(el), 0, 0)
 
 	b = append(b, "finished - elapsed "...)
 	i := len(b)
@@ -534,7 +534,7 @@ func (w *JSONWriter) Message(m Message, s *Span) {
 	w.buf = b
 }
 
-func (w *JSONWriter) SpanStarted(s *Span, loc Location) {
+func (w *JSONWriter) SpanStarted(s *Span, par ID, loc Location) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -555,9 +555,9 @@ func (w *JSONWriter) SpanStarted(s *Span, loc Location) {
 	b = strconv.AppendInt(b[:0], int64(s.ID), 10)
 	_, _ = w.w.Write(b)
 
-	if s.Parent != 0 {
+	if par != 0 {
 		w.w.ObjKey([]byte("p"))
-		b = strconv.AppendInt(b[:0], int64(s.Parent), 10)
+		b = strconv.AppendInt(b[:0], int64(par), 10)
 		_, _ = w.w.Write(b)
 	}
 
@@ -672,12 +672,12 @@ func (w *TeeWriter) Message(m Message, s *Span) {
 	}
 }
 
-func (w *TeeWriter) SpanStarted(s *Span, loc Location) {
+func (w *TeeWriter) SpanStarted(s *Span, par ID, loc Location) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
 	for _, w := range w.Writers {
-		w.SpanStarted(s, loc)
+		w.SpanStarted(s, par, loc)
 	}
 }
 
@@ -692,7 +692,7 @@ func (w *TeeWriter) SpanFinished(s *Span, el time.Duration) {
 
 func (w Discard) Labels(Labels)                     {}
 func (w Discard) Message(Message, *Span)            {}
-func (w Discard) SpanStarted(*Span, Location)       {}
+func (w Discard) SpanStarted(*Span, ID, Location)   {}
 func (w Discard) SpanFinished(*Span, time.Duration) {}
 
 func (w *bufWriter) Write(p []byte) (int, error) {
