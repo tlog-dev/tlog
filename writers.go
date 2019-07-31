@@ -107,7 +107,7 @@ func (w *ConsoleWriter) appendSegments(b []byte, i, wid int, name string, s byte
 	return b, i
 }
 
-func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
+func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	b := w.buf
 	b = b[:cap(b)]
 	i := 0
@@ -310,7 +310,7 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 		t = m.AbsTime()
 	}
 
-	w.buildHeader(t, m.Location)
+	w.buildHeader(m.Location, t)
 
 	if s.ID != 0 && w.f&Lmessagespan != 0 {
 		b := append(w.buf, "Span "...)
@@ -337,8 +337,8 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 	_, _ = w.w.Write(w.buf)
 }
 
-func (w *ConsoleWriter) spanHeader(s Span, tm time.Time, par ID, loc Location) []byte {
-	w.buildHeader(tm, loc)
+func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) []byte {
+	w.buildHeader(loc, tm)
 
 	b := w.buf
 
@@ -348,27 +348,29 @@ func (w *ConsoleWriter) spanHeader(s Span, tm time.Time, par ID, loc Location) [
 
 	b = w.grow(b, i+40)
 
-	id := s.ID
+	id := sid
 	for j := 15; j >= 0; j-- {
 		b[i+j] = digits[id&0xf]
 		id >>= 4
 	}
 	i += 16
 
-	i += copy(b[i:], " par ")
+	if loc != 0 {
+		i += copy(b[i:], " par ")
 
-	id = par
-	if id == 0 {
-		for j := 15; j >= 0; j-- {
-			b[i+j] = '_'
+		id = par
+		if id == 0 {
+			for j := 15; j >= 0; j-- {
+				b[i+j] = '_'
+			}
+		} else {
+			for j := 15; j >= 0; j-- {
+				b[i+j] = digits[id&0xf]
+				id >>= 4
+			}
 		}
-	} else {
-		for j := 15; j >= 0; j-- {
-			b[i+j] = digits[id&0xf]
-			id >>= 4
-		}
+		i += 16
 	}
-	i += 16
 
 	b[i] = ' '
 	i++
@@ -390,7 +392,7 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s, s.Started, par, l)
+	b := w.spanHeader(s.ID, par, l, s.Started)
 
 	b = append(b, "started\n"...)
 
@@ -407,7 +409,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s, s.Started.Add(el), 0, 0)
+	b := w.spanHeader(s.ID, 0, 0, s.Started.Add(el))
 
 	b = append(b, "finished - elapsed "...)
 	i := len(b)

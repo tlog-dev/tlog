@@ -369,54 +369,54 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(w.buf))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(w.buf))
 
 	w.f = Llongfile
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:14  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	w.f = Lshortfile
 	w.shortfile = 20
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "location.go:14        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.shortfile = 10
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "locatio:14  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 10
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "Caller      ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 4
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "Call  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 15
-	w.buildHeader(tm, (&testt{}).testloc2())
+	w.buildHeader((&testt{}).testloc2(), tm)
 	assert.Equal(t, "testloc2.func1   ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 12
-	w.buildHeader(tm, (&testt{}).testloc2())
+	w.buildHeader((&testt{}).testloc2(), tm)
 	assert.Equal(t, "testloc2.fu1  ", string(w.buf))
 
 	w.f = Ltypefunc
-	w.buildHeader(tm, loc)
+	w.buildHeader(loc, tm)
 	assert.Equal(t, "tlog.Caller  ", string(w.buf))
 
-	w.buildHeader(tm, (&testt{}).testloc2())
+	w.buildHeader((&testt{}).testloc2(), tm)
 	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(w.buf))
 }
 
@@ -450,13 +450,13 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	tr1.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:15.000000  .:0                   Span 1f5b0412ffd341c0 par ________________ finished - elapsed 2000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:15.000000  .:0                   Span 1f5b0412ffd341c0 finished - elapsed 2000.00ms`+"\n", string(w.buf))
 
 	tr.Flags |= FlagError | 0x100
 
 	tr.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:16.000000  .:0                   Span 78fc2ffac2fd9401 par ________________ finished - elapsed 4000.00ms Flags 101`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:16.000000  .:0                   Span 78fc2ffac2fd9401 finished - elapsed 4000.00ms Flags 101`+"\n", string(w.buf))
 }
 
 //line /path/to/github.com/nikandfor/tlog/tlog_test.go:389
