@@ -40,7 +40,7 @@ func funcConditionalTrace(id tlog.ID) {
 
 	tr.Printf("will not be printed because of verbosity condition of the trace")
 
-	if tr != nil {
+	if tr.V() {
 		p := 1 + 5 // complex calculations
 		tr.Printf("this whole if will not be executed: %v", p)
 	}

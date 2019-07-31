@@ -313,6 +313,10 @@ func (l *Logger) SetLogLevel(lev int) {
 	}
 }
 
+func (s Span) V() bool {
+	return s.ID != 0
+}
+
 func (s Span) Printf(f string, args ...interface{}) {
 	if s.ID == 0 {
 		return
