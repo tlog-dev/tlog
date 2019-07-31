@@ -20,7 +20,8 @@ type (
 
 	Logger struct {
 		Writer
-		filter *filter
+		filter      *filter
+		NoLocations bool // little hack to save time on simple console logs
 	}
 
 	Writer interface {
@@ -182,13 +183,20 @@ func newspan(l *Logger, par ID) *Span {
 	for id == 0 {
 		id = ID(rnd.Int63())
 	}
-	loc := Funcentry(2)
+
+	var loc Location
+	if !l.NoLocations {
+		loc = Funcentry(2)
+	}
+
 	s := &Span{
 		l:       l,
 		ID:      id,
 		Started: now(),
 	}
+
 	l.SpanStarted(s, par, loc)
+
 	return s
 }
 
@@ -204,9 +212,14 @@ func newmessage(l *Logger, s *Span, f string, args []interface{}) {
 		t = now().Sub(s.Started)
 	}
 
+	var loc Location
+	if !l.NoLocations {
+		loc = Caller(2)
+	}
+
 	l.Message(
 		Message{
-			Location: Caller(2),
+			Location: loc,
 			Time:     t,
 			Format:   f,
 			Args:     args,

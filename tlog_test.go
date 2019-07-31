@@ -501,6 +501,8 @@ func TestJSONWriterSpans(t *testing.T) {
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {
+	b.ReportAllocs()
+
 	l := log.New(ioutil.Discard, "", log.LstdFlags)
 
 	for i := 0; i < b.N; i++ {
@@ -512,6 +514,7 @@ func BenchmarkTlogConsoleLoggerStd(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewConsoleWriter(ioutil.Discard, LstdFlags))
+	l.NoLocations = true
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i)
