@@ -26,9 +26,9 @@ type (
 
 	Writer interface {
 		Labels(ls Labels)
-		SpanStarted(s *Span, parent ID, l Location)
-		SpanFinished(s *Span, el time.Duration)
-		Message(l Message, s *Span)
+		SpanStarted(s Span, parent ID, l Location)
+		SpanFinished(s Span, el time.Duration)
+		Message(l Message, s Span)
 	}
 
 	Message struct {
@@ -146,16 +146,16 @@ func New(w Writer) *Logger {
 }
 
 func Printf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, nil, f, args)
+	newmessage(DefaultLogger, Span{}, f, args)
 }
 
 func Panicf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, nil, f, args)
+	newmessage(DefaultLogger, Span{}, f, args)
 	panic(fmt.Sprintf(f, args...))
 }
 
 func Fatalf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, nil, f, args)
+	newmessage(DefaultLogger, Span{}, f, args)
 	os.Exit(1)
 }
 
@@ -178,7 +178,7 @@ func SetLogLevel(l int) {
 	DefaultLogger.SetLogLevel(l)
 }
 
-func newspan(l *Logger, par ID) *Span {
+func newspan(l *Logger, par ID) Span {
 	var id ID
 	for id == 0 {
 		id = ID(rnd.Int63())
@@ -189,7 +189,7 @@ func newspan(l *Logger, par ID) *Span {
 		loc = Funcentry(2)
 	}
 
-	s := &Span{
+	s := Span{
 		l:       l,
 		ID:      id,
 		Started: now(),
@@ -200,13 +200,13 @@ func newspan(l *Logger, par ID) *Span {
 	return s
 }
 
-func newmessage(l *Logger, s *Span, f string, args []interface{}) {
+func newmessage(l *Logger, s Span, f string, args []interface{}) {
 	if l == nil {
 		return
 	}
 
 	var t time.Duration
-	if s == nil {
+	if s.ID == 0 {
 		t = time.Duration(now().UnixNano())
 	} else {
 		t = now().Sub(s.Started)
@@ -228,47 +228,47 @@ func newmessage(l *Logger, s *Span, f string, args []interface{}) {
 	)
 }
 
-func Start() *Span {
+func Start() Span {
 	if DefaultLogger == nil {
-		return nil
+		return Span{}
 	}
 
 	return newspan(DefaultLogger, 0)
 }
 
-func Spawn(id ID) *Span {
+func Spawn(id ID) Span {
 	if DefaultLogger == nil || id == 0 {
-		return nil
+		return Span{}
 	}
 
 	return newspan(DefaultLogger, id)
 }
 
 func (l *Logger) Printf(f string, args ...interface{}) {
-	newmessage(l, nil, f, args)
+	newmessage(l, Span{}, f, args)
 }
 
 func (l *Logger) Panicf(f string, args ...interface{}) {
-	newmessage(l, nil, f, args)
+	newmessage(l, Span{}, f, args)
 	panic(fmt.Sprintf(f, args...))
 }
 
 func (l *Logger) Fatalf(f string, args ...interface{}) {
-	newmessage(l, nil, f, args)
+	newmessage(l, Span{}, f, args)
 	os.Exit(1)
 }
 
-func (l *Logger) Start() *Span {
+func (l *Logger) Start() Span {
 	if l == nil {
-		return nil
+		return Span{}
 	}
 
 	return newspan(l, 0)
 }
 
-func (l *Logger) Spawn(id ID) *Span {
+func (l *Logger) Spawn(id ID) Span {
 	if l == nil || id == 0 {
-		return nil
+		return Span{}
 	}
 
 	return newspan(l, id)
@@ -313,16 +313,16 @@ func (l *Logger) SetLogLevel(lev int) {
 	}
 }
 
-func (s *Span) Printf(f string, args ...interface{}) {
-	if s == nil {
+func (s Span) Printf(f string, args ...interface{}) {
+	if s.ID == 0 {
 		return
 	}
 
 	newmessage(s.l, s, f, args)
 }
 
-func (s *Span) Finish() {
-	if s == nil {
+func (s Span) Finish() {
+	if s.ID == 0 {
 		return
 	}
 
@@ -330,10 +330,7 @@ func (s *Span) Finish() {
 	s.l.SpanFinished(s, el)
 }
 
-func (s *Span) SafeID() ID {
-	if s == nil {
-		return 0
-	}
+func (s Span) SafeID() ID {
 	return s.ID
 }
 

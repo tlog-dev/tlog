@@ -17,14 +17,14 @@ func IDFromContext(ctx context.Context) ID {
 	return id
 }
 
-func SpawnFromContext(ctx context.Context) *Span {
+func SpawnFromContext(ctx context.Context) Span {
 	if DefaultLogger == nil {
-		return nil
+		return Span{}
 	}
 
 	id := IDFromContext(ctx)
 	if id == 0 {
-		return nil
+		return Span{}
 	}
 
 	return newspan(DefaultLogger, id)

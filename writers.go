@@ -299,12 +299,12 @@ func (w *ConsoleWriter) buildHeader(t time.Time, loc Location) {
 	w.buf = b[:i]
 }
 
-func (w *ConsoleWriter) Message(m Message, s *Span) {
+func (w *ConsoleWriter) Message(m Message, s Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
 	var t time.Time
-	if s != nil {
+	if s.ID != 0 {
 		t = s.Started.Add(m.Time)
 	} else {
 		t = m.AbsTime()
@@ -312,7 +312,7 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 
 	w.buildHeader(t, m.Location)
 
-	if s != nil && w.f&Lmessagespan != 0 {
+	if s.ID != 0 && w.f&Lmessagespan != 0 {
 		b := append(w.buf, "Span "...)
 		i := len(b)
 		b = w.grow(b, i+20)
@@ -337,7 +337,7 @@ func (w *ConsoleWriter) Message(m Message, s *Span) {
 	_, _ = w.w.Write(w.buf)
 }
 
-func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, par ID, loc Location) []byte {
+func (w *ConsoleWriter) spanHeader(s Span, tm time.Time, par ID, loc Location) []byte {
 	w.buildHeader(tm, loc)
 
 	b := w.buf
@@ -382,7 +382,7 @@ func (w *ConsoleWriter) spanHeader(s *Span, tm time.Time, par ID, loc Location) 
 	return b
 }
 
-func (w *ConsoleWriter) SpanStarted(s *Span, par ID, l Location) {
+func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -399,7 +399,7 @@ func (w *ConsoleWriter) SpanStarted(s *Span, par ID, l Location) {
 	_, _ = w.w.Write(b)
 }
 
-func (w *ConsoleWriter) SpanFinished(s *Span, el time.Duration) {
+func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -452,7 +452,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 			Format:   "Labels: %q",
 			Args:     []interface{}{ls},
 		},
-		nil,
+		Span{},
 	)
 }
 
@@ -489,7 +489,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 	w.w.NewLine()
 }
 
-func (w *JSONWriter) Message(m Message, s *Span) {
+func (w *JSONWriter) Message(m Message, s Span) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -519,7 +519,7 @@ func (w *JSONWriter) Message(m Message, s *Span) {
 	_, _ = fmt.Fprintf(sw, m.Format, m.Args...)
 	sw.Close()
 
-	if s != nil {
+	if s.ID != 0 {
 		w.w.ObjKey([]byte("s"))
 		b = strconv.AppendInt(b[:0], int64(s.ID), 10)
 		_, _ = w.w.Write(b)
@@ -534,7 +534,7 @@ func (w *JSONWriter) Message(m Message, s *Span) {
 	w.buf = b
 }
 
-func (w *JSONWriter) SpanStarted(s *Span, par ID, loc Location) {
+func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -578,7 +578,7 @@ func (w *JSONWriter) SpanStarted(s *Span, par ID, loc Location) {
 	w.buf = b
 }
 
-func (w *JSONWriter) SpanFinished(s *Span, el time.Duration) {
+func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -663,7 +663,7 @@ func (w *TeeWriter) Labels(ls Labels) {
 	}
 }
 
-func (w *TeeWriter) Message(m Message, s *Span) {
+func (w *TeeWriter) Message(m Message, s Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -672,7 +672,7 @@ func (w *TeeWriter) Message(m Message, s *Span) {
 	}
 }
 
-func (w *TeeWriter) SpanStarted(s *Span, par ID, loc Location) {
+func (w *TeeWriter) SpanStarted(s Span, par ID, loc Location) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -681,7 +681,7 @@ func (w *TeeWriter) SpanStarted(s *Span, par ID, loc Location) {
 	}
 }
 
-func (w *TeeWriter) SpanFinished(s *Span, el time.Duration) {
+func (w *TeeWriter) SpanFinished(s Span, el time.Duration) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
@@ -690,10 +690,10 @@ func (w *TeeWriter) SpanFinished(s *Span, el time.Duration) {
 	}
 }
 
-func (w Discard) Labels(Labels)                     {}
-func (w Discard) Message(Message, *Span)            {}
-func (w Discard) SpanStarted(*Span, ID, Location)   {}
-func (w Discard) SpanFinished(*Span, time.Duration) {}
+func (w Discard) Labels(Labels)                    {}
+func (w Discard) Message(Message, Span)            {}
+func (w Discard) SpanStarted(Span, ID, Location)   {}
+func (w Discard) SpanFinished(Span, time.Duration) {}
 
 func (w *bufWriter) Write(p []byte) (int, error) {
 	*w = append(*w, p...)

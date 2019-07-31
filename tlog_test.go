@@ -278,16 +278,16 @@ func TestSpan(t *testing.T) {
 	DefaultLogger = nil
 
 	tr = Start()
-	assert.Nil(t, tr)
+	assert.Zero(t, tr)
 
 	tr2 = Spawn(tr.SafeID())
-	assert.Nil(t, tr2)
+	assert.Zero(t, tr2)
 
 	tr = DefaultLogger.Start()
-	assert.Nil(t, tr)
+	assert.Zero(t, tr)
 
 	tr2 = DefaultLogger.Spawn(tr.SafeID())
-	assert.Nil(t, tr2)
+	assert.Zero(t, tr2)
 
 	assert.NotPanics(t, func() {
 		tr.Printf("msg")
@@ -305,9 +305,9 @@ func TestTeeWriter(t *testing.T) {
 	w := NewTeeWriter(w1, w2)
 
 	w.Labels(Labels{"a=b", "f"})
-	w.Message(Message{Format: "msg"}, nil)
-	w.SpanStarted(&Span{ID: 100, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, 0, 0)
-	w.SpanFinished(&Span{ID: 100}, time.Second)
+	w.Message(Message{Format: "msg"}, Span{})
+	w.SpanStarted(Span{ID: 100, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, 0, 0)
+	w.SpanFinished(Span{ID: 100}, time.Second)
 
 	assert.Equal(t, `{"L":["a=b","f"]}
 {"l":{"pc":0,"f":"","l":0,"n":"."}}

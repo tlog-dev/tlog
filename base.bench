@@ -1,0 +1,11 @@
+goos: linux
+goarch: amd64
+pkg: github.com/nikandfor/tlog
+BenchmarkLogLoggerStd-8            	 5000000	       392 ns/op
+BenchmarkTlogConsoleLoggerStd-8    	 2000000	       840 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLoggerDetailed-8       	 1000000	      1310 ns/op	     208 B/op	       4 allocs/op
+BenchmarkTlogConsoleDetailed-8     	 1000000	      1245 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesConsoleFull-8   	  500000	      3082 ns/op	      72 B/op	       3 allocs/op
+BenchmarkTlogTracesJSONFull-8      	  500000	      3380 ns/op	      72 B/op	       3 allocs/op
+PASS
+ok  	github.com/nikandfor/tlog	10.798s

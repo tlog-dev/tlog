@@ -14,7 +14,7 @@ func TestContext(t *testing.T) {
 
 	ctx := ContextWithID(context.Background(), 0)
 	tr := SpawnFromContext(ctx)
-	assert.Nil(t, tr)
+	assert.Zero(t, tr.ID)
 
 	id := ID(100)
 	ctx = ContextWithID(context.Background(), id)
@@ -31,5 +31,5 @@ func TestContext(t *testing.T) {
 	DefaultLogger = nil
 
 	tr = SpawnFromContext(ctx)
-	assert.Nil(t, tr)
+	assert.Zero(t, tr.ID)
 }
