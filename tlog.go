@@ -178,10 +178,14 @@ func SetLogLevel(l int) {
 }
 
 func newspan(l *Logger, par ID) *Span {
+	var id ID
+	for id == 0 {
+		id = ID(rnd.Int63())
+	}
 	loc := Funcentry(2)
 	s := &Span{
 		l:       l,
-		ID:      ID(rnd.Int63()),
+		ID:      id,
 		Started: now(),
 	}
 	l.SpanStarted(s, par, loc)
