@@ -310,7 +310,7 @@ func TestTeeWriter(t *testing.T) {
 	w.SpanFinished(Span{ID: 100}, time.Second)
 
 	assert.Equal(t, `{"L":["a=b","f"]}
-{"l":{"pc":0,"f":"","l":0,"n":"."}}
+{"l":{"pc":0,"f":"","l":0,"n":""}}
 {"m":{"l":0,"t":0,"m":"msg"}}
 {"s":{"id":100,"l":0,"s":1562408312000000}}
 {"f":{"id":100,"e":1000000}}
@@ -487,10 +487,10 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":389,"n":"tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":389,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"id":8717895732742165505,"l":\d+,"s":1562517071000000}}
 {"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562517072000000}}
-{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":407,"n":"tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":407,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
 {"f":{"id":2259404117704393152,"e":2000000}}
 {"f":{"id":8717895732742165505,"e":4000000,"F":257}}

@@ -618,7 +618,7 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 
 func (w *JSONWriter) location(l Location) {
 	name, file, line := l.NameFileLine()
-	name = path.Base(name)
+	//name = path.Base(name)
 
 	b := w.buf
 
