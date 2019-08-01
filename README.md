@@ -99,12 +99,19 @@ tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(w, tlog.LstdFlags | tlog.Mil
 
 ### JSONWriter
 
-Encodes logs in a compact way to analyze them later. It only needs io.Writer
+Encodes logs in a compact way to analyze them later. It only needs `io.Writer`.
 ```golang
 file, err := // ...
 // if err ...
 var w io.Writer = file // could be os.Stderr or net.Conn...
 tlog.DefailtLogger = tlog.New(tlog.NewJSONWriter(w))
+```
+
+### ProtobufWriter
+
+Even more compact and fast encoding.
+```golang
+_ = tlog.NewProtoWriter(w)
 ```
 
 ### TeeWriter
@@ -117,13 +124,17 @@ w := tlog.NewTeeWriter(cw, jw) // order is important. In that order messages wil
 l := tlog.New(w)
 ```
 
-### ProtobufWriter
+### The best writer ever
 
-Coming soon...
-
-### Your the best writer ever
-
-You could implement your own writer.
+You can implement your own `tlog.Writer`.
+```golang
+    Writer interface {
+        Labels(ls Labels)
+        SpanStarted(s Span, parent ID, l Location)
+        SpanFinished(s Span, el time.Duration)
+        Message(l Message, s Span)
+    }
+```
 
 # Tracing
 
