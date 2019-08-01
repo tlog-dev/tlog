@@ -3,6 +3,7 @@ package parse
 import (
 	"bytes"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 )
 
 func TestJSONReader(t *testing.T) {
+	const Prefix = "github.com/nikandfor/tlog/"
+
 	var buf bytes.Buffer
 	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.UTC)
 	now := func() time.Time {
@@ -79,6 +82,9 @@ func TestJSONReader(t *testing.T) {
 				locs[t.PC] = ex
 			}
 			t.PC = ex
+			if strings.HasPrefix(t.File, Prefix) { // cut prefix in case of repo is not in GOPATH or similar folder structure
+				t.File = t.File[len(Prefix):]
+			}
 			o = t
 		case Message:
 			t.Location = locs[t.Location]
@@ -103,8 +109,8 @@ func TestJSONReader(t *testing.T) {
 		Location{
 			PC:   1,
 			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "github.com/nikandfor/tlog/parse/json_reader_test.go",
-			Line: 27,
+			File: "parse/json_reader_test.go",
+			Line: 30,
 		},
 		Message{
 			Span:     0,
@@ -115,8 +121,8 @@ func TestJSONReader(t *testing.T) {
 		Location{
 			PC:   2,
 			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "github.com/nikandfor/tlog/parse/json_reader_test.go",
-			Line: 36,
+			File: "parse/json_reader_test.go",
+			Line: 39,
 		},
 		Span{
 			ID:       1,
@@ -127,8 +133,8 @@ func TestJSONReader(t *testing.T) {
 		Location{
 			PC:   3,
 			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "github.com/nikandfor/tlog/parse/json_reader_test.go",
-			Line: 39,
+			File: "parse/json_reader_test.go",
+			Line: 42,
 		},
 		Message{
 			Span:     1,
@@ -139,8 +145,8 @@ func TestJSONReader(t *testing.T) {
 		Location{
 			PC:   4,
 			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "github.com/nikandfor/tlog/parse/json_reader_test.go",
-			Line: 48,
+			File: "parse/json_reader_test.go",
+			Line: 51,
 		},
 		Span{
 			ID:       2,

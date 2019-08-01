@@ -485,10 +485,10 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"(github.com/nikandfor/tlog/)?tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"id":8717895732742165505,"l":\d+,"s":1562517071000000}}
 {"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562517072000000}}
-{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"(github.com/nikandfor/tlog/)?tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
 {"f":{"id":2259404117704393152,"e":2000000}}
 {"f":{"id":8717895732742165505,"e":4000000,"F":257}}
