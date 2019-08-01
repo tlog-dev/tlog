@@ -19,10 +19,6 @@ func (t *testt) Func(l *Logger) {
 	l.Printf("pointer receiver")
 }
 
-func (t *testt) testloc() Location {
-	return Caller(0)
-}
-
 func (t *testt) testloc2() Location {
 	return func() Location {
 		return Caller(0)
@@ -116,7 +112,7 @@ func TestLabels(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "val2", v)
 
-	v, ok = ll.Get("key")
+	_, ok = ll.Get("key")
 	assert.False(t, ok)
 
 	v, ok = ll.Get("flag")
@@ -124,7 +120,6 @@ func TestLabels(t *testing.T) {
 	assert.Equal(t, "", v)
 }
 
-//line /path/to/github.com/nikandfor/tlog/tlog_test.go:128
 func TestVerbosity(t *testing.T) {
 	defer func(old func() time.Time) {
 		now = old
@@ -176,7 +171,7 @@ topic1 message (enabled)
 conditional calculations (enabled): 30
 TRACE: 70
 traced msg
-`, string(buf.Bytes()))
+`, buf.String())
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")
 	(*Logger)(nil).SetFilter("a,b,c")
@@ -425,7 +420,6 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(w.buf))
 }
 
-//line tlog_test.go:351
 func TestConsoleWriterSpans(t *testing.T) {
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.Local)
 	now = func() time.Time {
@@ -434,37 +428,36 @@ func TestConsoleWriterSpans(t *testing.T) {
 	}
 	rnd = rand.New(rand.NewSource(0))
 
-	w := NewConsoleWriter(ioutil.Discard, LdetFlags|Lspans|Lmessagespan)
+	w := NewConsoleWriter(ioutil.Discard, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
 
 	l.Labels(Labels{"a=b", "f"})
 
-	assert.Equal(t, `2019/07/07_16:31:11.000000  tlog_test.go:362      Labels: ["a=b" "f"]`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:11.000  Labels: ["a=b" "f"]`+"\n", string(w.buf))
 
 	tr := l.Start()
 
-	assert.Equal(t, `2019/07/07_16:31:12.000000  tlog_test.go:351      Span 78fc2ffac2fd9401 par ________________ started`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:12.000  Span 78fc2ffac2fd9401 par ________________ started`+"\n", string(w.buf))
 
 	tr1 := l.Spawn(tr.SafeID())
 
-	assert.Equal(t, `2019/07/07_16:31:13.000000  tlog_test.go:351      Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 started`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:13.000  Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 started`+"\n", string(w.buf))
 
 	tr1.Printf("message")
 
-	assert.Equal(t, `2019/07/07_16:31:14.000000  tlog_test.go:374      Span 1f5b0412ffd341c0 message`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:14.000  Span 1f5b0412ffd341c0 message`+"\n", string(w.buf))
 
 	tr1.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:15.000000  .:0                   Span 1f5b0412ffd341c0 finished - elapsed 2000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:15.000  Span 1f5b0412ffd341c0 finished - elapsed 2000.00ms`+"\n", string(w.buf))
 
 	tr.Flags |= FlagError | 0x100
 
 	tr.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:16.000000  .:0                   Span 78fc2ffac2fd9401 finished - elapsed 4000.00ms Flags 101`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:16.000  Span 78fc2ffac2fd9401 finished - elapsed 4000.00ms Flags 101`+"\n", string(w.buf))
 }
 
-//line /path/to/github.com/nikandfor/tlog/tlog_test.go:389
 func TestJSONWriterSpans(t *testing.T) {
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.UTC)
 	now = func() time.Time {
@@ -492,10 +485,10 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":389,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"id":8717895732742165505,"l":\d+,"s":1562517071000000}}
 {"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562517072000000}}
-{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":407,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"github.com/nikandfor/tlog/tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
 {"f":{"id":2259404117704393152,"e":2000000}}
 {"f":{"id":8717895732742165505,"e":4000000,"F":257}}

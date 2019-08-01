@@ -122,7 +122,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	i := 0
 
 	var fname, file string
-	var line int = -1
+	var line = -1
 
 	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
 		if w.f&LUTC != 0 {
@@ -421,7 +421,6 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	b := w.spanHeader(s.ID, 0, 0, s.Started.Add(el))
 
 	b = append(b, "finished - elapsed "...)
-	i := len(b)
 
 	e := el.Seconds() * 1000
 
@@ -430,7 +429,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 
 	if s.Flags != 0 {
 		b = append(b, " Flags "...)
-		i = len(b)
+		i := len(b)
 		b = grow(b, i+18)
 
 		F := s.Flags
@@ -627,7 +626,7 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 
 func (w *JSONWriter) location(l Location) {
 	name, file, line := l.NameFileLine()
-	//name = path.Base(name)
+	//	name = path.Base(name)
 
 	b := w.buf
 
@@ -736,10 +735,11 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	b = append(b, 4<<3|2)
 	b = appendVarint(b, uint64(l))
 	// text is already in place
+	b = b[:total]
 
 	w.buf = bb
 
-	_, _ = w.w.Write(bb)
+	_, _ = w.w.Write(b)
 }
 
 func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {

@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nikandfor/tlog"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/nikandfor/tlog"
 )
 
-//line /path/to/github.com/nikandfor/tlog/parse/json_reader_test.go:14
 func TestJSONReader(t *testing.T) {
 	var buf bytes.Buffer
-	var tm time.Time = time.Date(2019, 07, 31, 18, 21, 02, 0, time.UTC)
+	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.UTC)
 	now := func() time.Time {
 		tm = tm.Add(time.Second)
 		return tm
@@ -96,7 +96,7 @@ func TestJSONReader(t *testing.T) {
 		return
 	}
 
-	tm = time.Date(2019, 07, 31, 18, 21, 02, 0, time.UTC)
+	tm = time.Date(2019, 7, 31, 18, 21, 2, 0, time.UTC)
 
 	assert.Equal(t, []interface{}{
 		Labels{"a", "b=c"},

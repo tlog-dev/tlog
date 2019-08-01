@@ -106,7 +106,7 @@ func (f *filter) matchPath(pt, file string) bool {
 		}
 	}
 
-	//Printf("file %v <- %v", b.String(), pattern)
+	//	Printf("file %v <- %v", b.String(), pattern)
 
 	re := regexp.MustCompile("(^|/)" + b.String() + "$")
 
@@ -123,18 +123,19 @@ func (f *filter) matchType(pt, name string) bool {
 			b.WriteByte('.')
 		}
 
-		if n == "*" {
+		switch {
+		case n == "*":
 			b.WriteString(`[\w\.]+`)
 			end = ""
-		} else if regexp.MustCompile(`\(\*?\w+\)`).MatchString(n) {
+		case regexp.MustCompile(`\(\*?\w+\)`).MatchString(n):
 			n = regexp.QuoteMeta(n)
 			b.WriteString(n)
 			end = ""
-		} else if regexp.MustCompile(`[\w\*]+`).MatchString(n) {
+		case regexp.MustCompile(`[\w\*]+`).MatchString(n):
 			n = strings.ReplaceAll(n, "*", `.*`)
 			b.WriteString(n)
 			end = "$"
-		} else {
+		default:
 			return false
 		}
 	}

@@ -109,7 +109,6 @@ func TestFilterMatchType(t *testing.T) {
 	assert.False(t, ff.matchType("%$^", "long/path.(Type).Func"))
 }
 
-//line /path/to/github.com/nikandfor/tlog/filter_test.go:104
 func TestFilterMatchFilter(t *testing.T) {
 	assert.True(t, newFilter("a,b").matchFilter(Location(0), "a"))
 	assert.True(t, newFilter("filter_test.go").matchFilter(Caller(0), "a"))

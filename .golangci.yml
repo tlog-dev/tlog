@@ -23,6 +23,7 @@ linters-settings:
       - github.com/nikandfor/app
       - github.com/nikandfor/tlog
       - github.com/pkg/errors
+      - github.com/golang/protobuf/proto
   misspell:
     locale: US
   lll:

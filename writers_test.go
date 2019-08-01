@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/nikandfor/tlog/tlogpb"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/nikandfor/tlog/tlogpb"
 )
 
 func TestProtoAppendVarint(t *testing.T) {
@@ -33,7 +34,7 @@ func TestProtoWriter(t *testing.T) {
 	var pbuf proto.Buffer
 
 	w.Labels(Labels{"a", "b=c"})
-	pbuf.EncodeMessage(&tlogpb.Record{Labels: []string{"a", "b=c"}})
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: []string{"a", "b=c"}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
 	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
 
@@ -52,7 +53,7 @@ func TestProtoWriter(t *testing.T) {
 		},
 		Span{ID: 10},
 	)
-	pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
 		Pc:   int64(loc),
 		Name: name,
 		File: file,
@@ -67,7 +68,7 @@ func TestProtoWriter(t *testing.T) {
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes()[:l])
 	t.Logf("Location:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf.Bytes()))
 
-	pbuf.EncodeMessage(&tlogpb.Record{Msg: &tlogpb.Message{
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Msg: &tlogpb.Message{
 		Span:     10,
 		Location: int64(loc),
 		Time:     2,
@@ -88,7 +89,7 @@ func TestProtoWriter(t *testing.T) {
 		3,
 		loc,
 	)
-	pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
 		Pc:   int64(loc),
 		Name: name,
 		File: file,
@@ -100,7 +101,7 @@ func TestProtoWriter(t *testing.T) {
 		return
 	}
 
-	pbuf.EncodeMessage(&tlogpb.Record{SpanStart: &tlogpb.SpanStart{
+	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanStart: &tlogpb.SpanStart{
 		Id:       10,
 		Parent:   3,
 		Location: int64(loc),
@@ -119,7 +120,7 @@ func TestProtoWriter(t *testing.T) {
 		},
 		time.Second,
 	)
-	pbuf.EncodeMessage(&tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
+	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      10,
 		Elapsed: time.Second.Nanoseconds() / 1000,
 		Flags:   1000,
