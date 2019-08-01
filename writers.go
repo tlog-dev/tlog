@@ -12,6 +12,8 @@ import (
 	"github.com/nikandfor/json"
 )
 
+//go:generate protoc --go_out=. tlogpb/tlog.proto
+
 type (
 	ConsoleWriter struct {
 		mu        sync.Mutex
@@ -27,6 +29,13 @@ type (
 		w   *json.Writer
 		ls  map[Location]struct{}
 		buf []byte
+	}
+
+	ProtoWriter struct {
+		mu  sync.Mutex
+		w   io.Writer
+		ls  map[Location]struct{}
+		buf bufWriter
 	}
 
 	TeeWriter struct {
@@ -48,7 +57,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	}
 }
 
-func (w *ConsoleWriter) grow(b []byte, l int) []byte {
+func grow(b []byte, l int) []byte {
 more:
 	b = b[:cap(b)]
 	if len(b) >= l {
@@ -65,7 +74,7 @@ more:
 }
 
 func (w *ConsoleWriter) appendSegments(b []byte, i, wid int, name string, s byte) ([]byte, int) {
-	b = w.grow(b, i+wid+5)
+	b = grow(b, i+wid+5)
 	W := i + wid
 
 	if nl := len(name); nl <= wid {
@@ -120,7 +129,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 			t = t.UTC()
 		}
 		if w.f&Ldate != 0 {
-			b = w.grow(b, i+15)
+			b = grow(b, i+15)
 
 			y, m, d := t.Date()
 			for j := 3; j >= 0; j-- {
@@ -146,7 +155,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 			i++
 		}
 		if w.f&Ltime != 0 {
-			b = w.grow(b, i+12)
+			b = grow(b, i+12)
 
 			if i != 0 {
 				b[i] = '_'
@@ -177,7 +186,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 			i++
 		}
 		if w.f&(Lmilliseconds|Lmicroseconds) != 0 {
-			b = w.grow(b, i+12)
+			b = grow(b, i+12)
 
 			if i != 0 {
 				b[i] = '.'
@@ -223,7 +232,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 			st = i
 		}
 
-		b = w.grow(b, st+10)
+		b = grow(b, st+10)
 
 		b[st] = ':'
 		st++
@@ -266,7 +275,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 
 			if l := len(fname); l <= w.funcname {
 				W := i + w.funcname
-				b = w.grow(b, W+4)
+				b = grow(b, W+4)
 				i += copy(b[i:], fname)
 				for ; i < W; i++ {
 					b[i] = ' '
@@ -288,7 +297,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 			i += len(fname)
 		}
 
-		b = w.grow(b, i+4)
+		b = grow(b, i+4)
 
 		b[i] = ' '
 		i++
@@ -315,7 +324,7 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 	if s.ID != 0 && w.f&Lmessagespan != 0 {
 		b := append(w.buf, "Span "...)
 		i := len(b)
-		b = w.grow(b, i+20)
+		b = grow(b, i+20)
 
 		id := s.ID
 		for j := 15; j >= 0; j-- {
@@ -346,7 +355,7 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) []by
 	i := len(b)
 	b = b[:i]
 
-	b = w.grow(b, i+40)
+	b = grow(b, i+40)
 
 	id := sid
 	for j := 15; j >= 0; j-- {
@@ -422,7 +431,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	if s.Flags != 0 {
 		b = append(b, " Flags "...)
 		i = len(b)
-		b = w.grow(b, i+18)
+		b = grow(b, i+18)
 
 		F := s.Flags
 		j := 0
@@ -650,6 +659,232 @@ func (w *JSONWriter) location(l Location) {
 
 	w.ls[l] = struct{}{}
 	w.buf = b
+}
+
+func NewProtoWriter(w io.Writer) *ProtoWriter {
+	return &ProtoWriter{
+		w:  w,
+		ls: make(map[Location]struct{}),
+	}
+}
+
+func (w *ProtoWriter) Labels(ls Labels) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	b := w.buf[:0]
+
+	sz := 0
+	for _, l := range ls {
+		q := len(l)
+		sz += 1 + varintSize(uint64(q)) + q
+	}
+
+	b = appendVarint(b, uint64(sz))
+
+	for _, l := range ls {
+		b = append(b, 1<<3|2)
+		b = appendVarint(b, uint64(len(l)))
+		b = append(b, l...)
+	}
+
+	w.buf = b
+
+	_, _ = w.w.Write(b)
+}
+
+func (w *ProtoWriter) Message(m Message, s Span) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	if _, ok := w.ls[m.Location]; !ok {
+		w.location(m.Location)
+	}
+
+	bb := w.buf[:0]
+
+	l, _ := fmt.Fprintf(&bb, m.Format, m.Args...)
+
+	sz := 0
+	sz += 1 + varintSize(uint64(s.ID))
+	sz += 1 + varintSize(uint64(m.Location))
+	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()/1000))
+	sz += 1 + varintSize(uint64(l)) + l
+
+	szs := varintSize(uint64(sz))
+	szss := varintSize(uint64(1 + szs + sz))
+
+	total := szss + 1 + szs + sz
+	bb = grow(bb, total)[:total]
+
+	copy(bb[total-l:], bb[:l])
+
+	b := appendVarint(bb[:0], uint64(1+szs+sz))
+
+	b = append(b, 3<<3|2)
+	b = appendVarint(b, uint64(sz))
+
+	b = append(b, 1<<3|0)
+	b = appendVarint(b, uint64(s.ID))
+
+	b = append(b, 2<<3|0)
+	b = appendVarint(b, uint64(m.Location))
+
+	b = append(b, 3<<3|0)
+	b = appendVarint(b, uint64(m.Time.Nanoseconds()/1000))
+
+	b = append(b, 4<<3|2)
+	b = appendVarint(b, uint64(l))
+	// text is already in place
+
+	w.buf = bb
+
+	_, _ = w.w.Write(bb)
+}
+
+func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	if _, ok := w.ls[loc]; !ok {
+		w.location(loc)
+	}
+
+	sz := 0
+	sz += 1 + varintSize(uint64(s.ID))
+	if par != 0 {
+		sz += 1 + varintSize(uint64(par))
+	}
+	sz += 1 + varintSize(uint64(loc))
+	sz += 1 + varintSize(uint64(s.Started.UnixNano()/1000))
+
+	b := w.buf[:0]
+	szs := varintSize(uint64(sz))
+	b = appendVarint(b, uint64(1+szs+sz))
+
+	b = append(b, 4<<3|2)
+	b = appendVarint(b, uint64(sz))
+
+	b = append(b, 1<<3|0)
+	b = appendVarint(b, uint64(s.ID))
+
+	if par != 0 {
+		b = append(b, 2<<3|0)
+		b = appendVarint(b, uint64(par))
+	}
+
+	b = append(b, 3<<3|0)
+	b = appendVarint(b, uint64(loc))
+
+	b = append(b, 4<<3|0)
+	b = appendVarint(b, uint64(s.Started.UnixNano()/1000))
+
+	w.buf = b
+
+	_, _ = w.w.Write(b)
+}
+
+func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	sz := 0
+	sz += 1 + varintSize(uint64(s.ID))
+	sz += 1 + varintSize(uint64(el.Nanoseconds()/1000))
+	if s.Flags != 0 {
+		sz += 1 + varintSize(uint64(s.Flags))
+	}
+
+	b := w.buf[:0]
+	szs := varintSize(uint64(sz))
+	b = appendVarint(b, uint64(1+szs+sz))
+
+	b = append(b, 5<<3|2)
+	b = appendVarint(b, uint64(sz))
+
+	b = append(b, 1<<3|0)
+	b = appendVarint(b, uint64(s.ID))
+
+	b = append(b, 2<<3|0)
+	b = appendVarint(b, uint64(el.Nanoseconds()/1000))
+
+	if s.Flags != 0 {
+		b = append(b, 3<<3|0)
+		b = appendVarint(b, uint64(s.Flags))
+	}
+
+	w.buf = b
+
+	_, _ = w.w.Write(b)
+}
+
+func (w *ProtoWriter) location(l Location) {
+	name, file, line := l.NameFileLine()
+
+	b := w.buf[:0]
+
+	sz := 0
+	sz += 1 + varintSize(uint64(l))
+	sz += 1 + varintSize(uint64(len(name))) + len(name)
+	sz += 1 + varintSize(uint64(len(file))) + len(file)
+	sz += 1 + varintSize(uint64(line))
+
+	b = appendVarint(b, uint64(1+varintSize(uint64(sz))+sz))
+
+	b = append(b, 2<<3|2)
+	b = appendVarint(b, uint64(sz))
+
+	b = append(b, 1<<3|0)
+	b = appendVarint(b, uint64(l))
+
+	b = append(b, 2<<3|2)
+	b = appendVarint(b, uint64(len(name)))
+	b = append(b, name...)
+
+	b = append(b, 3<<3|2)
+	b = appendVarint(b, uint64(len(file)))
+	b = append(b, file...)
+
+	b = append(b, 4<<3|0)
+	b = appendVarint(b, uint64(line))
+
+	w.ls[l] = struct{}{}
+	w.buf = b
+
+	_, _ = w.w.Write(b)
+}
+
+func appendVarint(b []byte, v uint64) []byte {
+	switch {
+	case v < 0x80:
+		return append(b, byte(v))
+	case v < 1<<14:
+		return append(b, byte(v|0x80), byte(v>>7))
+	case v < 1<<21:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14))
+	case v < 1<<28:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21))
+	case v < 1<<35:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28))
+	case v < 1<<42:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35))
+	case v < 1<<49:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42))
+	case v < 1<<56:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42|0x80), byte(v>>49))
+	case v < 1<<63:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56))
+	default:
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56), byte(v>>63))
+	}
+}
+
+func varintSize(v uint64) int {
+	s := 0
+	for ; v != 0; v >>= 7 {
+		s++
+	}
+	return s
 }
 
 func NewTeeWriter(w ...Writer) *TeeWriter {

@@ -144,8 +144,8 @@ func TestVerbosity(t *testing.T) {
 	SetFilter("topic1,tlog=topic3")
 
 	Printf("unconditional message")
-	V("topic1").Printf("topic1 message (enabled)")
-	V("topic2").Printf("topic2 message (disabled)")
+	DefaultLogger.V("topic1").Printf("topic1 message (enabled)")
+	DefaultLogger.V("topic2").Printf("topic2 message (disabled)")
 
 	if l := V("topic3"); l != nil {
 		p := 10 + 20 // complex calculations
@@ -166,7 +166,9 @@ func TestVerbosity(t *testing.T) {
 	}
 
 	tr := V("topic1").Start()
-	tr.Printf("traced msg")
+	if tr.V() {
+		tr.Printf("traced msg")
+	}
 	tr.Finish()
 
 	assert.Equal(t, `unconditional message
@@ -196,6 +198,9 @@ traced msg
 
 	SetLogLevel(5)
 	assert.Equal(t, TraceFilter, DefaultLogger.filter.f)
+
+	DefaultLogger = nil
+	V("a").Printf("none")
 }
 
 func TestSetFilter(t *testing.T) {
