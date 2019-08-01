@@ -189,7 +189,7 @@ func (b *VideosBackend) Search(ctx context.Context, q string) string {
 ```
 With traces you can measure timings such as how much each function elapsed, how much time has passed since one message to another.
 
-**Important thing you should remember: context Values are not passed through the network (http.Request.WithContext for example). You must pass traceID manually. Luckily it's just an int64.**
+**Important thing you should remember: context Values are not passed through the network (http.Request.WithContext for example). You must pass `Span.ID` manually. Luckily it's just an int64.**
 
 Analysing and visualising tool is going to be later.
 
@@ -223,8 +223,6 @@ BenchmarkTlogTracesJSONFull-8      	  500000	      3446 ns/op	      24 B/op	    
 BenchmarkTlogTracesProtoFull-8   	 1000000	      2025 ns/op	      24 B/op	       2 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
-
-1 more alloc in `TlogTraces` benchmarks is `*Span` allocation.
 
 2 more allocs in `LogLoggerDetailed` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
 
