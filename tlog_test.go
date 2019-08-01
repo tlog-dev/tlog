@@ -30,6 +30,7 @@ func TestTlogParallel(t *testing.T) {
 	const N = 2
 
 	var buf bytes.Buffer
+	rnd = &concurrentRand{rnd: rand.New(rand.NewSource(0))}
 
 	defer func(l *Logger) {
 		DefaultLogger = l
@@ -43,6 +44,9 @@ func TestTlogParallel(t *testing.T) {
 			defer wg.Done()
 			for i := 0; i < N; i++ {
 				Printf("do j %d i %d", j, i)
+				tr := Start()
+				tr.Printf("trace j %d i %d", j, i)
+				tr.Finish()
 			}
 		}(j)
 	}
@@ -73,6 +77,30 @@ func TestPanicf(t *testing.T) {
 
 	assert.Equal(t, `2019/07/06_19:45:26  panic! 1
 2019/07/06_19:45:27  panic! 2
+`, buf.String())
+}
+
+func TestRawMessage(t *testing.T) {
+	defer func(l *Logger) {
+		DefaultLogger = l
+	}(DefaultLogger)
+
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+
+	RawMessage([]byte("raw message 1"))
+	DefaultLogger.RawMessage([]byte("raw message 2"))
+
+	tr := Start()
+	tr.RawMessage([]byte("raw message 3"))
+	tr.Finish()
+
+	tr = Span{}
+	tr.RawMessage([]byte("raw message 4"))
+
+	assert.Equal(t, `raw message 1
+raw message 2
+raw message 3
 `, buf.String())
 }
 
@@ -266,13 +294,13 @@ func TestSpan(t *testing.T) {
 	tr := Start()
 	assert.NotNil(t, tr)
 
-	tr2 := Spawn(tr.SafeID())
+	tr2 := Spawn(tr.ID)
 	assert.NotNil(t, tr2)
 
 	tr = DefaultLogger.Start()
 	assert.NotNil(t, tr)
 
-	tr2 = DefaultLogger.Spawn(tr.SafeID())
+	tr2 = DefaultLogger.Spawn(tr.ID)
 	assert.NotNil(t, tr2)
 
 	DefaultLogger = nil
@@ -280,13 +308,13 @@ func TestSpan(t *testing.T) {
 	tr = Start()
 	assert.Zero(t, tr)
 
-	tr2 = Spawn(tr.SafeID())
+	tr2 = Spawn(tr.ID)
 	assert.Zero(t, tr2)
 
 	tr = DefaultLogger.Start()
 	assert.Zero(t, tr)
 
-	tr2 = DefaultLogger.Spawn(tr.SafeID())
+	tr2 = DefaultLogger.Spawn(tr.ID)
 	assert.Zero(t, tr2)
 
 	assert.NotPanics(t, func() {
@@ -439,7 +467,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	assert.Equal(t, `2019/07/07_16:31:12.000  Span 78fc2ffac2fd9401 par ________________ started`+"\n", string(w.buf))
 
-	tr1 := l.Spawn(tr.SafeID())
+	tr1 := l.Spawn(tr.ID)
 
 	assert.Equal(t, `2019/07/07_16:31:13.000  Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 started`+"\n", string(w.buf))
 
@@ -474,7 +502,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr := l.Start()
 
-	tr1 := l.Spawn(tr.SafeID())
+	tr1 := l.Spawn(tr.ID)
 
 	tr1.Printf("message")
 
@@ -539,7 +567,7 @@ func BenchmarkTlogConsoleDetailed(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesConsoleFull(b *testing.B) {
+func BenchmarkTlogTracesConsole(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags|Lspans))
@@ -551,7 +579,7 @@ func BenchmarkTlogTracesConsoleFull(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesJSONFull(b *testing.B) {
+func BenchmarkTlogTracesJSON(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewJSONWriter(ioutil.Discard))
@@ -563,7 +591,7 @@ func BenchmarkTlogTracesJSONFull(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesProtoFull(b *testing.B) {
+func BenchmarkTlogTracesProto(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewProtoWriter(ioutil.Discard))
@@ -571,6 +599,21 @@ func BenchmarkTlogTracesProtoFull(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
 		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
+		tr.Finish()
+	}
+}
+
+func BenchmarkTlogTracesProtoRawMessage(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
+	var buf = []byte("raw message") // reusable buffer
+
+	for i := 0; i < b.N; i++ {
+		tr := l.Start()
+		// fill in buffer...
+		tr.RawMessage(buf)
 		tr.Finish()
 	}
 }

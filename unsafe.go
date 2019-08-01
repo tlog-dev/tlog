@@ -96,3 +96,7 @@ func pcdatavalue(f funcInfo, table int32, targetpc uintptr, cache unsafe.Pointer
 
 //go:linkname funcnameFromNameoff runtime.funcnameFromNameoff
 func funcnameFromNameoff(f funcInfo, nameoff int32) string
+
+func bytesToString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}

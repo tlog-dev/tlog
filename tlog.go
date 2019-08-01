@@ -159,6 +159,10 @@ func Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func RawMessage(b []byte) {
+	newmessage(DefaultLogger, Span{}, bytesToString(b), nil)
+}
+
 func V(tp string) *Logger {
 	if DefaultLogger == nil {
 		return nil
@@ -258,6 +262,10 @@ func (l *Logger) Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func (l *Logger) RawMessage(b []byte) {
+	newmessage(l, Span{}, bytesToString(b), nil)
+}
+
 func (l *Logger) Start() Span {
 	if l == nil {
 		return Span{}
@@ -325,6 +333,14 @@ func (s Span) Printf(f string, args ...interface{}) {
 	newmessage(s.l, s, f, args)
 }
 
+func (s Span) RawMessage(b []byte) {
+	if s.ID == 0 {
+		return
+	}
+
+	newmessage(s.l, s, bytesToString(b), nil)
+}
+
 func (s Span) Finish() {
 	if s.ID == 0 {
 		return
@@ -332,10 +348,6 @@ func (s Span) Finish() {
 
 	el := now().Sub(s.Started)
 	s.l.SpanFinished(s, el)
-}
-
-func (s Span) SafeID() ID {
-	return s.ID
 }
 
 func (ls *Labels) Set(k, v string) {

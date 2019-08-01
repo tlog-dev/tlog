@@ -214,13 +214,14 @@ I fighted each alloc and each byte and even hacked runtime (see `unsafe.go`). So
 goos: linux
 goarch: amd64
 pkg: github.com/nikandfor/tlog
-BenchmarkLogLoggerStd-8            	 3000000	       395 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogConsoleLoggerStd-8    	 5000000	       327 ns/op	      24 B/op	       2 allocs/op
-BenchmarkLogLoggerDetailed-8       	 1000000	      1322 ns/op	     208 B/op	       4 allocs/op
-BenchmarkTlogConsoleDetailed-8     	 1000000	      1359 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesConsoleFull-8   	  500000	      3189 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesJSONFull-8      	  500000	      3446 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProtoFull-8   	 1000000	      2025 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLoggerStd-8                	 3000000	       397 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogConsoleLoggerStd-8        	 5000000	       340 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLoggerDetailed-8           	 1000000	      1362 ns/op	     208 B/op	       4 allocs/op
+BenchmarkTlogConsoleDetailed-8         	 1000000	      1454 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesConsole-8           	  500000	      3245 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesJSON-8              	  500000	      3483 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProto-8             	 1000000	      2010 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProtoRawMessage-8   	 1000000	      1915 ns/op	       0 B/op	       0 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
