@@ -209,6 +209,7 @@ BenchmarkLogLoggerDetailed-8       	 1000000	      1322 ns/op	     208 B/op	    
 BenchmarkTlogConsoleDetailed-8     	 1000000	      1359 ns/op	      24 B/op	       2 allocs/op
 BenchmarkTlogTracesConsoleFull-8   	  500000	      3189 ns/op	      24 B/op	       2 allocs/op
 BenchmarkTlogTracesJSONFull-8      	  500000	      3446 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProtoFull-8   	 1000000	      2025 ns/op	      24 B/op	       2 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 

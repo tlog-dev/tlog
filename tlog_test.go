@@ -562,3 +562,15 @@ func BenchmarkTlogTracesJSONFull(b *testing.B) {
 		tr.Finish()
 	}
 }
+
+func BenchmarkTlogTracesProtoFull(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
+	for i := 0; i < b.N; i++ {
+		tr := l.Start()
+		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
+		tr.Finish()
+	}
+}

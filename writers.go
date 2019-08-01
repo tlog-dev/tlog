@@ -700,9 +700,9 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 		w.location(m.Location)
 	}
 
-	bb := w.buf[:0]
+	w.buf = w.buf[:0]
 
-	l, _ := fmt.Fprintf(&bb, m.Format, m.Args...)
+	l, _ := fmt.Fprintf(&w.buf, m.Format, m.Args...)
 
 	sz := 0
 	sz += 1 + varintSize(uint64(s.ID))
@@ -714,11 +714,11 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	szss := varintSize(uint64(1 + szs + sz))
 
 	total := szss + 1 + szs + sz
-	bb = grow(bb, total)[:total]
+	b := grow(w.buf, total)[:total]
 
-	copy(bb[total-l:], bb[:l])
+	copy(b[total-l:], b[:l])
 
-	b := appendVarint(bb[:0], uint64(1+szs+sz))
+	b = appendVarint(b[:0], uint64(1+szs+sz))
 
 	b = append(b, 3<<3|2)
 	b = appendVarint(b, uint64(sz))
@@ -737,7 +737,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	// text is already in place
 	b = b[:total]
 
-	w.buf = bb
+	w.buf = b
 
 	_, _ = w.w.Write(b)
 }
