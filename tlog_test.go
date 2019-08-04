@@ -351,18 +351,6 @@ func TestIDString(t *testing.T) {
 	assert.Equal(t, "________________", ID(0).String())
 }
 
-func TestMessageSpanID(t *testing.T) {
-	m := Message{
-		Args: []interface{}{
-			ID(0x1234567890abcdef),
-		},
-	}
-	assert.Equal(t, ID(0x1234567890abcdef), m.SpanID())
-
-	m.Args = nil
-	assert.Equal(t, ID(0), m.SpanID())
-}
-
 func TestConsoleWriterAppendSegment(t *testing.T) {
 	b := []byte("prefix     ")
 	i := 7
@@ -406,19 +394,19 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Llongfile
 	w.buildHeader(loc, tm)
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:14  ", w.buf)
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:19  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	w.f = Lshortfile
 	w.shortfile = 20
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "location.go:14        ", string(w.buf))
+	assert.Equal(t, "location.go:19        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.shortfile = 10
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "locatio:14  ", string(w.buf))
+	assert.Equal(t, "locatio:19  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 10
@@ -603,7 +591,7 @@ func BenchmarkTlogTracesProto(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesProtoRawMessage(b *testing.B) {
+func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewProtoWriter(ioutil.Discard))

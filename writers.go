@@ -15,6 +15,11 @@ import (
 //go:generate protoc --go_out=. tlogpb/tlog.proto
 
 type (
+	// ConsoleWriter produces similar output as stdlib log.Logger.
+	//
+	// Each event ends up with a single Write.
+	//
+	// It's safe to write event simultaneously.
 	ConsoleWriter struct {
 		mu        sync.Mutex
 		w         io.Writer
@@ -24,6 +29,13 @@ type (
 		buf       bufWriter
 	}
 
+	// JSONWriter produces output readable by both machines and humans.
+	//
+	// Each event ends up with a single Write.
+	//
+	// It's safe to write event simultaneously.
+	//
+	// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 	JSONWriter struct {
 		mu  sync.Mutex
 		w   *json.Writer
@@ -31,6 +43,13 @@ type (
 		buf []byte
 	}
 
+	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
+	//
+	// Each event ends up with a single Write.
+	//
+	// It's safe to write event simultaneously.
+	//
+	// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 	ProtoWriter struct {
 		mu  sync.Mutex
 		w   io.Writer
@@ -38,16 +57,19 @@ type (
 		buf bufWriter
 	}
 
+	// TeeWriter writes the same events in the same order to all Writers one after another.
 	TeeWriter struct {
 		mu      sync.Mutex
 		Writers []Writer
 	}
 
+	// Discard discards all events.
 	Discard struct{}
 
 	bufWriter []byte
 )
 
+// NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
 		w:         w,
@@ -260,7 +282,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	}
 	if w.f&(Ltypefunc|Lfuncname) != 0 {
 		if line == -1 {
-			fname, file, line = loc.NameFileLine()
+			fname, _, _ = loc.NameFileLine()
 		}
 		fname = path.Base(fname)
 
@@ -308,6 +330,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	w.buf = b[:i]
 }
 
+// Message writes Message event by single Write.
 func (w *ConsoleWriter) Message(m Message, s Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -393,6 +416,7 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) []by
 	return b
 }
 
+// Message writes SpanStarted event by single Write.
 func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 	if w.f&Lspans == 0 {
 		return
@@ -410,6 +434,7 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 	_, _ = w.w.Write(b)
 }
 
+// Message writes SpanFinished event by single Write.
 func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	if w.f&Lspans == 0 {
 		return
@@ -454,6 +479,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	_, _ = w.w.Write(b)
 }
 
+// Message writes Labels by single Write.
 func (w *ConsoleWriter) Labels(ls Labels) {
 	w.Message(
 		Message{
@@ -466,10 +492,18 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 	)
 }
 
+// NewConsoleWriter creates JSON writer.
+//
+// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 func NewJSONWriter(w io.Writer) *JSONWriter {
 	return NewCustomJSONWriter(json.NewStreamWriter(w))
 }
 
+// NewCustomJSONWriter creates writer with similar output as log.Logger.
+//
+// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
+//
+// json.Writer has buffer internally but it's Flushed after each event.
 func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 	return &JSONWriter{
 		w:  w,
@@ -477,6 +511,7 @@ func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 	}
 }
 
+// Labels writes Labels to the stream.
 func (w *JSONWriter) Labels(ls Labels) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
@@ -499,6 +534,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 	w.w.NewLine()
 }
 
+// Message writes enent to the stream.
 func (w *JSONWriter) Message(m Message, s Span) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
@@ -544,6 +580,7 @@ func (w *JSONWriter) Message(m Message, s Span) {
 	w.buf = b
 }
 
+// SpanStarted writes event to the stream.
 func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
@@ -588,6 +625,7 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	w.buf = b
 }
 
+// SpanFinished writes event to the stream.
 func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 	defer w.w.Flush()
 	defer w.mu.Unlock()
@@ -660,6 +698,9 @@ func (w *JSONWriter) location(l Location) {
 	w.buf = b
 }
 
+// NewConsoleWriter creates Protobuf writer.
+//
+// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
 		w:  w,
@@ -667,6 +708,7 @@ func NewProtoWriter(w io.Writer) *ProtoWriter {
 	}
 }
 
+// Labels writes Labels to the stream.
 func (w *ProtoWriter) Labels(ls Labels) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -692,6 +734,7 @@ func (w *ProtoWriter) Labels(ls Labels) {
 	_, _ = w.w.Write(b)
 }
 
+// Message writes enent to the stream.
 func (w *ProtoWriter) Message(m Message, s Span) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -742,6 +785,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	_, _ = w.w.Write(b)
 }
 
+// SpanStarted writes event to the stream.
 func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -784,6 +828,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	_, _ = w.w.Write(b)
 }
 
+// SpanFinished writes event to the stream.
 func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
@@ -869,13 +914,17 @@ func appendVarint(b []byte, v uint64) []byte {
 	case v < 1<<42:
 		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35))
 	case v < 1<<49:
-		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42))
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42))
 	case v < 1<<56:
-		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42|0x80), byte(v>>49))
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42|0x80), byte(v>>49))
 	case v < 1<<63:
-		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56))
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56))
 	default:
-		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80), byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56), byte(v>>63))
+		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56), byte(v>>63))
 	}
 }
 
@@ -887,6 +936,7 @@ func varintSize(v uint64) int {
 	return s
 }
 
+// NewTeeWriter creates multiwriter that writes the same events to all writers in the same order.
 func NewTeeWriter(w ...Writer) *TeeWriter {
 	return &TeeWriter{Writers: w}
 }

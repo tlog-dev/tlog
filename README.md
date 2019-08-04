@@ -128,12 +128,12 @@ l := tlog.New(w)
 
 You can implement your own `tlog.Writer`.
 ```golang
-    Writer interface {
-        Labels(ls Labels)
-        SpanStarted(s Span, parent ID, l Location)
-        SpanFinished(s Span, el time.Duration)
-        Message(l Message, s Span)
-    }
+Writer interface {
+    Labels(ls Labels)
+    SpanStarted(s Span, parent ID, l Location)
+    SpanFinished(s Span, el time.Duration)
+    Message(l Message, s Span)
+}
 ```
 
 # Tracing
@@ -221,7 +221,7 @@ BenchmarkTlogConsoleDetailed-8         	 1000000	      1454 ns/op	      24 B/op	
 BenchmarkTlogTracesConsole-8           	  500000	      3245 ns/op	      24 B/op	       2 allocs/op
 BenchmarkTlogTracesJSON-8              	  500000	      3483 ns/op	      24 B/op	       2 allocs/op
 BenchmarkTlogTracesProto-8             	 1000000	      2010 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProtoRawMessage-8   	 1000000	      1915 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTracesProtoPrintRaw-8   	 1000000	      1915 ns/op	       0 B/op	       0 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
