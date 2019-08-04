@@ -10,15 +10,9 @@ import (
 	"github.com/nikandfor/json"
 )
 
-type (
-	Reader interface {
-		Read() (interface{}, error)
-	}
-
-	JSONReader struct {
-		r *json.Reader
-	}
-)
+type JSONReader struct {
+	r *json.Reader
+}
 
 func NewJSONReader(r io.Reader) *JSONReader {
 	return NewCustomJSONReader(json.NewReader(r))

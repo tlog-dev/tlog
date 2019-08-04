@@ -159,7 +159,7 @@ func Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func RawMessage(b []byte) {
+func PrintRaw(b []byte) {
 	newmessage(DefaultLogger, Span{}, bytesToString(b), nil)
 }
 
@@ -262,7 +262,7 @@ func (l *Logger) Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func (l *Logger) RawMessage(b []byte) {
+func (l *Logger) PrintRaw(b []byte) {
 	newmessage(l, Span{}, bytesToString(b), nil)
 }
 
@@ -333,7 +333,7 @@ func (s Span) Printf(f string, args ...interface{}) {
 	newmessage(s.l, s, f, args)
 }
 
-func (s Span) RawMessage(b []byte) {
+func (s Span) PrintRaw(b []byte) {
 	if s.ID == 0 {
 		return
 	}

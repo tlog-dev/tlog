@@ -88,15 +88,15 @@ func TestRawMessage(t *testing.T) {
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, 0))
 
-	RawMessage([]byte("raw message 1"))
-	DefaultLogger.RawMessage([]byte("raw message 2"))
+	PrintRaw([]byte("raw message 1"))
+	DefaultLogger.PrintRaw([]byte("raw message 2"))
 
 	tr := Start()
-	tr.RawMessage([]byte("raw message 3"))
+	tr.PrintRaw([]byte("raw message 3"))
 	tr.Finish()
 
 	tr = Span{}
-	tr.RawMessage([]byte("raw message 4"))
+	tr.PrintRaw([]byte("raw message 4"))
 
 	assert.Equal(t, `raw message 1
 raw message 2
@@ -613,7 +613,7 @@ func BenchmarkTlogTracesProtoRawMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
 		// fill in buffer...
-		tr.RawMessage(buf)
+		tr.PrintRaw(buf)
 		tr.Finish()
 	}
 }

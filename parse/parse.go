@@ -41,4 +41,8 @@ type (
 		Time     time.Duration
 		Text     string
 	}
+
+	Reader interface {
+		Read() (interface{}, error)
+	}
 )
