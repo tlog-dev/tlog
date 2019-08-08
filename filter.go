@@ -15,6 +15,13 @@ type filter struct {
 }
 
 func newFilter(f string) *filter {
+	for _, q := range strings.Split(f, ",") {
+		if q == "*" {
+			f = q
+			break
+		}
+	}
+
 	return &filter{
 		f: f,
 		c: make(map[Location]bool),
@@ -24,6 +31,10 @@ func newFilter(f string) *filter {
 func (f *filter) match(t string) bool {
 	if f == nil {
 		return false
+	}
+
+	if f.f == "*" {
+		return true
 	}
 
 	loc := Caller(2)
@@ -76,10 +87,13 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 	return false
 }
 
-func (f *filter) matchTopics(a string, b []string) bool {
-	for _, a := range strings.Split(a, "+") {
-		for _, b := range b {
-			if a == b {
+func (f *filter) matchTopics(filt string, topics []string) bool {
+	for _, f := range strings.Split(filt, "+") {
+		if f == "*" {
+			return true
+		}
+		for _, t := range topics {
+			if f == t {
 				return true
 			}
 		}
