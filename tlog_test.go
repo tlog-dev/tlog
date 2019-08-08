@@ -208,19 +208,19 @@ traced msg
 	assert.Nil(t, DefaultLogger.filter)
 
 	SetLogLevel(1)
-	assert.Equal(t, CriticalFilter, DefaultLogger.filter.f)
+	assert.Equal(t, CriticalLevel, DefaultLogger.filter.f)
 
 	SetLogLevel(2)
-	assert.Equal(t, ErrorFilter, DefaultLogger.filter.f)
+	assert.Equal(t, ErrorLevel, DefaultLogger.filter.f)
 
 	SetLogLevel(3)
-	assert.Equal(t, InfoFilter, DefaultLogger.filter.f)
+	assert.Equal(t, InfoLevel, DefaultLogger.filter.f)
 
 	SetLogLevel(4)
-	assert.Equal(t, DebugFilter, DefaultLogger.filter.f)
+	assert.Equal(t, DebugLevel, DefaultLogger.filter.f)
 
 	SetLogLevel(5)
-	assert.Equal(t, TraceFilter, DefaultLogger.filter.f)
+	assert.Equal(t, TraceLevel, DefaultLogger.filter.f)
 
 	DefaultLogger = nil
 	V("a").Printf("none")

@@ -103,12 +103,6 @@ const ( // log levels
 	InfoLevel     = "info"
 	DebugLevel    = "debug"
 	TraceLevel    = "trace"
-
-	CriticalFilter = CriticalLevel
-	ErrorFilter    = CriticalFilter + "+" + ErrorLevel
-	InfoFilter     = ErrorFilter + "+" + InfoLevel
-	DebugFilter    = InfoFilter + "+" + DebugLevel
-	TraceFilter    = DebugFilter + "+" + TraceLevel
 )
 
 var ( // time, rand
@@ -404,15 +398,15 @@ func (l *Logger) SetLogLevel(lev int) {
 	case lev <= 0:
 		l.SetFilter("")
 	case lev == 1:
-		l.SetFilter(CriticalFilter)
+		l.SetFilter(CriticalLevel)
 	case lev == 2:
-		l.SetFilter(ErrorFilter)
+		l.SetFilter(ErrorLevel)
 	case lev == 3:
-		l.SetFilter(InfoFilter)
+		l.SetFilter(InfoLevel)
 	case lev == 4:
-		l.SetFilter(DebugFilter)
+		l.SetFilter(DebugLevel)
 	default:
-		l.SetFilter(TraceFilter)
+		l.SetFilter(TraceLevel)
 	}
 }
 

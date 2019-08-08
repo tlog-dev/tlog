@@ -88,10 +88,22 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 }
 
 func (f *filter) matchTopics(filt string, topics []string) bool {
-	for _, f := range strings.Split(filt, "+") {
-		if f == "*" {
+	ff := strings.Split(filt, "+")
+	for i := 0; i < len(ff); i++ {
+		f := ff[i]
+		switch f {
+		case "*":
 			return true
+		case ErrorLevel:
+			ff = append(ff, CriticalLevel)
+		case InfoLevel:
+			ff = append(ff, ErrorLevel)
+		case DebugLevel:
+			ff = append(ff, InfoLevel)
+		case TraceLevel:
+			ff = append(ff, DebugLevel)
 		}
+
 		for _, t := range topics {
 			if f == t {
 				return true
