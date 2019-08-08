@@ -113,7 +113,7 @@ var ( // time, rand
 )
 
 var ( // defaults
-	DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 )
 
 // FillLabelsWithDefaults creates Labels and fills _hostname and _pid labels with current values.
@@ -408,6 +408,11 @@ func (l *Logger) SetLogLevel(lev int) {
 	default:
 		l.SetFilter(TraceLevel)
 	}
+}
+
+func (l *Logger) noLocations() *Logger {
+	l.NoLocations = true
+	return l
 }
 
 // V checks if span is active (filter condition was true when span was created).

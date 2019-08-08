@@ -8,7 +8,7 @@ import (
 
 func main() {
 	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
-	tlog.SetFilter(tlog.InfoFilter)
+	tlog.SetFilter(tlog.InfoLevel)
 
 	tlog.Printf("unconditional log message")
 
