@@ -118,7 +118,7 @@ func TestFilterMatchType(t *testing.T) {
 }
 
 func TestFilterMatchFilter(t *testing.T) {
-	assert.True(t, newFilter("a,b").matchFilter(Location(0), "a"))
+	assert.True(t, newFilter("a,b").matchFilter(Caller(0), "a"))
 	assert.True(t, newFilter("filter_test.go").matchFilter(Caller(0), "a"))
 	assert.True(t, newFilter("tlog").matchFilter(Caller(0), "a"))
 	assert.True(t, newFilter("tlog=a").matchFilter(Caller(0), "a"))
@@ -128,6 +128,13 @@ func TestFilterMatchFilter(t *testing.T) {
 
 	assert.True(t, newFilter("TestFilterMatchFilter").matchFilter(Caller(0), "a"))
 	assert.False(t, newFilter("TestFilterMatchType").matchFilter(Caller(0), "a"))
+
+	// include/exclude
+	assert.False(t, newFilter("a,b,!a").matchFilter(Caller(0), "a"))
+	assert.True(t, newFilter("a,b,!another_file.go=a").matchFilter(Caller(0), "a,b"))
+	assert.False(t, newFilter("a,b,c,!filter_test.go=a").matchFilter(Caller(0), "a,c,d"))
+	assert.False(t, newFilter("!a").matchFilter(Caller(0), "a"))
+	assert.True(t, newFilter("!a").matchFilter(Caller(0), "b"))
 }
 
 func TestFilterMatchBase(t *testing.T) {
@@ -138,4 +145,6 @@ func TestFilterMatchBase(t *testing.T) {
 	assert.True(t, newFilter("*").match(""))
 
 	assert.True(t, newFilter("a,*,b=c").match("q"))
+
+	assert.False(t, newFilter("*,!a").match("a"))
 }

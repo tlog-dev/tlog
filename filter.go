@@ -15,13 +15,6 @@ type filter struct {
 }
 
 func newFilter(f string) *filter {
-	for _, q := range strings.Split(f, ",") {
-		if q == "*" {
-			f = q
-			break
-		}
-	}
-
 	return &filter{
 		f: f,
 		c: make(map[Location]bool),
@@ -55,9 +48,19 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 	topics := strings.Split(t, ",")
 	name, file, _ := loc.NameFileLine()
 
-	for _, ft := range strings.Split(f.f, ",") {
+	var ok bool
+
+	for i, ft := range strings.Split(f.f, ",") {
 		if ft == "" {
 			continue
+		}
+		set := true
+		if ft[0] == '!' {
+			if i == 0 {
+				ok = true
+			}
+			set = false
+			ft = ft[1:]
 		}
 
 		lr := strings.SplitN(ft, "=", 2)
@@ -65,7 +68,8 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 		var pt string
 		if len(lr) == 1 {
 			if f.matchTopics(ft, topics) {
-				return true
+				ok = set
+				continue
 			}
 			pt = ft
 		} else {
@@ -76,15 +80,17 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 		}
 
 		if f.matchPath(pt, file) {
-			return true
+			ok = set
+			continue
 		}
 
 		if f.matchType(pt, name) {
-			return true
+			ok = set
+			continue
 		}
 	}
 
-	return false
+	return ok
 }
 
 func (f *filter) matchTopics(filt string, topics []string) bool {
