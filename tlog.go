@@ -55,8 +55,6 @@ type (
 		ID ID
 
 		Started time.Time
-
-		Flags int
 	}
 
 	// Rand is an interface for rand.Rand. It's intended mostly for testing purpose.

@@ -69,6 +69,4 @@ func (*A) func1(id tlog.ID) {
 	func() {
 		tr.Printf("func1.1: %v", "four")
 	}()
-
-	tr.Flags |= tlog.FlagError
 }

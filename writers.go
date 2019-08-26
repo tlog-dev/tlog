@@ -450,29 +450,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	e := el.Seconds() * 1000
 
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
-	b = append(b, "ms"...)
-
-	if s.Flags != 0 {
-		b = append(b, " Flags "...)
-		i := len(b)
-		b = grow(b, i+18)
-
-		F := s.Flags
-		j := 0
-		for q := uint64(0xf); q <= uint64(F) && j < 15; q <<= 4 {
-			j++
-		}
-		n := j + 1
-		for ; j >= 0; j-- {
-			b[i+j] = digits[F&0xf]
-			F >>= 4
-		}
-		i += n
-
-		b = b[:i]
-	}
-
-	b = append(b, '\n')
+	b = append(b, "ms\n"...)
 
 	w.buf = b
 
@@ -646,12 +624,6 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 	w.w.ObjKey([]byte("e"))
 	b = strconv.AppendInt(b[:0], el.Nanoseconds()/1000, 10)
 	_, _ = w.w.Write(b)
-
-	if s.Flags != 0 {
-		w.w.ObjKey([]byte("F"))
-		b = strconv.AppendInt(b[:0], int64(s.Flags), 10)
-		_, _ = w.w.Write(b)
-	}
 
 	w.w.ObjEnd()
 
@@ -836,9 +808,6 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	sz := 0
 	sz += 1 + varintSize(uint64(s.ID))
 	sz += 1 + varintSize(uint64(el.Nanoseconds()/1000))
-	if s.Flags != 0 {
-		sz += 1 + varintSize(uint64(s.Flags))
-	}
 
 	b := w.buf[:0]
 	szs := varintSize(uint64(sz))
@@ -852,11 +821,6 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 
 	b = append(b, 2<<3|0)
 	b = appendVarint(b, uint64(el.Nanoseconds()/1000))
-
-	if s.Flags != 0 {
-		b = append(b, 3<<3|0)
-		b = appendVarint(b, uint64(s.Flags))
-	}
 
 	w.buf = b
 

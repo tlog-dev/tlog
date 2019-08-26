@@ -467,11 +467,9 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	assert.Equal(t, `2019/07/07_16:31:15.000  Span 1f5b0412ffd341c0 finished - elapsed 2000.00ms`+"\n", string(w.buf))
 
-	tr.Flags |= FlagError | 0x100
-
 	tr.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:16.000  Span 78fc2ffac2fd9401 finished - elapsed 4000.00ms Flags 101`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:16.000  Span 78fc2ffac2fd9401 finished - elapsed 4000.00ms`+"\n", string(w.buf))
 }
 
 func TestJSONWriterSpans(t *testing.T) {
@@ -496,18 +494,16 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Finish()
 
-	tr.Flags |= FlagError | 0x100
-
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"pc":\d+,"f":"[\w/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"id":8717895732742165505,"l":\d+,"s":1562517071000000}}
 {"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562517072000000}}
-{"l":{"pc":\d+,"f":"[\w/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
 {"f":{"id":2259404117704393152,"e":2000000}}
-{"f":{"id":8717895732742165505,"e":4000000,"F":257}}
+{"f":{"id":8717895732742165505,"e":4000000}}
 `
 	ok, err := regexp.Match(re, buf.Bytes())
 	assert.NoError(t, err)

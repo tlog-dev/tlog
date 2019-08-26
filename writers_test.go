@@ -115,15 +115,13 @@ func TestProtoWriter(t *testing.T) {
 
 	w.SpanFinished(
 		Span{
-			ID:    10,
-			Flags: 1000,
+			ID: 10,
 		},
 		time.Second,
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      10,
 		Elapsed: time.Second.Nanoseconds() / 1000,
-		Flags:   1000,
 	}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
 	t.Logf("SpanFinish:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))

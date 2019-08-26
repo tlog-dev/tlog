@@ -52,7 +52,7 @@ func TestJSONReader(t *testing.T) {
 
 	w.SpanFinished(tlog.Span{ID: 2}, time.Second)
 
-	w.SpanFinished(tlog.Span{ID: 1, Flags: 5}, 2*time.Second)
+	w.SpanFinished(tlog.Span{ID: 1}, 2*time.Second)
 
 	t.Logf("json\n%s", buf.Bytes())
 
@@ -161,7 +161,6 @@ func TestJSONReader(t *testing.T) {
 		SpanFinish{
 			ID:      1,
 			Elapsed: 2 * time.Second,
-			Flags:   5,
 		},
 	}, res)
 }
