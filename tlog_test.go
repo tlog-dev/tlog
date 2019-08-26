@@ -394,19 +394,19 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Llongfile
 	w.buildHeader(loc, tm)
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:19  ", w.buf)
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:24  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	w.f = Lshortfile
 	w.shortfile = 20
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "location.go:19        ", string(w.buf))
+	assert.Equal(t, "location.go:24        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.shortfile = 10
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "locatio:19  ", string(w.buf))
+	assert.Equal(t, "locatio:24  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 10
@@ -501,10 +501,10 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"pc":\d+,"f":"(github.com/nikandfor/tlog/)?tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"[\w/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"id":8717895732742165505,"l":\d+,"s":1562517071000000}}
 {"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562517072000000}}
-{"l":{"pc":\d+,"f":"(github.com/nikandfor/tlog/)?tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"pc":\d+,"f":"[\w/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
 {"f":{"id":2259404117704393152,"e":2000000}}
 {"f":{"id":8717895732742165505,"e":4000000,"F":257}}

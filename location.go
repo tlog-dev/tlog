@@ -5,11 +5,16 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"unsafe"
 )
 
 // Location is a program counter alias.
-// Function name, file name and line could be obtained from it but only in the same binary where Caller of Funcentry was called.
+// Function name, file name and line can be obtained from it but only in the same binary where Caller of Funcentry was called.
 type Location uintptr
+
+// Trace is a stack trace.
+// It's quiet the same as runtime.CallerFrames but more efficient.
+type Trace []Location
 
 // Caller returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
@@ -27,6 +32,23 @@ func Funcentry(s int) Location {
 	var pc [1]uintptr
 	runtime.Callers(2+s, pc[:])
 	return Location(Location(pc[0]).Entry())
+}
+
+// StackTrace returns callers stack trace.
+//
+// It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
+func StackTrace(skip, n int) Trace {
+	tr := make([]Location, n)
+	return StackTraceFill(skip, tr)
+}
+
+// StackTraceFill returns callers stack trace into provided array.
+//
+// It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
+func StackTraceFill(skip int, tr Trace) Trace {
+	pc := *(*[]uintptr)(unsafe.Pointer(&tr))
+	runtime.Callers(2+skip, pc[:])
+	return tr
 }
 
 // String formats Location as base_name.go:line.
