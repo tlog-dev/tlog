@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,12 +15,6 @@ import (
 type (
 	// ID is an Span ID
 	ID int64
-
-	// Labels is a set of labels with optional values.
-	//
-	// By design Labels contains state diff not state itself.
-	// So if you want to delete some label you should use Del method to add special thumbstone value.
-	Labels []string
 
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
@@ -113,40 +106,6 @@ var ( // time, rand
 var ( // defaults
 	DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 )
-
-// FillLabelsWithDefaults creates Labels and fills _hostname and _pid labels with current values.
-func FillLabelsWithDefaults(labels ...string) Labels {
-	ll := make(Labels, 0, len(labels))
-
-	for _, lab := range labels {
-		switch {
-		case strings.HasPrefix(lab, "_hostname"):
-			if lab != "_hostname" {
-				break
-			}
-			h, err := os.Hostname()
-			if h == "" && err != nil {
-				h = err.Error()
-			}
-
-			ll.Set("_hostname", h)
-
-			continue
-		case strings.HasPrefix(lab, "_pid"):
-			if lab != "_pid" {
-				break
-			}
-
-			ll.Set("_pid", fmt.Sprintf("%d", os.Getpid()))
-
-			continue
-		}
-
-		ll = append(ll, lab)
-	}
-
-	return ll
-}
 
 // New creates new Logger with given writer.
 func New(w Writer) *Logger {
@@ -451,66 +410,6 @@ func (s Span) Finish() {
 
 	el := now().Sub(s.Started)
 	s.l.SpanFinished(s, el)
-}
-
-// Set sets k label value to v
-func (ls *Labels) Set(k, v string) {
-	val := k
-	if v != "" {
-		val += "=" + v
-	}
-
-	for i := 0; i < len(*ls); i++ {
-		l := (*ls)[i]
-		if l == "="+k {
-			(*ls)[i] = val
-			return
-		} else if l == k || strings.HasPrefix(l, k+"=") {
-			(*ls)[i] = val
-			return
-		}
-	}
-	*ls = append(*ls, val)
-}
-
-// Get gets k label value or "", false
-func (ls *Labels) Get(k string) (string, bool) {
-	for _, l := range *ls {
-		if l == k {
-			return "", true
-		} else if strings.HasPrefix(l, k+"=") {
-			return l[len(k)+1:], true
-		}
-	}
-	return "", false
-}
-
-// Del replaces k label with special thumbstone.
-// It's needed because Labels event contains state diff not state itself.
-func (ls *Labels) Del(k string) {
-	for i := 0; i < len(*ls); i++ {
-		l := (*ls)[i]
-		if l == "="+k {
-			return
-		} else if l == k || strings.HasPrefix(l, k+"=") {
-			(*ls)[i] = "=" + k
-		}
-	}
-}
-
-// Merge merges two Labels sets
-func (ls *Labels) Merge(b Labels) {
-	for _, add := range b {
-		if add == "" {
-			continue
-		}
-		kv := strings.SplitN(add, "=", 2)
-		if kv[0] == "" {
-			ls.Del(kv[1])
-		} else {
-			ls.Set(kv[0], kv[1])
-		}
-	}
 }
 
 // String returns constant width string representation.
