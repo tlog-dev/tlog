@@ -16,11 +16,12 @@ type (
 	Labels []string
 )
 
-// FillLabelsWithDefaults creates Labels and fills _hostname and _pid labels with current values.
-func FillLabelsWithDefaults(labels ...string) Labels {
-	ll := make(Labels, 0, len(labels))
-
-	autotags := map[string]func() string{
+var (
+	// AutoLabels is an list of automatically filled labels
+	//     _hostname - local hostname
+	//     _pid - process pid
+	//     _md5 - this binary md5 hash
+	AutoLabels = map[string]func() string{
 		"_hostname": func() string {
 			h, err := os.Hostname()
 			if h == "" && err != nil {
@@ -48,9 +49,19 @@ func FillLabelsWithDefaults(labels ...string) Labels {
 			return fmt.Sprintf("%02x", h.Sum(nil))
 		},
 	}
+)
+
+// ParseLabels parses comma separated list of labels and fills them with values (See FillLabelsWithDefaults).
+func ParseLabels(s string) Labels {
+	return FillLabelsWithDefaults(strings.Split(s, ",")...)
+}
+
+// FillLabelsWithDefaults creates Labels and fills autolabels (See AutoLabels).
+func FillLabelsWithDefaults(labels ...string) Labels {
+	ll := make(Labels, 0, len(labels))
 
 	for _, lab := range labels {
-		if f, ok := autotags[lab]; ok {
+		if f, ok := AutoLabels[lab]; ok {
 			ll = append(ll, lab+"="+f())
 		} else {
 			ll = append(ll, lab)

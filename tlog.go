@@ -107,11 +107,28 @@ var ( // defaults
 	DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 )
 
-// New creates new Logger with given writer.
-func New(w Writer) *Logger {
-	l := &Logger{Writer: w}
+// New creates new Logger with given writers.
+func New(ws ...Writer) *Logger {
+	l := &Logger{}
+
+	switch len(ws) {
+	case 0:
+		l.Writer = Discard{}
+	case 1:
+		l.Writer = ws[0]
+	default:
+		l.Writer = NewTeeWriter(ws...)
+	}
 
 	return l
+}
+
+// SetLabels sets labels for default logger
+func SetLabels(ls Labels) {
+	if DefaultLogger == nil {
+		return
+	}
+	DefaultLogger.Labels(ls)
 }
 
 // Printf writes logging Message.
