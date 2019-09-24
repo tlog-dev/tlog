@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 	"runtime"
@@ -36,7 +37,7 @@ func Funcentry(s int) Location {
 
 // StackTrace returns callers stack trace.
 //
-// It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
+// It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with only one alloc (resulting slice).
 func StackTrace(skip, n int) Trace {
 	tr := make([]Location, n)
 	return StackTraceFill(skip, tr)
@@ -52,10 +53,23 @@ func StackTraceFill(skip int, tr Trace) Trace {
 }
 
 // String formats Location as base_name.go:line.
+//
 // Works only in the same binary where Caller of Funcentry was called.
 func (l Location) String() string {
 	_, file, line := l.NameFileLine()
 	return fmt.Sprintf("%v:%d", path.Base(file), line)
+}
+
+// String formats Trace as list of type_name (file.go:line)
+//
+// Works only in the same binary where Caller of Funcentry was called.
+func (t Trace) String() string {
+	var b bytes.Buffer
+	for _, l := range t {
+		n, f, l := l.NameFileLine()
+		fmt.Fprintf(&b, "%s (%s:%d)\n", n, f, l)
+	}
+	return b.String()
 }
 
 func cropFilename(fn, tp string) string {

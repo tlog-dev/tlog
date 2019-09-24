@@ -334,19 +334,19 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Llongfile
 	w.buildHeader(loc, tm)
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:24  ", w.buf)
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	w.f = Lshortfile
 	w.shortfile = 20
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "location.go:24        ", string(w.buf))
+	assert.Equal(t, "location.go:25        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.shortfile = 10
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "locatio:24  ", string(w.buf))
+	assert.Equal(t, "locatio:25  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.funcname = 10
