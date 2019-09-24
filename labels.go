@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"crypto/md5"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,7 @@ var (
 	//     _hostname - local hostname
 	//     _pid - process pid
 	//     _md5 - this binary md5 hash
+	//     _sha1 - this binary sha1 hash
 	//     _project - project name (binary name)
 	AutoLabels = map[string]func() string{
 		"_hostname": func() string {
@@ -43,6 +45,21 @@ var (
 			defer f.Close()
 
 			h := md5.New()
+			_, err = io.Copy(h, f)
+			if err != nil {
+				return err.Error()
+			}
+
+			return fmt.Sprintf("%02x", h.Sum(nil))
+		},
+		"_sha1": func() string {
+			f, err := os.Open(os.Args[0])
+			if err != nil {
+				return err.Error()
+			}
+			defer f.Close()
+
+			h := sha1.New()
 			_, err = io.Copy(h, f)
 			if err != nil {
 				return err.Error()
