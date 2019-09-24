@@ -1,12 +1,32 @@
 version: 2
 jobs:
   build:
+    steps:
+      - run: |
+          function rj {
+            job_name=$1
+            curl -u ${CIRCLE_API_TOKEN}: \
+              -d build_parameters[CIRCLE_JOB]=${job_name} \
+              -d revision=$CIRCLE_SHA1 \
+              https://circleci.com/api/v1.1/project/github/nikandfor/tlog/tree/$CIRCLE_BRANCH
+          }
+          rj go1.12
+          rj go1.13
+
+  go1.12: &base
     docker:
       - image: circleci/golang:1.12
     environment:
       - GO111MODULE=on
     working_directory: /go/wd
     steps:
+      - run: go version
+
       - checkout
 
       - run: go test -race -v ./...
+
+  go1.13:
+    <<: *base
+    docker:
+      - image: circleci/golang:1.13

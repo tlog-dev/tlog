@@ -5,9 +5,10 @@ env:
 
 go:
   - "1.12"
+  - "1.13"
 
 script:
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - test $TRAVIS_GO_VERSION = "1.13" && bash <(curl -s https://codecov.io/bash)
