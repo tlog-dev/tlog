@@ -24,12 +24,6 @@ type (
 	}
 )
 
-//nolint
-const (
-	_PCDATA_InlTreeIndex = 1
-	_FUNCDATA_InlTree    = 2
-)
-
 // NameFileLine returns function name, file and line number for location.
 //
 // This works only in the same binary where location was captured.
