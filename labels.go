@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -21,6 +22,7 @@ var (
 	//     _hostname - local hostname
 	//     _pid - process pid
 	//     _md5 - this binary md5 hash
+	//     _project - project name (binary name)
 	AutoLabels = map[string]func() string{
 		"_hostname": func() string {
 			h, err := os.Hostname()
@@ -47,6 +49,9 @@ var (
 			}
 
 			return fmt.Sprintf("%02x", h.Sum(nil))
+		},
+		"_project": func() string {
+			return path.Base(os.Args[0])
 		},
 	}
 )

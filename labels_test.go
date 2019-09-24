@@ -56,9 +56,9 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 
 	assert.Equal(t, Labels{"a=b", "f"}, FillLabelsWithDefaults("a=b", "f"))
 
-	assert.Equal(t, Labels{"_hostname=myhost", "_pid=mypid"}, FillLabelsWithDefaults("_hostname=myhost", "_pid=mypid"))
+	assert.Equal(t, Labels{"_hostname=myhost", "_pid=mypid", "_md5=mymd5", "_project=myname"}, FillLabelsWithDefaults("_hostname=myhost", "_pid=mypid", "_md5=mymd5", "_project=myname"))
 
-	ll := FillLabelsWithDefaults("_hostname", "_pid", "_md5")
+	ll := FillLabelsWithDefaults("_hostname", "_pid", "_md5", "_project")
 
 	re := regexp.MustCompile(`_hostname=[\w-]+`)
 	assert.True(t, re.MatchString(ll[0]), "%s is not %s ", ll[0], re)
@@ -68,4 +68,7 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 
 	re = regexp.MustCompile(`_md5=[0-9a-z]{32}`)
 	assert.True(t, re.MatchString(ll[2]), "%s is not %s ", ll[2], re)
+
+	re = regexp.MustCompile(`_project=tlog.test`)
+	assert.True(t, re.MatchString(ll[3]), "%s is not %s ", ll[3], re)
 }
