@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
 	"path"
 	"strings"
 )
@@ -21,6 +22,7 @@ type (
 var (
 	// AutoLabels is an list of automatically filled labels
 	//     _hostname - local hostname
+	//     _user - current user
 	//     _pid - process pid
 	//     _md5 - this binary md5 hash
 	//     _sha1 - this binary sha1 hash
@@ -33,6 +35,16 @@ var (
 			}
 
 			return h
+		},
+		"_user": func() string {
+			u, err := user.Current()
+			if u != nil && u.Username != "" {
+				return u.Username
+			} else if err != nil {
+				return err.Error()
+			}
+
+			return ""
 		},
 		"_pid": func() string {
 			return fmt.Sprintf("%d", os.Getpid())
