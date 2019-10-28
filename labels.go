@@ -28,24 +28,8 @@ var (
 	//     _sha1 - this binary sha1 hash
 	//     _project - project name (binary name)
 	AutoLabels = map[string]func() string{
-		"_hostname": func() string {
-			h, err := os.Hostname()
-			if h == "" && err != nil {
-				h = err.Error()
-			}
-
-			return h
-		},
-		"_user": func() string {
-			u, err := user.Current()
-			if u != nil && u.Username != "" {
-				return u.Username
-			} else if err != nil {
-				return err.Error()
-			}
-
-			return ""
-		},
+		"_hostname": Hostname,
+		"_user":     User,
 		"_pid": func() string {
 			return fmt.Sprintf("%d", os.Getpid())
 		},
@@ -84,6 +68,28 @@ var (
 		},
 	}
 )
+
+// Hostname returns hostname or err.Error()
+func Hostname() string {
+	h, err := os.Hostname()
+	if h == "" && err != nil {
+		h = err.Error()
+	}
+
+	return h
+}
+
+// User returns current username or err.Error()
+func User() string {
+	u, err := user.Current()
+	if u != nil && u.Username != "" {
+		return u.Username
+	} else if err != nil {
+		return err.Error()
+	}
+
+	return ""
+}
 
 // ParseLabels parses comma separated list of labels and fills them with values (See FillLabelsWithDefaults).
 func ParseLabels(s string) Labels {
