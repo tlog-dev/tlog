@@ -16,6 +16,11 @@ type (
 	// ID is an Span ID
 	ID int64
 
+	// Printerf is an interface to print to *Logger and to Span in the same time.
+	Printerf interface {
+		Printf(string, ...interface{})
+	}
+
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
 	Logger struct {

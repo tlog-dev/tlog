@@ -16,8 +16,6 @@ type File struct {
 	Fallback io.Writer // os.Stderr
 }
 
-var pid = os.Getpid()
-
 func NewFile(n string) *File {
 	return &File{
 		name:     n,
