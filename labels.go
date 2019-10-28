@@ -20,7 +20,7 @@ type (
 )
 
 var (
-	// AutoLabels is an list of automatically filled labels
+	// AutoLabels is a list of automatically filled labels
 	//     _hostname - local hostname
 	//     _user - current user
 	//     _pid - process pid
