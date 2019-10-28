@@ -14,8 +14,7 @@ import (
 type (
 	// Labels is a set of labels with optional values.
 	//
-	// By design Labels contains state diff not state itself.
-	// So if you want to delete some label you should use Del method to add special thumbstone value.
+	// Labels are attached to all following events (in an optimal way) until replaced.
 	Labels []string
 )
 
@@ -120,10 +119,7 @@ func (ls *Labels) Set(k, v string) {
 
 	for i := 0; i < len(*ls); i++ {
 		l := (*ls)[i]
-		if l == "="+k {
-			(*ls)[i] = val
-			return
-		} else if l == k || strings.HasPrefix(l, k+"=") {
+		if l == k || strings.HasPrefix(l, k+"=") {
 			(*ls)[i] = val
 			return
 		}
@@ -143,16 +139,21 @@ func (ls *Labels) Get(k string) (string, bool) {
 	return "", false
 }
 
-// Del replaces k label with special thumbstone.
-// It's needed because Labels event contains state diff not state itself.
+// Del deletes label with key k.
 func (ls *Labels) Del(k string) {
 	for i := 0; i < len(*ls); i++ {
-		l := (*ls)[i]
-		if l == "="+k {
-			return
-		} else if l == k || strings.HasPrefix(l, k+"=") {
-			(*ls)[i] = "=" + k
+		li := (*ls)[i]
+		if li != k && !strings.HasPrefix(li, k+"=") {
+			continue
 		}
+
+		l := len(*ls) - 1
+		if i < l {
+			copy((*ls)[i:], (*ls)[i+1:])
+		}
+		*ls = (*ls)[:l]
+
+		break
 	}
 }
 

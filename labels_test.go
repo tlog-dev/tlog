@@ -20,22 +20,22 @@ func TestLabels(t *testing.T) {
 	assert.ElementsMatch(t, Labels{"key=pelupe", "key2=val2"}, ll)
 
 	ll.Del("key")
-	assert.ElementsMatch(t, Labels{"=key", "key2=val2"}, ll)
+	assert.ElementsMatch(t, Labels{"key2=val2"}, ll)
 
 	ll.Del("key2")
-	assert.ElementsMatch(t, Labels{"=key", "=key2"}, ll)
+	assert.ElementsMatch(t, Labels{}, ll)
 
 	ll.Set("key", "value")
-	assert.ElementsMatch(t, Labels{"key=value", "=key2"}, ll)
+	assert.ElementsMatch(t, Labels{"key=value"}, ll)
 
 	ll.Set("key2", "")
 	assert.ElementsMatch(t, Labels{"key=value", "key2"}, ll)
 
 	ll.Merge(Labels{"", "key2=val2", "=key"})
-	assert.ElementsMatch(t, Labels{"=key", "key2=val2"}, ll)
+	assert.ElementsMatch(t, Labels{"key2=val2"}, ll)
 
 	ll.Del("key")
-	assert.ElementsMatch(t, Labels{"=key", "key2=val2"}, ll)
+	assert.ElementsMatch(t, Labels{"key2=val2"}, ll)
 
 	ll.Set("flag", "")
 
@@ -49,6 +49,14 @@ func TestLabels(t *testing.T) {
 	v, ok = ll.Get("flag")
 	assert.True(t, ok)
 	assert.Equal(t, "", v)
+
+	cp := ll.Copy()
+	cp.Set("key2", "val3")
+	cp.Set("key", "")
+	cp.Del("flag")
+
+	assert.ElementsMatch(t, Labels{"key2=val3", "key"}, cp)
+	assert.ElementsMatch(t, Labels{"key2=val2", "flag"}, ll)
 }
 
 func TestDumpLabelsWithDefault(t *testing.T) {
