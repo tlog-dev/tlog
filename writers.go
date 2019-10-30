@@ -31,7 +31,7 @@ type (
 
 	// JSONWriter produces output readable by both machines and humans.
 	//
-	// Each event ends up with a single Write.
+	// Each event ends up with a single Write if message fits in 1000 bytes (default) buffer.
 	//
 	// It's safe to write event simultaneously.
 	//
@@ -491,8 +491,8 @@ func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 
 // Labels writes Labels to the stream.
 func (w *JSONWriter) Labels(ls Labels) {
-	defer w.w.Flush()
 	defer w.mu.Unlock()
+	defer w.w.Flush()
 	w.mu.Lock()
 
 	w.w.ObjStart()
@@ -512,10 +512,10 @@ func (w *JSONWriter) Labels(ls Labels) {
 	w.w.NewLine()
 }
 
-// Message writes enent to the stream.
+// Message writes event to the stream.
 func (w *JSONWriter) Message(m Message, s Span) {
-	defer w.w.Flush()
 	defer w.mu.Unlock()
+	defer w.w.Flush()
 	w.mu.Lock()
 
 	if _, ok := w.ls[m.Location]; !ok {
@@ -560,8 +560,8 @@ func (w *JSONWriter) Message(m Message, s Span) {
 
 // SpanStarted writes event to the stream.
 func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
-	defer w.w.Flush()
 	defer w.mu.Unlock()
+	defer w.w.Flush()
 	w.mu.Lock()
 
 	if _, ok := w.ls[loc]; !ok {
@@ -605,8 +605,8 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 
 // SpanFinished writes event to the stream.
 func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
-	defer w.w.Flush()
 	defer w.mu.Unlock()
+	defer w.w.Flush()
 	w.mu.Lock()
 
 	b := w.buf
