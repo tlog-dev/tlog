@@ -76,6 +76,20 @@ Send           # function or method of any object
 module=encryption
 Conn=encryption+telemetry # multiple topics for location separated by '+'
 ```
+List of filters is executed as chain of inclusion, exclusion and back inclusion of some locations.
+```
+module/*,!module/submodule,module/submodule/file.go,!funcInFile,!submodule/file.go=Write
+
+What's happend:
+* module/* - included all subtree
+* !module/submodule - but excluded one of submodules. Others: module/sub1/*, module/sub2/*, ect remain included.
+* module/submodule/file.go - but we interested in logs in file, so included it
+* !funcInFile - except some function.
+* !submodule/file.go=Write - and except function Write from file submodule/file.go
+```
+In most cases it's enough to have only one filter, but if you need, you may have more with no performance loss.
+
+By default all conditionals are disabled.
 
 ## Logger object
 Logger can be created separately. All the same operations available there.
@@ -83,6 +97,22 @@ Logger can be created separately. All the same operations available there.
 l := tlog.New(...)
 l.Printf("unconditional")
 l.V(LevError).Printf("conditional")
+```
+
+## Location and StackTrace
+
+Location in source code is recorded for each message you log (if you not disabled it). But you also may also capture some location or stack trace.
+```golang
+l := tlog.Caller(0) // 0 means current line
+l = tlog.Caller(1) // 2 frames higher
+s := tlog.StackTrace(2, 4) // skip 2 frames and record next 4
+```
+Then you may get function name, file name and file line for each frame.
+```golang
+funcName, fileName, fileLine := l.NameFileLine()
+funcName, fileName, fileLine = s[2].NameFileLine()
+tlog.Printf("called from here: %v", l.String())
+tlog.Printf("crashed\n%v", tlog.StackTrace(0, 10))
 ```
 
 ## Writer
@@ -197,7 +227,7 @@ Trace also can be used as EventLog (similar to https://godoc.org/golang.org/x/ne
 
 # Tracer + Logger
 
-The best part is that you don't need to pass the same useful information to logs and to traces like when you use two separate libraries, it's done for you!
+The best part is that you don't need to pass the same useful information to logs and to traces like when you use two separate systems, it's done for you!
 ```golang
 tr := tlog.Start()
 defer tr.Finish()
@@ -209,7 +239,8 @@ tlog.Printf("but logs are not appeared in traces")
 
 # Performance
 
-I fighted each alloc and each byte and even hacked runtime (see `unsafe.go`). So you'll get much more than stdlib `log` gives you almost for the same price.
+## Allocs
+Allocations are one of the worst enemies of performance. So I fighted each alloc and each byte and even hacked runtime (see `unsafe.go`). So you'll get much more than stdlib `log` gives you almost for the same price.
 ```
 goos: linux
 goarch: amd64
@@ -226,6 +257,10 @@ BenchmarkTlogTracesProtoPrintRaw-8   	 1000000	      1915 ns/op	       0 B/op	  
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
 2 more allocs in `LogLoggerDetailed` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
+
+## Writes
+
+Writers designed to have one single write for each message you log, no more, no less. More writes per message is more operations and more system calls (if you write to `os.Stderr` or `*os.File`), so less performance. Less writes (it means buffering multiple messages and write them together) is a chance to lose last messages in case of crash. And we don't want to lose message that describes reason why we crashed, do we?
 
 # Roadmap
 * Create swiss knife tool to analyse system performance through traces.
