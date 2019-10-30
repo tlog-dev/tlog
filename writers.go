@@ -502,7 +502,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 	w.w.ArrayStart()
 
 	for _, l := range ls {
-		w.w.SafeStringString(l)
+		w.w.StringString(l)
 	}
 
 	w.w.ArrayEnd()
@@ -651,7 +651,7 @@ func (w *JSONWriter) location(l Location) {
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("f"))
-	w.w.SafeStringString(file)
+	w.w.StringString(file)
 
 	w.w.ObjKey([]byte("l"))
 	b = strconv.AppendInt(b[:0], int64(line), 10)
