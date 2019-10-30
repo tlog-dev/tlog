@@ -222,13 +222,6 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
 			s.Elapsed = time.Duration(v * 1000)
-		case 'F':
-			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
-			if err != nil {
-				return SpanFinish{}, r.r.ErrorHere(err)
-			}
-			s.Flags = int(v)
 		}
 	}
 
