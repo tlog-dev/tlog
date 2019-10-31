@@ -188,23 +188,32 @@ func V(tp string) *Logger {
 }
 
 // SetFilter sets filter to use in V.
-// Filter is a comma separated list of rules.
-// Each rule is one of: topic
+//
+// Filter is a comma separated chain of rules.
+// Each rule is applyed to result of previous rule and adds or removes some locations.
+// Rule started with '!' excludes matching locations.
+//
+// Each rule is one of: topic (some word you used in V argument)
 //     error
 //     networking
 //     send
 //     encryption
-// location
+//
+// and location (directory, file, function)
 //     path/to/file.go
 //     short_file.go
-//     path/to/package - subpackages are not selected
-//     all/subpackages/* - including root of subpackages
+//     path/to/package - subpackages doesn't math
+//     root/* - root package and all subpackages
 //     github.com/nikandfor/tlog.Function
 //     tlog.(*Type).Method
-//     tlog.Type - all functions are selected
+//     tlog.Type - all methods of type Type
+//
 // topics in location
 //     tlog.Span=timing
 //     p2p/conn.go=read+write - multiple topics in the location are separated by '+'
+//
+// Example
+//     module,!module/file.go,funcInFile
 //
 // SetFilter can be called simultaneously with V.
 func SetFilter(f string) {

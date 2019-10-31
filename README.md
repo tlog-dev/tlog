@@ -54,6 +54,7 @@ func (t *Conn) Send(/*...*/) {
     }
 }
 ```
+
 `filtersFlag` is a comma separated list of filters such as
 ```
 # all messages with topics are enabled
@@ -81,9 +82,9 @@ List of filters is executed as chain of inclusion, exclusion and back inclusion 
 module/*,!module/submodule,module/submodule/file.go,!funcInFile,!submodule/file.go=Write
 
 What's happend:
-* module/* - included all subtree
-* !module/submodule - but excluded one of submodules. Others: module/sub1/*, module/sub2/*, ect remain included.
-* module/submodule/file.go - but we interested in logs in file, so included it
+* module/* - include whole subtree
+* !module/submodule - but exclude one of submodules. Others: module/sub1/*, module/sub2/*, etc remain included.
+* module/submodule/file.go - but we interested in logs in file, so include it
 * !funcInFile - except some function.
 * !submodule/file.go=Write - and except function Write from file submodule/file.go
 ```
@@ -104,7 +105,7 @@ l.V(LevError).Printf("conditional")
 Location in source code is recorded for each message you log (if you not disabled it). But you also may also capture some location or stack trace.
 ```golang
 l := tlog.Caller(0) // 0 means current line
-l = tlog.Caller(1) // 2 frames higher
+l = tlog.Caller(2) // 2 frames higher
 s := tlog.StackTrace(2, 4) // skip 2 frames and record next 4
 ```
 Then you may get function name, file name and file line for each frame.
@@ -171,41 +172,35 @@ Writer interface {
 It's hard to overvalue tracing when it comes to many parallel requests and especially when it's distributed system.
 So tracing is here.
 ```golang
-func Google(ctx context.Context, user, q string) ([]string) {
+func Google(ctx context.Context, user, query string) (*Response, error) {
     tr := tlog.Start()
     defer tr.Finish()
-    
+
     tr.Printf("user %s made query: %s", user, q)
-    
-    c := make(chan string, len(backends))
+
     for _, b := range backends {
         go func(){
-            subctx := tlog.ContextWithID(ctx, tr.SafeID())
-            c <- b.Query(subctx, q)
+            subctx := tlog.ContextWithID(ctx, tr.ID)
+            res := b.Search(subctx, u, q)
+            // handle res
         }()
     }
-    
-    var res []string
-loop:
-    for i := 0; i < len(backends); i++ {
-        select {
-        case r := <-c:
-            res = append(res, r)
-        case <-ctx.Done():
-            break loop
-        }
-    }
-    
-    tlog.Printf("%d results received until timeout", len(res))
-    
-    traceID := tr.SafeID()
-    // traceID could be retured in HTTP Header or as metainfo
-    // Later you may use that traceID to find and isolate needed logs and spans.
-    
-    return res
+
+    var res Response
+    // wait for and take results of backends
+
+    tr.Printf("%d Pages found on backends", len(res.Pages))
+
+    // ...
+
+    tr.Printf("advertisments added")
+
+    res.TraceID = tr.ID // return it in HTTP Header or somehow. Later you can use it to find all subSpans
+
+    return res, nil
 }
 
-func (b *VideosBackend) Search(ctx context.Context, q string) string {
+func (b *VideosBackend) Search(ctx context.Context, q string) ([]*Page, error) {
     tr := tlog.SpawnFromContext(ctx)
     defer tr.Finish()
 
@@ -214,16 +209,16 @@ func (b *VideosBackend) Search(ctx context.Context, q string) string {
     
     // ...
 
-    return res
+    return res, nil
 }
 ```
-With traces you can measure timings such as how much each function elapsed, how much time has passed since one message to another.
+Traces may be used as metrics either. Analyzing time of messages you can measure how much each function elapsed, how much time has passed since one message to another.
 
-**Important thing you should remember: context Values are not passed through the network (http.Request.WithContext for example). You must pass `Span.ID` manually. Luckily it's just an int64.**
+**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Luckily it's just an int64.**
 
 Analysing and visualising tool is going to be later.
 
-Trace also can be used as EventLog (similar to https://godoc.org/golang.org/x/net/trace#EventLog)
+Trace also can be used as `EventLog` (similar to https://godoc.org/golang.org/x/net/trace#EventLog)
 
 # Tracer + Logger
 
@@ -234,7 +229,7 @@ defer tr.Finish()
 
 tr.Printf("each time you print something to trace it appears in logs either")
 
-tlog.Printf("but logs are not appeared in traces")
+tlog.Printf("but logs don't appear in traces")
 ```
 
 # Performance
