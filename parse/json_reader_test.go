@@ -82,9 +82,7 @@ func TestJSONReader(t *testing.T) {
 				locs[t.PC] = ex
 			}
 			t.PC = ex
-			if strings.HasPrefix(t.File, Prefix) { // cut prefix in case of repo is not in GOPATH or similar folder structure
-				t.File = t.File[len(Prefix):]
-			}
+			t.File = strings.TrimPrefix(t.File, Prefix) // cut prefix in case of repo is not in GOPATH or similar folder structure
 			o = t
 		case Message:
 			t.Location = locs[t.Location]

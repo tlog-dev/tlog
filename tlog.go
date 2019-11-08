@@ -67,13 +67,6 @@ type (
 	}
 )
 
-// Span flags.
-const ( // span flags
-	FlagError = 1 << iota
-
-	FlagNone = 0
-)
-
 // ConsoleWriter flags. Similar to log.Logger flags.
 const ( // console writer flags
 	Ldate = 1 << iota
