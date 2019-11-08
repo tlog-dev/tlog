@@ -63,9 +63,9 @@ func (w *File) rotate() (err error) {
 
 	var name string
 	if strings.Contains(w.name, "#") {
-		name = strings.Replace(w.name, "#", now.Format("2006-01-02_15:04:05.000000_07:00"), 1)
+		name = strings.Replace(w.name, "#", now.Format("2006-01-02_15-04-05.000000_07-00"), 1)
 	} else {
-		name = w.name + "_" + now.Format("2006-01-02_15:04:05.000000_07:00")
+		name = w.name + "_" + now.Format("2006-01-02_15-04-05.000000_07-00")
 	}
 
 	w.f, err = os.Create(name)

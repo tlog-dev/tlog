@@ -3,7 +3,7 @@ package tlog
 import (
 	"fmt"
 	"io"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -236,7 +236,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 		fname, file, line = loc.NameFileLine()
 
 		if w.f&Lshortfile != 0 {
-			file = path.Base(file)
+			file = filepath.Base(file)
 		}
 
 		j := 0
@@ -284,7 +284,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 		if line == -1 {
 			fname, _, _ = loc.NameFileLine()
 		}
-		fname = path.Base(fname)
+		fname = filepath.Base(fname)
 
 		if w.f&Lfuncname != 0 {
 			p := strings.Index(fname, ").")

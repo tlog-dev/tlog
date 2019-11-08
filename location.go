@@ -3,7 +3,7 @@ package tlog
 import (
 	"bytes"
 	"fmt"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"unsafe"
@@ -57,7 +57,7 @@ func StackTraceFill(skip int, tr Trace) Trace {
 // Works only in the same binary where Caller of Funcentry was called.
 func (l Location) String() string {
 	_, file, line := l.NameFileLine()
-	return fmt.Sprintf("%v:%d", path.Base(file), line)
+	return fmt.Sprintf("%v:%d", filepath.Base(file), line)
 }
 
 // String formats Trace as list of type_name (file.go:line)
@@ -84,7 +84,7 @@ again:
 
 	p = strings.IndexByte(tp, '/')
 	if p == -1 {
-		return path.Base(fn)
+		return filepath.Base(fn)
 	}
 	tp = tp[p+1:]
 	goto again

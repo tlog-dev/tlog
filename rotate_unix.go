@@ -84,8 +84,8 @@ func (w *Mmap) rotate(s int) (err error) {
 	}
 
 	ff := syscall.MAP_SHARED
-	if w.max > 1<<30 {
-		ff |= syscall.MAP_HUGETLB
+	if w.max >= 1<<30 {
+		ff |= hugePage
 	}
 	w.b, err = syscall.Mmap(int(w.f.Fd()), 0, w.max, syscall.PROT_WRITE, ff)
 	if err != nil {

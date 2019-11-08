@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,13 +16,13 @@ func testLocationInside(t *testing.T) {
 	pc := Caller(0)
 	name, file, line := pc.NameFileLine()
 	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
-	assert.Equal(t, "location_test.go", path.Base(file))
-	assert.Equal(t, 15, line)
+	assert.Equal(t, "location_test.go", filepath.Base(file))
+	assert.Equal(t, 16, line)
 }
 
 func TestLocationShort(t *testing.T) {
 	pc := Caller(0)
-	assert.Equal(t, "location_test.go:23", pc.String())
+	assert.Equal(t, "location_test.go:24", pc.String())
 }
 
 func TestLocation2(t *testing.T) {
@@ -29,7 +30,7 @@ func TestLocation2(t *testing.T) {
 		func() {
 			l := Funcentry(0)
 
-			assert.Equal(t, "location_test.go:29", l.String())
+			assert.Equal(t, "location_test.go:30", l.String())
 		}()
 	}()
 }

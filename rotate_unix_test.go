@@ -1,3 +1,5 @@
+// +build linux darwin freebsd netbsd openbsd solaris
+
 package tlog
 
 import (
@@ -5,28 +7,27 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRotatedFile(t *testing.T) {
-	dir, err := ioutil.TempDir("", "tlog_rotate_")
+func TestRotatedMmap(t *testing.T) {
+	dir, err := ioutil.TempDir("/tmp", "tlog_rotate_")
 	if err != nil {
 		t.Fatalf("create tmp dir: %v", err)
 	}
 	defer os.RemoveAll(dir)
 
-	f := NewFile(filepath.Join(dir, fmt.Sprintf("file_#.%d.log", os.Getpid())))
-	defer f.Close()
-	f.MaxSize = 20
+	f := NewMmapFile(path.Join(dir, fmt.Sprintf("file_#.%d.log", os.Getpid())), 50)
 
 	l := New(NewConsoleWriter(f, LstdFlags))
 
-	l.Printf("some info %v %v", os.Args, 1)
-	l.Printf("some info %v %v", os.Args, 2)
-	l.Printf("some info %v %v", os.Args, 3)
+	l.Printf("some info %v %v", "qweqweqew", 1)
+	l.Printf("some info %v %v", "qweqweqew", 2)
+	l.Printf("some info %v %v", "qweqweqew", 3)
+
+	assert.NoError(t, f.Close())
 
 	fs, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -41,7 +42,7 @@ func TestRotatedFile(t *testing.T) {
 			t.Fatalf("read file: %v", err)
 		}
 
-		assert.Contains(t, string(b), "some info ")
-		assert.Contains(t, string(b), fmt.Sprintf("%d\n", i+1))
+		exp := fmt.Sprintf("some info qweqweqew %d\n", i+1)
+		assert.Equal(t, exp, string(b[21:]))
 	}
 }

@@ -71,13 +71,13 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 
 	t.Logf("%v", ll)
 
-	re := regexp.MustCompile(`_hostname=[\w-]+`)
+	re := regexp.MustCompile(`^_hostname=[\w-.]+$`)
 	assert.True(t, re.MatchString(ll[0]), "%s is not %s ", ll[0], re)
 
-	re = regexp.MustCompile(`_user=[\w-]+`)
+	re = regexp.MustCompile(`^_user=[\w-\\]+$`)
 	assert.True(t, re.MatchString(ll[1]), "%s is not %s ", ll[1], re)
 
-	re = regexp.MustCompile(`_pid=\d+`)
+	re = regexp.MustCompile(`^_pid=\d+$`)
 	assert.True(t, re.MatchString(ll[2]), "%s is not %s ", ll[2], re)
 
 	re = regexp.MustCompile(`^_md5=[0-9a-z]{32}$`)
@@ -86,6 +86,6 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	re = regexp.MustCompile(`^_sha1=[0-9a-z]{40}$`)
 	assert.True(t, re.MatchString(ll[4]), "%s is not %s ", ll[4], re)
 
-	re = regexp.MustCompile(`_project=tlog.test`)
+	re = regexp.MustCompile(`^_project=tlog.test`) // no $ (.exe)
 	assert.True(t, re.MatchString(ll[5]), "%s is not %s ", ll[5], re)
 }

@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -63,7 +63,7 @@ var (
 			return fmt.Sprintf("%02x", h.Sum(nil))
 		},
 		"_project": func() string {
-			return path.Base(os.Args[0])
+			return filepath.Base(os.Args[0])
 		},
 	}
 )
