@@ -1,4 +1,4 @@
-package tlog
+package rotated
 
 import "syscall"
 

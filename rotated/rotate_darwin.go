@@ -1,3 +1,3 @@
-package tlog
+package rotated
 
 const hugePage = 0

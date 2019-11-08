@@ -1,6 +1,6 @@
 // +build linux darwin
 
-package tlog
+package rotated
 
 import (
 	"errors"
@@ -9,6 +9,10 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+)
+
+const (
+	timeFormat = "2006-01-02_15:04:05.000000_07:00"
 )
 
 type (

@@ -94,7 +94,7 @@ const ( // log levels
 	TraceLevel    = "trace"
 )
 
-var ( // time, rand
+var ( // testable time, rand
 	now      = time.Now
 	rnd Rand = &concurrentRand{rnd: rand.New(rand.NewSource(now().UnixNano()))}
 

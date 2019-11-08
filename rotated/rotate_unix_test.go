@@ -1,6 +1,6 @@
 // +build linux darwin freebsd netbsd openbsd solaris
 
-package tlog
+package rotated
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/nikandfor/tlog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +22,7 @@ func TestRotatedMmap(t *testing.T) {
 
 	f := NewMmapFile(path.Join(dir, fmt.Sprintf("file_#.%d.log", os.Getpid())), 50)
 
-	l := New(NewConsoleWriter(f, LstdFlags))
+	l := tlog.New(tlog.NewConsoleWriter(f, tlog.LstdFlags))
 
 	l.Printf("some info %v %v", "qweqweqew", 1)
 	l.Printf("some info %v %v", "qweqweqew", 2)

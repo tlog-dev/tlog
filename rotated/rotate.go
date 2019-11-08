@@ -1,9 +1,12 @@
-package tlog
+package rotated
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 type (
@@ -16,6 +19,10 @@ type (
 
 		Fallback io.Writer // os.Stderr
 	}
+)
+
+var ( // testable time, rand
+	now = time.Now
 )
 
 func NewFile(n string) *File {
@@ -59,23 +66,33 @@ func (w *File) rotate() (err error) {
 		}
 	}
 
-	now := now()
-
-	var name string
-	if strings.Contains(w.name, "#") {
-		name = strings.Replace(w.name, "#", now.Format("2006-01-02_15-04-05.000000_07-00"), 1)
-	} else {
-		name = w.name + "_" + now.Format("2006-01-02_15-04-05.000000_07-00")
-	}
+	name := w.fname()
 
 	w.f, err = os.Create(name)
 	if err != nil {
 		return err
 	}
 
+	fmt.Fprintf(os.Stderr, "file created: %v\n", name)
+
 	w.nbytes = 0
 
 	return nil
+}
+
+func (w *File) fname() string {
+	now := now()
+
+	var name string
+	if strings.Contains(w.name, "#") {
+		name = strings.Replace(w.name, "#", now.Format(timeFormat), 1)
+	} else {
+		ext := filepath.Ext(w.name)
+		name = strings.TrimSuffix(w.name, ext)
+		name = name + "_" + now.Format(timeFormat) + ext
+	}
+
+	return name
 }
 
 func (w *File) Close() error {
