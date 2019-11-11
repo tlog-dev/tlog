@@ -40,7 +40,7 @@ func Funcentry(s int) Location {
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with only one alloc (resulting slice).
 func StackTrace(skip, n int) Trace {
 	tr := make([]Location, n)
-	return StackTraceFill(skip, tr)
+	return StackTraceFill(1+skip, tr)
 }
 
 // StackTraceFill returns callers stack trace into provided array.
