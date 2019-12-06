@@ -32,43 +32,15 @@ var (
 		"_pid": func() string {
 			return fmt.Sprintf("%d", os.Getpid())
 		},
-		"_md5": func() string {
-			f, err := os.Open(os.Args[0])
-			if err != nil {
-				return err.Error()
-			}
-			defer f.Close()
-
-			h := md5.New()
-			_, err = io.Copy(h, f)
-			if err != nil {
-				return err.Error()
-			}
-
-			return fmt.Sprintf("%02x", h.Sum(nil))
-		},
-		"_sha1": func() string {
-			f, err := os.Open(os.Args[0])
-			if err != nil {
-				return err.Error()
-			}
-			defer f.Close()
-
-			h := sha1.New()
-			_, err = io.Copy(h, f)
-			if err != nil {
-				return err.Error()
-			}
-
-			return fmt.Sprintf("%02x", h.Sum(nil))
-		},
+		"_md5":  ExecutableMD5,
+		"_sha1": ExecutableSHA1,
 		"_project": func() string {
 			return filepath.Base(os.Args[0])
 		},
 	}
 )
 
-// Hostname returns hostname or err.Error()
+// Hostname returns hostname or err.Error().
 func Hostname() string {
 	h, err := os.Hostname()
 	if h == "" && err != nil {
@@ -78,7 +50,7 @@ func Hostname() string {
 	return h
 }
 
-// User returns current username or err.Error()
+// User returns current username or err.Error().
 func User() string {
 	u, err := user.Current()
 	if u != nil && u.Username != "" {
@@ -88,6 +60,52 @@ func User() string {
 	}
 
 	return ""
+}
+
+// ExecutableMD5 returns current process executable md5 hash.
+// May be useful to find exact executable later.
+func ExecutableMD5() string {
+	path, err := os.Executable()
+	if err != nil {
+		return err.Error()
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return err.Error()
+	}
+	defer f.Close()
+
+	h := md5.New()
+	_, err = io.Copy(h, f)
+	if err != nil {
+		return err.Error()
+	}
+
+	return fmt.Sprintf("%02x", h.Sum(nil))
+}
+
+// ExecutableSHA1 returns current process executable sha1 hash.
+// May be useful to find exact executable later.
+func ExecutableSHA1() string {
+	path, err := os.Executable()
+	if err != nil {
+		return err.Error()
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return err.Error()
+	}
+	defer f.Close()
+
+	h := sha1.New()
+	_, err = io.Copy(h, f)
+	if err != nil {
+		return err.Error()
+	}
+
+	return fmt.Sprintf("%02x", h.Sum(nil))
 }
 
 // ParseLabels parses comma separated list of labels and fills them with values (See FillLabelsWithDefaults).
