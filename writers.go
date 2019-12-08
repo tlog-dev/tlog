@@ -24,8 +24,8 @@ type (
 		mu        sync.Mutex
 		w         io.Writer
 		f         int
-		shortfile int
-		funcname  int
+		Shortfile int
+		Funcname  int
 		buf       bufWriter
 	}
 
@@ -69,13 +69,15 @@ type (
 	bufWriter []byte
 )
 
+const TimeReduction = 6
+
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
 		w:         w,
 		f:         f,
-		shortfile: 20,
-		funcname:  17,
+		Shortfile: 20,
+		Funcname:  25,
 	}
 }
 
@@ -247,7 +249,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 
 		var st int
 		if w.f&Lshortfile != 0 {
-			b, st = w.appendSegments(b, i, w.shortfile-n-1, file, '/')
+			b, st = w.appendSegments(b, i, w.Shortfile-n-1, file, '/')
 		} else {
 			b = append(b[:i], file...)
 			i += len(file)
@@ -266,11 +268,11 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 		st += n
 
 		if w.f&Lshortfile != 0 {
-			W := i + w.shortfile
+			W := i + w.Shortfile
 			for ; st < W; st++ {
 				b[st] = ' '
 			}
-			i += w.shortfile
+			i += w.Shortfile
 		} else {
 			i = st
 		}
@@ -295,15 +297,15 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 				fname = fname[p+2:]
 			}
 
-			if l := len(fname); l <= w.funcname {
-				W := i + w.funcname
+			if l := len(fname); l <= w.Funcname {
+				W := i + w.Funcname
 				b = grow(b, W+4)
 				i += copy(b[i:], fname)
 				for ; i < W; i++ {
 					b[i] = ' '
 				}
 			} else {
-				i += copy(b[i:], fname[:w.funcname])
+				i += copy(b[i:], fname[:w.Funcname])
 				j := 1
 				for {
 					q := fname[l-j]
@@ -535,7 +537,7 @@ func (w *JSONWriter) Message(m Message, s Span) {
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("t"))
-	b = strconv.AppendInt(b[:0], m.Time.Nanoseconds()/1000, 10)
+	b = strconv.AppendInt(b[:0], m.Time.Nanoseconds()>>TimeReduction, 10)
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("m"))
@@ -591,7 +593,7 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("s"))
-	b = strconv.AppendInt(b[:0], s.Started.UnixNano()/1000, 10)
+	b = strconv.AppendInt(b[:0], s.Started.UnixNano()>>TimeReduction, 10)
 	_, _ = w.w.Write(b)
 
 	w.w.ObjEnd()
@@ -622,7 +624,7 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("e"))
-	b = strconv.AppendInt(b[:0], el.Nanoseconds()/1000, 10)
+	b = strconv.AppendInt(b[:0], el.Nanoseconds()>>TimeReduction, 10)
 	_, _ = w.w.Write(b)
 
 	w.w.ObjEnd()
@@ -722,7 +724,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	sz := 0
 	sz += 1 + varintSize(uint64(s.ID))
 	sz += 1 + varintSize(uint64(m.Location))
-	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()/1000))
+	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()>>TimeReduction))
 	sz += 1 + varintSize(uint64(l)) + l
 
 	szs := varintSize(uint64(sz))
@@ -745,7 +747,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	b = appendVarint(b, uint64(m.Location))
 
 	b = append(b, 3<<3|0)
-	b = appendVarint(b, uint64(m.Time.Nanoseconds()/1000))
+	b = appendVarint(b, uint64(m.Time.Nanoseconds()>>TimeReduction))
 
 	b = append(b, 4<<3|2)
 	b = appendVarint(b, uint64(l))
@@ -772,7 +774,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 		sz += 1 + varintSize(uint64(par))
 	}
 	sz += 1 + varintSize(uint64(loc))
-	sz += 1 + varintSize(uint64(s.Started.UnixNano()/1000))
+	sz += 1 + varintSize(uint64(s.Started.UnixNano()>>TimeReduction))
 
 	b := w.buf[:0]
 	szs := varintSize(uint64(sz))
@@ -793,7 +795,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	b = appendVarint(b, uint64(loc))
 
 	b = append(b, 4<<3|0)
-	b = appendVarint(b, uint64(s.Started.UnixNano()/1000))
+	b = appendVarint(b, uint64(s.Started.UnixNano()>>TimeReduction))
 
 	w.buf = b
 
@@ -807,7 +809,7 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 
 	sz := 0
 	sz += 1 + varintSize(uint64(s.ID))
-	sz += 1 + varintSize(uint64(el.Nanoseconds()/1000))
+	sz += 1 + varintSize(uint64(el.Nanoseconds()>>TimeReduction))
 
 	b := w.buf[:0]
 	szs := varintSize(uint64(sz))
@@ -820,7 +822,7 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	b = appendVarint(b, uint64(s.ID))
 
 	b = append(b, 2<<3|0)
-	b = appendVarint(b, uint64(el.Nanoseconds()/1000))
+	b = appendVarint(b, uint64(el.Nanoseconds()>>TimeReduction))
 
 	w.buf = b
 

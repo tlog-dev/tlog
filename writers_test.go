@@ -47,7 +47,7 @@ func TestProtoWriter(t *testing.T) {
 	w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Duration(2 * 1000),
+			Time:     time.Duration(2) << TimeReduction,
 			Format:   "%v",
 			Args:     []interface{}{4},
 		},
@@ -84,7 +84,7 @@ func TestProtoWriter(t *testing.T) {
 	w.SpanStarted(
 		Span{
 			ID:      10,
-			Started: time.Unix(0, 2*1000),
+			Started: time.Unix(0, 2<<TimeReduction),
 		},
 		3,
 		loc,
@@ -121,11 +121,18 @@ func TestProtoWriter(t *testing.T) {
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      10,
-		Elapsed: time.Second.Nanoseconds() / 1000,
+		Elapsed: time.Second.Nanoseconds() >> TimeReduction,
 	}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
 	t.Logf("SpanFinish:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
 
 	buf.Reset()
 	pbuf.Reset()
+}
+
+func BenchmarkTimeNow(b *testing.B) {
+	b.Skip()
+	for i := 0; i < b.N; i++ {
+		time.Now()
+	}
 }

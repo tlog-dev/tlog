@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nikandfor/json"
+	"github.com/nikandfor/tlog"
 )
 
 type JSONReader struct {
@@ -132,7 +133,7 @@ func (r *JSONReader) message() (Message, error) {
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
-			m.Time = time.Duration(v * 1000)
+			m.Time = time.Duration(v << tlog.TimeReduction)
 		case 's':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseInt(n, 10, 64)
@@ -173,7 +174,7 @@ func (r *JSONReader) span() (Span, error) {
 			if err != nil {
 				return Span{}, r.r.ErrorHere(err)
 			}
-			s.Started = time.Unix(0, v*1000)
+			s.Started = time.Unix(0, v<<tlog.TimeReduction)
 		case 'i':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseInt(n, 10, 64)
@@ -221,7 +222,7 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
-			s.Elapsed = time.Duration(v * 1000)
+			s.Elapsed = time.Duration(v << tlog.TimeReduction)
 		}
 	}
 

@@ -280,8 +280,8 @@ func TestTeeWriter(t *testing.T) {
 	assert.Equal(t, `{"L":["a=b","f"]}
 {"l":{"pc":0,"f":"","l":0,"n":""}}
 {"m":{"l":0,"t":0,"m":"msg"}}
-{"s":{"id":100,"l":0,"s":1562408312000000}}
-{"f":{"id":100,"e":1000000}}
+{"s":{"id":100,"l":0,"s":24412629875000000}}
+{"f":{"id":100,"e":15625000}}
 `, buf1.String())
 	assert.Equal(t, buf1.String(), buf2.String())
 }
@@ -339,32 +339,32 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	assert.True(t, ok)
 
 	w.f = Lshortfile
-	w.shortfile = 20
+	w.Shortfile = 20
 	w.buildHeader(loc, tm)
 	assert.Equal(t, "location.go:25        ", string(w.buf))
 
 	w.f = Lshortfile
-	w.shortfile = 10
+	w.Shortfile = 10
 	w.buildHeader(loc, tm)
 	assert.Equal(t, "locatio:25  ", string(w.buf))
 
 	w.f = Lfuncname
-	w.funcname = 10
+	w.Funcname = 10
 	w.buildHeader(loc, tm)
 	assert.Equal(t, "Caller      ", string(w.buf))
 
 	w.f = Lfuncname
-	w.funcname = 4
+	w.Funcname = 4
 	w.buildHeader(loc, tm)
 	assert.Equal(t, "Call  ", string(w.buf))
 
 	w.f = Lfuncname
-	w.funcname = 15
+	w.Funcname = 15
 	w.buildHeader((&testt{}).testloc2(), tm)
 	assert.Equal(t, "testloc2.func1   ", string(w.buf))
 
 	w.f = Lfuncname
-	w.funcname = 12
+	w.Funcname = 12
 	w.buildHeader((&testt{}).testloc2(), tm)
 	assert.Equal(t, "testloc2.fu1  ", string(w.buf))
 
@@ -438,13 +438,14 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	re := `{"L":\["a=b","f"\]}
 {"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"s":{"id":8717895732742165505,"l":\d+,"s":1562517071000000}}
-{"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":1562517072000000}}
+{"s":{"id":8717895732742165505,"l":\d+,"s":24414329234375000}}
+{"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":24414329250000000}}
 {"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"l":\d+,"t":1000000,"m":"message","s":2259404117704393152}}
-{"f":{"id":2259404117704393152,"e":2000000}}
-{"f":{"id":8717895732742165505,"e":4000000}}
+{"m":{"l":\d+,"t":15625000,"m":"message","s":2259404117704393152}}
+{"f":{"id":2259404117704393152,"e":31250000}}
+{"f":{"id":8717895732742165505,"e":62500000}}
 `
+
 	ok, err := regexp.Match(re, buf.Bytes())
 	assert.NoError(t, err)
 	assert.True(t, ok, "expected:\n%vactual:\n%v", re, buf.String())
