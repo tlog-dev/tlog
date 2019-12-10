@@ -18,6 +18,8 @@ type (
 		MaxSize int // 1 GiB
 
 		Fallback io.Writer // os.Stderr
+
+		Mode os.FileMode
 	}
 )
 
@@ -28,6 +30,7 @@ func Create(name string) *File {
 		name:     name,
 		MaxSize:  1 << 30,
 		Fallback: os.Stderr,
+		Mode:     0440,
 	}
 }
 
@@ -64,7 +67,7 @@ func (w *File) rotate() (err error) {
 again:
 	name := fname(w.name, now, try)
 
-	w.f, err = fopen(name)
+	w.f, err = fopen(name, w.Mode)
 	if os.IsExist(err) && try < 10 {
 		try++
 		goto again
@@ -91,8 +94,8 @@ func fname(name string, now time.Time, try int) string {
 	return name + "_" + uniq + ext
 }
 
-func fopen(name string) (*os.File, error) {
-	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_EXCL, 0444)
+func fopen(name string, mode os.FileMode) (*os.File, error) {
+	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_EXCL, mode)
 }
 
 func fallback(w io.Writer, r string, err error, msg []byte) {
