@@ -30,7 +30,7 @@ func (f *filter) match(t string) bool {
 		return true
 	}
 
-	loc := Caller(2)
+	loc := Caller(3)
 
 	defer f.mu.Unlock()
 	f.mu.Lock()

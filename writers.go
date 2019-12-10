@@ -77,7 +77,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		w:         w,
 		f:         f,
 		Shortfile: 20,
-		Funcname:  25,
+		Funcname:  18,
 	}
 }
 

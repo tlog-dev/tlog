@@ -170,14 +170,7 @@ func PrintRaw(b []byte) {
 //         l.Printf("use result: %d")
 //     }
 func V(tp string) *Logger {
-	if DefaultLogger == nil {
-		return nil
-	}
-	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&DefaultLogger.filter))))
-	if !f.match(tp) {
-		return nil
-	}
-	return DefaultLogger
+	return DefaultLogger.v(tp)
 }
 
 // SetFilter sets filter to use in V.
@@ -344,12 +337,16 @@ func (l *Logger) Spawn(id ID) Span {
 	return newspan(l, id)
 }
 
-// V checks if topic tp is enabled and returns default Logger or nil.
+// V checks if one of topics in tp is enabled and returns default Logger or nil.
 //
-// It's OK to use nil Logger, it wonn't crash and won't emit eny Messages to writer.
+// It's OK to use nil Logger, it won't crash and won't emit eny Messages to writer.
 //
 // Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
 func (l *Logger) V(tp string) *Logger {
+	return l.v(tp)
+}
+
+func (l *Logger) v(tp string) *Logger {
 	if l == nil {
 		return nil
 	}
@@ -396,12 +393,16 @@ func (l *Logger) noLocations() *Logger {
 	return l
 }
 
-// V checks if span is active (filter condition was true when span was created).
+// V checks if one of topics in tp is enabled and returns the same Span or empty.
 //
-// It's quiet similar with checking debug condition as following.
-//     if l := Logger.V("topic"); l != nil { /* do complex debug computations only if necessary */ }
-func (s Span) V() bool {
-	return s.ID != 0
+// It return empty Span if you call V on empty Span.
+//
+// Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
+func (s Span) V(tp string) Span {
+	if s.l.v(tp) == nil {
+		return Span{}
+	}
+	return s
 }
 
 // Printf writes logging Message annotated with trace id.
@@ -435,6 +436,11 @@ func (s Span) Finish() {
 	el := now().Sub(s.Started)
 	s.l.SpanFinished(s, el)
 }
+
+// Valid checks if Span was initialized.
+// Span was initialized if it was created by tlog.Start or tlog.Spawn* functions.
+// Span could be empty (not initialized) if verbosity filter was false at the moment of Span creation, eg tlog.V("ignored_topic").Start().
+func (s Span) Valid() bool { return s.l != nil && s.ID != 0 }
 
 // String returns constant width string representation.
 func (i ID) String() string {

@@ -145,8 +145,12 @@ func TestVerbosity(t *testing.T) {
 	}
 
 	tr := V("topic1").Start()
-	if tr.V() {
+	if tr.Valid() {
 		tr.Printf("traced msg")
+	}
+	tr.V("topic2").Printf("trace conditioned message 1")
+	if tr.V("TRACE").Valid() {
+		tr.Printf("trace conditioned message 2")
 	}
 	tr.Finish()
 
@@ -155,6 +159,7 @@ topic1 message (enabled)
 conditional calculations (enabled): 30
 TRACE: 70
 traced msg
+trace conditioned message 2
 `, buf.String())
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")

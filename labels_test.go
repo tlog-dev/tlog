@@ -89,3 +89,14 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	re = regexp.MustCompile(`^_project=tlog.test`) // no $ (.exe)
 	assert.True(t, re.MatchString(ll[5]), "%s is not %s ", ll[5], re)
 }
+
+func TestParseLabels(t *testing.T) {
+	ll := ParseLabels("_pid,a=b")
+
+	assert.Len(t, ll, 2)
+
+	re := regexp.MustCompile(`^_pid=\d+$`)
+	assert.True(t, re.MatchString(ll[0]), "%s is not %s ", ll[0], re)
+
+	assert.Equal(t, "a=b", ll[1])
+}
