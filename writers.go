@@ -26,6 +26,7 @@ type (
 		f         int
 		Shortfile int
 		Funcname  int
+		IDWidth   int
 		buf       bufWriter
 	}
 
@@ -78,6 +79,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		f:         f,
 		Shortfile: 20,
 		Funcname:  18,
+		IDWidth:   16,
 	}
 }
 
@@ -338,7 +340,7 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 	w.mu.Lock()
 
 	var t time.Time
-	if s.ID != 0 {
+	if s.ID != z {
 		t = s.Started.Add(m.Time)
 	} else {
 		t = m.AbsTime()
@@ -346,17 +348,17 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 
 	w.buildHeader(m.Location, t)
 
-	if s.ID != 0 && w.f&Lmessagespan != 0 {
+	if s.ID != z && w.f&Lmessagespan != 0 {
 		b := append(w.buf, "Span "...)
 		i := len(b)
 		b = grow(b, i+20)
 
-		id := s.ID
-		for j := 15; j >= 0; j-- {
-			b[i+j] = digits[id&0xf]
-			id >>= 4
+		for j := 0; j < w.IDWidth; j += 2 {
+			q := s.ID[j/2]
+			b[i+j] = digits[q>>4&0xf]
+			b[i+j+1] = digits[q&0xf]
 		}
-		i += 16
+		i += w.IDWidth
 
 		b[i] = ' '
 		i++
@@ -382,28 +384,28 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) []by
 
 	b = grow(b, i+40)
 
-	id := sid
-	for j := 15; j >= 0; j-- {
-		b[i+j] = digits[id&0xf]
-		id >>= 4
+	for j := 0; j < w.IDWidth; j += 2 {
+		q := sid[j/2]
+		b[i+j] = digits[q>>4&0xf]
+		b[i+j+1] = digits[q&0xf]
 	}
-	i += 16
+	i += w.IDWidth
 
 	if loc != 0 {
 		i += copy(b[i:], " par ")
 
-		id = par
-		if id == 0 {
-			for j := 15; j >= 0; j-- {
+		if par == z {
+			for j := 0; j < w.IDWidth; j++ {
 				b[i+j] = '_'
 			}
 		} else {
-			for j := 15; j >= 0; j-- {
-				b[i+j] = digits[id&0xf]
-				id >>= 4
+			for j := 0; j < w.IDWidth; j += 2 {
+				q := par[j/2]
+				b[i+j] = digits[q>>4&0xf]
+				b[i+j+1] = digits[q&0xf]
 			}
 		}
-		i += 16
+		i += w.IDWidth
 	}
 
 	b[i] = ' '
@@ -445,7 +447,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	b := w.spanHeader(s.ID, 0, 0, s.Started.Add(el))
+	b := w.spanHeader(s.ID, z, 0, s.Started.Add(el))
 
 	b = append(b, "finished - elapsed "...)
 
@@ -545,10 +547,9 @@ func (w *JSONWriter) Message(m Message, s Span) {
 	_, _ = fmt.Fprintf(sw, m.Format, m.Args...)
 	sw.Close()
 
-	if s.ID != 0 {
+	if s.ID != z {
 		w.w.ObjKey([]byte("s"))
-		b = strconv.AppendInt(b[:0], int64(s.ID), 10)
-		_, _ = w.w.Write(b)
+		_, _ = fmt.Fprintf(w.w, `"%+x"`, s.ID)
 	}
 
 	w.w.ObjEnd()
@@ -579,13 +580,11 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	b = strconv.AppendInt(b[:0], int64(s.ID), 10)
-	_, _ = w.w.Write(b)
+	_, _ = fmt.Fprintf(w.w, `"%+x"`, s.ID)
 
-	if par != 0 {
+	if par != z {
 		w.w.ObjKey([]byte("p"))
-		b = strconv.AppendInt(b[:0], int64(par), 10)
-		_, _ = w.w.Write(b)
+		_, _ = fmt.Fprintf(w.w, `"%+x"`, par)
 	}
 
 	w.w.ObjKey([]byte("l"))
@@ -620,8 +619,7 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	b = strconv.AppendInt(b[:0], int64(s.ID), 10)
-	_, _ = w.w.Write(b)
+	_, _ = fmt.Fprintf(w.w, `"%+x"`, s.ID)
 
 	w.w.ObjKey([]byte("e"))
 	b = strconv.AppendInt(b[:0], el.Nanoseconds()>>TimeReduction, 10)
@@ -722,7 +720,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	l, _ := fmt.Fprintf(&w.buf, m.Format, m.Args...)
 
 	sz := 0
-	sz += 1 + varintSize(uint64(s.ID))
+	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
 	sz += 1 + varintSize(uint64(m.Location))
 	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()>>TimeReduction))
 	sz += 1 + varintSize(uint64(l)) + l
@@ -740,8 +738,9 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	b = append(b, 3<<3|2)
 	b = appendVarint(b, uint64(sz))
 
-	b = append(b, 1<<3|0)
-	b = appendVarint(b, uint64(s.ID))
+	b = append(b, 1<<3|2)
+	b = appendVarint(b, uint64(len(s.ID)))
+	b = append(b, s.ID[:]...)
 
 	b = append(b, 2<<3|0)
 	b = appendVarint(b, uint64(m.Location))
@@ -769,9 +768,9 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	}
 
 	sz := 0
-	sz += 1 + varintSize(uint64(s.ID))
-	if par != 0 {
-		sz += 1 + varintSize(uint64(par))
+	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
+	if par != z {
+		sz += 1 + varintSize(uint64(len(par))) + len(par)
 	}
 	sz += 1 + varintSize(uint64(loc))
 	sz += 1 + varintSize(uint64(s.Started.UnixNano()>>TimeReduction))
@@ -783,12 +782,14 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	b = append(b, 4<<3|2)
 	b = appendVarint(b, uint64(sz))
 
-	b = append(b, 1<<3|0)
-	b = appendVarint(b, uint64(s.ID))
+	b = append(b, 1<<3|2)
+	b = appendVarint(b, uint64(len(s.ID)))
+	b = append(b, s.ID[:]...)
 
-	if par != 0 {
-		b = append(b, 2<<3|0)
-		b = appendVarint(b, uint64(par))
+	if par != z {
+		b = append(b, 2<<3|2)
+		b = appendVarint(b, uint64(len(par)))
+		b = append(b, par[:]...)
 	}
 
 	b = append(b, 3<<3|0)
@@ -808,7 +809,7 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	w.mu.Lock()
 
 	sz := 0
-	sz += 1 + varintSize(uint64(s.ID))
+	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
 	sz += 1 + varintSize(uint64(el.Nanoseconds()>>TimeReduction))
 
 	b := w.buf[:0]
@@ -818,8 +819,9 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	b = append(b, 5<<3|2)
 	b = appendVarint(b, uint64(sz))
 
-	b = append(b, 1<<3|0)
-	b = appendVarint(b, uint64(s.ID))
+	b = append(b, 1<<3|2)
+	b = appendVarint(b, uint64(len(s.ID)))
+	b = append(b, s.ID[:]...)
 
 	b = append(b, 2<<3|0)
 	b = appendVarint(b, uint64(el.Nanoseconds()>>TimeReduction))

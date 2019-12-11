@@ -14,10 +14,10 @@ import (
 
 type (
 	// ID is an Span ID
-	ID int64
+	ID [12]byte
 
-	// Printerf is an interface to print to *Logger and to Span in the same time.
-	Printerf interface {
+	// Printfer is an interface to print to *Logger and to Span in the same time.
+	Printfer interface {
 		Printf(string, ...interface{})
 	}
 
@@ -67,6 +67,11 @@ type (
 	}
 )
 
+var (
+	ZeroID ID // to compare with
+	z      ID
+)
+
 // ConsoleWriter flags. Similar to log.Logger flags.
 const ( // console writer flags
 	Ldate = 1 << iota
@@ -95,8 +100,8 @@ const ( // log levels
 )
 
 var ( // testable time, rand
-	now      = time.Now
-	rnd Rand = &concurrentRand{rnd: rand.New(rand.NewSource(now().UnixNano()))}
+	now    = time.Now
+	randID = stdRandID
 
 	digits = []byte("0123456789abcdef")
 )
@@ -213,8 +218,8 @@ func SetLogLevel(l int) {
 
 func newspan(l *Logger, par ID) Span {
 	var id ID
-	for id == 0 {
-		id = ID(rnd.Int63())
+	for id == z {
+		id = randID()
 	}
 
 	var loc Location
@@ -239,7 +244,7 @@ func newmessage(l *Logger, s Span, f string, args []interface{}) {
 	}
 
 	var t time.Duration
-	if s.ID == 0 {
+	if s.ID == z {
 		t = time.Duration(now().UnixNano())
 	} else {
 		t = now().Sub(s.Started)
@@ -269,7 +274,7 @@ func Start() Span {
 		return Span{}
 	}
 
-	return newspan(DefaultLogger, 0)
+	return newspan(DefaultLogger, z)
 }
 
 // Spawn creates new child trace.
@@ -278,7 +283,7 @@ func Start() Span {
 //
 // Span must be Finished in the end.
 func Spawn(id ID) Span {
-	if DefaultLogger == nil || id == 0 {
+	if DefaultLogger == nil || id == z {
 		return Span{}
 	}
 
@@ -321,7 +326,7 @@ func (l *Logger) Start() Span {
 		return Span{}
 	}
 
-	return newspan(l, 0)
+	return newspan(l, z)
 }
 
 // Spawn creates new child trace.
@@ -330,7 +335,7 @@ func (l *Logger) Start() Span {
 //
 // Span must be Finished in the end.
 func (l *Logger) Spawn(id ID) Span {
-	if l == nil || id == 0 {
+	if l == nil || id == z {
 		return Span{}
 	}
 
@@ -408,7 +413,7 @@ func (s Span) V(tp string) Span {
 // Printf writes logging Message annotated with trace id.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) Printf(f string, args ...interface{}) {
-	if s.ID == 0 {
+	if s.ID == z {
 		return
 	}
 
@@ -420,7 +425,7 @@ func (s Span) Printf(f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (s Span) PrintRaw(b []byte) {
-	if s.ID == 0 {
+	if s.ID == z {
 		return
 	}
 
@@ -429,7 +434,7 @@ func (s Span) PrintRaw(b []byte) {
 
 // Finish writes Span finish event to Writer.
 func (s Span) Finish() {
-	if s.ID == 0 {
+	if s.ID == z {
 		return
 	}
 
@@ -440,14 +445,35 @@ func (s Span) Finish() {
 // Valid checks if Span was initialized.
 // Span was initialized if it was created by tlog.Start or tlog.Spawn* functions.
 // Span could be empty (not initialized) if verbosity filter was false at the moment of Span creation, eg tlog.V("ignored_topic").Start().
-func (s Span) Valid() bool { return s.l != nil && s.ID != 0 }
+func (s Span) Valid() bool { return s.l != nil && s.ID != z }
 
 // String returns constant width string representation.
 func (i ID) String() string {
-	if i == 0 {
+	if i == z {
 		return "________________"
 	}
-	return fmt.Sprintf("%016x", uint64(i))
+	return fmt.Sprintf("%x", i[:8])
+}
+
+// Format is fmt.Formatter interface implementation.
+// It supports settings width. '+' flag sets width to full id length
+func (i ID) Format(s fmt.State, c rune) {
+	l := 8
+	if w, ok := s.Width(); ok {
+		l = w / 2
+	}
+	if s.Flag('+') {
+		l = len(i)
+	}
+	if l == 0 {
+		l = 1
+	}
+	switch c {
+	case 'X':
+		fmt.Fprintf(s, "%x", i[:l])
+	default:
+		fmt.Fprintf(s, "%x", i[:l])
+	}
 }
 
 // AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time
@@ -455,10 +481,26 @@ func (m *Message) AbsTime() time.Time {
 	return time.Unix(0, int64(m.Time))
 }
 
-// Int63 does the same as rand.Int63
-func (r *concurrentRand) Int63() int64 {
-	defer r.mu.Unlock()
-	r.mu.Lock()
+func stdRandID() (id ID) {
+	_, err := rand.Read(id[:])
+	if err != nil {
+		panic(err)
+	}
+	return
+}
 
-	return r.rnd.Int63()
+func testRandID() func() ID {
+	var mu sync.Mutex
+	rnd := rand.New(rand.NewSource(0))
+
+	return func() (id ID) {
+		defer mu.Unlock()
+		mu.Lock()
+
+		_, err := rnd.Read(id[:])
+		if err != nil {
+			panic(err)
+		}
+		return
+	}
 }

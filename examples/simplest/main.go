@@ -18,7 +18,7 @@ func main() {
 
 	tlog.Printf("main: %d %q", *f, *str)
 
-	sub.Func1(0, 5)
+	sub.Func1(tlog.ZeroID, 5)
 
 	work()
 }

@@ -34,25 +34,25 @@ func TestJSONReader(t *testing.T) {
 	}, tlog.Span{})
 
 	w.SpanStarted(tlog.Span{
-		ID:      1,
+		ID:      ID{1},
 		Started: now(),
-	}, 0, tlog.Caller(0))
+	}, tlog.ZeroID, tlog.Caller(0))
 
 	w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     time.Duration(now().UnixNano()),
 		Format:   "%v",
 		Args:     []interface{}{5},
-	}, tlog.Span{ID: 1})
+	}, tlog.Span{ID: ID{1}})
 
 	w.SpanStarted(tlog.Span{
-		ID:      2,
+		ID:      ID{2},
 		Started: now(),
-	}, 1, tlog.Caller(0))
+	}, ID{1}, tlog.Caller(0))
 
-	w.SpanFinished(tlog.Span{ID: 2}, time.Second)
+	w.SpanFinished(tlog.Span{ID: ID{2}}, time.Second)
 
-	w.SpanFinished(tlog.Span{ID: 1}, 2*time.Second)
+	w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second)
 
 	t.Logf("json\n%s", buf.Bytes())
 
@@ -111,7 +111,7 @@ func TestJSONReader(t *testing.T) {
 			Line: 30,
 		},
 		Message{
-			Span:     0,
+			Span:     ID{},
 			Location: 1,
 			Time:     time.Duration(now().UnixNano()),
 			Text:     "3",
@@ -123,8 +123,8 @@ func TestJSONReader(t *testing.T) {
 			Line: 39,
 		},
 		Span{
-			ID:       1,
-			Parent:   0,
+			ID:       ID{1},
+			Parent:   ID{},
 			Location: 2,
 			Started:  now(),
 		},
@@ -135,7 +135,7 @@ func TestJSONReader(t *testing.T) {
 			Line: 42,
 		},
 		Message{
-			Span:     1,
+			Span:     ID{1},
 			Location: 3,
 			Time:     time.Duration(now().UnixNano()),
 			Text:     "5",
@@ -147,17 +147,17 @@ func TestJSONReader(t *testing.T) {
 			Line: 51,
 		},
 		Span{
-			ID:       2,
-			Parent:   1,
+			ID:       ID{2},
+			Parent:   ID{1},
 			Location: 4,
 			Started:  now(),
 		},
 		SpanFinish{
-			ID:      2,
+			ID:      ID{2},
 			Elapsed: 1 * time.Second,
 		},
 		SpanFinish{
-			ID:      1,
+			ID:      ID{1},
 			Elapsed: 2 * time.Second,
 		},
 	}, res)

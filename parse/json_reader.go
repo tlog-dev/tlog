@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -135,12 +136,11 @@ func (r *JSONReader) message() (Message, error) {
 			}
 			m.Time = time.Duration(v << tlog.TimeReduction)
 		case 's':
-			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			s := r.r.NextString()
+			_, err := hex.Decode(m.Span[:], s)
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
-			m.Span = ID(v)
 		default:
 			return Message{}, r.r.ErrorHere(errors.New("unexpected key"))
 		}
@@ -176,19 +176,17 @@ func (r *JSONReader) span() (Span, error) {
 			}
 			s.Started = time.Unix(0, v<<tlog.TimeReduction)
 		case 'i':
-			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			b := r.r.NextString()
+			_, err := hex.Decode(s.ID[:], b)
 			if err != nil {
 				return Span{}, r.r.ErrorHere(err)
 			}
-			s.ID = ID(v)
 		case 'p':
-			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			b := r.r.NextString()
+			_, err := hex.Decode(s.Parent[:], b)
 			if err != nil {
 				return Span{}, r.r.ErrorHere(err)
 			}
-			s.Parent = ID(v)
 		default:
 			return Span{}, r.r.ErrorHere(errors.New("unexpected key"))
 		}
@@ -210,12 +208,11 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 		}
 		switch k[0] {
 		case 'i':
-			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			b := r.r.NextString()
+			_, err := hex.Decode(s.ID[:], b)
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
-			s.ID = ID(v)
 		case 'e':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseInt(n, 10, 64)

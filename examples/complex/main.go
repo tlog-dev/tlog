@@ -23,6 +23,7 @@ func initComplexLogger() func() {
 	jw := tlog.NewJSONWriter(&buf)
 
 	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
+	cw.IDWidth = 20
 
 	tw := tlog.NewTeeWriter(cw, jw)
 
@@ -55,7 +56,7 @@ func main() {
 	var a A
 	a.func1(tr.ID)
 
-	sub.Func1(0, 5)
+	sub.Func1(tr.ID, 5)
 }
 
 type A struct{}

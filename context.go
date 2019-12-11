@@ -7,7 +7,7 @@ type key struct{}
 // ContextWithID creates new context with Span ID context.Value.
 // It returns the same context if id is 0
 func ContextWithID(ctx context.Context, id ID) context.Context {
-	if id == 0 {
+	if id == z {
 		return ctx
 	}
 	return context.WithValue(ctx, key{}, id)
@@ -29,7 +29,7 @@ func SpawnFromContext(ctx context.Context) Span {
 	}
 
 	id := IDFromContext(ctx)
-	if id == 0 {
+	if id == z {
 		return Span{}
 	}
 

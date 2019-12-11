@@ -44,6 +44,8 @@ func TestProtoWriter(t *testing.T) {
 	loc := Caller(-1)
 	name, file, line := loc.NameFileLine()
 
+	id := ID{10, 20, 30, 40}
+
 	w.Message(
 		Message{
 			Location: loc,
@@ -51,7 +53,7 @@ func TestProtoWriter(t *testing.T) {
 			Format:   "%v",
 			Args:     []interface{}{4},
 		},
-		Span{ID: 10},
+		Span{ID: id},
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
 		Pc:   int64(loc),
@@ -69,7 +71,7 @@ func TestProtoWriter(t *testing.T) {
 	t.Logf("Location:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf.Bytes()))
 
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Msg: &tlogpb.Message{
-		Span:     10,
+		Span:     id[:],
 		Location: int64(loc),
 		Time:     2,
 		Text:     "4",
@@ -81,12 +83,15 @@ func TestProtoWriter(t *testing.T) {
 	pbuf.Reset()
 	delete(w.ls, loc)
 
+	id = ID{5, 15, 25, 35}
+	par := ID{4, 14, 24, 34}
+
 	w.SpanStarted(
 		Span{
-			ID:      10,
+			ID:      id,
 			Started: time.Unix(0, 2<<TimeReduction),
 		},
-		3,
+		par,
 		loc,
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
@@ -102,8 +107,8 @@ func TestProtoWriter(t *testing.T) {
 	}
 
 	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanStart: &tlogpb.SpanStart{
-		Id:       10,
-		Parent:   3,
+		Id:       id[:],
+		Parent:   par[:],
 		Location: int64(loc),
 		Started:  2,
 	}})
@@ -115,12 +120,12 @@ func TestProtoWriter(t *testing.T) {
 
 	w.SpanFinished(
 		Span{
-			ID: 10,
+			ID: id,
 		},
 		time.Second,
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
-		Id:      10,
+		Id:      id[:],
 		Elapsed: time.Second.Nanoseconds() >> TimeReduction,
 	}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())

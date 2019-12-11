@@ -18,21 +18,20 @@ message Location {
 }
 
 message Message {
-    int64 span = 1;
+    bytes span = 1;
     int64 location = 2;
     int64 time = 3;
     string text = 4;
 }
 
 message SpanStart {
-    int64 id = 1;
-    int64 parent = 2;
+    bytes id = 1;
+    bytes parent = 2;
     int64 location = 3;
     int64 started = 4;
 }
 
 message SpanFinish {
-    int64 id = 1;
+    bytes id = 1;
     int64 elapsed = 2;
-    int64 flags = 3;
 }

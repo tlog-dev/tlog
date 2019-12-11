@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"regexp"
 	"sync"
 	"testing"
@@ -29,8 +28,9 @@ func TestTlogParallel(t *testing.T) {
 	const M = 10
 	const N = 2
 
+	randID = testRandID()
+
 	var buf bytes.Buffer
-	rnd = &concurrentRand{rnd: rand.New(rand.NewSource(0))}
 
 	defer func(l *Logger) {
 		DefaultLogger = l
@@ -279,21 +279,21 @@ func TestTeeWriter(t *testing.T) {
 
 	w.Labels(Labels{"a=b", "f"})
 	w.Message(Message{Format: "msg"}, Span{})
-	w.SpanStarted(Span{ID: 100, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, 0, 0)
-	w.SpanFinished(Span{ID: 100}, time.Second)
+	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, 0)
+	w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
 	assert.Equal(t, `{"L":["a=b","f"]}
 {"l":{"pc":0,"f":"","l":0,"n":""}}
 {"m":{"l":0,"t":0,"m":"msg"}}
-{"s":{"id":100,"l":0,"s":24412629875000000}}
-{"f":{"id":100,"e":15625000}}
+{"s":{"id":"640000000000000000000000","l":0,"s":24412629875000000}}
+{"f":{"id":"640000000000000000000000","e":15625000}}
 `, buf1.String())
 	assert.Equal(t, buf1.String(), buf2.String())
 }
 
 func TestIDString(t *testing.T) {
-	assert.Equal(t, "1234567890abcdef", ID(0x1234567890abcdef).String())
-	assert.Equal(t, "________________", ID(0).String())
+	assert.Equal(t, "1234567890abcdef", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef}.String())
+	assert.Equal(t, "________________", ID{}.String())
 }
 
 func TestConsoleWriterAppendSegment(t *testing.T) {
@@ -387,7 +387,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
-	rnd = rand.New(rand.NewSource(0))
+	randID = testRandID()
 
 	w := NewConsoleWriter(ioutil.Discard, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
@@ -398,23 +398,23 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	tr := l.Start()
 
-	assert.Equal(t, `2019/07/07_16:31:12.000  Span 78fc2ffac2fd9401 par ________________ started`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:12.000  Span 0194fdc2fa2ffcc0 par ________________ started`+"\n", string(w.buf))
 
 	tr1 := l.Spawn(tr.ID)
 
-	assert.Equal(t, `2019/07/07_16:31:13.000  Span 1f5b0412ffd341c0 par 78fc2ffac2fd9401 started`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:13.000  Span 045b73c86e4ff95f par 0194fdc2fa2ffcc0 started`+"\n", string(w.buf))
 
 	tr1.Printf("message")
 
-	assert.Equal(t, `2019/07/07_16:31:14.000  Span 1f5b0412ffd341c0 message`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:14.000  Span 045b73c86e4ff95f message`+"\n", string(w.buf))
 
 	tr1.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:15.000  Span 1f5b0412ffd341c0 finished - elapsed 2000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:15.000  Span 045b73c86e4ff95f finished - elapsed 2000.00ms`+"\n", string(w.buf))
 
 	tr.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:16.000  Span 78fc2ffac2fd9401 finished - elapsed 4000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:16.000  Span 0194fdc2fa2ffcc0 finished - elapsed 4000.00ms`+"\n", string(w.buf))
 }
 
 func TestJSONWriterSpans(t *testing.T) {
@@ -423,7 +423,7 @@ func TestJSONWriterSpans(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
-	rnd = rand.New(rand.NewSource(0))
+	randID = testRandID()
 
 	var buf bytes.Buffer
 	w := NewJSONWriter(&buf)
@@ -443,12 +443,12 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	re := `{"L":\["a=b","f"\]}
 {"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"s":{"id":8717895732742165505,"l":\d+,"s":24414329234375000}}
-{"s":{"id":2259404117704393152,"p":8717895732742165505,"l":\d+,"s":24414329250000000}}
+{"s":{"id":"0194fdc2fa2ffcc041d3ff12","l":\d+,"s":24414329234375000}}
+{"s":{"id":"045b73c86e4ff95ff662a5ee","p":"0194fdc2fa2ffcc041d3ff12","l":\d+,"s":24414329250000000}}
 {"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"l":\d+,"t":15625000,"m":"message","s":2259404117704393152}}
-{"f":{"id":2259404117704393152,"e":31250000}}
-{"f":{"id":8717895732742165505,"e":62500000}}
+{"m":{"l":\d+,"t":15625000,"m":"message","s":"045b73c86e4ff95ff662a5ee"}}
+{"f":{"id":"045b73c86e4ff95ff662a5ee","e":31250000}}
+{"f":{"id":"0194fdc2fa2ffcc041d3ff12","e":62500000}}
 `
 
 	ok, err := regexp.Match(re, buf.Bytes())
