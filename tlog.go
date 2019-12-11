@@ -54,17 +54,6 @@ type (
 
 		Started time.Time
 	}
-
-	// Rand is an interface for rand.Rand. It's intended mostly for testing purpose.
-	// It's expected to support simultaneous calls.
-	Rand interface {
-		Int63() int64
-	}
-
-	concurrentRand struct {
-		mu  sync.Mutex
-		rnd Rand
-	}
 )
 
 var (
@@ -124,6 +113,15 @@ func New(ws ...Writer) *Logger {
 	}
 
 	return l
+}
+
+func (l *Logger) AppendWriter(ws ...Writer) {
+	switch w := l.Writer.(type) {
+	case *TeeWriter:
+		w.Writers = append(w.Writers, ws...)
+	default:
+		l.Writer = &TeeWriter{Writers: append([]Writer{l.Writer}, ws...)}
+	}
 }
 
 // SetLabels sets labels for default logger
@@ -447,12 +445,20 @@ func (s Span) Finish() {
 // Span could be empty (not initialized) if verbosity filter was false at the moment of Span creation, eg tlog.V("ignored_topic").Start().
 func (s Span) Valid() bool { return s.l != nil && s.ID != z }
 
-// String returns constant width string representation.
+// String returns short string representation.
 func (i ID) String() string {
 	if i == z {
 		return "________________"
 	}
-	return fmt.Sprintf("%x", i[:8])
+	return fmt.Sprintf("%x", i)
+}
+
+// FullString returns full id in string representation.
+func (i ID) FullString() string {
+	if i == z {
+		return "________________"
+	}
+	return fmt.Sprintf("%+x", i)
 }
 
 // Format is fmt.Formatter interface implementation.
