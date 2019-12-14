@@ -64,29 +64,30 @@ debug
 trace
 
 # all topics at specified location are enabled
-module         # child modules are not enabled
-module/*
-module/and/file.go
+path             # child packages are not enabled
+path/*
+path/to/file.go
 file.go
-(*Conn)        # all Conn methods are enabled
-Conn           # short form
-Conn.Send      # one method
-Send           # function or method of any object
+package
+(*Type)          # all Conn methods are enabled
+Type             # short form
+Type.Method      # one method
+Method           # function or method of any object
 
 # enable specific topics at specific location
-module=encryption
-Conn=encryption+telemetry # multiple topics for location separated by '+'
+package=encryption
+Type=encryption+telemetry # multiple topics for location separated by '+'
 ```
 List of filters is executed as chain of inclusion, exclusion and back inclusion of some locations.
 ```
-module/*,!module/submodule,module/submodule/file.go,!funcInFile,!submodule/file.go=Write
+path/*,!path/subpackage,path/subpackage/file.go,!funcInFile,!subpackage/file.go=Write
 
 What's happend:
-* module/* - include whole subtree
-* !module/submodule - but exclude one of submodules. Others: module/sub1/*, module/sub2/*, etc remain included.
-* module/submodule/file.go - but we interested in logs in file, so include it
+* path/* - include whole subtree
+* !path/subpackage - but exclude one of subpackages. Others: path/sub1/*, path/sub2/*, etc remain included.
+* path/subpackage/file.go - but we interested in logs in file, so include it
 * !funcInFile - except some function.
-* !submodule/file.go=Write - and except function Write from file submodule/file.go
+* !subpackage/file.go=Write - and except function Write from file subpackage/file.go
 ```
 In most cases it's enough to have only one filter, but if you need, you may have more with no performance loss.
 
@@ -214,7 +215,7 @@ func (b *VideosBackend) Search(ctx context.Context, q string) ([]*Page, error) {
 ```
 Traces may be used as metrics either. Analyzing time of messages you can measure how much each function elapsed, how much time has passed since one message to another.
 
-**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Luckily it's just an int64.**
+**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, it's just at `[12]byte`.**
 
 Analysing and visualising tool is going to be later.
 
