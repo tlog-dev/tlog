@@ -49,3 +49,18 @@ func TestCircleMarshalJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, `[{"message":"1"},{"message":"2"},{"message":"3"}]`, string(data))
 }
+
+func TestCircleMarshalJSONStream(t *testing.T) {
+	b := NewCircleBuffer(10)
+
+	b.Write([]byte(`{"message":"1"}` + "\n"))
+	b.Write([]byte(`{"message":"2"}` + "\n"))
+	b.Write([]byte(`{"message":"3"}` + "\n"))
+
+	data, err := b.MarshalText()
+	assert.NoError(t, err)
+	assert.Equal(t, `{"message":"1"}
+{"message":"2"}
+{"message":"3"}
+`, string(data))
+}

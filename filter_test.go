@@ -123,8 +123,10 @@ func TestFilterMatchFilter(t *testing.T) {
 	assert.True(t, newFilter("tlog").matchFilter(Caller(0), "a"))
 	assert.True(t, newFilter("tlog=a").matchFilter(Caller(0), "a"))
 	assert.True(t, newFilter("tlog=a+b").matchFilter(Caller(0), "a"))
+	assert.True(t, newFilter("=a").matchFilter(Caller(0), "a"))
 	assert.False(t, newFilter("tlog=b").matchFilter(Caller(0), "a"))
 	assert.False(t, newFilter("tlog=b,").matchFilter(Caller(0), "a"))
+	assert.False(t, newFilter("=a").matchFilter(Caller(0), "b"))
 
 	assert.True(t, newFilter("TestFilterMatchFilter").matchFilter(Caller(0), "a"))
 	assert.False(t, newFilter("TestFilterMatchType").matchFilter(Caller(0), "a"))

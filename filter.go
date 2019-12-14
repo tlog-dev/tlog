@@ -79,6 +79,11 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 			pt = lr[0]
 		}
 
+		if pt == "" {
+			ok = set
+			continue
+		}
+
 		if f.matchPath(pt, file) {
 			ok = set
 			continue
