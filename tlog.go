@@ -3,6 +3,7 @@
 package tlog
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"os"
@@ -53,6 +54,10 @@ type (
 		ID ID
 
 		Started time.Time
+	}
+
+	TooShortIDError struct {
+		N int
 	}
 )
 
@@ -459,6 +464,38 @@ func (i ID) FullString() string {
 		return "________________"
 	}
 	return fmt.Sprintf("%+x", i)
+}
+
+// IDFromBytes checks slice length and casts to ID type (copying).
+//
+// If byte slice is shorter than type length result is returned as is and TooShortIDError as error value.
+// You may use result if you expected short ID prefix.
+func IDFromBytes(b []byte) (id ID, err error) {
+	n := copy(id[:], b)
+	if n < len(id) {
+		return id, TooShortIDError{N: n}
+	}
+	return id, nil
+}
+
+// IDFromString parses ID from string.
+//
+// If parsed string is shorter than type length result is returned as is and TooShortIDError as error value.
+// You may use result if you expected short ID prefix (profuced by ID.String, for example).
+func IDFromString(s string) (id ID, err error) {
+	n, err := hex.Decode(id[:], []byte(s))
+	if err != nil {
+		return
+	}
+	if n < len(id) {
+		return id, TooShortIDError{N: n}
+	}
+	return id, nil
+}
+
+// Error is en error interface implementation.
+func (e TooShortIDError) Error() string {
+	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{}))
 }
 
 // Format is fmt.Formatter interface implementation.

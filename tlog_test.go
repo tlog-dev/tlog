@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"regexp"
@@ -295,6 +296,30 @@ func TestIDString(t *testing.T) {
 	assert.Equal(t, "1234567890abcdef", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.String())
 	assert.Equal(t, "________________", ID{}.String())
 	assert.Equal(t, "1234567890abcdef11220000", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.FullString())
+}
+
+func TestIDFrom(t *testing.T) {
+	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb}
+
+	res, err := IDFromString(id.FullString())
+	assert.NoError(t, err)
+	assert.Equal(t, id, res)
+
+	res, err = IDFromBytes(id[:])
+	assert.NoError(t, err)
+	assert.Equal(t, id, res)
+
+	res, err = IDFromString(fmt.Sprintf("%8x", id))
+	assert.Equal(t, TooShortIDError{N: 4}, err)
+	assert.Equal(t, ID{1, 2, 3, 4}, res)
+
+	res, err = IDFromBytes(id[:4])
+	assert.Equal(t, TooShortIDError{N: 4}, err)
+	assert.Equal(t, ID{1, 2, 3, 4}, res)
+
+	res, err = IDFromString("010203046q")
+	assert.EqualError(t, err, "encoding/hex: invalid byte: U+0071 'q'")
+	assert.Equal(t, ID{1, 2, 3, 4}, res)
 }
 
 func TestConsoleWriterAppendSegment(t *testing.T) {
