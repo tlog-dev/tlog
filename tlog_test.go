@@ -115,6 +115,8 @@ func TestVerbosity(t *testing.T) {
 		return tm
 	}
 
+	assert.Equal(t, "", Filter())
+
 	var buf bytes.Buffer
 
 	DefaultLogger = New(NewConsoleWriter(&buf, Lnone))
@@ -122,6 +124,8 @@ func TestVerbosity(t *testing.T) {
 	V("any_topic").Printf("All conditionals are disabled by default")
 
 	SetFilter("topic1,tlog=topic3")
+
+	assert.Equal(t, "topic1,tlog=topic3", Filter())
 
 	Printf("unconditional message")
 	DefaultLogger.V("topic1").Printf("topic1 message (enabled)")

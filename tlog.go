@@ -214,6 +214,11 @@ func SetFilter(f string) {
 	DefaultLogger.SetFilter(f)
 }
 
+// Filter returns current verbosity filter for DefaultLogger.
+func Filter() string {
+	return DefaultLogger.Filter()
+}
+
 // SetLogLevel is a shortcut for SetFilter with one of *Filter constants
 func SetLogLevel(l int) {
 	DefaultLogger.SetLogLevel(l)
@@ -366,6 +371,7 @@ func (l *Logger) v(tp string) *Logger {
 }
 
 // SetFilter sets filter to use in V.
+//
 // See package.SetFilter description for details.
 func (l *Logger) SetFilter(filters string) {
 	if l == nil {
@@ -376,6 +382,20 @@ func (l *Logger) SetFilter(filters string) {
 		f = newFilter(filters)
 	}
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
+}
+
+// Filter returns current verbosity filter value
+//
+// See package.SetFilter description for details.
+func (l *Logger) Filter() string {
+	if l == nil {
+		return ""
+	}
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	if f == nil {
+		return ""
+	}
+	return f.f
 }
 
 // SetLogLevel is a shortcut for SetFilter with one of *Filter constants

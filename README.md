@@ -154,6 +154,8 @@ cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags)
 jw := tlog.NewJSONWriter(file)
 w := tlog.NewTeeWriter(cw, jw) // order is important. In that order messages will be passed to writers.
 l := tlog.New(w)
+// actually TeeWriter is already used inside tlog.New, so you can do:
+l = tlog.New(cw, jw) // the same result as before
 ```
 
 ### The best writer ever
@@ -164,7 +166,7 @@ Writer interface {
     Labels(ls Labels)
     SpanStarted(s Span, parent ID, l Location)
     SpanFinished(s Span, el time.Duration)
-    Message(l Message, s Span)
+    Message(m Message, s Span)
 }
 ```
 
@@ -215,7 +217,7 @@ func (b *VideosBackend) Search(ctx context.Context, q string) ([]*Page, error) {
 ```
 Traces may be used as metrics either. Analyzing time of messages you can measure how much each function elapsed, how much time has passed since one message to another.
 
-**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, it's just at `[12]byte`.**
+**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, it's just an `[12]byte`.**
 
 Analysing and visualising tool is going to be later.
 
