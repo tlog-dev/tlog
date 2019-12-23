@@ -115,6 +115,7 @@ func TestVerbosity(t *testing.T) {
 		return tm
 	}
 
+	assert.Equal(t, "", (*Logger)(nil).Filter())
 	assert.Equal(t, "", Filter())
 
 	var buf bytes.Buffer

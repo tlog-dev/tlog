@@ -6,11 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
+const timeFormat = "2006-01-02_15-04-05"
+
 type (
 	File struct {
+		mu     sync.Mutex
 		f      *os.File
 		nbytes int
 
@@ -35,6 +39,9 @@ func Create(name string) *File {
 }
 
 func (w *File) Write(p []byte) (int, error) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
 	if w.f == nil || w.nbytes+len(p) > w.MaxSize {
 		err := w.rotate()
 		if err != nil {
@@ -52,6 +59,17 @@ func (w *File) Write(p []byte) (int, error) {
 	w.nbytes += n
 
 	return n, nil
+}
+
+func (w *File) Name() string {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	if w.f == nil {
+		return ""
+	}
+
+	return w.f.Name()
 }
 
 func (w *File) rotate() (err error) {
