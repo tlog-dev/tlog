@@ -351,7 +351,7 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 	if s.ID != z && w.f&Lmessagespan != 0 {
 		b := append(w.buf, "Span "...)
 		i := len(b)
-		b = grow(b, i+20)
+		b = grow(b, i+w.IDWidth+2)
 
 		for j := 0; j < w.IDWidth; j += 2 {
 			q := s.ID[j/2]
@@ -382,7 +382,7 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) []by
 	i := len(b)
 	b = b[:i]
 
-	b = grow(b, i+40)
+	b = grow(b, i+2*w.IDWidth+10)
 
 	for j := 0; j < w.IDWidth; j += 2 {
 		q := sid[j/2]
@@ -549,7 +549,9 @@ func (w *JSONWriter) Message(m Message, s Span) {
 
 	if s.ID != z {
 		w.w.ObjKey([]byte("s"))
-		_, _ = fmt.Fprintf(w.w, `"%+x"`, s.ID)
+		b = grow(b[:0], 34)[:34]
+		s.ID.FormatQuotedTo(b, 'x')
+		_, _ = w.w.Write(b)
 	}
 
 	w.w.ObjEnd()
@@ -580,11 +582,14 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	_, _ = fmt.Fprintf(w.w, `"%+x"`, s.ID)
+	b = grow(b[:0], 34)[:34]
+	s.ID.FormatQuotedTo(b, 'x')
+	_, _ = w.w.Write(b)
 
 	if par != z {
 		w.w.ObjKey([]byte("p"))
-		_, _ = fmt.Fprintf(w.w, `"%+x"`, par)
+		par.FormatQuotedTo(b, 'x')
+		_, _ = w.w.Write(b)
 	}
 
 	w.w.ObjKey([]byte("l"))
@@ -619,7 +624,9 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 	w.w.ObjStart()
 
 	w.w.ObjKey([]byte("id"))
-	_, _ = fmt.Fprintf(w.w, `"%+x"`, s.ID)
+	b = grow(b[:0], 34)[:34]
+	s.ID.FormatQuotedTo(b, 'x')
+	_, _ = w.w.Write(b)
 
 	w.w.ObjKey([]byte("e"))
 	b = strconv.AppendInt(b[:0], el.Nanoseconds()>>TimeReduction, 10)

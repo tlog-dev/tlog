@@ -1,4 +1,4 @@
-// tlog is a logger and a tracer in one package.
+// tlog is a logger and a tracer in the same time.
 //
 package tlog
 
@@ -97,7 +97,8 @@ var ( // testable time, rand
 	now    = time.Now
 	randID = stdRandID
 
-	digits = []byte("0123456789abcdef")
+	digits  = []byte("0123456789abcdef")
+	digitsX = []byte("0123456789ABCDEF")
 )
 
 var ( // defaults
@@ -521,6 +522,7 @@ func (e TooShortIDError) Error() string {
 // Format is fmt.Formatter interface implementation.
 // It supports settings width. '+' flag sets width to full id length
 func (i ID) Format(s fmt.State, c rune) {
+	var buf [32]byte
 	l := 8
 	if w, ok := s.Width(); ok {
 		l = w / 2
@@ -531,12 +533,32 @@ func (i ID) Format(s fmt.State, c rune) {
 	if l == 0 {
 		l = 1
 	}
-	switch c {
-	case 'X':
-		fmt.Fprintf(s, "%x", i[:l])
-	default:
-		fmt.Fprintf(s, "%x", i[:l])
+	i.FormatTo(buf[:], c)
+	_, _ = s.Write(buf[:2*l])
+}
+
+func (i ID) FormatTo(b []byte, f rune) {
+	if len(b) < 2*len(z) {
+		panic(len(b))
 	}
+	dg := digits
+	if f == 'X' {
+		dg = digitsX
+	}
+	for j := 0; j < 2*len(z); j += 2 {
+		q := i[j/2]
+		b[j] = dg[q>>4&0xf]
+		b[j+1] = dg[q&0xf]
+	}
+}
+
+func (i ID) FormatQuotedTo(b []byte, f rune) {
+	if len(b) < 2+2*len(z) {
+		panic(len(b))
+	}
+	b[0] = '"'
+	b[33] = '"'
+	i.FormatTo(b[1:], f)
 }
 
 // AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time
