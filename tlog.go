@@ -15,7 +15,7 @@ import (
 
 type (
 	// ID is an Span ID
-	ID [12]byte
+	ID [16]byte
 
 	// Printfer is an interface to print to *Logger and to Span in the same time.
 	Printfer interface {

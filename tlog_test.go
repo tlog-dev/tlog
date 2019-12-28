@@ -291,8 +291,8 @@ func TestTeeWriter(t *testing.T) {
 	assert.Equal(t, `{"L":["a=b","f"]}
 {"l":{"pc":0,"f":"","l":0,"n":""}}
 {"m":{"l":0,"t":0,"m":"msg"}}
-{"s":{"id":"640000000000000000000000","l":0,"s":24412629875000000}}
-{"f":{"id":"640000000000000000000000","e":15625000}}
+{"s":{"id":"64000000000000000000000000000000","l":0,"s":24412629875000000}}
+{"f":{"id":"64000000000000000000000000000000","e":15625000}}
 `, buf1.String())
 	assert.Equal(t, buf1.String(), buf2.String())
 }
@@ -300,7 +300,7 @@ func TestTeeWriter(t *testing.T) {
 func TestIDString(t *testing.T) {
 	assert.Equal(t, "1234567890abcdef", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.String())
 	assert.Equal(t, "________________", ID{}.String())
-	assert.Equal(t, "1234567890abcdef11220000", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.FullString())
+	assert.Equal(t, "1234567890abcdef1122000000000000", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.FullString())
 }
 
 func TestIDFrom(t *testing.T) {
@@ -433,15 +433,15 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	tr1 := l.Spawn(tr.ID)
 
-	assert.Equal(t, `2019/07/07_16:31:13.000  Span 045b73c86e4ff95f par 0194fdc2fa2ffcc0 started`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:13.000  Span 6e4ff95ff662a5ee par 0194fdc2fa2ffcc0 started`+"\n", string(w.buf))
 
 	tr1.Printf("message")
 
-	assert.Equal(t, `2019/07/07_16:31:14.000  Span 045b73c86e4ff95f message`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:14.000  Span 6e4ff95ff662a5ee message`+"\n", string(w.buf))
 
 	tr1.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:15.000  Span 045b73c86e4ff95f finished - elapsed 2000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:15.000  Span 6e4ff95ff662a5ee finished - elapsed 2000.00ms`+"\n", string(w.buf))
 
 	tr.Finish()
 
@@ -474,12 +474,12 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	re := `{"L":\["a=b","f"\]}
 {"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"s":{"id":"0194fdc2fa2ffcc041d3ff12","l":\d+,"s":24414329234375000}}
-{"s":{"id":"045b73c86e4ff95ff662a5ee","p":"0194fdc2fa2ffcc041d3ff12","l":\d+,"s":24414329250000000}}
+{"s":{"id":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329234375000}}
+{"s":{"id":"6e4ff95ff662a5eee82abdf44a2d0b75","p":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329250000000}}
 {"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"l":\d+,"t":15625000,"m":"message","s":"045b73c86e4ff95ff662a5ee"}}
-{"f":{"id":"045b73c86e4ff95ff662a5ee","e":31250000}}
-{"f":{"id":"0194fdc2fa2ffcc041d3ff12","e":62500000}}
+{"m":{"l":\d+,"t":15625000,"m":"message","s":"6e4ff95ff662a5eee82abdf44a2d0b75"}}
+{"f":{"id":"6e4ff95ff662a5eee82abdf44a2d0b75","e":31250000}}
+{"f":{"id":"0194fdc2fa2ffcc041d3ff12045b73c8","e":62500000}}
 `
 
 	ok, err := regexp.Match(re, buf.Bytes())
