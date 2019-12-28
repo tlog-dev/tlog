@@ -1,8 +1,8 @@
 package tlog
 
 import (
-	"crypto/md5"
-	"crypto/sha1"
+	"crypto/md5"  //nolint
+	"crypto/sha1" //nolint
 	"fmt"
 	"io"
 	"os"
@@ -76,7 +76,7 @@ func ExecutableMD5() string {
 	}
 	defer f.Close()
 
-	h := md5.New()
+	h := md5.New() //nolint
 	_, err = io.Copy(h, f)
 	if err != nil {
 		return err.Error()
@@ -99,7 +99,7 @@ func ExecutableSHA1() string {
 	}
 	defer f.Close()
 
-	h := sha1.New()
+	h := sha1.New() //nolint
 	_, err = io.Copy(h, f)
 	if err != nil {
 		return err.Error()

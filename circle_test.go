@@ -9,11 +9,11 @@ import (
 func TestCircleWrite(t *testing.T) {
 	b := NewCircleBuffer(3)
 
-	b.Write([]byte("message 1\n"))
-	b.Write([]byte("message 2\n"))
-	b.Write([]byte("message 3\n"))
-	b.Write([]byte("message 1000\n"))
-	b.Write([]byte("msg\n"))
+	_, _ = b.Write([]byte("message 1\n"))
+	_, _ = b.Write([]byte("message 2\n"))
+	_, _ = b.Write([]byte("message 3\n"))
+	_, _ = b.Write([]byte("message 1000\n"))
+	_, _ = b.Write([]byte("msg\n"))
 
 	data, err := b.MarshalText()
 	assert.NoError(t, err)
@@ -26,9 +26,9 @@ msg
 func TestCircleMarshalText(t *testing.T) {
 	b := NewCircleBuffer(10)
 
-	b.Write([]byte("message 1\n"))
-	b.Write([]byte("message 2\n"))
-	b.Write([]byte("message 3\n"))
+	_, _ = b.Write([]byte("message 1\n"))
+	_, _ = b.Write([]byte("message 2\n"))
+	_, _ = b.Write([]byte("message 3\n"))
 
 	data, err := b.MarshalText()
 	assert.NoError(t, err)
@@ -41,9 +41,9 @@ message 3
 func TestCircleMarshalJSON(t *testing.T) {
 	b := NewCircleBuffer(10)
 
-	b.Write([]byte(`{"message":"1"}` + "\n"))
-	b.Write([]byte(`{"message":"2"}`))
-	b.Write([]byte(`{"message":"3"}` + "\n"))
+	_, _ = b.Write([]byte(`{"message":"1"}` + "\n"))
+	_, _ = b.Write([]byte(`{"message":"2"}`))
+	_, _ = b.Write([]byte(`{"message":"3"}` + "\n"))
 
 	data, err := b.MarshalJSON()
 	assert.NoError(t, err)
@@ -53,9 +53,9 @@ func TestCircleMarshalJSON(t *testing.T) {
 func TestCircleMarshalJSONStream(t *testing.T) {
 	b := NewCircleBuffer(10)
 
-	b.Write([]byte(`{"message":"1"}` + "\n"))
-	b.Write([]byte(`{"message":"2"}` + "\n"))
-	b.Write([]byte(`{"message":"3"}` + "\n"))
+	_, _ = b.Write([]byte(`{"message":"1"}` + "\n"))
+	_, _ = b.Write([]byte(`{"message":"2"}` + "\n"))
+	_, _ = b.Write([]byte(`{"message":"3"}` + "\n"))
 
 	data, err := b.MarshalText()
 	assert.NoError(t, err)

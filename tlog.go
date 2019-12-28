@@ -503,7 +503,7 @@ func (i ID) String() string {
 // FullString returns full id in string representation.
 func (i ID) FullString() string {
 	if i == z {
-		return "________________"
+		return "________________________________"
 	}
 	return fmt.Sprintf("%+x", i)
 }
@@ -588,7 +588,7 @@ func (m *Message) AbsTime() time.Time {
 }
 
 func stdRandID() (id ID) {
-	_, err := rand.Read(id[:])
+	_, err := rand.Read(id[:]) //nolint:gosec
 	if err != nil {
 		panic(err)
 	}

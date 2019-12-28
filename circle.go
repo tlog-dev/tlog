@@ -55,7 +55,7 @@ func (b *CircleBuffer) MarshalJSON() ([]byte, error) {
 				last++
 			}
 
-			w.Write(l[:last])
+			_, _ = w.Write(l[:last])
 		}
 
 		i = (i + 1) % len(b.l)
