@@ -243,14 +243,16 @@ Allocations are one of the worst enemies of performance. So I fighted each alloc
 goos: linux
 goarch: amd64
 pkg: github.com/nikandfor/tlog
-BenchmarkLogLoggerStd-8                	 3000000	       397 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogConsoleLoggerStd-8        	 5000000	       340 ns/op	      24 B/op	       2 allocs/op
-BenchmarkLogLoggerDetailed-8           	 1000000	      1362 ns/op	     208 B/op	       4 allocs/op
-BenchmarkTlogConsoleDetailed-8         	 1000000	      1454 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesConsole-8           	  500000	      3245 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesJSON-8              	  500000	      3483 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProto-8             	 1000000	      2010 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProtoPrintRaw-8   	 1000000	      1915 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLogLoggerStd-8              	 3013136	       403 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogConsoleLoggerStd-8      	 3695224	       332 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLoggerDetailed-8         	  824755	      1402 ns/op	     240 B/op	       4 allocs/op
+BenchmarkTlogConsoleDetailed-8       	  780057	      1429 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesConsole-8         	  351802	      3274 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesJSON-8            	  320534	      3510 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProto-8           	  531861	      2007 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProtoPrintRaw-8   	  639990	      1773 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIDFormat-8                  	 4172113	       274 ns/op	      80 B/op	       3 allocs/op
+BenchmarkIDFormatTo-8                	37050002	        29.3 ns/op	       0 B/op	       0 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
