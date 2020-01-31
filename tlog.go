@@ -341,6 +341,14 @@ func (l *Logger) PrintRaw(d int, b []byte) {
 	newmessage(l, d+1, Span{}, bytesToString(b), nil)
 }
 
+// Write is an io.Writer interface implementation.
+//
+// It never returns any error.
+func (l *Logger) Write(b []byte) (int, error) {
+	newmessage(l, 1, Span{}, bytesToString(b), nil)
+	return len(b), nil
+}
+
 // Start creates new root trace.
 //
 // Span must be Finished in the end.
@@ -475,6 +483,19 @@ func (s Span) PrintRaw(d int, b []byte) {
 	}
 
 	newmessage(s.l, d+1, s, bytesToString(b), nil)
+}
+
+// Write is an io.Writer interface implementation.
+//
+// It never returns any error.
+func (s Span) Write(b []byte) (int, error) {
+	if s.ID == z {
+		return len(b), nil
+	}
+
+	newmessage(s.l, 1, s, bytesToString(b), nil)
+
+	return len(b), nil
 }
 
 // Finish writes Span finish event to Writer.

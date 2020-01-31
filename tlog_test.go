@@ -105,6 +105,34 @@ raw message 3
 `, buf.String())
 }
 
+func TestWrite(t *testing.T) {
+	defer func(l *Logger) {
+		DefaultLogger = l
+	}(DefaultLogger)
+
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+
+	n, err := DefaultLogger.Write([]byte("raw message 2"))
+	assert.NoError(t, err)
+	assert.Equal(t, 13, n)
+
+	tr := Start()
+	n, err = tr.Write([]byte("raw message 3"))
+	assert.NoError(t, err)
+	assert.Equal(t, 13, n)
+	tr.Finish()
+
+	tr = Span{}
+	n, err = tr.Write([]byte("raw message 4"))
+	assert.NoError(t, err)
+	assert.Equal(t, 13, n)
+
+	assert.Equal(t, `raw message 2
+raw message 3
+`, buf.String())
+}
+
 func TestVerbosity(t *testing.T) {
 	defer func(old func() time.Time) {
 		now = old
@@ -575,6 +603,18 @@ func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 		tr := l.Start()
 		// fill in buffer...
 		tr.PrintRaw(0, buf)
+		tr.Finish()
+	}
+}
+
+func BenchmarkTlogTracesProtoWrite(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
+	for i := 0; i < b.N; i++ {
+		tr := l.Start()
+		fmt.Fprintf(tr, "%d", i)
 		tr.Finish()
 	}
 }
