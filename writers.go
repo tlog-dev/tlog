@@ -21,7 +21,6 @@ type (
 	//
 	// It's safe to write event simultaneously.
 	ConsoleWriter struct {
-		mu        sync.Mutex
 		w         io.Writer
 		f         int
 		Shortfile int
@@ -38,7 +37,6 @@ type (
 	//
 	// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 	JSONWriter struct {
-		mu  sync.Mutex
 		w   *json.Writer
 		ls  map[Location]struct{}
 		buf []byte
@@ -52,20 +50,21 @@ type (
 	//
 	// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 	ProtoWriter struct {
-		mu  sync.Mutex
 		w   io.Writer
 		ls  map[Location]struct{}
 		buf bufWriter
 	}
 
 	// TeeWriter writes the same events in the same order to all Writers one after another.
-	TeeWriter struct {
-		mu      sync.Mutex
-		Writers []Writer
-	}
+	TeeWriter []Writer
 
 	// Discard discards all events.
 	Discard struct{}
+
+	LockedWriter struct {
+		mu sync.Mutex
+		w  Writer
+	}
 
 	bufWriter []byte
 )
@@ -336,9 +335,6 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 
 // Message writes Message event by single Write.
 func (w *ConsoleWriter) Message(m Message, s Span) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
 	var t time.Time
 	if s.ID != z {
 		t = s.Started.Add(m.Time)
@@ -426,9 +422,6 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 		return
 	}
 
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
 	b := w.spanHeader(s.ID, par, l, s.Started)
 
 	b = append(b, "started\n"...)
@@ -443,9 +436,6 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 	if w.f&Lspans == 0 {
 		return
 	}
-
-	defer w.mu.Unlock()
-	w.mu.Lock()
 
 	b := w.spanHeader(s.ID, z, 0, s.Started.Add(el))
 
@@ -495,9 +485,7 @@ func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 
 // Labels writes Labels to the stream.
 func (w *JSONWriter) Labels(ls Labels) {
-	defer w.mu.Unlock()
 	defer w.w.Flush()
-	w.mu.Lock()
 
 	w.w.ObjStart()
 
@@ -518,9 +506,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 
 // Message writes event to the stream.
 func (w *JSONWriter) Message(m Message, s Span) {
-	defer w.mu.Unlock()
 	defer w.w.Flush()
-	w.mu.Lock()
 
 	if _, ok := w.ls[m.Location]; !ok {
 		w.location(m.Location)
@@ -565,9 +551,7 @@ func (w *JSONWriter) Message(m Message, s Span) {
 
 // SpanStarted writes event to the stream.
 func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
-	defer w.mu.Unlock()
 	defer w.w.Flush()
-	w.mu.Lock()
 
 	if _, ok := w.ls[loc]; !ok {
 		w.location(loc)
@@ -611,9 +595,7 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 
 // SpanFinished writes event to the stream.
 func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
-	defer w.mu.Unlock()
 	defer w.w.Flush()
-	w.mu.Lock()
 
 	b := w.buf
 
@@ -689,9 +671,6 @@ func NewProtoWriter(w io.Writer) *ProtoWriter {
 
 // Labels writes Labels to the stream.
 func (w *ProtoWriter) Labels(ls Labels) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
 	b := w.buf[:0]
 
 	sz := 0
@@ -715,9 +694,6 @@ func (w *ProtoWriter) Labels(ls Labels) {
 
 // Message writes enent to the stream.
 func (w *ProtoWriter) Message(m Message, s Span) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
 	if _, ok := w.ls[m.Location]; !ok {
 		w.location(m.Location)
 	}
@@ -767,9 +743,6 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 
 // SpanStarted writes event to the stream.
 func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
 	if _, ok := w.ls[loc]; !ok {
 		w.location(loc)
 	}
@@ -812,9 +785,6 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 
 // SpanFinished writes event to the stream.
 func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
 	sz += 1 + varintSize(uint64(el.Nanoseconds()>>TimeReduction))
@@ -912,50 +882,38 @@ func varintSize(v uint64) int {
 }
 
 // NewTeeWriter creates multiwriter that writes the same events to all writers in the same order.
-func NewTeeWriter(w ...Writer) *TeeWriter {
+func NewTeeWriter(w ...Writer) TeeWriter {
 	var ws []Writer
 	for _, w := range w {
-		if t, ok := w.(*TeeWriter); ok {
-			ws = append(ws, t.Writers...)
+		if t, ok := w.(TeeWriter); ok {
+			ws = append(ws, t...)
 		} else {
 			ws = append(ws, w)
 		}
 	}
-	return &TeeWriter{Writers: ws}
+	return TeeWriter(ws)
 }
 
-func (w *TeeWriter) Labels(ls Labels) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	for _, w := range w.Writers {
+func (w TeeWriter) Labels(ls Labels) {
+	for _, w := range w {
 		w.Labels(ls)
 	}
 }
 
-func (w *TeeWriter) Message(m Message, s Span) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	for _, w := range w.Writers {
+func (w TeeWriter) Message(m Message, s Span) {
+	for _, w := range w {
 		w.Message(m, s)
 	}
 }
 
-func (w *TeeWriter) SpanStarted(s Span, par ID, loc Location) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	for _, w := range w.Writers {
+func (w TeeWriter) SpanStarted(s Span, par ID, loc Location) {
+	for _, w := range w {
 		w.SpanStarted(s, par, loc)
 	}
 }
 
-func (w *TeeWriter) SpanFinished(s Span, el time.Duration) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	for _, w := range w.Writers {
+func (w TeeWriter) SpanFinished(s Span, el time.Duration) {
+	for _, w := range w {
 		w.SpanFinished(s, el)
 	}
 }
@@ -964,6 +922,38 @@ func (w Discard) Labels(Labels)                    {}
 func (w Discard) Message(Message, Span)            {}
 func (w Discard) SpanStarted(Span, ID, Location)   {}
 func (w Discard) SpanFinished(Span, time.Duration) {}
+
+func NewLockedWriter(w Writer) *LockedWriter {
+	return &LockedWriter{w: w}
+}
+
+func (w *LockedWriter) Labels(ls Labels) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	w.w.Labels(ls)
+}
+
+func (w *LockedWriter) Message(m Message, s Span) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	w.w.Message(m, s)
+}
+
+func (w *LockedWriter) SpanStarted(s Span, par ID, loc Location) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	w.w.SpanStarted(s, par, loc)
+}
+
+func (w *LockedWriter) SpanFinished(s Span, el time.Duration) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	w.w.SpanFinished(s, el)
+}
 
 func (w *bufWriter) Write(p []byte) (int, error) {
 	*w = append(*w, p...)
