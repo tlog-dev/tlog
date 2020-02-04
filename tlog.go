@@ -28,8 +28,11 @@ type (
 
 		// NoLocations disables locations capturing.
 		NoLocations bool
+		// DepthCorrection is for passing Logger to another loggers. Example: log.SetOutput(l) // stdlib
+		DepthCorrection int
 	}
 
+	// FilteredWriter is an Writer guarded by filter (Logger.V("topic")).
 	FilteredWriter struct {
 		w      Writer
 		name   string
@@ -243,7 +246,7 @@ func newspan(l *Logger, par ID) Span {
 
 	var loc Location
 	if !l.NoLocations {
-		loc = Funcentry(2)
+		loc = Funcentry(l.DepthCorrection + 2)
 	}
 
 	s := Span{
@@ -276,7 +279,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 
 	var loc Location
 	if !l.NoLocations {
-		loc = Caller(d + 1)
+		loc = Caller(l.DepthCorrection + d + 1)
 	}
 
 	defer l.mu.Unlock()
@@ -484,9 +487,8 @@ func (l *Logger) Filter(name string) string {
 		}
 		if w.filter == nil {
 			return ""
-		} else {
-			return w.filter.f
 		}
+		return w.filter.f
 	}
 
 	return ""

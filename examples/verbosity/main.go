@@ -1,28 +1,41 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 
 	"github.com/nikandfor/tlog"
 )
 
 func main() {
-	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
-	tlog.SetFilter(tlog.InfoLevel)
+	var buf bytes.Buffer
+
+	tlog.DefaultLogger = tlog.New(
+		tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags), // equal to tlog.NewFilteredWriter("", "", tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
+		tlog.NewFilteredWriter("verbose", "topic", tlog.NewConsoleWriter(&buf, tlog.LdetFlags)))
+
+	tlog.SetFilter("", "")                   // first writer. Default filter name is empty
+	tlog.SetFilter("verbose", "topic,debug") // second writer with defined name
+	tlog.SetFilter("unexisted", "subtopic")  // will silently have no effect since there is no writer with name unexisted
+
+	fmt.Fprintf(os.Stderr, "FIRST writer (stderr):\n")
 
 	tlog.Printf("unconditional log message")
 
-	tlog.V(tlog.ErrorLevel).Printf("simple condition")
+	tlog.V("topic").Printf("simple condition")
 
-	tlog.V(tlog.TraceLevel).Printf("simple condition (will not be printed)")
+	tlog.V("trace").Printf("simple condition (will not be printed)")
 
-	if l := tlog.V(tlog.InfoLevel); l != nil {
+	if l := tlog.V("topic"); l != nil {
 		p := 1 + 3 // make complex calculations here
 		l.Printf("then log the result: %v", p)
-		tlog.Printf("you may use returned `l' logger or package interface")
+		tlog.Printf("package interface will print to all writers not only to filtered by V")
 	}
 
 	funcUnconditionalTrace()
+
+	fmt.Printf("SECOND writer (buf):\n%s", buf.Bytes())
 }
 
 func funcUnconditionalTrace() {
@@ -35,13 +48,18 @@ func funcUnconditionalTrace() {
 }
 
 func funcConditionalTrace(id tlog.ID) {
-	tr := tlog.V(tlog.DebugLevel).Spawn(id)
+	tr := tlog.V("debug").Spawn(id)
 	defer tr.Finish()
 
-	tr.Printf("will not be printed because of verbosity condition of the trace")
+	tr.Printf("printed only to second writer")
 
 	if tr.Valid() {
 		p := 1 + 5 // complex calculations
-		tr.Printf("this whole if will not be executed: %v", p)
+		tr.Printf("verbose output: %v", p)
+	}
+
+	if tr := tr.V("subtopic"); tr.Valid() { // tr redefined for convinience, counld be any name
+		p := 2 + 3                              // even more complex calculations or big output
+		tr.Printf("very verbose output: %v", p) // will not be printed
 	}
 }

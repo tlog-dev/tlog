@@ -12,7 +12,7 @@ TraceLog - distributed tracing and logging
 # Status
 It evolves as I use it. I still can change enything, but for now I'm quiet satisfied with most of details.
 
-As you can see it's tested a bit but bugs are possible. Please report if find.
+It's tested a bit but bugs are possible. Please report if find.
 
 # Logger
 
@@ -24,9 +24,9 @@ tlog.Printf("message: %v", "arguments")
 ## Conditional logging
 There is some kind of verbosity levels.
 ```golang
-tlog.V(tlog.DebugLevel).Printf("DEBUG: conditional message")
+tlog.V("debug").Printf("DEBUG: conditional message")
 
-if l := tlog.V(tlog.TraceLevel); l != nil {
+if l := tlog.V("trace"); l != nil {
     p := 1 + 2 // complex calculations here that will not be executed if log level is not high enough
     l.Printf("result: %v", p)
 }
@@ -38,7 +38,17 @@ Actually it's not verbosity levels but debug topics. Each conditional operation 
 ```golang
 func main() {
     // ...
-    tlog.SetFilters(*filtersFlag)
+	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags))
+	if *filtersFlag != "" {
+		tlog.DefaultLogger.AppendWriter(
+			tlog.NewFilteredWriter("debug", *filtersFlag, // filter name, initial value
+				tlog.NewJSONWriter(
+					rotated.Create("/tmp/log_#.json"))))
+	}
+
+	// ...
+	// later you can change filter by name.
+	tlog.SetFilter("debug", newFilterValue)
 }
 
 // path/to/module/and/file.go
@@ -98,7 +108,7 @@ Logger can be created separately. All the same operations available there.
 ```golang
 l := tlog.New(...)
 l.Printf("unconditional")
-l.V(LevError).Printf("conditional")
+l.V("topic").Printf("conditional")
 ```
 
 ## Location and StackTrace
@@ -243,16 +253,17 @@ Allocations are one of the worst enemies of performance. So I fighted each alloc
 goos: linux
 goarch: amd64
 pkg: github.com/nikandfor/tlog
-BenchmarkLogLoggerStd-8              	 3013136	       403 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogConsoleLoggerStd-8      	 3695224	       332 ns/op	      24 B/op	       2 allocs/op
-BenchmarkLogLoggerDetailed-8         	  824755	      1402 ns/op	     240 B/op	       4 allocs/op
-BenchmarkTlogConsoleDetailed-8       	  780057	      1429 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesConsole-8         	  351802	      3274 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesJSON-8            	  320534	      3510 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProto-8           	  531861	      2007 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProtoPrintRaw-8   	  639990	      1773 ns/op	       0 B/op	       0 allocs/op
-BenchmarkIDFormat-8                  	 4172113	       274 ns/op	      80 B/op	       3 allocs/op
-BenchmarkIDFormatTo-8                	37050002	        29.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLogLoggerStd-8              	 2895181	       423 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogConsoleLoggerStd-8      	 3691465	       334 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLoggerDetailed-8         	  862752	      1438 ns/op	     240 B/op	       4 allocs/op
+BenchmarkTlogConsoleDetailed-8       	  656580	      1621 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesConsole-8         	  350174	      3413 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesJSON-8            	  313278	      3712 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProto-8           	  529570	      2152 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProtoPrintRaw-8   	  597345	      1931 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTracesProtoWrite-8      	  505155	      2259 ns/op	      56 B/op	       2 allocs/op
+BenchmarkIDFormat-8                  	 4145074	       284 ns/op	      80 B/op	       3 allocs/op
+BenchmarkIDFormatTo-8                	32250019	        38.2 ns/op	       0 B/op	       0 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
@@ -260,7 +271,7 @@ BenchmarkIDFormatTo-8                	37050002	        29.3 ns/op	       0 B/op	
 
 ## Writes
 
-Writers designed to have one single write for each message you log, no more, no less. More writes per message is more operations and more system calls (if you write to `os.Stderr` or `*os.File`), so less performance. Less writes (it means buffering multiple messages and write them together) is a chance to lose last messages in case of crash. And we don't want to lose message that describes reason why we crashed, do we?
+Writers designed to have one single write for each message you log, no more, no less. More writes per message is more operations and more system calls (if you write to `os.Stderr` or `*os.File`), so less performance and a risk to loose half of the message. Less writes (it means buffering multiple messages and write them together) is a chance to lose last messages in case of crash. And we don't want to lose message that describes reason why we crashed, do we?
 
 # Roadmap
 * Create swiss knife tool to analyse system performance through traces.
