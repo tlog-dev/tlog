@@ -8,9 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 type (
@@ -25,10 +23,17 @@ type (
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
 	Logger struct {
-		Writer
-		filter *filter
+		mu sync.Mutex
+		ws []FilterWriter
+
 		// NoLocations disables locations capturing.
 		NoLocations bool
+	}
+
+	FilterWriter struct {
+		name string
+		Writer
+		filter *filter
 	}
 
 	// Writer is an general encoder and writer of events.
@@ -84,15 +89,6 @@ const ( // console writer flags
 	Lnone        = 0
 )
 
-// Shortcuts for Logger filters and V topics.
-const ( // log levels
-	CriticalLevel = "critical"
-	ErrorLevel    = "error"
-	InfoLevel     = "info"
-	DebugLevel    = "debug"
-	TraceLevel    = "trace"
-)
-
 var ( // testable time, rand
 	now    = time.Now
 	randID = stdRandID
@@ -106,28 +102,39 @@ var ( // defaults
 )
 
 // New creates new Logger with given writers.
-func New(ws ...Writer) *Logger {
+func New(ws ...interface{}) *Logger {
 	l := &Logger{}
 
-	switch len(ws) {
-	case 0:
-		l.Writer = Discard{}
-	case 1:
-		l.Writer = ws[0]
-	default:
-		l.Writer = NewTeeWriter(ws...)
-	}
+	l.AppendWriter(ws...)
 
 	return l
 }
 
-func (l *Logger) AppendWriter(ws ...Writer) {
-	switch w := l.Writer.(type) {
-	case *TeeWriter:
-		w.Writers = append(w.Writers, ws...)
-	default:
-		l.Writer = &TeeWriter{Writers: append([]Writer{l.Writer}, ws...)}
+func (l *Logger) AppendWriter(ws ...interface{}) {
+	for _, w := range ws {
+		switch w := w.(type) {
+		case FilterWriter:
+			l.appendWriter(w)
+		case Writer:
+			l.appendWriter(FilterWriter{Writer: w})
+		default:
+			panic(w)
+		}
 	}
+}
+
+func (l *Logger) appendWriter(w FilterWriter) {
+	for i, h := range l.ws {
+		if h.name != w.name {
+			continue
+		}
+
+		l.ws[i].Writer = NewTeeWriter(h.Writer, w.Writer)
+
+		return
+	}
+
+	l.ws = append(l.ws, w)
 }
 
 // SetLabels sets labels for default logger
@@ -135,7 +142,13 @@ func SetLabels(ls Labels) {
 	if DefaultLogger == nil {
 		return
 	}
-	DefaultLogger.Labels(ls)
+
+	defer DefaultLogger.mu.Unlock()
+	DefaultLogger.mu.Lock()
+
+	for _, w := range DefaultLogger.ws {
+		w.Labels(ls)
+	}
 }
 
 // Printf writes logging Message.
@@ -218,18 +231,13 @@ func V(tp string) *Logger {
 //     module,!module/file.go,funcInFile
 //
 // SetFilter can be called simultaneously with V.
-func SetFilter(f string) {
-	DefaultLogger.SetFilter(f)
+func SetFilter(name, f string) {
+	DefaultLogger.SetFilter(name, f)
 }
 
 // Filter returns current verbosity filter for DefaultLogger.
-func Filter() string {
-	return DefaultLogger.Filter()
-}
-
-// SetLogLevel is a shortcut for SetFilter with one of *Filter constants
-func SetLogLevel(l int) {
-	DefaultLogger.SetLogLevel(l)
+func Filter(name string) string {
+	return DefaultLogger.Filter(name)
 }
 
 func newspan(l *Logger, par ID) Span {
@@ -249,7 +257,12 @@ func newspan(l *Logger, par ID) Span {
 		Started: now(),
 	}
 
-	l.SpanStarted(s, par, loc)
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	for _, w := range l.ws {
+		w.SpanStarted(s, par, loc)
+	}
 
 	return s
 }
@@ -271,15 +284,20 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 		loc = Caller(d + 1)
 	}
 
-	l.Message(
-		Message{
-			Location: loc,
-			Time:     t,
-			Format:   f,
-			Args:     args,
-		},
-		s,
-	)
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	for _, w := range l.ws {
+		w.Message(
+			Message{
+				Location: loc,
+				Time:     t,
+				Format:   f,
+				Args:     args,
+			},
+			s,
+		)
+	}
 }
 
 // Start creates new root trace.
@@ -304,6 +322,15 @@ func Spawn(id ID) Span {
 	}
 
 	return newspan(DefaultLogger, id)
+}
+
+func (l *Logger) Labels(ls Labels) {
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	for _, w := range l.ws {
+		w.Labels(ls)
+	}
 }
 
 // Printf writes logging Message to Writer.
@@ -386,57 +413,88 @@ func (l *Logger) v(tp string) *Logger {
 	if l == nil {
 		return nil
 	}
-	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
-	if !f.match(tp) {
+
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	all := true
+	any := false
+
+	for _, w := range l.ws {
+		q := w.filter.match(tp)
+		all = all && q
+		any = any || q
+	}
+
+	if !any {
 		return nil
 	}
-	return l
+
+	if all {
+		return l
+	}
+
+	sl := &Logger{
+		ws:          make([]FilterWriter, 0, len(l.ws)),
+		NoLocations: l.NoLocations,
+	}
+
+	for _, w := range l.ws {
+		if w.filter.match(tp) {
+			sl.ws = append(sl.ws, w)
+		}
+	}
+
+	return sl
 }
 
 // SetFilter sets filter to use in V.
 //
 // See package.SetFilter description for details.
-func (l *Logger) SetFilter(filters string) {
+func (l *Logger) SetFilter(name, filters string) {
 	if l == nil {
 		return
 	}
-	var f *filter
-	if filters != "" {
-		f = newFilter(filters)
+
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	for i, w := range l.ws {
+		if w.name != name {
+			continue
+		}
+
+		if filters == "" {
+			w.filter = nil
+		} else {
+			l.ws[i].filter = newFilter(filters)
+		}
 	}
-	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
 }
 
 // Filter returns current verbosity filter value
 //
 // See package.SetFilter description for details.
-func (l *Logger) Filter() string {
+func (l *Logger) Filter(name string) string {
 	if l == nil {
 		return ""
 	}
-	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
-	if f == nil {
-		return ""
-	}
-	return f.f
-}
 
-// SetLogLevel is a shortcut for SetFilter with one of *Filter constants
-func (l *Logger) SetLogLevel(lev int) {
-	switch {
-	case lev <= 0:
-		l.SetFilter("")
-	case lev == 1:
-		l.SetFilter(CriticalLevel)
-	case lev == 2:
-		l.SetFilter(ErrorLevel)
-	case lev == 3:
-		l.SetFilter(InfoLevel)
-	case lev == 4:
-		l.SetFilter(DebugLevel)
-	default:
-		l.SetFilter(TraceLevel)
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	for _, w := range l.ws {
+		if w.name != name {
+			continue
+		}
+		if w.filter == nil {
+			return ""
+		} else {
+			return w.filter.f
+		}
 	}
+
+	return ""
 }
 
 func (l *Logger) noLocations() *Logger {
@@ -505,7 +563,13 @@ func (s Span) Finish() {
 	}
 
 	el := now().Sub(s.Started)
-	s.l.SpanFinished(s, el)
+
+	defer s.l.mu.Unlock()
+	s.l.mu.Lock()
+
+	for _, w := range s.l.ws {
+		w.SpanFinished(s, el)
+	}
 }
 
 // Valid checks if Span was initialized.

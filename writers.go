@@ -913,7 +913,15 @@ func varintSize(v uint64) int {
 
 // NewTeeWriter creates multiwriter that writes the same events to all writers in the same order.
 func NewTeeWriter(w ...Writer) *TeeWriter {
-	return &TeeWriter{Writers: w}
+	var ws []Writer
+	for _, w := range w {
+		if t, ok := w.(*TeeWriter); ok {
+			ws = append(ws, t.Writers...)
+		} else {
+			ws = append(ws, w)
+		}
+	}
+	return &TeeWriter{Writers: ws}
 }
 
 func (w *TeeWriter) Labels(ls Labels) {

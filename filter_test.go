@@ -16,12 +16,8 @@ func TestFilterMatchTopics(t *testing.T) {
 	assert.True(t, ff.matchTopics("*", []string{"a", "b", "c"}))
 	assert.True(t, ff.matchTopics("a+*+c", []string{"a", "b", "c"}))
 
-	assert.True(t, ff.matchTopics("trace", []string{"critical"}))
-
 	assert.False(t, ff.matchTopics("d", []string{"a", "b", "c"}))
 	assert.False(t, ff.matchTopics("d+e", []string{"a", "b", "c"}))
-
-	assert.False(t, ff.matchTopics("error", []string{"debug"}))
 }
 
 func TestFilterMatchPath(t *testing.T) {

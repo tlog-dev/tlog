@@ -143,8 +143,8 @@ func TestVerbosity(t *testing.T) {
 		return tm
 	}
 
-	assert.Equal(t, "", (*Logger)(nil).Filter())
-	assert.Equal(t, "", Filter())
+	assert.Equal(t, "", (*Logger)(nil).Filter(""))
+	assert.Equal(t, "", Filter(""))
 
 	var buf bytes.Buffer
 
@@ -152,9 +152,11 @@ func TestVerbosity(t *testing.T) {
 
 	V("any_topic").Printf("All conditionals are disabled by default")
 
-	SetFilter("topic1,tlog=topic3")
+	SetFilter("", "topic1,tlog=topic3")
 
-	assert.Equal(t, "topic1,tlog=topic3", Filter())
+	t.Logf("ll %+v", DefaultLogger)
+
+	assert.Equal(t, "topic1,tlog=topic3", Filter(""))
 
 	Printf("unconditional message")
 	DefaultLogger.V("topic1").Printf("topic1 message (enabled)")
@@ -171,7 +173,7 @@ func TestVerbosity(t *testing.T) {
 		assert.Fail(t, "should not be here")
 	}
 
-	DefaultLogger.SetFilter("topic1,tlog=TRACE")
+	DefaultLogger.SetFilter("", "topic1,tlog=TRACE")
 
 	if l := V("TRACE"); l != nil {
 		p := 10 + 60 // complex calculations
@@ -197,25 +199,7 @@ trace conditioned message 2
 `, buf.String())
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")
-	(*Logger)(nil).SetFilter("a,b,c")
-
-	SetLogLevel(0)
-	assert.Nil(t, DefaultLogger.filter)
-
-	SetLogLevel(1)
-	assert.Equal(t, CriticalLevel, DefaultLogger.filter.f)
-
-	SetLogLevel(2)
-	assert.Equal(t, ErrorLevel, DefaultLogger.filter.f)
-
-	SetLogLevel(3)
-	assert.Equal(t, InfoLevel, DefaultLogger.filter.f)
-
-	SetLogLevel(4)
-	assert.Equal(t, DebugLevel, DefaultLogger.filter.f)
-
-	SetLogLevel(5)
-	assert.Equal(t, TraceLevel, DefaultLogger.filter.f)
+	(*Logger)(nil).SetFilter("", "a,b,c")
 
 	DefaultLogger = nil
 	V("a").Printf("none")
@@ -233,7 +217,7 @@ func TestSetFilter(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < N; i++ {
-			l.SetFilter("topic,topic2")
+			l.SetFilter("", "topic,topic2")
 		}
 	}()
 
@@ -241,7 +225,7 @@ func TestSetFilter(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < N; i++ {
-			l.SetFilter("topic,topic3")
+			l.SetFilter("", "topic,topic3")
 		}
 	}()
 
@@ -249,7 +233,7 @@ func TestSetFilter(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < N; i++ {
-			l.SetFilter("")
+			l.SetFilter("", "")
 		}
 	}()
 
@@ -614,7 +598,7 @@ func BenchmarkTlogTracesProtoWrite(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
-		fmt.Fprintf(tr, "%d", i)
+		fmt.Fprintf(tr, "message %d", i)
 		tr.Finish()
 	}
 }
