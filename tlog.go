@@ -24,15 +24,15 @@ type (
 	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
 	Logger struct {
 		mu sync.Mutex
-		ws []FilterWriter
+		ws []FilteredWriter
 
 		// NoLocations disables locations capturing.
 		NoLocations bool
 	}
 
-	FilterWriter struct {
-		name string
-		Writer
+	FilteredWriter struct {
+		w      Writer
+		name   string
 		filter *filter
 	}
 
@@ -113,23 +113,23 @@ func New(ws ...interface{}) *Logger {
 func (l *Logger) AppendWriter(ws ...interface{}) {
 	for _, w := range ws {
 		switch w := w.(type) {
-		case FilterWriter:
+		case FilteredWriter:
 			l.appendWriter(w)
 		case Writer:
-			l.appendWriter(FilterWriter{Writer: w})
+			l.appendWriter(FilteredWriter{w: w})
 		default:
 			panic(w)
 		}
 	}
 }
 
-func (l *Logger) appendWriter(w FilterWriter) {
+func (l *Logger) appendWriter(w FilteredWriter) {
 	for i, h := range l.ws {
 		if h.name != w.name {
 			continue
 		}
 
-		l.ws[i].Writer = NewTeeWriter(h.Writer, w.Writer)
+		l.ws[i].w = NewTeeWriter(h.w, w.w)
 
 		return
 	}
@@ -137,18 +137,13 @@ func (l *Logger) appendWriter(w FilterWriter) {
 	l.ws = append(l.ws, w)
 }
 
+func NewFilteredWriter(name, filter string, w Writer) FilteredWriter {
+	return FilteredWriter{name: name, filter: newFilter(filter), w: w}
+}
+
 // SetLabels sets labels for default logger
 func SetLabels(ls Labels) {
-	if DefaultLogger == nil {
-		return
-	}
-
-	defer DefaultLogger.mu.Unlock()
-	DefaultLogger.mu.Lock()
-
-	for _, w := range DefaultLogger.ws {
-		w.Labels(ls)
-	}
+	DefaultLogger.Labels(ls)
 }
 
 // Printf writes logging Message.
@@ -261,7 +256,7 @@ func newspan(l *Logger, par ID) Span {
 	l.mu.Lock()
 
 	for _, w := range l.ws {
-		w.SpanStarted(s, par, loc)
+		w.w.SpanStarted(s, par, loc)
 	}
 
 	return s
@@ -288,7 +283,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 	l.mu.Lock()
 
 	for _, w := range l.ws {
-		w.Message(
+		w.w.Message(
 			Message{
 				Location: loc,
 				Time:     t,
@@ -325,11 +320,15 @@ func Spawn(id ID) Span {
 }
 
 func (l *Logger) Labels(ls Labels) {
+	if l == nil {
+		return
+	}
+
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
 	for _, w := range l.ws {
-		w.Labels(ls)
+		w.w.Labels(ls)
 	}
 }
 
@@ -435,7 +434,7 @@ func (l *Logger) v(tp string) *Logger {
 	}
 
 	sl := &Logger{
-		ws:          make([]FilterWriter, 0, len(l.ws)),
+		ws:          make([]FilteredWriter, 0, len(l.ws)),
 		NoLocations: l.NoLocations,
 	}
 
@@ -464,11 +463,7 @@ func (l *Logger) SetFilter(name, filters string) {
 			continue
 		}
 
-		if filters == "" {
-			w.filter = nil
-		} else {
-			l.ws[i].filter = newFilter(filters)
-		}
+		l.ws[i].filter = newFilter(filters)
 	}
 }
 
@@ -568,7 +563,7 @@ func (s Span) Finish() {
 	s.l.mu.Lock()
 
 	for _, w := range s.l.ws {
-		w.SpanFinished(s, el)
+		w.w.SpanFinished(s, el)
 	}
 }
 
@@ -620,51 +615,47 @@ func IDFromString(s string) (id ID, err error) {
 	return id, nil
 }
 
-// Error is en error interface implementation.
+// Error is an error interface implementation.
 func (e TooShortIDError) Error() string {
-	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{}))
+	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{})*2)
 }
 
 // Format is fmt.Formatter interface implementation.
 // It supports settings width. '+' flag sets width to full id length
 func (i ID) Format(s fmt.State, c rune) {
 	var buf [32]byte
-	l := 8
-	if w, ok := s.Width(); ok {
-		l = w / 2
+	w := 16
+	if W, ok := s.Width(); ok {
+		w = W
 	}
 	if s.Flag('+') {
-		l = len(i)
+		w = 2 * len(i)
 	}
-	if l == 0 {
-		l = 1
-	}
-	i.FormatTo(buf[:], c)
-	_, _ = s.Write(buf[:2*l])
+	i.FormatTo(buf[:w], c)
+	_, _ = s.Write(buf[:w])
 }
 
 func (i ID) FormatTo(b []byte, f rune) {
-	if len(b) < 2*len(z) {
-		panic(len(b))
-	}
 	dg := digits
 	if f == 'X' {
 		dg = digitsX
 	}
-	for j := 0; j < 2*len(z); j += 2 {
+	for j := 0; j < 2*len(i) && j < len(b); j += 2 {
 		q := i[j/2]
 		b[j] = dg[q>>4&0xf]
-		b[j+1] = dg[q&0xf]
+		if j+1 < len(b) {
+			b[j+1] = dg[q&0xf]
+		}
 	}
 }
 
 func (i ID) FormatQuotedTo(b []byte, f rune) {
-	if len(b) < 2+2*len(z) {
+	if len(b) < 3 {
 		panic(len(b))
 	}
 	b[0] = '"'
-	b[33] = '"'
-	i.FormatTo(b[1:], f)
+	b[len(b)-1] = '"'
+	i.FormatTo(b[1:len(b)-1], f)
 }
 
 // AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time

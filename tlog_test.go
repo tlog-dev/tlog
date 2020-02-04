@@ -81,7 +81,7 @@ func TestPanicf(t *testing.T) {
 `, buf.String())
 }
 
-func TestRawMessage(t *testing.T) {
+func TestPrintRaw(t *testing.T) {
 	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
@@ -102,6 +102,30 @@ func TestRawMessage(t *testing.T) {
 	assert.Equal(t, `raw message 1
 raw message 2
 raw message 3
+`, buf.String())
+}
+
+func TestPrintfDepth(t *testing.T) {
+	defer func(l *Logger) {
+		DefaultLogger = l
+	}(DefaultLogger)
+
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+
+	PrintfDepth(0, "message %d", 1)
+	DefaultLogger.PrintfDepth(0, "message %d", 2)
+
+	tr := Start()
+	tr.PrintfDepth(0, "message %d", 3)
+	tr.Finish()
+
+	tr = Span{}
+	tr.PrintfDepth(0, "message %d", 4)
+
+	assert.Equal(t, `message 1
+message 2
+message 3
 `, buf.String())
 }
 
@@ -205,6 +229,52 @@ trace conditioned message 2
 	V("a").Printf("none")
 }
 
+func TestVerbosity2(t *testing.T) {
+	defer func(old func() time.Time) {
+		now = old
+	}(now)
+	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+
+	var buf0, buf1, buf2 bytes.Buffer
+
+	l := New(
+		NewFilteredWriter("", "", NewConsoleWriter(&buf0, 0)),
+		NewFilteredWriter("a", "a", NewConsoleWriter(&buf1, 0)),
+		NewFilteredWriter("b", "b", NewConsoleWriter(&buf2, 0)))
+
+	l.Printf("unconditional")
+
+	l.V("a").Printf("a only")
+
+	l.V("b").Printf("b only")
+
+	l.V("c").Printf("nowhere")
+
+	l.SetFilter("b", "b,c")
+
+	assert.Equal(t, "b,c", l.Filter("b"))
+	assert.Equal(t, "", l.Filter(""))
+	assert.Equal(t, "", (*Logger)(nil).Filter(""))
+
+	l.V("c").Printf("b3")
+
+	assert.Equal(t, buf0.String(), `unconditional
+`)
+
+	assert.Equal(t, buf1.String(), `unconditional
+a only
+`)
+
+	assert.Equal(t, buf2.String(), `unconditional
+b only
+b3
+`)
+}
+
 func TestSetFilter(t *testing.T) {
 	const N = 100
 
@@ -287,32 +357,11 @@ func TestSpan(t *testing.T) {
 	})
 }
 
-func TestTeeWriter(t *testing.T) {
-	var buf1, buf2 bytes.Buffer
-
-	w1 := NewJSONWriter(&buf1)
-	w2 := NewJSONWriter(&buf2)
-
-	w := NewTeeWriter(w1, w2)
-
-	w.Labels(Labels{"a=b", "f"})
-	w.Message(Message{Format: "msg"}, Span{})
-	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, 0)
-	w.SpanFinished(Span{ID: ID{100}}, time.Second)
-
-	assert.Equal(t, `{"L":["a=b","f"]}
-{"l":{"pc":0,"f":"","l":0,"n":""}}
-{"m":{"l":0,"t":0,"m":"msg"}}
-{"s":{"id":"64000000000000000000000000000000","l":0,"s":24412629875000000}}
-{"f":{"id":"64000000000000000000000000000000","e":15625000}}
-`, buf1.String())
-	assert.Equal(t, buf1.String(), buf2.String())
-}
-
 func TestIDString(t *testing.T) {
 	assert.Equal(t, "1234567890abcdef", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.String())
 	assert.Equal(t, "________________", ID{}.String())
 	assert.Equal(t, "1234567890abcdef1122000000000000", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.FullString())
+	assert.Equal(t, "________________________________", ID{}.FullString())
 }
 
 func TestIDFrom(t *testing.T) {
@@ -497,6 +546,46 @@ func TestJSONWriterSpans(t *testing.T) {
 	ok, err := regexp.Match(re, buf.Bytes())
 	assert.NoError(t, err)
 	assert.True(t, ok, "expected:\n%vactual:\n%v", re, buf.String())
+}
+
+func TestAppendWriter(t *testing.T) {
+	l := New(NewFilteredWriter("a", "a", Discard{}), NewFilteredWriter("b", "b", Discard{}))
+
+	l.AppendWriter(NewFilteredWriter("b", "b", Discard{}))
+
+	assert.Len(t, l.ws, 2)
+
+	assert.Panics(t, func() {
+		l.AppendWriter(l)
+	})
+}
+
+func TestCoverUncovered(t *testing.T) {
+	defer func(l *Logger) {
+		DefaultLogger = l
+	}(DefaultLogger)
+
+	var buf bytes.Buffer
+	DefaultLogger = New(NewJSONWriter(&buf))
+
+	SetLabels(Labels{"a", "q"})
+
+	assert.Equal(t, `{"L":["a","q"]}`+"\n", buf.String())
+
+	(*Logger)(nil).Labels(Labels{"a"})
+
+	assert.Equal(t, "", DefaultLogger.Filter("qq"))
+
+	assert.Equal(t, "too short id: 7, wanted 32", TooShortIDError{N: 7}.Error())
+
+	assert.Equal(t, "1", fmt.Sprintf("%01v", ID{0x12, 0x34, 0x56}))
+
+	b := make([]byte, 8)
+	ID{0xaa, 0xbb, 0xcc, 0x44, 0x55}.FormatTo(b, 'X')
+	assert.Equal(t, "AABBCC44", string(b))
+
+	ID{0xaa, 0xbb, 0x44, 0x55}.FormatQuotedTo(b, 'x')
+	assert.Equal(t, `"aabb44"`, string(b))
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {

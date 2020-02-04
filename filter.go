@@ -15,6 +15,9 @@ type filter struct {
 }
 
 func newFilter(f string) *filter {
+	if f == "" {
+		return nil
+	}
 	return &filter{
 		f: f,
 		c: make(map[Location]bool),

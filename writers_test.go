@@ -135,6 +135,47 @@ func TestProtoWriter(t *testing.T) {
 	pbuf.Reset()
 }
 
+func TestLockedWriter(t *testing.T) {
+	l := New(NewLockedWriter(Discard{}))
+
+	l.Labels(Labels{"a", "b"})
+	tr := l.Start()
+	tr.Printf("message: %v", 2)
+	tr.Finish()
+}
+
+func TestTeeWriter(t *testing.T) {
+	var buf1, buf2 bytes.Buffer
+
+	w1 := NewJSONWriter(&buf1)
+	w2 := NewJSONWriter(&buf2)
+
+	w := NewTeeWriter(w1, w2)
+
+	w.Labels(Labels{"a=b", "f"})
+	w.Message(Message{Format: "msg"}, Span{})
+	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, 0)
+	w.SpanFinished(Span{ID: ID{100}}, time.Second)
+
+	assert.Equal(t, `{"L":["a=b","f"]}
+{"l":{"pc":0,"f":"","l":0,"n":""}}
+{"m":{"l":0,"t":0,"m":"msg"}}
+{"s":{"id":"64000000000000000000000000000000","l":0,"s":24412629875000000}}
+{"f":{"id":"64000000000000000000000000000000","e":15625000}}
+`, buf1.String())
+	assert.Equal(t, buf1.String(), buf2.String())
+}
+
+func TestNewTeeWriter(t *testing.T) {
+	a := NewTeeWriter(Discard{})
+	b := NewTeeWriter(Discard{})
+	c := NewTeeWriter(Discard{}, Discard{})
+
+	d := NewTeeWriter(a, b, c, Discard{})
+
+	assert.Len(t, d, 5)
+}
+
 func BenchmarkTimeNow(b *testing.B) {
 	b.Skip()
 	for i := 0; i < b.N; i++ {
