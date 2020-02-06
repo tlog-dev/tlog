@@ -19,7 +19,7 @@ func TestContextWithID(t *testing.T) {
 
 	ctx := ContextWithID(context.Background(), z)
 	tr := SpawnFromContext(ctx)
-	assert.Zero(t, tr.ID)
+	assert.Zero(t, tr)
 
 	tr = SpawnFromContextOrStart(ctx)
 	assert.NotZero(t, tr.ID)
@@ -43,7 +43,10 @@ Span 6e4ff95ff662a5ee par 0a14000000000000 started
 	DefaultLogger = nil
 
 	tr = SpawnFromContext(ctx)
-	assert.Zero(t, tr.ID)
+	assert.Zero(t, tr)
+
+	tr = SpawnFromContextOrStart(ctx)
+	assert.Zero(t, tr)
 }
 
 func TestContextWithSpan(t *testing.T) {

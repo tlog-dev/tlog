@@ -600,18 +600,16 @@ func (s Span) Valid() bool { return s.l != nil && s.ID != z }
 
 // String returns short string representation.
 func (i ID) String() string {
-	if i == z {
-		return "________________"
-	}
-	return fmt.Sprintf("%x", i)
+	var b [16]byte
+	i.FormatTo(b[:], 'v')
+	return string(b[:])
 }
 
 // FullString returns full id in string representation.
 func (i ID) FullString() string {
-	if i == z {
-		return "________________________________"
-	}
-	return fmt.Sprintf("%+x", i)
+	var b [32]byte
+	i.FormatTo(b[:], 'v')
+	return string(b[:])
 }
 
 // IDFromBytes checks slice length and casts to ID type (copying).
@@ -624,6 +622,21 @@ func IDFromBytes(b []byte) (id ID, err error) {
 		return id, TooShortIDError{N: n}
 	}
 	return id, nil
+}
+
+// ShouldIDFromBytes copies slice value to id without checks.
+func ShouldIDFromBytes(b []byte) (id ID) {
+	copy(id[:], b)
+	return
+}
+
+// MustIDFromBytes copies slice value into id and panics if something is not ok.
+func MustIDFromBytes(b []byte) (id ID) {
+	n := copy(id[:], b)
+	if n < len(id) {
+		panic(id)
+	}
+	return
 }
 
 // IDFromString parses ID from string.
@@ -647,6 +660,36 @@ func IDFromString(s string) (id ID, err error) {
 	return id, nil
 }
 
+// ShouldIDFromString parses ID from string. It skips all errors.
+func ShouldIDFromString(s string) (id ID) {
+	a := []byte(s)
+	for i, c := range a {
+		if c == '_' {
+			a[i] = '0'
+		}
+	}
+	_, _ = hex.Decode(id[:], a)
+	return
+}
+
+// MustIDFromString parses ID from string. It panics if something is not ok.
+func MustIDFromString(s string) (id ID) {
+	a := []byte(s)
+	for i, c := range a {
+		if c == '_' {
+			a[i] = '0'
+		}
+	}
+	n, err := hex.Decode(id[:], a)
+	if err != nil {
+		panic(err)
+	}
+	if n < len(id) {
+		panic(id)
+	}
+	return
+}
+
 // Error is an error interface implementation.
 func (e TooShortIDError) Error() string {
 	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{})*2)
@@ -668,6 +711,12 @@ func (i ID) Format(s fmt.State, c rune) {
 }
 
 func (i ID) FormatTo(b []byte, f rune) {
+	if (f == 'v' || f == 'V') && i == z {
+		for j := 0; j < 2*len(i) && j < len(b); j++ {
+			b[j] = '_'
+		}
+		return
+	}
 	dg := digits
 	if f == 'X' {
 		dg = digitsX

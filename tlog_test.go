@@ -254,6 +254,10 @@ func TestVerbosity2(t *testing.T) {
 
 	l.V("c").Printf("nowhere")
 
+	tr := l.Start()
+	tr.V("a").Printf("a trace")
+	tr.Finish()
+
 	l.SetFilter("b", "b,c")
 
 	assert.Equal(t, "b,c", l.Filter("b"))
@@ -267,6 +271,7 @@ func TestVerbosity2(t *testing.T) {
 
 	assert.Equal(t, buf1.String(), `unconditional
 a only
+a trace
 `)
 
 	assert.Equal(t, buf2.String(), `unconditional
@@ -347,6 +352,9 @@ func TestSpan(t *testing.T) {
 	tr2 = Spawn(tr.ID)
 	assert.Zero(t, tr2)
 
+	tr2 = SpawnOrStart(tr.ID)
+	assert.Zero(t, tr2)
+
 	tr = DefaultLogger.Start()
 	assert.Zero(t, tr)
 
@@ -365,6 +373,9 @@ func TestIDString(t *testing.T) {
 	assert.Equal(t, "________________", ID{}.String())
 	assert.Equal(t, "1234567890abcdef1122000000000000", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}.FullString())
 	assert.Equal(t, "________________________________", ID{}.FullString())
+
+	assert.Equal(t, "1234567890abcdef", fmt.Sprintf("%v", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}))
+	assert.Equal(t, "1234567890abcdef1122000000000000", fmt.Sprintf("%+v", ID{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x11, 0x22}))
 }
 
 func TestIDFrom(t *testing.T) {
@@ -393,6 +404,49 @@ func TestIDFrom(t *testing.T) {
 	res, err = IDFromString(ID{}.FullString())
 	assert.NoError(t, err)
 	assert.Equal(t, ID{}, res)
+}
+
+func TestIDFromMustShould(t *testing.T) {
+	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb}
+
+	// strings
+	// should
+	res := ShouldIDFromString(id.FullString())
+	assert.Equal(t, id, res)
+
+	res = ShouldIDFromString(id.String())
+	assert.Equal(t, ID{1, 2, 3, 4, 5, 6, 7, 8}, res)
+
+	res = ShouldIDFromString(ID{}.FullString())
+	assert.Equal(t, z, res)
+
+	res = ShouldIDFromString(ID{}.String())
+	assert.Equal(t, z, res)
+
+	// must
+	res = MustIDFromString(id.FullString())
+	assert.Equal(t, id, res)
+
+	assert.Panics(t, func() { MustIDFromString(id.String()) })
+
+	assert.Panics(t, func() { MustIDFromString("1234567") })
+
+	res = MustIDFromString(ID{}.FullString())
+	assert.Equal(t, z, res)
+
+	assert.Panics(t, func() { MustIDFromString(ID{}.String()) })
+
+	// bytes
+	res = ShouldIDFromBytes(nil)
+	assert.Equal(t, z, res)
+
+	res = ShouldIDFromBytes(id[:])
+	assert.Equal(t, id, res)
+
+	assert.Panics(t, func() { MustIDFromBytes([]byte{1, 2, 3, 4, 5}) })
+
+	res = MustIDFromBytes(id[:])
+	assert.Equal(t, id, res)
 }
 
 func TestConsoleWriterAppendSegment(t *testing.T) {
@@ -593,6 +647,11 @@ func TestCoverUncovered(t *testing.T) {
 
 	ID{0xaa, 0xbb, 0x44, 0x55}.FormatQuotedTo(b, 'x')
 	assert.Equal(t, `"aabb44"`, string(b))
+
+	assert.Panics(t, func() { ID{}.FormatQuotedTo([]byte{}, 'x') })
+
+	id := stdRandID()
+	assert.NotZero(t, id)
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {
