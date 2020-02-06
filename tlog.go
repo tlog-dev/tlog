@@ -68,6 +68,11 @@ type (
 	TooShortIDError struct {
 		N int
 	}
+
+	concurrentRandom struct {
+		mu sync.Mutex
+		r  *rand.Rand
+	}
 )
 
 var ( // ZeroID
@@ -96,6 +101,7 @@ const ( // console writer flags
 var ( // testable time, rand
 	now    = time.Now
 	randID = stdRandID
+	ccrand = concurrentRandom{r: rand.New(rand.NewSource(time.Now().UnixNano()))}
 
 	digits  = []byte("0123456789abcdef")
 	digitsX = []byte("0123456789ABCDEF")
@@ -745,10 +751,9 @@ func (m *Message) AbsTime() time.Time {
 }
 
 func stdRandID() (id ID) {
-	_, err := rand.Read(id[:]) //nolint:gosec
-	if err != nil {
-		panic(err)
-	}
+	ccrand.mu.Lock()
+	_, _ = ccrand.r.Read(id[:]) //nolint:gosec
+	ccrand.mu.Unlock()
 	return
 }
 
