@@ -55,7 +55,7 @@ func IDFromContext(ctx context.Context) ID {
 	return z
 }
 
-// SpawnFromContext spawns new Span derived form Span ID from Context.
+// SpanFromContext loads saved by ContextWithSpan Span from Context.
 // It returns empty (no-op) Span if no ID found.
 func SpanFromContext(ctx context.Context) Span {
 	if DefaultLogger == nil {
@@ -68,7 +68,7 @@ func SpanFromContext(ctx context.Context) Span {
 	return s
 }
 
-// SpanFromContext loads saved by ContextWithSpan Span from Context.
+// SpawnFromContext spawns new Span derived form Span ID from Context.
 // It returns empty (no-op) Span if no ID found.
 func SpawnFromContext(ctx context.Context) Span {
 	if DefaultLogger == nil {
@@ -79,6 +79,18 @@ func SpawnFromContext(ctx context.Context) Span {
 	if id == z {
 		return Span{}
 	}
+
+	return newspan(DefaultLogger, id)
+}
+
+// SpanFromContextOrStart loads saved by ContextWithSpan Span from Context.
+// It starts new trace if no ID found.
+func SpawnFromContextOrStart(ctx context.Context) Span {
+	if DefaultLogger == nil {
+		return Span{}
+	}
+
+	id := IDFromContext(ctx)
 
 	return newspan(DefaultLogger, id)
 }

@@ -324,6 +324,19 @@ func Spawn(id ID) Span {
 	return newspan(DefaultLogger, id)
 }
 
+// SpawnOrStart creates new child trace if id is not zero and new trace overwise.
+//
+// Trace could be started on one machine and derived on another.
+//
+// Span must be Finished in the end.
+func SpawnOrStart(id ID) Span {
+	if DefaultLogger == nil {
+		return Span{}
+	}
+
+	return newspan(DefaultLogger, id)
+}
+
 func (l *Logger) Labels(ls Labels) {
 	if l == nil {
 		return

@@ -325,16 +325,19 @@ func TestSpan(t *testing.T) {
 	DefaultLogger = New(NewConsoleWriter(ioutil.Discard, LstdFlags))
 
 	tr := Start()
-	assert.NotNil(t, tr)
+	assert.NotZero(t, tr)
 
 	tr2 := Spawn(tr.ID)
-	assert.NotNil(t, tr2)
+	assert.NotZero(t, tr2)
+
+	tr2 = SpawnOrStart(z)
+	assert.NotZero(t, tr2)
 
 	tr = DefaultLogger.Start()
-	assert.NotNil(t, tr)
+	assert.NotZero(t, tr)
 
 	tr2 = DefaultLogger.Spawn(tr.ID)
-	assert.NotNil(t, tr2)
+	assert.NotZero(t, tr2)
 
 	DefaultLogger = nil
 

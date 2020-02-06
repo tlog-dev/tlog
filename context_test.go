@@ -21,6 +21,9 @@ func TestContextWithID(t *testing.T) {
 	tr := SpawnFromContext(ctx)
 	assert.Zero(t, tr.ID)
 
+	tr = SpawnFromContextOrStart(ctx)
+	assert.NotZero(t, tr.ID)
+
 	//
 	id := ID{10, 20}
 	ctx = ContextWithID(context.Background(), id)
@@ -31,7 +34,9 @@ func TestContextWithID(t *testing.T) {
 
 	tr = SpawnFromContext(ctx)
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, `Span 0194fdc2fa2ffcc0 par 0a14000000000000 started`+"\n", buf.String())
+		assert.Equal(t, `Span 0194fdc2fa2ffcc0 par ________________ started
+Span 6e4ff95ff662a5ee par 0a14000000000000 started
+`, buf.String())
 	}
 
 	//
