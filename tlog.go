@@ -23,8 +23,9 @@ type (
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
 	Logger struct {
-		mu sync.Mutex
-		ws []FilteredWriter
+		mu    sync.Mutex
+		ws    []FilteredWriter
+		wsbuf [2]FilteredWriter
 
 		// NoLocations disables locations capturing.
 		NoLocations bool
@@ -107,6 +108,7 @@ var ( // defaults
 // New creates new Logger with given writers.
 func New(ws ...interface{}) *Logger {
 	l := &Logger{}
+	l.ws = l.wsbuf[:0]
 
 	l.AppendWriter(ws...)
 
@@ -437,9 +439,10 @@ func (l *Logger) v(tp string) *Logger {
 	}
 
 	sl := &Logger{
-		ws:          make([]FilteredWriter, 0, len(l.ws)),
-		NoLocations: l.NoLocations,
+		NoLocations:     l.NoLocations,
+		DepthCorrection: l.DepthCorrection,
 	}
+	sl.ws = sl.wsbuf[:0]
 
 	for _, w := range l.ws {
 		if w.filter.match(tp) {
@@ -505,10 +508,18 @@ func (l *Logger) noLocations() *Logger {
 //
 // Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
 func (s Span) V(tp string) Span {
-	if s.l.v(tp) == nil {
+	l := s.l.v(tp)
+	if l == nil {
 		return Span{}
 	}
-	return s
+	if l == s.l {
+		return s
+	}
+	return Span{
+		l:       l,
+		ID:      s.ID,
+		Started: s.Started,
+	}
 }
 
 // Printf writes logging Message annotated with trace id.
@@ -607,7 +618,13 @@ func IDFromBytes(b []byte) (id ID, err error) {
 // If parsed string is shorter than type length result is returned as is and TooShortIDError as error value.
 // You may use result if you expected short ID prefix (profuced by ID.String, for example).
 func IDFromString(s string) (id ID, err error) {
-	n, err := hex.Decode(id[:], []byte(s))
+	a := []byte(s)
+	for i, c := range a {
+		if c == '_' {
+			a[i] = '0'
+		}
+	}
+	n, err := hex.Decode(id[:], a)
 	if err != nil {
 		return
 	}

@@ -386,6 +386,10 @@ func TestIDFrom(t *testing.T) {
 	res, err = IDFromString("010203046q")
 	assert.EqualError(t, err, "encoding/hex: invalid byte: U+0071 'q'")
 	assert.Equal(t, ID{1, 2, 3, 4}, res)
+
+	res, err = IDFromString(ID{}.FullString())
+	assert.NoError(t, err)
+	assert.Equal(t, ID{}, res)
 }
 
 func TestConsoleWriterAppendSegment(t *testing.T) {
