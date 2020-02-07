@@ -1,4 +1,4 @@
-package tlog
+package circle
 
 import (
 	"bytes"
