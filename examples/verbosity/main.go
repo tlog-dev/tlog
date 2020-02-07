@@ -12,12 +12,12 @@ func main() {
 	var buf bytes.Buffer
 
 	tlog.DefaultLogger = tlog.New(
-		tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags), // equal to tlog.NewFilteredWriter("", "", tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
-		tlog.NewFilteredWriter("verbose", "topic", tlog.NewConsoleWriter(&buf, tlog.LdetFlags)))
+		tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags), // equal to tlog.NewNamedWriter("", "", tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
+		tlog.NewNamedWriter("verbose", "topic", tlog.NewConsoleWriter(&buf, tlog.LdetFlags)))
 
-	tlog.SetFilter("", "")                   // first writer. Default filter name is empty
-	tlog.SetFilter("verbose", "topic,debug") // second writer with defined name
-	tlog.SetFilter("unexisted", "subtopic")  // will silently have no effect since there is no writer with name unexisted
+	tlog.SetFilter("")                            // first writer. Default filter name is empty
+	tlog.SetNamedFilter("verbose", "topic,debug") // second writer with defined name
+	tlog.SetNamedFilter("unexisted", "subtopic")  // will silently have no effect since there is no writer with name unexisted
 
 	fmt.Fprintf(os.Stderr, "FIRST writer (stderr):\n")
 

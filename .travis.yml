@@ -1,11 +1,15 @@
 language: go
 
+env:
+  - GO111MODULE=on
+
 jobs:
   include:
     - os: linux
       go: "1.12"
       arch: amd64
       env:
+        - GO111MODULE=on
         - CODECOV_UPLOAD=yes
 
     - os: linux

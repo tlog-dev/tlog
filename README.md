@@ -41,14 +41,14 @@ func main() {
 	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags))
 	if *filtersFlag != "" {
 		tlog.DefaultLogger.AppendWriter(
-			tlog.NewFilteredWriter("debug", *filtersFlag, // filter name, initial value
+			tlog.NewNamedWriter("debug", *filtersFlag, // filter name, initial value
 				tlog.NewJSONWriter(
 					rotated.Create("/tmp/log_#.json"))))
 	}
 
 	// ...
 	// later you can change filter by name.
-	tlog.SetFilter("debug", newFilterValue)
+	tlog.SetNamedFilter("debug", newFilterValue)
 }
 
 // path/to/module/and/file.go
@@ -244,6 +244,10 @@ tr.Printf("each time you print something to trace it appears in logs either")
 
 tlog.Printf("but logs don't appear in traces")
 ```
+
+# Examples
+
+Examples are available in `./examples/` directory.
 
 # Performance
 

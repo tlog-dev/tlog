@@ -244,9 +244,9 @@ func TestVerbosity2(t *testing.T) {
 	var buf0, buf1, buf2 bytes.Buffer
 
 	l := New(
-		NewFilteredWriter("", "", NewConsoleWriter(&buf0, 0)),
-		NewFilteredWriter("a", "a", NewConsoleWriter(&buf1, 0)),
-		NewFilteredWriter("b", "b", NewConsoleWriter(&buf2, 0)))
+		NewConsoleWriter(&buf0, 0),
+		NewNamedWriter("a", "a", NewConsoleWriter(&buf1, 0)),
+		NewNamedWriter("b", "b", NewConsoleWriter(&buf2, 0)))
 
 	l.Printf("unconditional")
 
@@ -618,9 +618,9 @@ func TestJSONWriterSpans(t *testing.T) {
 }
 
 func TestAppendWriter(t *testing.T) {
-	l := New(NewFilteredWriter("a", "a", Discard{}), NewFilteredWriter("b", "b", Discard{}))
+	l := New(NewNamedWriter("a", "a", Discard{}), NewNamedWriter("b", "b", Discard{}))
 
-	l.AppendWriter(NewFilteredWriter("b", "b", Discard{}))
+	l.AppendWriter(NewNamedWriter("b", "b", Discard{}))
 
 	assert.Len(t, l.ws, 2)
 
@@ -633,7 +633,7 @@ func TestAppendWriter(t *testing.T) {
 	})
 
 	assert.Panics(t, func() {
-		l.AppendWriter("qwe", NewFilteredWriter("", "", Discard{}))
+		l.AppendWriter("qwe", NewNamedWriter("", "", Discard{}))
 	})
 
 	l.AppendWriter("c", Discard{})

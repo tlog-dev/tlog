@@ -24,8 +24,8 @@ type (
 	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
 	Logger struct {
 		mu    sync.Mutex
-		ws    []FilteredWriter
-		wsbuf [4]FilteredWriter
+		ws    []NamedWriter
+		wsbuf [4]NamedWriter
 
 		verbosed bool
 
@@ -35,8 +35,8 @@ type (
 		DepthCorrection int
 	}
 
-	// FilteredWriter is an Writer guarded by filter (Logger.V("topic")).
-	FilteredWriter struct {
+	// NamedWriter is an Writer guarded by filter (Logger.V("topic")).
+	NamedWriter struct {
 		w      Writer
 		name   string
 		filter *filter
@@ -126,10 +126,10 @@ func New(ws ...interface{}) *Logger {
 func (l *Logger) AppendWriter(ws ...interface{}) {
 	for i := 0; i < len(ws); i++ {
 		switch w := ws[i].(type) {
-		case FilteredWriter:
+		case NamedWriter:
 			l.appendWriter(w)
 		case Writer:
-			l.appendWriter(FilteredWriter{w: w})
+			l.appendWriter(NamedWriter{w: w})
 		case string:
 			if i+1 == len(ws) {
 				panic(w)
@@ -139,14 +139,14 @@ func (l *Logger) AppendWriter(ws ...interface{}) {
 				panic(ws[i+1])
 			}
 			i++
-			l.appendWriter(FilteredWriter{name: w, w: nw})
+			l.appendWriter(NamedWriter{name: w, w: nw})
 		default:
 			panic(w)
 		}
 	}
 }
 
-func (l *Logger) appendWriter(w FilteredWriter) {
+func (l *Logger) appendWriter(w NamedWriter) {
 	for i, h := range l.ws {
 		if h.name != w.name {
 			continue
@@ -160,8 +160,8 @@ func (l *Logger) appendWriter(w FilteredWriter) {
 	l.ws = append(l.ws, w)
 }
 
-func NewFilteredWriter(name, filter string, w Writer) FilteredWriter {
-	return FilteredWriter{name: name, filter: newFilter(filter), w: w}
+func NewNamedWriter(name, filter string, w Writer) NamedWriter {
+	return NamedWriter{name: name, filter: newFilter(filter), w: w}
 }
 
 // SetLabels sets labels for default logger
@@ -258,12 +258,12 @@ func SetNamedFilter(name, f string) {
 	DefaultLogger.SetNamedFilter(name, f)
 }
 
-// Filter returns current verbosity filter for default FilteredWriter in DefaultLogger.
+// Filter returns current verbosity filter for default NamedWriter in DefaultLogger.
 func Filter() string {
 	return DefaultLogger.NamedFilter("")
 }
 
-// NamedFilter returns current verbosity filter for given FilteredWriter in DefaultLogger.
+// NamedFilter returns current verbosity filter for given NamedWriter in DefaultLogger.
 func NamedFilter(name string) string {
 	return DefaultLogger.NamedFilter(name)
 }
