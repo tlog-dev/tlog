@@ -25,7 +25,9 @@ type (
 	Logger struct {
 		mu    sync.Mutex
 		ws    []FilteredWriter
-		wsbuf [2]FilteredWriter
+		wsbuf [4]FilteredWriter
+
+		verbosed bool
 
 		// NoLocations disables locations capturing.
 		NoLocations bool
@@ -122,12 +124,22 @@ func New(ws ...interface{}) *Logger {
 }
 
 func (l *Logger) AppendWriter(ws ...interface{}) {
-	for _, w := range ws {
-		switch w := w.(type) {
+	for i := 0; i < len(ws); i++ {
+		switch w := ws[i].(type) {
 		case FilteredWriter:
 			l.appendWriter(w)
 		case Writer:
 			l.appendWriter(FilteredWriter{w: w})
+		case string:
+			if i+1 == len(ws) {
+				panic(w)
+			}
+			nw, ok := ws[i+1].(Writer)
+			if !ok {
+				panic(ws[i+1])
+			}
+			i++
+			l.appendWriter(FilteredWriter{name: w, w: nw})
 		default:
 			panic(w)
 		}
@@ -237,13 +249,23 @@ func V(tp string) *Logger {
 //     module,!module/file.go,funcInFile
 //
 // SetFilter can be called simultaneously with V.
-func SetFilter(name, f string) {
-	DefaultLogger.SetFilter(name, f)
+func SetFilter(f string) {
+	DefaultLogger.SetNamedFilter("", f)
 }
 
-// Filter returns current verbosity filter for DefaultLogger.
-func Filter(name string) string {
-	return DefaultLogger.Filter(name)
+// SetNamedFilter is the same as SetFilter but changes filter with given name.
+func SetNamedFilter(name, f string) {
+	DefaultLogger.SetNamedFilter(name, f)
+}
+
+// Filter returns current verbosity filter for default FilteredWriter in DefaultLogger.
+func Filter() string {
+	return DefaultLogger.NamedFilter("")
+}
+
+// NamedFilter returns current verbosity filter for given FilteredWriter in DefaultLogger.
+func NamedFilter(name string) string {
+	return DefaultLogger.NamedFilter(name)
 }
 
 func newspan(l *Logger, par ID) Span {
@@ -294,6 +316,9 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 	l.mu.Lock()
 
 	for _, w := range l.ws {
+		if !l.verbosed && w.name != "" {
+			continue
+		}
 		w.w.Message(
 			Message{
 				Location: loc,
@@ -440,24 +465,19 @@ func (l *Logger) v(tp string) *Logger {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	all := true
 	any := false
 
 	for _, w := range l.ws {
-		q := w.filter.match(tp)
-		all = all && q
-		any = any || q
+		ok := w.filter.match(tp)
+		any = any || ok
 	}
 
 	if !any {
 		return nil
 	}
 
-	if all {
-		return l
-	}
-
 	sl := &Logger{
+		verbosed:        true,
 		NoLocations:     l.NoLocations,
 		DepthCorrection: l.DepthCorrection,
 	}
@@ -475,7 +495,14 @@ func (l *Logger) v(tp string) *Logger {
 // SetFilter sets filter to use in V.
 //
 // See package.SetFilter description for details.
-func (l *Logger) SetFilter(name, filters string) {
+func (l *Logger) SetFilter(filters string) {
+	l.SetNamedFilter("", filters)
+}
+
+// SetNamedFilter sets filter with given name which is used for V verbosity.
+//
+// See package.SetFilter description for details.
+func (l *Logger) SetNamedFilter(name, filters string) {
 	if l == nil {
 		return
 	}
@@ -492,10 +519,17 @@ func (l *Logger) SetFilter(name, filters string) {
 	}
 }
 
-// Filter returns current verbosity filter value
+// Filter returns current verbosity filter value for default filter.
 //
 // See package.SetFilter description for details.
-func (l *Logger) Filter(name string) string {
+func (l *Logger) Filter() string {
+	return l.NamedFilter("")
+}
+
+// NamedFilter returns current verbosity filter value for given filter.
+//
+// See package.SetFilter description for details.
+func (l *Logger) NamedFilter(name string) string {
 	if l == nil {
 		return ""
 	}
@@ -530,9 +564,6 @@ func (s Span) V(tp string) Span {
 	l := s.l.v(tp)
 	if l == nil {
 		return Span{}
-	}
-	if l == s.l {
-		return s
 	}
 	return Span{
 		l:       l,

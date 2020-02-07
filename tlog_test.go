@@ -167,8 +167,8 @@ func TestVerbosity(t *testing.T) {
 		return tm
 	}
 
-	assert.Equal(t, "", (*Logger)(nil).Filter(""))
-	assert.Equal(t, "", Filter(""))
+	assert.Equal(t, "", (*Logger)(nil).Filter())
+	assert.Equal(t, "", NamedFilter(""))
 
 	var buf bytes.Buffer
 
@@ -176,11 +176,13 @@ func TestVerbosity(t *testing.T) {
 
 	V("any_topic").Printf("All conditionals are disabled by default")
 
-	SetFilter("", "topic1,tlog=topic3")
+	SetFilter("topic1,tlog=topic3")
 
-	t.Logf("ll %+v", DefaultLogger)
+	assert.Equal(t, "topic1,tlog=topic3", Filter())
 
-	assert.Equal(t, "topic1,tlog=topic3", Filter(""))
+	SetNamedFilter("", "topic1,tlog=topic3")
+
+	assert.Equal(t, "topic1,tlog=topic3", Filter())
 
 	Printf("unconditional message")
 	DefaultLogger.V("topic1").Printf("topic1 message (enabled)")
@@ -197,7 +199,7 @@ func TestVerbosity(t *testing.T) {
 		assert.Fail(t, "should not be here")
 	}
 
-	DefaultLogger.SetFilter("", "topic1,tlog=TRACE")
+	DefaultLogger.SetFilter("topic1,tlog=TRACE")
 
 	if l := V("TRACE"); l != nil {
 		p := 10 + 60 // complex calculations
@@ -223,7 +225,7 @@ trace conditioned message 2
 `, buf.String())
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")
-	(*Logger)(nil).SetFilter("", "a,b,c")
+	(*Logger)(nil).SetNamedFilter("", "a,b,c")
 
 	DefaultLogger = nil
 	V("a").Printf("none")
@@ -258,24 +260,30 @@ func TestVerbosity2(t *testing.T) {
 	tr.V("a").Printf("a trace")
 	tr.Finish()
 
-	l.SetFilter("b", "b,c")
+	l.SetNamedFilter("b", "b,c")
 
-	assert.Equal(t, "b,c", l.Filter("b"))
-	assert.Equal(t, "", l.Filter(""))
-	assert.Equal(t, "", (*Logger)(nil).Filter(""))
+	assert.Equal(t, "b,c", l.NamedFilter("b"))
+	assert.Equal(t, "", l.Filter())
+	assert.Equal(t, "", (*Logger)(nil).Filter())
 
 	l.V("c").Printf("b3")
 
+	l.SetFilter("q")
+
+	l.Printf("unconditional 2")
+	l.V("q").Printf("conditional 1")
+	l.V("w").Printf("conditional 2")
+
 	assert.Equal(t, buf0.String(), `unconditional
+unconditional 2
+conditional 1
 `)
 
-	assert.Equal(t, buf1.String(), `unconditional
-a only
+	assert.Equal(t, buf1.String(), `a only
 a trace
 `)
 
-	assert.Equal(t, buf2.String(), `unconditional
-b only
+	assert.Equal(t, buf2.String(), `b only
 b3
 `)
 }
@@ -292,7 +300,7 @@ func TestSetFilter(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < N; i++ {
-			l.SetFilter("", "topic,topic2")
+			l.SetFilter("topic,topic2")
 		}
 	}()
 
@@ -300,7 +308,7 @@ func TestSetFilter(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < N; i++ {
-			l.SetFilter("", "topic,topic3")
+			l.SetFilter("topic,topic3")
 		}
 	}()
 
@@ -308,7 +316,7 @@ func TestSetFilter(t *testing.T) {
 		defer wg.Done()
 
 		for i := 0; i < N; i++ {
-			l.SetFilter("", "")
+			l.SetFilter("")
 		}
 	}()
 
@@ -619,6 +627,18 @@ func TestAppendWriter(t *testing.T) {
 	assert.Panics(t, func() {
 		l.AppendWriter(l)
 	})
+
+	assert.Panics(t, func() {
+		l.AppendWriter("qwe")
+	})
+
+	assert.Panics(t, func() {
+		l.AppendWriter("qwe", NewFilteredWriter("", "", Discard{}))
+	})
+
+	l.AppendWriter("c", Discard{})
+
+	assert.Len(t, l.ws, 3)
 }
 
 func TestCoverUncovered(t *testing.T) {
@@ -635,7 +655,7 @@ func TestCoverUncovered(t *testing.T) {
 
 	(*Logger)(nil).Labels(Labels{"a"})
 
-	assert.Equal(t, "", DefaultLogger.Filter("qq"))
+	assert.Equal(t, "", DefaultLogger.NamedFilter("qq"))
 
 	assert.Equal(t, "too short id: 7, wanted 32", TooShortIDError{N: 7}.Error())
 
