@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/examples/sub"
+	"github.com/nikandfor/tlog/examples/simplest/sub"
 )
 
 var (
@@ -25,11 +25,9 @@ func initComplexLogger() func() {
 	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
 	cw.IDWidth = 20
 
-	tw := tlog.NewTeeWriter(cw, jw)
+	ll = tlog.New(cw, jw)
 
-	ll = tlog.New(tw)
-
-	tlog.DefaultLogger = ll // sub package uses package interface (tlog.Printf)
+	tlog.DefaultLogger = ll // needed for sub package. It uses package interface (tlog.Printf)
 
 	return func() {
 		fmt.Fprintf(os.Stderr, "%s", buf.Bytes())

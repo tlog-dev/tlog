@@ -1,6 +1,8 @@
 package rotated
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -75,4 +77,45 @@ func TestOpenClose(t *testing.T) {
 	f := Create("qweqewqew")
 	err := f.Close()
 	assert.NoError(t, err)
+}
+
+func TestName(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tlog_rotate_")
+	if err != nil {
+		t.Fatalf("create tmp dir: %v", err)
+	}
+	defer func() {
+		if !t.Failed() {
+			os.RemoveAll(dir)
+			return
+		}
+
+		t.Logf("dir: %v", dir)
+	}()
+
+	tm, _ := time.Parse(timeFormat, timeFormat)
+	now = func() time.Time { return tm }
+
+	f := Create(filepath.Join(dir, "qwe.log"))
+
+	assert.Equal(t, "", f.Name()) // not open yet
+
+	f.Write([]byte("something"))
+	assert.Equal(t, "qwe_2006-01-02_15-04-05.log", filepath.Base(f.Name()))
+}
+
+func TestFallback(t *testing.T) {
+	var buf bytes.Buffer
+
+	fallback(nil, "test reason", errors.New("error XYZ"), nil)
+
+	fallback(&buf, "test reason", errors.New("error XYZ"), nil)
+
+	assert.Equal(t, "test reason: error XYZ\n", buf.String())
+
+	buf.Reset()
+
+	fallback(&buf, "test reason", errors.New("error XYZ"), []byte("original message"))
+
+	assert.Equal(t, "test reason: error XYZ\noriginal message", buf.String())
 }

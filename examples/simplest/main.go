@@ -5,7 +5,7 @@ import (
 	"flag"
 
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/examples/sub"
+	"github.com/nikandfor/tlog/examples/simplest/sub"
 )
 
 var (

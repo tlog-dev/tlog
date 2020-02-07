@@ -24,7 +24,7 @@ func main() {
 		}
 		defer f.Close()
 
-		tlog.DefaultLogger.AppendWriter("dumps", tlog.NewConsoleWriter(f, 0)) // shortcut for tlog.AppendWriter(tlog.NewFilteredWriter("dumps","",tlog.NewConsoleWriter(f, 0)))
+		tlog.DefaultLogger.AppendWriter(tlog.NewNamedDumper("dumps", "", tlog.NewConsoleWriter(f, 0)))
 
 		tlog.SetNamedFilter("dumps", *dumpsf)
 	}

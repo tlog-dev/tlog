@@ -37,9 +37,10 @@ type (
 
 	// NamedWriter is an Writer guarded by filter (Logger.V("topic")).
 	NamedWriter struct {
-		w      Writer
-		name   string
-		filter *filter
+		w        Writer
+		name     string
+		filter   *filter
+		verbosed bool // verbosed only, skip non-verbosed messages
 	}
 
 	// Writer is an general encoder and writer of events.
@@ -162,6 +163,10 @@ func (l *Logger) appendWriter(w NamedWriter) {
 
 func NewNamedWriter(name, filter string, w Writer) NamedWriter {
 	return NamedWriter{name: name, filter: newFilter(filter), w: w}
+}
+
+func NewNamedDumper(name, filter string, w Writer) NamedWriter {
+	return NamedWriter{name: name, filter: newFilter(filter), w: w, verbosed: true}
 }
 
 // SetLabels sets labels for default logger
@@ -289,6 +294,9 @@ func newspan(l *Logger, par ID) Span {
 	l.mu.Lock()
 
 	for _, w := range l.ws {
+		if w.verbosed && !l.verbosed {
+			continue
+		}
 		w.w.SpanStarted(s, par, loc)
 	}
 
@@ -316,7 +324,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 	l.mu.Lock()
 
 	for _, w := range l.ws {
-		if !l.verbosed && w.name != "" {
+		if w.verbosed && !l.verbosed {
 			continue
 		}
 		w.w.Message(
@@ -377,6 +385,9 @@ func (l *Logger) Labels(ls Labels) {
 	l.mu.Lock()
 
 	for _, w := range l.ws {
+		if w.verbosed && !l.verbosed {
+			continue
+		}
 		w.w.Labels(ls)
 	}
 }
@@ -626,6 +637,9 @@ func (s Span) Finish() {
 	s.l.mu.Lock()
 
 	for _, w := range s.l.ws {
+		if w.verbosed && !s.l.verbosed {
+			continue
+		}
 		w.w.SpanFinished(s, el)
 	}
 }

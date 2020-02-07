@@ -90,11 +90,8 @@ again:
 		try++
 		goto again
 	}
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func fname(name string, now time.Time, try int) string {

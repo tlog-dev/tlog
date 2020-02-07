@@ -3,6 +3,7 @@ package tloggin
 import (
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +27,8 @@ func Traces(c *gin.Context) {
 
 	defer func() {
 		if p := recover(); p != nil {
-			tr.Printf("panic: %v\n%v", p, tlog.StackTrace(2, 20))
+			s := debug.Stack()
+			tr.Printf("panic: %v\n%s", p, s)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("%v", p)})
 		}
 

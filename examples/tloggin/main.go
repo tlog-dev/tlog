@@ -19,7 +19,7 @@ var (
 func main() {
 	flag.Parse()
 
-	tlog.SetFilter("", *v)
+	tlog.SetFilter(*v)
 
 	r := gin.New()
 

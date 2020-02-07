@@ -240,13 +240,14 @@ func TestVerbosity2(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
+	randID = testRandID()
 
 	var buf0, buf1, buf2 bytes.Buffer
 
 	l := New(
-		NewConsoleWriter(&buf0, 0),
-		NewNamedWriter("a", "a", NewConsoleWriter(&buf1, 0)),
-		NewNamedWriter("b", "b", NewConsoleWriter(&buf2, 0)))
+		NewConsoleWriter(&buf0, Lspans),
+		NewNamedWriter("a", "a", NewConsoleWriter(&buf1, Lspans)),
+		NewNamedWriter("b", "b", NewConsoleWriter(&buf2, Lspans)))
 
 	l.Printf("unconditional")
 
@@ -274,18 +275,88 @@ func TestVerbosity2(t *testing.T) {
 	l.V("q").Printf("conditional 1")
 	l.V("w").Printf("conditional 2")
 
-	assert.Equal(t, buf0.String(), `unconditional
+	assert.Equal(t, `unconditional
+Span 0194fdc2fa2ffcc0 par ________________ started
+Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
 unconditional 2
 conditional 1
-`)
+`, buf0.String())
 
-	assert.Equal(t, buf1.String(), `a only
+	assert.Equal(t, `unconditional
+a only
+Span 0194fdc2fa2ffcc0 par ________________ started
 a trace
-`)
+Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
+unconditional 2
+`, buf1.String())
 
-	assert.Equal(t, buf2.String(), `b only
+	assert.Equal(t, `unconditional
+b only
+Span 0194fdc2fa2ffcc0 par ________________ started
+Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
 b3
-`)
+unconditional 2
+`, buf2.String())
+}
+
+func TestVerbosity3(t *testing.T) {
+	defer func(old func() time.Time) {
+		now = old
+	}(now)
+	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+	randID = testRandID()
+
+	var buf0, buf1, buf2 bytes.Buffer
+
+	l := New(
+		NewConsoleWriter(&buf0, Lspans),
+		NewNamedDumper("a", "a", NewConsoleWriter(&buf1, Lspans)),
+		NewNamedDumper("b", "b", NewConsoleWriter(&buf2, Lspans)))
+
+	l.Printf("unconditional")
+
+	l.V("a").Printf("a only")
+
+	l.V("b").Printf("b only")
+
+	l.V("c").Printf("nowhere")
+
+	tr := l.Start()
+	tr.V("a").Printf("a trace")
+	tr.Finish()
+
+	l.SetNamedFilter("b", "b,c")
+
+	assert.Equal(t, "b,c", l.NamedFilter("b"))
+	assert.Equal(t, "", l.Filter())
+	assert.Equal(t, "", (*Logger)(nil).Filter())
+
+	l.V("c").Printf("b3")
+
+	l.SetFilter("q")
+
+	l.Printf("unconditional 2")
+	l.V("q").Printf("conditional 1")
+	l.V("w").Printf("conditional 2")
+
+	assert.Equal(t, `unconditional
+Span 0194fdc2fa2ffcc0 par ________________ started
+Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
+unconditional 2
+conditional 1
+`, buf0.String())
+
+	assert.Equal(t, `a only
+a trace
+`, buf1.String())
+
+	assert.Equal(t, `b only
+b3
+`, buf2.String())
 }
 
 func TestSetFilter(t *testing.T) {
