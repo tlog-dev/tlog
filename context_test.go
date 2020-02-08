@@ -34,8 +34,8 @@ func TestContextWithID(t *testing.T) {
 
 	tr = SpawnFromContext(ctx)
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, `Span 0194fdc2fa2ffcc0 par ________________ started
-Span 6e4ff95ff662a5ee par 0a14000000000000 started
+		assert.Equal(t, `0194fdc2fa2ffcc0  Span started
+6e4ff95ff662a5ee  Span spawned from 0a14000000000000
 `, buf.String())
 	}
 
@@ -70,7 +70,7 @@ func TestContextWithSpan(t *testing.T) {
 
 	tr = SpawnFromContext(ctx)
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, `Span 0194fdc2fa2ffcc0 par 0a14000000000000 started`+"\n", buf.String())
+		assert.Equal(t, "0194fdc2fa2ffcc0  Span spawned from 0a14000000000000\n", buf.String())
 	}
 
 	//

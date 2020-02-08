@@ -276,24 +276,24 @@ func TestVerbosity2(t *testing.T) {
 	l.V("w").Printf("conditional 2")
 
 	assert.Equal(t, `unconditional
-Span 0194fdc2fa2ffcc0 par ________________ started
-Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
+0194fdc2fa2ffcc0  Span started
+0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
 unconditional 2
 conditional 1
 `, buf0.String())
 
 	assert.Equal(t, `unconditional
 a only
-Span 0194fdc2fa2ffcc0 par ________________ started
+0194fdc2fa2ffcc0  Span started
 a trace
-Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
+0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
 unconditional 2
 `, buf1.String())
 
 	assert.Equal(t, `unconditional
 b only
-Span 0194fdc2fa2ffcc0 par ________________ started
-Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
+0194fdc2fa2ffcc0  Span started
+0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
 b3
 unconditional 2
 `, buf2.String())
@@ -344,8 +344,8 @@ func TestVerbosity3(t *testing.T) {
 	l.V("w").Printf("conditional 2")
 
 	assert.Equal(t, `unconditional
-Span 0194fdc2fa2ffcc0 par ________________ started
-Span 0194fdc2fa2ffcc0 finished - elapsed 2000.00ms
+0194fdc2fa2ffcc0  Span started
+0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
 unconditional 2
 conditional 1
 `, buf0.String())
@@ -626,27 +626,31 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	l.Labels(Labels{"a=b", "f"})
 
-	assert.Equal(t, `2019/07/07_16:31:11.000  Labels: ["a=b" "f"]`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: ["a=b" "f"]`+"\n", string(w.buf))
 
 	tr := l.Start()
 
-	assert.Equal(t, `2019/07/07_16:31:12.000  Span 0194fdc2fa2ffcc0 par ________________ started`+"\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:12.000  0194fdc2fa2ffcc0  Span started\n", string(w.buf))
 
 	tr1 := l.Spawn(tr.ID)
 
-	assert.Equal(t, `2019/07/07_16:31:13.000  Span 6e4ff95ff662a5ee par 0194fdc2fa2ffcc0 started`+"\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:13.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(w.buf))
 
 	tr1.Printf("message")
 
-	assert.Equal(t, `2019/07/07_16:31:14.000  Span 6e4ff95ff662a5ee message`+"\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:14.000  6e4ff95ff662a5ee  message\n", string(w.buf))
 
 	tr1.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:15.000  Span 6e4ff95ff662a5ee finished - elapsed 2000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:15.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(w.buf))
 
 	tr.Finish()
 
-	assert.Equal(t, `2019/07/07_16:31:16.000  Span 0194fdc2fa2ffcc0 finished - elapsed 4000.00ms`+"\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:16.000  0194fdc2fa2ffcc0  Span finished - elapsed 4000.00ms\n", string(w.buf))
+
+	l.Printf("not traced message")
+
+	assert.Equal(t, "2019/07/07_16:31:17.000  ________________  not traced message\n", string(w.buf))
 }
 
 func TestJSONWriterSpans(t *testing.T) {

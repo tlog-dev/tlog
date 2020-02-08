@@ -311,7 +311,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 	}
 
 	var t time.Duration
-	if s.ID == z {
+	if s.l == nil {
 		t = time.Duration(now().UnixNano())
 	} else {
 		t = now().Sub(s.Started)
@@ -433,6 +433,9 @@ func (l *Logger) PrintRaw(d int, b []byte) {
 //
 // It never returns any error.
 func (l *Logger) Write(b []byte) (int, error) {
+	if l == nil {
+		return len(b), nil
+	}
 	newmessage(l, l.DepthCorrection+1, Span{}, bytesToString(b), nil)
 	return len(b), nil
 }
@@ -588,7 +591,7 @@ func (s Span) V(tp string) Span {
 // Printf writes logging Message annotated with trace id.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) Printf(f string, args ...interface{}) {
-	if s.ID == z {
+	if s.l == nil {
 		return
 	}
 
@@ -607,7 +610,7 @@ func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (s Span) PrintRaw(d int, b []byte) {
-	if s.ID == z {
+	if s.l == nil {
 		return
 	}
 
@@ -618,7 +621,7 @@ func (s Span) PrintRaw(d int, b []byte) {
 //
 // It never returns any error.
 func (s Span) Write(b []byte) (int, error) {
-	if s.ID == z {
+	if s.l == nil {
 		return len(b), nil
 	}
 
@@ -629,7 +632,7 @@ func (s Span) Write(b []byte) (int, error) {
 
 // Finish writes Span finish event to Writer.
 func (s Span) Finish() {
-	if s.ID == z {
+	if s.l == nil {
 		return
 	}
 

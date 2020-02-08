@@ -3,6 +3,7 @@ package tlog
 import (
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -344,18 +345,16 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 
 	w.buildHeader(m.Location, t)
 
-	if s.ID != z && w.f&Lmessagespan != 0 {
-		b := append(w.buf, "Span "...)
-		i := len(b)
-		b = grow(b, i+w.IDWidth+2)
+	if w.f&Lmessagespan != 0 {
+		i := len(w.buf)
+		b := grow(w.buf, i+w.IDWidth+2)
+		//	i += copy(b[i:], "Span ")
 
-		for j := 0; j < w.IDWidth; j += 2 {
-			q := s.ID[j/2]
-			b[i+j] = digits[q>>4&0xf]
-			b[i+j+1] = digits[q&0xf]
-		}
+		s.ID.FormatTo(b[i:i+w.IDWidth], 'v')
 		i += w.IDWidth
 
+		b[i] = ' '
+		i++
 		b[i] = ' '
 		i++
 
@@ -369,51 +368,21 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 	_, _ = w.w.Write(w.buf)
 }
 
-func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) []byte {
+func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) {
 	w.buildHeader(loc, tm)
 
-	b := w.buf
+	i := len(w.buf)
+	b := grow(w.buf, i+2*w.IDWidth+15)
 
-	b = append(b, "Span "...)
-	i := len(b)
-	b = b[:i]
-
-	b = grow(b, i+2*w.IDWidth+10)
-
-	for j := 0; j < w.IDWidth; j += 2 {
-		q := sid[j/2]
-		b[i+j] = digits[q>>4&0xf]
-		b[i+j+1] = digits[q&0xf]
-	}
+	sid.FormatTo(b[i:i+w.IDWidth], 'v')
 	i += w.IDWidth
-
-	if loc != 0 {
-		i += copy(b[i:], " par ")
-
-		if par == z {
-			for j := 0; j < w.IDWidth; j++ {
-				b[i+j] = '_'
-			}
-		} else {
-			for j := 0; j < w.IDWidth; j += 2 {
-				q := par[j/2]
-				b[i+j] = digits[q>>4&0xf]
-				b[i+j+1] = digits[q&0xf]
-			}
-		}
-		i += w.IDWidth
-	}
 
 	b[i] = ' '
 	i++
-	//	b[i] = ' '
-	//	i++
+	b[i] = ' '
+	i++
 
-	b = b[:i]
-
-	//	b = append(b, loc...)
-
-	return b
+	w.buf = b[:i]
 }
 
 // Message writes SpanStarted event by single Write.
@@ -422,13 +391,25 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 		return
 	}
 
-	b := w.spanHeader(s.ID, par, l, s.Started)
+	w.spanHeader(s.ID, par, l, s.Started)
 
-	b = append(b, "started\n"...)
+	if par == z {
+		w.buf = append(w.buf, "Span started\n"...)
+	} else {
+		i := len(w.buf)
+		b := grow(w.buf, i+20+w.IDWidth)
+		i += copy(b[i:], "Span spawned from ")
 
-	w.buf = b
+		par.FormatTo(b[i:i+w.IDWidth], 'v')
+		i += w.IDWidth
 
-	_, _ = w.w.Write(b)
+		b[i] = '\n'
+		i++
+
+		w.buf = b[:i]
+	}
+
+	_, _ = w.w.Write(w.buf)
 }
 
 // Message writes SpanFinished event by single Write.
@@ -437,9 +418,11 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 		return
 	}
 
-	b := w.spanHeader(s.ID, z, 0, s.Started.Add(el))
+	w.spanHeader(s.ID, z, 0, s.Started.Add(el))
 
-	b = append(b, "finished - elapsed "...)
+	b := w.buf
+
+	b = append(b, "Span finished - elapsed "...)
 
 	e := el.Seconds() * 1000
 
@@ -453,9 +436,22 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 
 // Message writes Labels by single Write.
 func (w *ConsoleWriter) Labels(ls Labels) {
+	var buf [4]Location
+	StackTraceFill(1, buf[:])
+	i := 0
+	for i < len(buf) {
+		name, _, _ := buf[i].NameFileLine()
+		name = path.Base(name)
+		if strings.HasPrefix(name, "tlog.") {
+			i++
+			continue
+		}
+		break
+	}
+
 	w.Message(
 		Message{
-			Location: Caller(1),
+			Location: buf[i],
 			Time:     time.Duration(now().UnixNano()),
 			Format:   "Labels: %q",
 			Args:     []interface{}{ls},
