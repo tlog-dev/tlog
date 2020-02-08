@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"regexp"
 	"sync"
 	"testing"
@@ -14,6 +15,19 @@ import (
 )
 
 type testt struct{}
+
+func testRandID() func() ID {
+	var mu sync.Mutex
+	rnd := rand.New(rand.NewSource(0))
+
+	return func() (id ID) {
+		defer mu.Unlock()
+		mu.Lock()
+
+		_, _ = rnd.Read(id[:])
+		return
+	}
+}
 
 func (t *testt) Func(l *Logger) {
 	l.Printf("pointer receiver")
@@ -155,6 +169,10 @@ func TestWrite(t *testing.T) {
 	assert.Equal(t, `raw message 2
 raw message 3
 `, buf.String())
+
+	n, err = (*Logger)(nil).Write([]byte("123"))
+	assert.NoError(t, err)
+	assert.Equal(t, 3, n)
 }
 
 func TestVerbosity(t *testing.T) {
@@ -317,6 +335,9 @@ func TestVerbosity3(t *testing.T) {
 		NewNamedDumper("a", "a", NewConsoleWriter(&buf1, Lspans)),
 		NewNamedDumper("b", "b", NewConsoleWriter(&buf2, Lspans)))
 
+	l.Labels(Labels{"q"})
+	l.V("a").Labels(Labels{"a"})
+
 	l.Printf("unconditional")
 
 	l.V("a").Printf("a only")
@@ -343,14 +364,16 @@ func TestVerbosity3(t *testing.T) {
 	l.V("q").Printf("conditional 1")
 	l.V("w").Printf("conditional 2")
 
-	assert.Equal(t, `unconditional
+	assert.Equal(t, `Labels: ["q"]
+unconditional
 0194fdc2fa2ffcc0  Span started
 0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
 unconditional 2
 conditional 1
 `, buf0.String())
 
-	assert.Equal(t, `a only
+	assert.Equal(t, `Labels: ["a"]
+a only
 a trace
 `, buf1.String())
 
@@ -546,7 +569,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1 := l.Spawn(tr.ID)
 
-	tr1.Printf("message")
+	tr1.Printf("message %d", 2)
 
 	tr1.Finish()
 
@@ -557,7 +580,7 @@ func TestJSONWriterSpans(t *testing.T) {
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329234375000}}
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","p":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329250000000}}
 {"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"l":\d+,"t":15625000,"m":"message","s":"6e4ff95ff662a5eee82abdf44a2d0b75"}}
+{"m":{"l":\d+,"t":15625000,"m":"message 2","s":"6e4ff95ff662a5eee82abdf44a2d0b75"}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":31250000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":62500000}}
 `

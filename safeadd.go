@@ -5,7 +5,7 @@ import "unicode/utf8"
 const tohex = "0123456789abcdef"
 
 // appendSafe appends string to buffer with JSON compatible esaping
-func appendSafe(b, s []byte) []byte {
+func appendSafe(b []byte, s string) []byte {
 again:
 	i := 0
 	l := len(s)
@@ -35,12 +35,10 @@ again:
 	goto again
 
 complex:
-	r, width := utf8.DecodeRune(s)
+	r, width := utf8.DecodeRuneInString(s)
 
 	if r == utf8.RuneError && width == 1 {
 		b = append(b, '\\', 'x', tohex[s[0]>>4], tohex[s[0]&0xf])
-	} else if r == utf8.RuneError {
-		b = append(b, s[:width]...)
 	} else if r <= 0xffff {
 		b = append(b, '\\', 'u', tohex[r>>12&0xf], tohex[r>>8&0xf], tohex[r>>4&0xf], tohex[r&0xf])
 	} else {

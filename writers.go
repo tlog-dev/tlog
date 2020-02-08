@@ -407,7 +407,7 @@ func (w *JSONWriter) Labels(ls Labels) {
 		} else {
 			b = append(b, ',', '"')
 		}
-		b = appendSafe(b, stringToBytes(l))
+		b = appendSafe(b, l)
 		b = append(b, '"')
 	}
 
@@ -517,13 +517,13 @@ func (w *JSONWriter) location(l Location) {
 	b = strconv.AppendInt(b, int64(l), 10)
 
 	b = append(b, `,"f":"`...)
-	b = appendSafe(b, stringToBytes(file))
+	b = appendSafe(b, file)
 
 	b = append(b, `","l":`...)
 	b = strconv.AppendInt(b, int64(line), 10)
 
 	b = append(b, `,"n":"`...)
-	b = appendSafe(b, stringToBytes(name))
+	b = appendSafe(b, name)
 
 	b = append(b, "\"}}\n"...)
 
@@ -846,10 +846,12 @@ func (w *LockedWriter) SpanFinished(s Span, el time.Duration) {
 	w.w.SpanFinished(s, el)
 }
 
+/*
 func (w *bufWriter) Write(p []byte) (int, error) {
 	*w = append(*w, p...)
 	return len(p), nil
 }
+*/
 
 func (w *bufWriter) NewLine() {
 	l := len(*w)

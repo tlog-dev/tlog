@@ -806,19 +806,3 @@ func stdRandID() (id ID) {
 	ccrand.mu.Unlock()
 	return
 }
-
-func testRandID() func() ID {
-	var mu sync.Mutex
-	rnd := rand.New(rand.NewSource(0))
-
-	return func() (id ID) {
-		defer mu.Unlock()
-		mu.Lock()
-
-		_, err := rnd.Read(id[:])
-		if err != nil {
-			panic(err)
-		}
-		return
-	}
-}

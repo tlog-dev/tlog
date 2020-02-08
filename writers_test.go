@@ -149,6 +149,26 @@ func TestProtoAppendVarint(t *testing.T) {
 	}
 }
 
+func TestProtoAppendTagVarint(t *testing.T) {
+	var pbuf proto.Buffer
+
+	for i := uint(0); i < 64; i++ {
+		b := appendTagVarint(nil, 0x77, uint64(1<<i))
+
+		pbuf.Reset()
+		err := pbuf.EncodeVarint(uint64(0x77))
+		if !assert.NoError(t, err) {
+			break
+		}
+		err = pbuf.EncodeVarint(uint64(1 << i))
+		if !assert.NoError(t, err) {
+			break
+		}
+
+		assert.Equal(t, pbuf.Bytes(), b, "%x", uint64(1<<i))
+	}
+}
+
 func TestProtoWriter(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewProtoWriter(&buf)
@@ -254,6 +274,15 @@ func TestProtoWriter(t *testing.T) {
 
 	buf.Reset()
 	pbuf.Reset()
+
+	w.Message(
+		Message{
+			Location: loc,
+			Time:     time.Duration(2) << TimeReduction,
+			Format:   string(make([]byte, 1000)),
+		},
+		Span{ID: id},
+	)
 }
 
 func TestLockedWriter(t *testing.T) {
