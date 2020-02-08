@@ -18,16 +18,14 @@ func main() {
 
 	tlog.Printf("main: %d %q", *f, *str)
 
-	sub.Func1(tlog.ZeroID, 5)
-
-	work()
+	work(context.Background())
 }
 
-func work() {
+func work(ctx context.Context) {
 	tr := tlog.Start()
 	defer tr.Finish()
 
-	ctx := tlog.ContextWithID(context.Background(), tr.ID)
+	ctx = tlog.ContextWithSpan(ctx, tr)
 
-	sub.Func2(ctx, 9)
+	sub.Func(ctx, 9)
 }

@@ -1,7 +1,9 @@
 package tloggin
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"runtime/debug"
 	"time"
@@ -61,4 +63,50 @@ func TraceIDFromContext(c *gin.Context) (id tlog.ID) {
 	}
 	id, _ = i.(tlog.ID)
 	return
+}
+
+func Dumper(c *gin.Context) {
+	tr := TraceFromContext(c)
+
+	if tr := tr.V("rawbody,rawrequest"); tr.Valid() {
+		data, err := ioutil.ReadAll(c.Request.Body)
+		if err != nil {
+			tr.Printf("read body: %v", err)
+			return
+		}
+
+		err = c.Request.Body.Close()
+		if err != nil {
+			tr.Printf("close body: %v", err)
+			return
+		}
+
+		c.Request.Body = ioutil.NopCloser(bytes.NewReader(data))
+
+		tr.Printf("request:  len %5d  %-8v %v\n%s", len(data), c.Request.Method, c.Request.URL.Path, data)
+	}
+
+	var rw *respWriter
+
+	if tr := tr.V("rawbody,rawresponse"); tr.Valid() {
+		rw = &respWriter{ResponseWriter: c.Writer}
+
+		c.Writer = rw
+	}
+
+	c.Next()
+
+	if tr := tr.V("rawbody,rawresponse"); tr.Valid() {
+		tr.Printf("response: len %5d  %-8v %v  => %3d\n%s", rw.cp.Len(), c.Request.Method, c.Request.URL.Path, c.Writer.Status(), rw.cp.Bytes())
+	}
+}
+
+type respWriter struct {
+	gin.ResponseWriter
+	cp bytes.Buffer
+}
+
+func (w *respWriter) Write(p []byte) (int, error) {
+	_, _ = w.cp.Write(p)
+	return w.ResponseWriter.Write(p)
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/examples/simplest/sub"
 )
 
 var (
@@ -46,6 +45,10 @@ func main() {
 
 	ll.Printf("main: %d", *f)
 
+	work()
+}
+
+func work() {
 	tr := ll.Start()
 	defer tr.Finish()
 
@@ -53,8 +56,6 @@ func main() {
 
 	var a A
 	a.func1(tr.ID)
-
-	sub.Func1(tr.ID, 5)
 }
 
 type A struct{}

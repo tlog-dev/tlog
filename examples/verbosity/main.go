@@ -4,22 +4,24 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/nikandfor/tlog"
 )
 
 func main() {
-	var buf bytes.Buffer
+	var buf bytes.Buffer // Imagine this is file
 
 	tlog.DefaultLogger = tlog.New(
-		tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags), // equal to tlog.NewNamedWriter("", "", tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags))
-		tlog.NewNamedWriter("verbose", "topic", tlog.NewConsoleWriter(&buf, tlog.LdetFlags)))
+		tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags), // standard logs to stderr
+		tlog.NewNamedWriter( // more detailed logs to a file
+			"verbose", // name to address filter later
+			"*",       // capture all topics
+			tlog.NewConsoleWriter(&buf, tlog.LdetFlags))) // writer with more detailed flags
 
-	tlog.SetFilter("")                            // first writer. Default filter name is empty
-	tlog.SetNamedFilter("verbose", "topic,debug") // second writer with defined name
-	tlog.SetNamedFilter("unexisted", "subtopic")  // will silently have no effect since there is no writer with name unexisted
+	tlog.SetNamedFilter("verbose", "topic,debug") // change filter in flight
 
-	fmt.Fprintf(os.Stderr, "FIRST writer (stderr):\n")
+	fmt.Fprintf(os.Stderr, "STDERR OUTPUT:\n")
 
 	tlog.Printf("unconditional log message")
 
@@ -27,15 +29,14 @@ func main() {
 
 	tlog.V("trace").Printf("simple condition (will not be printed)")
 
-	if l := tlog.V("topic"); l != nil {
-		p := 1 + 3 // make complex calculations here
-		l.Printf("then log the result: %v", p)
-		tlog.Printf("package interface will print to all writers not only to filtered by V")
+	if l := tlog.V("debug"); l != nil { // l is a *tlog.Logger
+		dumpSomeStats(l)
 	}
 
 	funcUnconditionalTrace()
 
-	fmt.Printf("SECOND writer (buf):\n%s", buf.Bytes())
+	// file content:
+	fmt.Fprintf(os.Stderr, "FILE CONTENT:\n%s", buf.Bytes())
 }
 
 func funcUnconditionalTrace() {
@@ -48,18 +49,30 @@ func funcUnconditionalTrace() {
 }
 
 func funcConditionalTrace(id tlog.ID) {
-	tr := tlog.V("debug").Spawn(id)
+	tr := tlog.V("topic").Spawn(id)
 	defer tr.Finish()
 
-	tr.Printf("printed only to second writer")
+	tr.Printf("printed only to a file")
 
-	if tr.Valid() {
-		p := 1 + 5 // complex calculations
+	if tr.Valid() { // true if topic enabled
+		p := 1 + 1 // complex calculations
 		tr.Printf("verbose output: %v", p)
 	}
 
-	if tr := tr.V("subtopic"); tr.Valid() { // tr redefined for convinience, counld be any name
-		p := 2 + 3                              // even more complex calculations or big output
-		tr.Printf("very verbose output: %v", p) // will not be printed
+	if tr2 := tr.V("subtopic"); tr2.Valid() { // true if both: topic and subtopic enabled by filter
+		p := 2 + 3 + 4 // even more complex calculations
+		tr.Printf("very verbose output: %v", p)
 	}
+}
+
+func dumpSomeStats(l *tlog.Logger) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	// big output
+	l.Printf(`mem stats:
+heap:              %v,
+cumulative allocs: %v
+gc called:         %v
+`, m.HeapAlloc, m.TotalAlloc, m.NumGC)
 }

@@ -24,6 +24,7 @@ func main() {
 	r := gin.New()
 
 	r.Use(tloggin.Traces)
+	r.Use(tloggin.Dumper) // must be after Traces
 
 	v1 := r.Group("v1/")
 
