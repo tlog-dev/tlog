@@ -130,3 +130,22 @@ func funcnameFromNameoff(f funcInfo, nameoff int32) string
 func bytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
+
+func stringToBytes(s string) []byte {
+	type sh struct {
+		p unsafe.Pointer
+		l int
+	}
+	type bh struct {
+		p unsafe.Pointer
+		l int
+		c int
+	}
+
+	h := *(*sh)(unsafe.Pointer(&s))
+	return *(*[]byte)(unsafe.Pointer(&bh{
+		p: h.p,
+		l: h.l,
+		c: h.l,
+	}))
+}

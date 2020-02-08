@@ -1,7 +1,6 @@
 package tlog
 
 import (
-	"fmt"
 	"io"
 	"path"
 	"path/filepath"
@@ -359,7 +358,14 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 		w.buf = b[:i]
 	}
 
-	_, _ = fmt.Fprintf(&w.buf, m.Format, m.Args...)
+	if m.Args != nil {
+		w.buf = AppendPrintf(w.buf, m.Format, m.Args...)
+	} else {
+		i := len(w.buf)
+		b := grow(w.buf, i+len(m.Format))
+		i += copy(b[i:], m.Format)
+		w.buf = b[:i]
+	}
 
 	w.buf.NewLine()
 
@@ -524,7 +530,13 @@ func (w *JSONWriter) Message(m Message, s Span) {
 
 	w.w.ObjKey([]byte("m"))
 	sw := w.w.StringWriter()
-	_, _ = fmt.Fprintf(sw, m.Format, m.Args...)
+	if m.Args != nil {
+		b = AppendPrintf(b[:0], m.Format, m.Args...)
+		sw.Write(b)
+	} else {
+		b := stringToBytes(m.Format)
+		sw.Write(b)
+	}
 	sw.Close()
 
 	if s.ID != z {
@@ -694,7 +706,16 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 
 	w.buf = w.buf[:0]
 
-	l, _ := fmt.Fprintf(&w.buf, m.Format, m.Args...)
+	var b []byte
+	var l int
+	if m.Args != nil {
+		b = AppendPrintf(w.buf, m.Format, m.Args...)
+		l = len(b)
+	} else {
+		b = grow(w.buf, len(m.Format))
+		l = copy(b, m.Format)
+		b = b[:l]
+	}
 
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
@@ -706,7 +727,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	szss := varintSize(uint64(1 + szs + sz))
 
 	total := szss + 1 + szs + sz
-	b := grow(w.buf, total)[:total]
+	b = grow(b, total)[:total]
 
 	copy(b[total-l:], b[:l])
 
