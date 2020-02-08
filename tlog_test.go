@@ -790,7 +790,7 @@ func BenchmarkTlogConsoleDetailed(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesConsole(b *testing.B) {
+func BenchmarkTlogTracesConsoleDetailed(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags|Lspans))

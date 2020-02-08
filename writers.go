@@ -20,7 +20,7 @@ type (
 	//
 	// Each event ends up with a single Write.
 	//
-	// It's safe to write event simultaneously.
+	// It's unsafe to write event simultaneously.
 	ConsoleWriter struct {
 		w         io.Writer
 		f         int
@@ -34,9 +34,7 @@ type (
 	//
 	// Each event ends up with a single Write if message fits in 1000 bytes (default) buffer.
 	//
-	// It's safe to write event simultaneously.
-	//
-	// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
+	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
 		w   *json.Writer
 		ls  map[Location]struct{}
@@ -47,9 +45,7 @@ type (
 	//
 	// Each event ends up with a single Write.
 	//
-	// It's safe to write event simultaneously.
-	//
-	// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
+	// It's unsafe to write event simultaneously.
 	ProtoWriter struct {
 		w   io.Writer
 		ls  map[Location]struct{}
@@ -62,6 +58,8 @@ type (
 	// Discard discards all events.
 	Discard struct{}
 
+	// LockedWriter is a Writer under Mutex
+	// It's safe to write event simultaneously.
 	LockedWriter struct {
 		mu sync.Mutex
 		w  Writer
@@ -237,7 +235,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 		i++
 	}
 	if w.f&(Llongfile|Lshortfile) != 0 {
-		fname, file, line = loc.NameFileLine()
+		fname, file, line = loc.CachedNameFileLine()
 
 		if w.f&Lshortfile != 0 {
 			file = filepath.Base(file)
@@ -440,7 +438,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 	StackTraceFill(1, buf[:])
 	i := 0
 	for i < len(buf) {
-		name, _, _ := buf[i].NameFileLine()
+		name, _, _ := buf[i].CachedNameFileLine()
 		name = path.Base(name)
 		if strings.HasPrefix(name, "tlog.") {
 			i++

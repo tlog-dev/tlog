@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"sync"
 	"unsafe"
 )
 
@@ -22,7 +23,39 @@ type (
 		func_    int32 // offset into pclntab for name of called function
 		parentPc int32 // position of an instruction whose source position is the call site (offset from entry)
 	}
+
+	nfl struct {
+		name string
+		file string
+		line int
+	}
 )
+
+var (
+	locmu sync.Mutex
+	locc  = map[Location]nfl{}
+)
+
+func (l Location) CachedNameFileLine() (name, file string, line int) {
+	locmu.Lock()
+	c, ok := locc[l]
+	locmu.Unlock()
+	if ok {
+		return c.name, c.file, c.line
+	}
+
+	name, file, line = l.NameFileLine()
+
+	locmu.Lock()
+	locc[l] = nfl{
+		name: name,
+		file: file,
+		line: line,
+	}
+	locmu.Unlock()
+
+	return
+}
 
 // NameFileLine returns function name, file and line number for location.
 //
@@ -31,6 +64,9 @@ type (
 // This functions is a little bit modified version of runtime.(*Frames).Next().
 func (l Location) NameFileLine() (name, file string, line int) {
 	pc := uintptr(l)
+	if pc == 0 {
+		return
+	}
 
 	funcInfo := findfunc(pc)
 	if funcInfo.entry == nil {

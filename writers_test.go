@@ -3,6 +3,7 @@ package tlog
 import (
 	"bytes"
 	"encoding/hex"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -176,9 +177,44 @@ func TestNewTeeWriter(t *testing.T) {
 	assert.Len(t, d, 5)
 }
 
-func BenchmarkTimeNow(b *testing.B) {
-	b.Skip()
+func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
+	w := NewConsoleWriter(ioutil.Discard, LdetFlags)
+
+	l := Caller(0)
+
 	for i := 0; i < b.N; i++ {
-		time.Now()
+		w.Message(Message{
+			Location: l,
+			Time:     time.Second,
+			Format:   "some message",
+		}, Span{})
+	}
+}
+
+func BenchmarkWriterJSONMessage(b *testing.B) {
+	w := NewJSONWriter(ioutil.Discard)
+
+	l := Caller(0)
+
+	for i := 0; i < b.N; i++ {
+		w.Message(Message{
+			Location: l,
+			Time:     time.Second,
+			Format:   "some message",
+		}, Span{})
+	}
+}
+
+func BenchmarkWriterProtoMessage(b *testing.B) {
+	w := NewProtoWriter(ioutil.Discard)
+
+	l := Caller(0)
+
+	for i := 0; i < b.N; i++ {
+		w.Message(Message{
+			Location: l,
+			Time:     time.Second,
+			Format:   "some message",
+		}, Span{})
 	}
 }
