@@ -31,7 +31,9 @@ type (
 
 		// NoLocations disables locations capturing.
 		NoLocations bool
-		// DepthCorrection is for passing Logger to another loggers. Example: log.SetOutput(l) // stdlib
+		// DepthCorrection is for passing Logger to another loggers. Example:
+		//     log.SetOutput(l) // stdlib.
+		// Have effect on Write function only.
 		DepthCorrection int
 	}
 
@@ -281,7 +283,7 @@ func newspan(l *Logger, par ID) Span {
 
 	var loc Location
 	if !l.NoLocations {
-		loc = Funcentry(l.DepthCorrection + 2)
+		loc = Funcentry(2)
 	}
 
 	s := Span{
@@ -317,7 +319,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 
 	var loc Location
 	if !l.NoLocations {
-		loc = Caller(l.DepthCorrection + d + 1)
+		loc = Caller(d + 1)
 	}
 
 	defer l.mu.Unlock()
@@ -431,7 +433,7 @@ func (l *Logger) PrintRaw(d int, b []byte) {
 //
 // It never returns any error.
 func (l *Logger) Write(b []byte) (int, error) {
-	newmessage(l, 1, Span{}, bytesToString(b), nil)
+	newmessage(l, l.DepthCorrection+1, Span{}, bytesToString(b), nil)
 	return len(b), nil
 }
 
@@ -620,7 +622,7 @@ func (s Span) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 
-	newmessage(s.l, 1, s, bytesToString(b), nil)
+	newmessage(s.l, s.l.DepthCorrection+1, s, bytesToString(b), nil)
 
 	return len(b), nil
 }
