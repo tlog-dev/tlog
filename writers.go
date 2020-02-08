@@ -78,69 +78,30 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	}
 }
 
-func grow(b []byte, l int) []byte {
-more:
-	b = b[:cap(b)]
-	if len(b) >= l {
-		return b
-	}
-
-	b = append(b,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0)
-
-	goto more
-}
-
-func (w *ConsoleWriter) appendSegments(b []byte, i, wid int, name string, s byte) ([]byte, int) {
-	b = grow(b, i+wid+5)
-	W := i + wid
-
-	if nl := len(name); nl <= wid {
-		i += copy(b[i:], name)
-		for j := i; j < W; j++ {
-			b[j] = ' '
-		}
-		return b, i
-	}
-
-	for i+2 < W {
-		if len(name) <= W-i {
-			i += copy(b[i:], name)
+func (w *ConsoleWriter) appendSegments(b []byte, W int, name string, s byte) []byte {
+	end := len(b) + W
+	for len(b) < end {
+		if len(name) <= end-len(b) {
+			b = append(b, name...)
 			break
 		}
 
 		p := strings.IndexByte(name, s)
 		if p == -1 {
-			i += copy(b[i:], name[:W-i])
+			b = append(b, name[:end-len(b)]...)
 			break
 		}
 
-		if len(name)-p < W-i {
-			copy(b[i:], name)
-			i = W - (len(name) - p)
-
-			b[i] = s
-			i++
-		} else {
-			b[i] = name[0]
-			i++
-			b[i] = s
-			i++
-		}
+		b = append(b, name[0], s)
 
 		name = name[p+1:]
 	}
 
-	return b, i
+	return b
 }
 
 func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
-	b := w.buf
-	b = b[:cap(b)]
-	i := 0
+	b := w.buf[:0]
 
 	var fname, file string
 	var line = -1
@@ -149,139 +110,137 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 		if w.f&LUTC != 0 {
 			t = t.UTC()
 		}
+
+		var Y, M, D, h, m, s int
+		if w.f&(Ldate|Ltime) != 0 {
+			Y, M, D, h, m, s = splitTime(t)
+		}
+
 		if w.f&Ldate != 0 {
-			b = grow(b, i+15)
+			i := len(b)
+			b = append(b, "0000/00/00"...)
 
-			y, m, d := t.Date()
-			for j := 3; j >= 0; j-- {
-				b[i+j] = '0' + byte(y%10)
-				y /= 10
+			for j := 0; j < 4; j++ {
+				b[i+3-j] = byte(Y%10) + '0'
+				Y /= 10
 			}
-			i += 4
 
-			b[i] = '/'
-			i++
+			b[i+6] = byte(M%10) + '0'
+			M /= 10
+			b[i+5] = byte(M) + '0'
 
-			b[i] = '0' + byte(m/10)
-			i++
-			b[i] = '0' + byte(m%10)
-			i++
-
-			b[i] = '/'
-			i++
-
-			b[i] = '0' + byte(d/10)
-			i++
-			b[i] = '0' + byte(d%10)
-			i++
+			b[i+9] = byte(D%10) + '0'
+			D /= 10
+			b[i+8] = byte(D) + '0'
 		}
 		if w.f&Ltime != 0 {
-			b = grow(b, i+12)
-
-			if i != 0 {
-				b[i] = '_'
-				i++
+			if len(b) != 0 {
+				b = append(b, '_')
 			}
 
-			h, m, s := t.Clock()
+			i := len(b)
+			b = append(b, "00:00:00"...)
 
-			b[i] = '0' + byte(h/10)
-			i++
-			b[i] = '0' + byte(h%10)
-			i++
+			b[i+1] = byte(h%10) + '0'
+			h /= 10
+			b[i+0] = byte(h) + '0'
 
-			b[i] = ':'
-			i++
+			b[i+4] = byte(m%10) + '0'
+			m /= 10
+			b[i+3] = byte(m) + '0'
 
-			b[i] = '0' + byte(m/10)
-			i++
-			b[i] = '0' + byte(m%10)
-			i++
-
-			b[i] = ':'
-			i++
-
-			b[i] = '0' + byte(s/10)
-			i++
-			b[i] = '0' + byte(s%10)
-			i++
+			b[i+7] = byte(s%10) + '0'
+			s /= 10
+			b[i+6] = byte(s) + '0'
 		}
 		if w.f&(Lmilliseconds|Lmicroseconds) != 0 {
-			b = grow(b, i+12)
-
-			if i != 0 {
-				b[i] = '.'
-				i++
+			if len(b) != 0 {
+				b = append(b, '.')
 			}
 
 			ns := t.Nanosecond() / 1e3
-			n := 6
 			if w.f&Lmilliseconds != 0 {
-				n = 3
-				ns /= 1e3
-			}
-			for j := n - 1; j >= 0; j-- {
-				b[i+j] = '0' + byte(ns%10)
+				ns /= 1000
+
+				i := len(b)
+				b = append(b, "000"...)
+
+				b[i+2] = byte(ns%10) + '0'
 				ns /= 10
+				b[i+1] = byte(ns%10) + '0'
+				ns /= 10
+				b[i+0] = byte(ns%10) + '0'
+			} else {
+				i := len(b)
+				b = append(b, "000000"...)
+
+				b[i+5] = byte(ns%10) + '0'
+				ns /= 10
+				b[i+4] = byte(ns%10) + '0'
+				ns /= 10
+				b[i+3] = byte(ns%10) + '0'
+				ns /= 10
+				b[i+2] = byte(ns%10) + '0'
+				ns /= 10
+				b[i+1] = byte(ns%10) + '0'
+				ns /= 10
+				b[i+0] = byte(ns%10) + '0'
 			}
-			i += n
 		}
-		b[i] = ' '
-		i++
-		b[i] = ' '
-		i++
+
+		b = append(b, ' ', ' ')
 	}
 	if w.f&(Llongfile|Lshortfile) != 0 {
 		fname, file, line = loc.CachedNameFileLine()
 
 		if w.f&Lshortfile != 0 {
 			file = filepath.Base(file)
-		}
 
-		j := 0
-		for q := 10; q < line; q *= 10 {
-			j++
-		}
-		n := 1 + j
-
-		var st int
-		if w.f&Lshortfile != 0 {
-			b, st = w.appendSegments(b, i, w.Shortfile-n-1, file, '/')
-		} else {
-			b = append(b[:i], file...)
-			i += len(file)
-			st = i
-		}
-
-		b = grow(b, st+10)
-
-		b[st] = ':'
-		st++
-
-		for ; j >= 0; j-- {
-			b[st+j] = '0' + byte(line%10)
-			line /= 10
-		}
-		st += n
-
-		if w.f&Lshortfile != 0 {
-			W := i + w.Shortfile
-			for ; st < W; st++ {
-				b[st] = ' '
+			n := 1
+			for q := line; q != 0; q /= 10 {
+				n++
 			}
-			i += w.Shortfile
+
+			i := len(b)
+
+			b = append(b, "                                                                                                                                                "[:w.Shortfile]...)
+			b = append(b[:i], file...)
+
+			e := len(b)
+			b = b[:i+w.Shortfile]
+
+			if len(file)+n > w.Shortfile {
+				i = i + w.Shortfile - n
+			} else {
+				i = e
+			}
+
+			b[i] = ':'
+			for q, j := line, n-1; j >= 1; j-- {
+				b[i+j] = byte(q%10) + '0'
+				q /= 10
+			}
 		} else {
-			i = st
+			b = append(b, file...)
+			i := len(b)
+			b = append(b, ":           "...)
+
+			n := 1
+			for q := line; q != 0; q /= 10 {
+				n++
+			}
+
+			for q, j := line, n-1; j >= 1; j-- {
+				b[i+j] = byte(q%10) + '0'
+				q /= 10
+			}
 		}
 
-		b[i] = ' '
-		i++
-		b[i] = ' '
-		i++
+		b = append(b, ' ', ' ')
 	}
 	if w.f&(Ltypefunc|Lfuncname) != 0 {
 		if line == -1 {
-			fname, _, _ = loc.NameFileLine()
+			fname, _, _ = loc.CachedNameFileLine()
 		}
 		fname = filepath.Base(fname)
 
@@ -295,38 +254,30 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 			}
 
 			if l := len(fname); l <= w.Funcname {
-				W := i + w.Funcname
-				b = grow(b, W+4)
-				i += copy(b[i:], fname)
-				for ; i < W; i++ {
-					b[i] = ' '
-				}
+				i := len(b)
+				b = append(b, "                                                                                                                                                "[:w.Funcname]...)
+				b = append(b[:i], fname...)
+				b = b[:i+w.Funcname]
 			} else {
-				i += copy(b[i:], fname[:w.Funcname])
+				b = append(b, fname[:w.Funcname]...)
 				j := 1
 				for {
 					q := fname[l-j]
 					if q < '0' || '9' < q {
 						break
 					}
-					b[i-j] = fname[l-j]
+					b[len(b)-j] = q
 					j++
 				}
 			}
 		} else {
-			b = append(b[:i], fname...)
-			i += len(fname)
+			b = append(b, fname...)
 		}
 
-		b = grow(b, i+4)
-
-		b[i] = ' '
-		i++
-		b[i] = ' '
-		i++
+		b = append(b, ' ', ' ')
 	}
 
-	w.buf = b[:i]
+	w.buf = b
 }
 
 // Message writes Message event by single Write.
@@ -342,27 +293,16 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 
 	if w.f&Lmessagespan != 0 {
 		i := len(w.buf)
-		b := grow(w.buf, i+w.IDWidth+2)
-		//	i += copy(b[i:], "Span ")
-
+		b := append(w.buf, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 		s.ID.FormatTo(b[i:i+w.IDWidth], 'v')
-		i += w.IDWidth
 
-		b[i] = ' '
-		i++
-		b[i] = ' '
-		i++
-
-		w.buf = b[:i]
+		w.buf = append(b, ' ', ' ')
 	}
 
 	if m.Args != nil {
 		w.buf = AppendPrintf(w.buf, m.Format, m.Args...)
 	} else {
-		i := len(w.buf)
-		b := grow(w.buf, i+len(m.Format))
-		i += copy(b[i:], m.Format)
-		w.buf = b[:i]
+		w.buf = append(w.buf, m.Format...)
 	}
 
 	w.buf.NewLine()
@@ -374,17 +314,10 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) {
 	w.buildHeader(loc, tm)
 
 	i := len(w.buf)
-	b := grow(w.buf, i+2*w.IDWidth+15)
-
+	b := append(w.buf, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 	sid.FormatTo(b[i:i+w.IDWidth], 'v')
-	i += w.IDWidth
 
-	b[i] = ' '
-	i++
-	b[i] = ' '
-	i++
-
-	w.buf = b[:i]
+	w.buf = append(b, ' ', ' ')
 }
 
 // Message writes SpanStarted event by single Write.
@@ -398,17 +331,13 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 	if par == z {
 		w.buf = append(w.buf, "Span started\n"...)
 	} else {
-		i := len(w.buf)
-		b := grow(w.buf, i+20+w.IDWidth)
-		i += copy(b[i:], "Span spawned from ")
+		b := append(w.buf, "Span spawned from "...)
 
+		i := len(b)
+		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 		par.FormatTo(b[i:i+w.IDWidth], 'v')
-		i += w.IDWidth
 
-		b[i] = '\n'
-		i++
-
-		w.buf = b[:i]
+		w.buf = append(b, '\n')
 	}
 
 	_, _ = w.w.Write(w.buf)
@@ -422,18 +351,14 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 
 	w.spanHeader(s.ID, z, 0, s.Started.Add(el))
 
-	b := w.buf
-
-	b = append(b, "Span finished - elapsed "...)
+	b := append(w.buf, "Span finished - elapsed "...)
 
 	e := el.Seconds() * 1000
-
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
-	b = append(b, "ms\n"...)
 
-	w.buf = b
+	w.buf = append(b, "ms\n"...)
 
-	_, _ = w.w.Write(b)
+	_, _ = w.w.Write(w.buf)
 }
 
 // Message writes Labels by single Write.
@@ -441,7 +366,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 	var buf [4]Location
 	StackTraceFill(1, buf[:])
 	i := 0
-	for i < len(buf) {
+	for i+1 < len(buf) {
 		name, _, _ := buf[i].CachedNameFileLine()
 		name = path.Base(name)
 		if strings.HasPrefix(name, "tlog.") {
@@ -661,7 +586,13 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	szss := varintSize(uint64(1 + szs + sz))
 
 	total := szss + 1 + szs + sz
-	b = grow(b, total)[:total]
+	if cap(b) < total {
+		q := make([]byte, total)
+		copy(q, b)
+		b = q
+	} else {
+		b = b[:total]
+	}
 
 	copy(b[total-l:], b[:l])
 
