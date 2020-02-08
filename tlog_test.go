@@ -678,13 +678,13 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"s":{"id":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329234375000}}
-{"s":{"id":"6e4ff95ff662a5eee82abdf44a2d0b75","p":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329250000000}}
-{"l":{"pc":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329234375000}}
+{"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","p":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329250000000}}
+{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"l":\d+,"t":15625000,"m":"message","s":"6e4ff95ff662a5eee82abdf44a2d0b75"}}
-{"f":{"id":"6e4ff95ff662a5eee82abdf44a2d0b75","e":31250000}}
-{"f":{"id":"0194fdc2fa2ffcc041d3ff12045b73c8","e":62500000}}
+{"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":31250000}}
+{"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":62500000}}
 `
 
 	ok, err := regexp.Match(re, buf.Bytes())

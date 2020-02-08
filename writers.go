@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/nikandfor/json"
 )
 
 //go:generate protoc --go_out=. tlogpb/tlog.proto
@@ -35,9 +33,9 @@ type (
 	//
 	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
-		w   *json.Writer
-		ls  map[Location]struct{}
-		buf []byte
+		w         io.Writer
+		ls        map[Location]struct{}
+		buf, buf2 []byte
 	}
 
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
@@ -465,18 +463,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 }
 
 // NewConsoleWriter creates JSON writer.
-//
-// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 func NewJSONWriter(w io.Writer) *JSONWriter {
-	return NewCustomJSONWriter(json.NewStreamWriter(w))
-}
-
-// NewCustomJSONWriter creates writer with similar output as log.Logger.
-//
-// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
-//
-// json.Writer has buffer internally but it's Flushed after each event.
-func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 	return &JSONWriter{
 		w:  w,
 		ls: make(map[Location]struct{}),
@@ -485,148 +472,114 @@ func NewCustomJSONWriter(w *json.Writer) *JSONWriter {
 
 // Labels writes Labels to the stream.
 func (w *JSONWriter) Labels(ls Labels) {
-	defer w.w.Flush()
+	b := w.buf
 
-	w.w.ObjStart()
+	b = append(b, `{"L":[`...)
 
-	w.w.ObjKey([]byte("L"))
-
-	w.w.ArrayStart()
-
-	for _, l := range ls {
-		w.w.StringString(l)
+	for i, l := range ls {
+		if i == 0 {
+			b = append(b, '"')
+		} else {
+			b = append(b, ',', '"')
+		}
+		b = appendSafe(b, stringToBytes(l))
+		b = append(b, '"')
 	}
 
-	w.w.ArrayEnd()
+	b = append(b, "]}\n"...)
 
-	w.w.ObjEnd()
+	w.buf = b[:0]
 
-	w.w.NewLine()
+	_, _ = w.w.Write(b)
 }
 
 // Message writes event to the stream.
 func (w *JSONWriter) Message(m Message, s Span) {
-	defer w.w.Flush()
-
 	if _, ok := w.ls[m.Location]; !ok {
 		w.location(m.Location)
 	}
 
 	b := w.buf
 
-	w.w.ObjStart()
+	b = append(b, `{"m":{"l":`...)
+	b = strconv.AppendInt(b, int64(m.Location), 10)
 
-	w.w.ObjKey([]byte("m"))
+	b = append(b, `,"t":`...)
+	b = strconv.AppendInt(b, m.Time.Nanoseconds()>>TimeReduction, 10)
 
-	w.w.ObjStart()
-
-	w.w.ObjKey([]byte("l"))
-	b = strconv.AppendInt(b[:0], int64(m.Location), 10)
-	_, _ = w.w.Write(b)
-
-	w.w.ObjKey([]byte("t"))
-	b = strconv.AppendInt(b[:0], m.Time.Nanoseconds()>>TimeReduction, 10)
-	_, _ = w.w.Write(b)
-
-	w.w.ObjKey([]byte("m"))
-	sw := w.w.StringWriter()
+	b = append(b, `,"m":"`...)
 	if m.Args != nil {
-		b = AppendPrintf(b[:0], m.Format, m.Args...)
-		sw.Write(b)
+		w.buf2 = AppendPrintf(w.buf2[:0], m.Format, m.Args...)
+		b = append(b, w.buf2...)
 	} else {
-		b := stringToBytes(m.Format)
-		sw.Write(b)
+		cv := stringToBytes(m.Format)
+		b = append(b, cv...)
 	}
-	sw.Close()
 
 	if s.ID != z {
-		w.w.ObjKey([]byte("s"))
-		b = grow(b[:0], 34)[:34]
-		s.ID.FormatQuotedTo(b, 'x')
-		_, _ = w.w.Write(b)
+		b = append(b, `","s":"`...)
+		i := len(b)
+		b = append(b, "123456789_123456789_123456789_12"...)
+		s.ID.FormatTo(b[i:], 'x')
 	}
 
-	w.w.ObjEnd()
+	b = append(b, "\"}}\n"...)
 
-	w.w.ObjEnd()
+	w.buf = b[:0]
 
-	w.w.NewLine()
-
-	w.buf = b
+	_, _ = w.w.Write(b)
 }
 
 // SpanStarted writes event to the stream.
 func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
-	defer w.w.Flush()
-
 	if _, ok := w.ls[loc]; !ok {
 		w.location(loc)
 	}
 
 	b := w.buf
 
-	w.w.ObjStart()
-
-	w.w.ObjKey([]byte("s"))
-
-	w.w.ObjStart()
-
-	w.w.ObjKey([]byte("id"))
-	b = grow(b[:0], 34)[:34]
-	s.ID.FormatQuotedTo(b, 'x')
-	_, _ = w.w.Write(b)
+	b = append(b, `{"s":{"i":"`...)
+	i := len(b)
+	b = append(b, `123456789_123456789_123456789_12"`...)
+	s.ID.FormatTo(b[i:], 'x')
 
 	if par != z {
-		w.w.ObjKey([]byte("p"))
-		par.FormatQuotedTo(b, 'x')
-		_, _ = w.w.Write(b)
+		b = append(b, `,"p":"`...)
+		i = len(b)
+		b = append(b, `123456789_123456789_123456789_12"`...)
+		par.FormatTo(b[i:], 'x')
 	}
 
-	w.w.ObjKey([]byte("l"))
-	b = strconv.AppendInt(b[:0], int64(loc), 10)
+	b = append(b, `,"l":`...)
+	b = strconv.AppendInt(b, int64(loc), 10)
+
+	b = append(b, `,"s":`...)
+	b = strconv.AppendInt(b, s.Started.UnixNano()>>TimeReduction, 10)
+
+	b = append(b, "}}\n"...)
+
+	w.buf = b[:0]
+
 	_, _ = w.w.Write(b)
-
-	w.w.ObjKey([]byte("s"))
-	b = strconv.AppendInt(b[:0], s.Started.UnixNano()>>TimeReduction, 10)
-	_, _ = w.w.Write(b)
-
-	w.w.ObjEnd()
-
-	w.w.ObjEnd()
-
-	w.w.NewLine()
-
-	w.buf = b
 }
 
 // SpanFinished writes event to the stream.
 func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
-	defer w.w.Flush()
-
 	b := w.buf
 
-	w.w.ObjStart()
+	b = append(b, `{"f":{"i":"`...)
+	i := len(b)
+	b = append(b, `123456789_123456789_123456789_12"`...)
+	s.ID.FormatTo(b[i:], 'x')
 
-	w.w.ObjKey([]byte("f"))
+	b = append(b, `,"e":`...)
+	b = strconv.AppendInt(b, el.Nanoseconds()>>TimeReduction, 10)
 
-	w.w.ObjStart()
+	b = append(b, "}}\n"...)
 
-	w.w.ObjKey([]byte("id"))
-	b = grow(b[:0], 34)[:34]
-	s.ID.FormatQuotedTo(b, 'x')
+	w.buf = b[:0]
+
 	_, _ = w.w.Write(b)
-
-	w.w.ObjKey([]byte("e"))
-	b = strconv.AppendInt(b[:0], el.Nanoseconds()>>TimeReduction, 10)
-	_, _ = w.w.Write(b)
-
-	w.w.ObjEnd()
-
-	w.w.ObjEnd()
-
-	w.w.NewLine()
-
-	w.buf = b
 }
 
 func (w *JSONWriter) location(l Location) {
@@ -635,39 +588,25 @@ func (w *JSONWriter) location(l Location) {
 
 	b := w.buf
 
-	w.w.ObjStart()
+	b = append(b, `{"l":{"p":`...)
+	b = strconv.AppendInt(b, int64(l), 10)
 
-	w.w.ObjKey([]byte("l"))
+	b = append(b, `,"f":"`...)
+	b = appendSafe(b, stringToBytes(file))
 
-	w.w.ObjStart()
+	b = append(b, `","l":`...)
+	b = strconv.AppendInt(b, int64(line), 10)
 
-	w.w.ObjKey([]byte("pc"))
-	b = strconv.AppendInt(b[:0], int64(l), 10)
-	_, _ = w.w.Write(b)
+	b = append(b, `,"n":"`...)
+	b = appendSafe(b, stringToBytes(name))
 
-	w.w.ObjKey([]byte("f"))
-	w.w.StringString(file)
-
-	w.w.ObjKey([]byte("l"))
-	b = strconv.AppendInt(b[:0], int64(line), 10)
-	_, _ = w.w.Write(b)
-
-	w.w.ObjKey([]byte("n"))
-	w.w.StringString(name)
-
-	w.w.ObjEnd()
-
-	w.w.ObjEnd()
-
-	w.w.NewLine()
+	b = append(b, "\"}}\n"...)
 
 	w.ls[l] = struct{}{}
 	w.buf = b
 }
 
 // NewConsoleWriter creates Protobuf writer.
-//
-// It's not recommended to use buffered io.Writer because you'll loose last messages in case of crash.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
 		w:  w,
@@ -703,18 +642,14 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 		w.location(m.Location)
 	}
 
-	w.buf = w.buf[:0]
-
 	var b []byte
 	var l int
 	if m.Args != nil {
-		b = AppendPrintf(w.buf, m.Format, m.Args...)
-		l = len(b)
+		b = AppendPrintf(w.buf[:0], m.Format, m.Args...)
 	} else {
-		b = grow(w.buf, len(m.Format))
-		l = copy(b, m.Format)
-		b = b[:l]
+		b = append(w.buf[:0], m.Format...)
 	}
+	l = len(b)
 
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)

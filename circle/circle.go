@@ -3,8 +3,6 @@ package circle
 import (
 	"bytes"
 	"sync"
-
-	"github.com/nikandfor/json"
 )
 
 type CircleBuffer struct {
@@ -38,40 +36,39 @@ func (b *CircleBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (b *CircleBuffer) MarshalJSON() ([]byte, error) {
-	defer b.mu.Unlock()
-	b.mu.Lock()
+func (c *CircleBuffer) MarshalJSON() ([]byte, error) {
+	defer c.mu.Unlock()
+	c.mu.Lock()
 
-	w := json.NewWriter(nil)
+	var b []byte
+	b = append(b, '[')
 
-	w.ArrayStart()
-
-	i := b.i
+	i := c.i
 	for {
-		if b.l[i] != nil {
-			l := b.l[i]
+		if c.l[i] != nil {
+			l := c.l[i]
 			last := len(l) - 1
 			if l[last] != '\n' {
 				last++
 			}
 
-			_, _ = w.Write(l[:last])
+			if len(b) != 1 {
+				b = append(b, ',')
+			}
+
+			b = append(b, l[:last]...)
 		}
 
-		i = (i + 1) % len(b.l)
+		i = (i + 1) % len(c.l)
 
-		if i == b.i {
+		if i == c.i {
 			break
 		}
 	}
 
-	w.ArrayEnd()
+	b = append(b, ']')
 
-	if err := w.Err(); err != nil {
-		return nil, err
-	}
-
-	return w.Bytes(), nil
+	return b, nil
 }
 
 func (b *CircleBuffer) MarshalText() ([]byte, error) {
