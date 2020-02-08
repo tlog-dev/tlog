@@ -688,8 +688,7 @@ func (w *ProtoWriter) Labels(ls Labels) {
 	b = appendVarint(b, uint64(sz))
 
 	for _, l := range ls {
-		b = append(b, 1<<3|2)
-		b = appendVarint(b, uint64(len(l)))
+		b = appendTagVarint(b, 1<<3|2, uint64(len(l)))
 		b = append(b, l...)
 	}
 
@@ -733,21 +732,16 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 
 	b = appendVarint(b[:0], uint64(1+szs+sz))
 
-	b = append(b, 3<<3|2)
-	b = appendVarint(b, uint64(sz))
+	b = appendTagVarint(b, 3<<3|2, uint64(sz))
 
-	b = append(b, 1<<3|2)
-	b = appendVarint(b, uint64(len(s.ID)))
+	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
-	b = append(b, 2<<3|0)
-	b = appendVarint(b, uint64(m.Location))
+	b = appendTagVarint(b, 2<<3|0, uint64(m.Location))
 
-	b = append(b, 3<<3|0)
-	b = appendVarint(b, uint64(m.Time.Nanoseconds()>>TimeReduction))
+	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds()>>TimeReduction))
 
-	b = append(b, 4<<3|2)
-	b = appendVarint(b, uint64(l))
+	b = appendTagVarint(b, 4<<3|2, uint64(l))
 	// text is already in place
 	b = b[:total]
 
@@ -774,24 +768,19 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
-	b = append(b, 4<<3|2)
-	b = appendVarint(b, uint64(sz))
+	b = appendTagVarint(b, 4<<3|2, uint64(sz))
 
-	b = append(b, 1<<3|2)
-	b = appendVarint(b, uint64(len(s.ID)))
+	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
 	if par != z {
-		b = append(b, 2<<3|2)
-		b = appendVarint(b, uint64(len(par)))
+		b = appendTagVarint(b, 2<<3|2, uint64(len(par)))
 		b = append(b, par[:]...)
 	}
 
-	b = append(b, 3<<3|0)
-	b = appendVarint(b, uint64(loc))
+	b = appendTagVarint(b, 3<<3|0, uint64(loc))
 
-	b = append(b, 4<<3|0)
-	b = appendVarint(b, uint64(s.Started.UnixNano()>>TimeReduction))
+	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano()>>TimeReduction))
 
 	w.buf = b
 
@@ -808,15 +797,12 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
-	b = append(b, 5<<3|2)
-	b = appendVarint(b, uint64(sz))
+	b = appendTagVarint(b, 5<<3|2, uint64(sz))
 
-	b = append(b, 1<<3|2)
-	b = appendVarint(b, uint64(len(s.ID)))
+	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
-	b = append(b, 2<<3|0)
-	b = appendVarint(b, uint64(el.Nanoseconds()>>TimeReduction))
+	b = appendTagVarint(b, 2<<3|0, uint64(el.Nanoseconds()>>TimeReduction))
 
 	w.buf = b
 
@@ -836,22 +822,17 @@ func (w *ProtoWriter) location(l Location) {
 
 	b = appendVarint(b, uint64(1+varintSize(uint64(sz))+sz))
 
-	b = append(b, 2<<3|2)
-	b = appendVarint(b, uint64(sz))
+	b = appendTagVarint(b, 2<<3|2, uint64(sz))
 
-	b = append(b, 1<<3|0)
-	b = appendVarint(b, uint64(l))
+	b = appendTagVarint(b, 1<<3|0, uint64(l))
 
-	b = append(b, 2<<3|2)
-	b = appendVarint(b, uint64(len(name)))
+	b = appendTagVarint(b, 2<<3|2, uint64(len(name)))
 	b = append(b, name...)
 
-	b = append(b, 3<<3|2)
-	b = appendVarint(b, uint64(len(file)))
+	b = appendTagVarint(b, 3<<3|2, uint64(len(file)))
 	b = append(b, file...)
 
-	b = append(b, 4<<3|0)
-	b = appendVarint(b, uint64(line))
+	b = appendTagVarint(b, 4<<3|0, uint64(line))
 
 	w.ls[l] = struct{}{}
 	w.buf = b
@@ -884,6 +865,35 @@ func appendVarint(b []byte, v uint64) []byte {
 			byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56))
 	default:
 		return append(b, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56), byte(v>>63))
+	}
+}
+
+func appendTagVarint(b []byte, t byte, v uint64) []byte {
+	switch {
+	case v < 0x80:
+		return append(b, t, byte(v))
+	case v < 1<<14:
+		return append(b, t, byte(v|0x80), byte(v>>7))
+	case v < 1<<21:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14))
+	case v < 1<<28:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21))
+	case v < 1<<35:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28))
+	case v < 1<<42:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35))
+	case v < 1<<49:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42))
+	case v < 1<<56:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42|0x80), byte(v>>49))
+	case v < 1<<63:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
+			byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56))
+	default:
+		return append(b, t, byte(v|0x80), byte(v>>7|0x80), byte(v>>14|0x80), byte(v>>21|0x80), byte(v>>28|0x80), byte(v>>35|0x80),
 			byte(v>>42|0x80), byte(v>>49|0x80), byte(v>>56), byte(v>>63))
 	}
 }
