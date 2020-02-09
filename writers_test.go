@@ -302,17 +302,25 @@ func TestTeeWriter(t *testing.T) {
 
 	w := NewTeeWriter(w1, w2)
 
+	fe := Funcentry(-1)
+	loc := Caller(-1)
+
 	w.Labels(Labels{"a=b", "f"})
-	w.Message(Message{Format: "msg"}, Span{})
-	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, 0)
+	w.Message(Message{Location: loc, Format: "msg"}, Span{})
+	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, fe)
 	w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
-	assert.Equal(t, `{"L":["a=b","f"]}
-{"l":{"p":0,"f":"","l":0,"n":""}}
-{"m":{"l":0,"t":0,"m":"msg"}}
-{"s":{"i":"64000000000000000000000000000000","l":0,"s":24412629875000000}}
+	re := `{"L":\["a=b","f"\]}
+{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":24,"n":"github.com/nikandfor/tlog.Caller"}}
+{"m":{"t":0,"l":\d+,"m":"msg"}}
+{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":31,"n":"github.com/nikandfor/tlog.Funcentry"}}
+{"s":{"i":"64000000000000000000000000000000","s":24412629875000000,"l":\d+}}
 {"f":{"i":"64000000000000000000000000000000","e":15625000}}
-`, buf1.String())
+`
+	ok, err := regexp.Match(re, buf1.Bytes())
+	assert.NoError(t, err)
+	assert.True(t, ok, "expected:\n%vactual:\n%v", re, buf1.String())
+
 	assert.Equal(t, buf1.String(), buf2.String())
 }
 

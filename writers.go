@@ -426,11 +426,22 @@ func (w *JSONWriter) Message(m Message, s Span) {
 
 	b := w.buf
 
-	b = append(b, `{"m":{"l":`...)
-	b = strconv.AppendInt(b, int64(m.Location), 10)
+	b = append(b, `{"m":{`...)
 
-	b = append(b, `,"t":`...)
+	if s.ID != z {
+		b = append(b, `"s":"`...)
+		i := len(b)
+		b = append(b, `123456789_123456789_123456789_12",`...)
+		s.ID.FormatTo(b[i:], 'x')
+	}
+
+	b = append(b, `"t":`...)
 	b = strconv.AppendInt(b, m.Time.Nanoseconds()>>TimeReduction, 10)
+
+	if m.Location != 0 {
+		b = append(b, `,"l":`...)
+		b = strconv.AppendInt(b, int64(m.Location), 10)
+	}
 
 	b = append(b, `,"m":"`...)
 	if m.Args != nil {
@@ -439,13 +450,6 @@ func (w *JSONWriter) Message(m Message, s Span) {
 	} else {
 		cv := stringToBytes(m.Format)
 		b = append(b, cv...)
-	}
-
-	if s.ID != z {
-		b = append(b, `","s":"`...)
-		i := len(b)
-		b = append(b, "123456789_123456789_123456789_12"...)
-		s.ID.FormatTo(b[i:], 'x')
 	}
 
 	b = append(b, "\"}}\n"...)
@@ -468,18 +472,18 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 	b = append(b, `123456789_123456789_123456789_12"`...)
 	s.ID.FormatTo(b[i:], 'x')
 
+	b = append(b, `,"s":`...)
+	b = strconv.AppendInt(b, s.Started.UnixNano()>>TimeReduction, 10)
+
+	b = append(b, `,"l":`...)
+	b = strconv.AppendInt(b, int64(loc), 10)
+
 	if par != z {
 		b = append(b, `,"p":"`...)
 		i = len(b)
 		b = append(b, `123456789_123456789_123456789_12"`...)
 		par.FormatTo(b[i:], 'x')
 	}
-
-	b = append(b, `,"l":`...)
-	b = strconv.AppendInt(b, int64(loc), 10)
-
-	b = append(b, `,"s":`...)
-	b = strconv.AppendInt(b, s.Started.UnixNano()>>TimeReduction, 10)
 
 	b = append(b, "}}\n"...)
 
@@ -508,6 +512,10 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 }
 
 func (w *JSONWriter) location(l Location) {
+	if l == 0 {
+		return
+	}
+
 	name, file, line := l.NameFileLine()
 	//	name = path.Base(name)
 
@@ -578,7 +586,9 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
-	sz += 1 + varintSize(uint64(m.Location))
+	if m.Location != 0 {
+		sz += 1 + varintSize(uint64(m.Location))
+	}
 	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()>>TimeReduction))
 	sz += 1 + varintSize(uint64(l)) + l
 
@@ -603,7 +613,9 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
-	b = appendTagVarint(b, 2<<3|0, uint64(m.Location))
+	if m.Location != 0 {
+		b = appendTagVarint(b, 2<<3|0, uint64(m.Location))
+	}
 
 	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds()>>TimeReduction))
 
@@ -627,7 +639,9 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	if par != z {
 		sz += 1 + varintSize(uint64(len(par))) + len(par)
 	}
-	sz += 1 + varintSize(uint64(loc))
+	if loc != 0 {
+		sz += 1 + varintSize(uint64(loc))
+	}
 	sz += 1 + varintSize(uint64(s.Started.UnixNano()>>TimeReduction))
 
 	b := w.buf[:0]
@@ -644,7 +658,9 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 		b = append(b, par[:]...)
 	}
 
-	b = appendTagVarint(b, 3<<3|0, uint64(loc))
+	if loc != 0 {
+		b = appendTagVarint(b, 3<<3|0, uint64(loc))
+	}
 
 	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano()>>TimeReduction))
 
@@ -676,6 +692,10 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 }
 
 func (w *ProtoWriter) location(l Location) {
+	if l == 0 {
+		return
+	}
+
 	name, file, line := l.NameFileLine()
 
 	b := w.buf[:0]

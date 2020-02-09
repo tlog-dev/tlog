@@ -16,15 +16,13 @@ import (
 
 type testt struct{}
 
-func testRandID() func() ID {
-	var mu sync.Mutex
+func testRandID() func(*Logger) ID {
 	rnd := rand.New(rand.NewSource(0))
 
-	return func() (id ID) {
-		defer mu.Unlock()
-		mu.Lock()
-
-		_, _ = rnd.Read(id[:])
+	return func(*Logger) (id ID) {
+		for id == z {
+			_, _ = rnd.Read(id[:])
+		}
 		return
 	}
 }
@@ -576,11 +574,11 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329234375000}}
-{"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","p":"0194fdc2fa2ffcc041d3ff12045b73c8","l":\d+,"s":24414329250000000}}
-{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"l":\d+,"t":15625000,"m":"message 2","s":"6e4ff95ff662a5eee82abdf44a2d0b75"}}
+{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":552,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":24414329234375000,"l":\d+}}
+{"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":24414329250000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
+{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":570,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":15625000,"l":\d+,"m":"message 2"}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":31250000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":62500000}}
 `
@@ -638,7 +636,7 @@ func TestCoverUncovered(t *testing.T) {
 	ID{0xaa, 0xbb, 0xcc, 0x44, 0x55}.FormatTo(b, 'X')
 	assert.Equal(t, "AABBCC44", string(b))
 
-	id := stdRandID()
+	id := stdRandID(DefaultLogger)
 	assert.NotZero(t, id)
 }
 
@@ -768,5 +766,28 @@ func BenchmarkIDFormatTo(b *testing.B) {
 		} else {
 			id.FormatTo(buf[:], 'v')
 		}
+	}
+}
+
+func BenchmarkTlogTracesDiscard(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(Discard{})
+	l.NoLocations = true
+
+	t := time.Now()
+
+	now = func() time.Time {
+		return t
+	}
+
+	msg := []byte("message")
+
+	for i := 0; i < b.N; i++ {
+		tr := l.Start()
+		tr.PrintRaw(0, msg)
+		tr.PrintRaw(0, msg)
+		tr.PrintRaw(0, msg)
+		tr.Finish()
 	}
 }
