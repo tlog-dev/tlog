@@ -5,19 +5,19 @@ import (
 	"sync"
 )
 
-type CircleBuffer struct {
+type Buffer struct {
 	mu sync.Mutex
 	l  [][]byte
 	i  int
 }
 
-func NewCircleBuffer(n int) *CircleBuffer {
-	return &CircleBuffer{
+func NewBuffer(n int) *Buffer {
+	return &Buffer{
 		l: make([][]byte, n),
 	}
 }
 
-func (b *CircleBuffer) Write(p []byte) (int, error) {
+func (b *Buffer) Write(p []byte) (int, error) {
 	defer b.mu.Unlock()
 	b.mu.Lock()
 
@@ -36,7 +36,7 @@ func (b *CircleBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (c *CircleBuffer) MarshalJSON() ([]byte, error) {
+func (c *Buffer) MarshalJSON() ([]byte, error) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 
@@ -71,7 +71,7 @@ func (c *CircleBuffer) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (b *CircleBuffer) MarshalText() ([]byte, error) {
+func (b *Buffer) MarshalText() ([]byte, error) {
 	defer b.mu.Unlock()
 	b.mu.Lock()
 
