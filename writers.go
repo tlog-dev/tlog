@@ -38,12 +38,12 @@ type (
 		buf, buf2 []byte
 	}
 
-	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
+	// ProtobufWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
 	//
 	// Each event ends up with a single Write.
 	//
 	// It's unsafe to write event simultaneously.
-	ProtoWriter struct {
+	ProtobufWriter struct {
 		w   io.Writer
 		ls  map[Location]struct{}
 		buf bufWriter
@@ -540,15 +540,15 @@ func (w *JSONWriter) location(l Location) {
 }
 
 // NewConsoleWriter creates Protobuf writer.
-func NewProtoWriter(w io.Writer) *ProtoWriter {
-	return &ProtoWriter{
+func NewProtobufWriter(w io.Writer) *ProtobufWriter {
+	return &ProtobufWriter{
 		w:  w,
 		ls: make(map[Location]struct{}),
 	}
 }
 
 // Labels writes Labels to the stream.
-func (w *ProtoWriter) Labels(ls Labels) {
+func (w *ProtobufWriter) Labels(ls Labels) {
 	b := w.buf[:0]
 
 	sz := 0
@@ -570,7 +570,7 @@ func (w *ProtoWriter) Labels(ls Labels) {
 }
 
 // Message writes enent to the stream.
-func (w *ProtoWriter) Message(m Message, s Span) {
+func (w *ProtobufWriter) Message(m Message, s Span) {
 	if _, ok := w.ls[m.Location]; !ok {
 		w.location(m.Location)
 	}
@@ -629,7 +629,7 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 }
 
 // SpanStarted writes event to the stream.
-func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
+func (w *ProtobufWriter) SpanStarted(s Span, par ID, loc Location) {
 	if _, ok := w.ls[loc]; !ok {
 		w.location(loc)
 	}
@@ -670,7 +670,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 }
 
 // SpanFinished writes event to the stream.
-func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
+func (w *ProtobufWriter) SpanFinished(s Span, el time.Duration) {
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
 	sz += 1 + varintSize(uint64(el.Nanoseconds()>>TimeReduction))
@@ -691,7 +691,7 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 	_, _ = w.w.Write(b)
 }
 
-func (w *ProtoWriter) location(l Location) {
+func (w *ProtobufWriter) location(l Location) {
 	if l == 0 {
 		return
 	}

@@ -16,10 +16,10 @@ import (
 
 type testt struct{}
 
-func testRandID() func(*Logger) ID {
+func testRandID() func() ID {
 	rnd := rand.New(rand.NewSource(0))
 
-	return func(*Logger) (id ID) {
+	return func() (id ID) {
 		for id == z {
 			_, _ = rnd.Read(id[:])
 		}
@@ -550,6 +550,9 @@ func TestIDFromMustShould(t *testing.T) {
 }
 
 func TestJSONWriterSpans(t *testing.T) {
+	defer func(f func() time.Time) {
+		now = f
+	}(now)
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.UTC)
 	now = func() time.Time {
 		tm = tm.Add(time.Second)
@@ -574,10 +577,10 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":552,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":24414329234375000,"l":\d+}}
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":24414329250000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
-{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":570,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":15625000,"l":\d+,"m":"message 2"}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":31250000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":62500000}}
@@ -636,7 +639,7 @@ func TestCoverUncovered(t *testing.T) {
 	ID{0xaa, 0xbb, 0xcc, 0x44, 0x55}.FormatTo(b, 'X')
 	assert.Equal(t, "AABBCC44", string(b))
 
-	id := stdRandID(DefaultLogger)
+	id := stdRandID()
 	assert.NotZero(t, id)
 }
 
@@ -708,7 +711,7 @@ func BenchmarkTlogTracesJSON(b *testing.B) {
 func BenchmarkTlogTracesProto(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtoWriter(ioutil.Discard))
+	l := New(NewProtobufWriter(ioutil.Discard))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -720,7 +723,7 @@ func BenchmarkTlogTracesProto(b *testing.B) {
 func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtoWriter(ioutil.Discard))
+	l := New(NewProtobufWriter(ioutil.Discard))
 
 	var buf = []byte("raw message") // reusable buffer
 
@@ -735,7 +738,7 @@ func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 func BenchmarkTlogTracesProtoWrite(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtoWriter(ioutil.Discard))
+	l := New(NewProtobufWriter(ioutil.Discard))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -790,4 +793,107 @@ func BenchmarkTlogTracesDiscard(b *testing.B) {
 		tr.PrintRaw(0, msg)
 		tr.Finish()
 	}
+}
+
+func TestTlogGrandParallel(t *testing.T) {
+	const N = 10000
+
+	now = time.Now
+	var buf0, buf1, buf2 bytes.Buffer
+
+	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), "json", NewJSONWriter(&buf1), "pb", NewProtobufWriter(&buf2))
+
+	var wg sync.WaitGroup
+
+	wg.Add(14)
+
+	tr := Start()
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				switch i & 7 {
+				case 0:
+					SetFilter("")
+				case 1:
+					SetFilter("a")
+				case 2:
+					SetNamedFilter("json", "")
+				case 3:
+					SetNamedFilter("json", "b")
+				case 4:
+					SetNamedFilter("pb", "")
+				case 5:
+					SetNamedFilter("pb", "a")
+				case 6:
+					SetNamedFilter("pb", "b")
+				case 7:
+					SetNamedFilter("pb", "c")
+				}
+			}
+		}()
+	}
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				DefaultLogger.Printf("message %d", i)
+			}
+		}()
+	}
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				V("a").Printf("message %d", i)
+			}
+		}()
+	}
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				tr := DefaultLogger.Start()
+				tr.Printf("message %d", i)
+				tr.Finish()
+			}
+		}()
+	}
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				tr := DefaultLogger.V("b").Start()
+				tr.Printf("message %d", i)
+				tr.Finish()
+			}
+		}()
+	}
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				tr := Start()
+				tr.V("a").Printf("message %d", i)
+				tr.Finish()
+			}
+		}()
+	}
+
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < N; i++ {
+				tr.Printf("message %d", i)
+			}
+		}()
+	}
+
+	wg.Wait()
 }
