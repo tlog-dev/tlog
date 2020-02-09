@@ -191,7 +191,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 		b = append(b, ' ', ' ')
 	}
 	if w.f&(Llongfile|Lshortfile) != 0 {
-		fname, file, line = loc.CachedNameFileLine()
+		fname, file, line = loc.NameFileLine()
 
 		if w.f&Lshortfile != 0 {
 			file = filepath.Base(file)
@@ -240,7 +240,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	}
 	if w.f&(Ltypefunc|Lfuncname) != 0 {
 		if line == -1 {
-			fname, _, _ = loc.CachedNameFileLine()
+			fname, _, _ = loc.NameFileLine()
 		}
 		fname = filepath.Base(fname)
 
@@ -367,7 +367,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 	StackTraceFill(1, buf[:])
 	i := 0
 	for i+1 < len(buf) {
-		name, _, _ := buf[i].CachedNameFileLine()
+		name, _, _ := buf[i].NameFileLine()
 		name = path.Base(name)
 		if strings.HasPrefix(name, "tlog.") {
 			i++

@@ -1,8 +1,7 @@
 package tlog
 
 import (
-	"bytes"
-	"fmt"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -57,19 +56,38 @@ func StackTraceFill(skip int, tr Trace) Trace {
 // Works only in the same binary where Caller of Funcentry was called.
 func (l Location) String() string {
 	_, file, line := l.NameFileLine()
-	return fmt.Sprintf("%v:%d", filepath.Base(file), line)
+	file = filepath.Base(file)
+
+	b := []byte(file)
+	i := len(b)
+	b = append(b, ":        "...)
+
+	n := 1
+	for q := line; q != 0; q /= 10 {
+		n++
+	}
+
+	b = b[:i+n]
+
+	for q, j := line, n-1; j >= 1; j-- {
+		b[i+j] = byte(q%10) + '0'
+		q /= 10
+	}
+
+	return string(b)
 }
 
 // String formats Trace as list of type_name (file.go:line)
 //
 // Works only in the same binary where Caller of Funcentry was called.
 func (t Trace) String() string {
-	var b bytes.Buffer
+	var b []byte
 	for _, l := range t {
 		n, f, l := l.NameFileLine()
-		fmt.Fprintf(&b, "%s (%s:%d)\n", n, f, l)
+		n = path.Base(n)
+		b = AppendPrintf(b, "%-60s  at %s:%d\n", n, f, l)
 	}
-	return b.String()
+	return string(b)
 }
 
 func cropFilename(fn, tp string) string {

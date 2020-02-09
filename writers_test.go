@@ -51,19 +51,19 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Llongfile
 	w.buildHeader(loc, tm)
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", w.buf)
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:24  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(w.buf))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "location.go:25        ", string(w.buf))
+	assert.Equal(t, "location.go:24        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "locatio:25  ", string(w.buf))
+	assert.Equal(t, "locatio:24  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.Funcname = 10
@@ -327,6 +327,8 @@ func TestNewTeeWriter(t *testing.T) {
 }
 
 func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
+	b.ReportAllocs()
+
 	w := NewConsoleWriter(ioutil.Discard, LdetFlags)
 
 	l := Caller(0)
@@ -341,6 +343,8 @@ func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
 }
 
 func BenchmarkWriterJSONMessage(b *testing.B) {
+	b.ReportAllocs()
+
 	w := NewJSONWriter(ioutil.Discard)
 
 	l := Caller(0)
@@ -355,6 +359,8 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 }
 
 func BenchmarkWriterProtoMessage(b *testing.B) {
+	b.ReportAllocs()
+
 	w := NewProtoWriter(ioutil.Discard)
 
 	l := Caller(0)

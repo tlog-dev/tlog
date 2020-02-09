@@ -36,7 +36,12 @@ var (
 	locc  = map[Location]nfl{}
 )
 
-func (l Location) CachedNameFileLine() (name, file string, line int) {
+// NameFileLine returns function name, file and line number for location.
+//
+// This works only in the same binary where location was captured.
+//
+// This functions is a little bit modified version of runtime.(*Frames).Next().
+func (l Location) NameFileLine() (name, file string, line int) {
 	locmu.Lock()
 	c, ok := locc[l]
 	locmu.Unlock()
@@ -44,7 +49,7 @@ func (l Location) CachedNameFileLine() (name, file string, line int) {
 		return c.name, c.file, c.line
 	}
 
-	name, file, line = l.NameFileLine()
+	name, file, line = l.nameFileLine()
 
 	locmu.Lock()
 	locc[l] = nfl{
@@ -57,12 +62,7 @@ func (l Location) CachedNameFileLine() (name, file string, line int) {
 	return
 }
 
-// NameFileLine returns function name, file and line number for location.
-//
-// This works only in the same binary where location was captured.
-//
-// This functions is a little bit modified version of runtime.(*Frames).Next().
-func (l Location) NameFileLine() (name, file string, line int) {
+func (l Location) nameFileLine() (name, file string, line int) {
 	pc := uintptr(l)
 	if pc == 0 {
 		return

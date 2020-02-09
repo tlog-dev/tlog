@@ -38,9 +38,9 @@ func TestLocationStackTrace(t *testing.T) {
 	assert.Equal(t, "location_stacktrace_test.go:24", st[1].String())
 	assert.Equal(t, "location_stacktrace_test.go:32", st[2].String())
 
-	re := `github.com/nikandfor/tlog.testStackTraceInside.func1 \([\w.-/]*location_stacktrace_test.go:23\)
-github.com/nikandfor/tlog.testStackTraceInside \([\w.-/]*location_stacktrace_test.go:24\)
-github.com/nikandfor/tlog.TestLocationStackTrace.func1.1 \([\w.-/]*location_stacktrace_test.go:32\)
+	re := `tlog.testStackTraceInside.func1                               at [\w.-/]*location_stacktrace_test.go:23
+tlog.testStackTraceInside                                     at [\w.-/]*location_stacktrace_test.go:24
+tlog.TestLocationStackTrace.func1.1                           at [\w.-/]*location_stacktrace_test.go:32
 `
 	ok, err := regexp.MatchString(re, st.String())
 	assert.NoError(t, err)
