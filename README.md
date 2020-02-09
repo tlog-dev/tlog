@@ -1,13 +1,15 @@
-[![Documentation](https://godoc.org/github.com/nikandfor/tlog?status.svg)](http://godoc.org/github.com/nikandfor/tlog)
+[![Documentation](https://godoc.org/github.com/nikandfor/tlog?status.svg)](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc)
 [![Build Status](https://travis-ci.com/nikandfor/tlog.svg?branch=master)](https://travis-ci.com/nikandfor/tlog)
 [![CircleCI](https://circleci.com/gh/nikandfor/tlog.svg?style=svg)](https://circleci.com/gh/nikandfor/tlog)
 [![codecov](https://codecov.io/gh/nikandfor/tlog/branch/master/graph/badge.svg)](https://codecov.io/gh/nikandfor/tlog)
 [![GolangCI](https://golangci.com/badges/github.com/nikandfor/tlog.svg)](https://golangci.com/r/github.com/nikandfor/tlog)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikandfor/tlog)](https://goreportcard.com/report/github.com/nikandfor/tlog)
-![Project status](https://img.shields.io/badge/status-alpha-yellow.svg)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/nikandfor/tlog?sort=semver)
 
 # tlog
-TraceLog - distributed tracing and logging
+TraceLog - distributed tracing and logging.
+
+Explore [examples](examples).
 
 # Status
 It evolves as I use it. I still can change enything, but for now I'm quiet satisfied with most of details.
@@ -245,10 +247,6 @@ tr.Printf("each time you print something to trace it appears in logs either")
 tlog.Printf("but logs don't appear in traces")
 ```
 
-# Examples
-
-Examples are available in `./examples/` directory.
-
 # Performance
 
 ## Allocs
@@ -257,17 +255,28 @@ Allocations are one of the worst enemies of performance. So I fighted each alloc
 goos: linux
 goarch: amd64
 pkg: github.com/nikandfor/tlog
-BenchmarkLogLoggerStd-8              	 2895181	       423 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogConsoleLoggerStd-8      	 3691465	       334 ns/op	      24 B/op	       2 allocs/op
-BenchmarkLogLoggerDetailed-8         	  862752	      1438 ns/op	     240 B/op	       4 allocs/op
-BenchmarkTlogConsoleDetailed-8       	  656580	      1621 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesConsole-8         	  350174	      3413 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesJSON-8            	  313278	      3712 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProto-8           	  529570	      2152 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProtoPrintRaw-8   	  597345	      1931 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTlogTracesProtoWrite-8      	  505155	      2259 ns/op	      56 B/op	       2 allocs/op
-BenchmarkIDFormat-8                  	 4145074	       284 ns/op	      80 B/op	       3 allocs/op
-BenchmarkIDFormatTo-8                	32250019	        38.2 ns/op	       0 B/op	       0 allocs/op
+
+# LstdFlags
+BenchmarkLogLoggerStd-8                   	 2869803	       406 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogConsoleLoggerStd-8           	 4258173	       286 ns/op	      24 B/op	       2 allocs/op
+
+# LdetFlags
+BenchmarkLogLoggerDetailed-8              	  833001	      1425 ns/op	     240 B/op	       4 allocs/op
+BenchmarkTlogConsoleDetailed-8            	 1000000	      1081 ns/op	      24 B/op	       2 allocs/op
+
+# trace with one message
+BenchmarkTlogTracesConsoleDetailed-8      	  429392	      2729 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesJSON-8                 	  523032	      2293 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProto-8                	  494980	      2107 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogTracesProtoPrintRaw-8        	  584179	      1835 ns/op	       0 B/op	       0 allocs/op
+
+# writers
+BenchmarkWriterConsoleDetailedMessage-8   	 6566017	       185 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWriterJSONMessage-8              	16451940	        71.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWriterProtoMessage-8             	18216289	        65.2 ns/op	       0 B/op	       0 allocs/op
+
+# Caller
+BenchmarkLocation-8               	 2987563	       396 ns/op	      32 B/op	       1 allocs/op
 ```
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
