@@ -638,11 +638,6 @@ func TestCoverUncovered(t *testing.T) {
 	ID{0xaa, 0xbb, 0xcc, 0x44, 0x55}.FormatTo(b, 'X')
 	assert.Equal(t, "AABBCC44", string(b))
 
-	ID{0xaa, 0xbb, 0x44, 0x55}.FormatQuotedTo(b, 'x')
-	assert.Equal(t, `"aabb44"`, string(b))
-
-	assert.Panics(t, func() { ID{}.FormatQuotedTo([]byte{}, 'x') })
-
 	id := stdRandID()
 	assert.NotZero(t, id)
 }
@@ -768,6 +763,10 @@ func BenchmarkIDFormatTo(b *testing.B) {
 	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}
 
 	for i := 0; i < b.N; i++ {
-		id.FormatTo(buf[:], 'x')
+		if i&0xf == 0 {
+			z.FormatTo(buf[:], 'v')
+		} else {
+			id.FormatTo(buf[:], 'v')
+		}
 	}
 }

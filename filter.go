@@ -4,28 +4,26 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"sync"
 )
 
 type filter struct {
 	f string
 
-	mu sync.Mutex
-	c  map[Location]bool
+	c map[Location]bool
 }
 
-func newFilter(f string) *filter {
+func newFilter(f string) filter {
 	if f == "" {
-		return nil
+		return filter{}
 	}
-	return &filter{
+	return filter{
 		f: f,
 		c: make(map[Location]bool),
 	}
 }
 
-func (f *filter) match(t string) bool {
-	if f == nil {
+func (f filter) match(t string) bool {
+	if f.f == "" {
 		return false
 	}
 
@@ -34,9 +32,6 @@ func (f *filter) match(t string) bool {
 	}
 
 	loc := Caller(3)
-
-	defer f.mu.Unlock()
-	f.mu.Lock()
 
 	en, ok := f.c[loc]
 	if !ok {
@@ -47,7 +42,7 @@ func (f *filter) match(t string) bool {
 	return en
 }
 
-func (f *filter) matchFilter(loc Location, t string) bool {
+func (f filter) matchFilter(loc Location, t string) bool {
 	topics := strings.Split(t, ",")
 	name, file, _ := loc.NameFileLine()
 
@@ -101,7 +96,7 @@ func (f *filter) matchFilter(loc Location, t string) bool {
 	return ok
 }
 
-func (f *filter) matchTopics(filt string, topics []string) bool {
+func (f filter) matchTopics(filt string, topics []string) bool {
 	ff := strings.Split(filt, "+")
 	for i := 0; i < len(ff); i++ {
 		if ff[i] == "*" {
@@ -118,7 +113,7 @@ func (f *filter) matchTopics(filt string, topics []string) bool {
 	return false
 }
 
-func (f *filter) matchPath(pt, file string) bool {
+func (f filter) matchPath(pt, file string) bool {
 	var b strings.Builder
 	for i, seg := range strings.Split(pt, "/") {
 		if seg == "" {
@@ -143,7 +138,7 @@ func (f *filter) matchPath(pt, file string) bool {
 	return re.MatchString(file) || re.MatchString(path.Dir(file))
 }
 
-func (f *filter) matchType(pt, name string) bool {
+func (f filter) matchType(pt, name string) bool {
 	tp := path.Base(name)
 
 	var b strings.Builder

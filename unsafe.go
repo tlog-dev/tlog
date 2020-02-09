@@ -63,28 +63,27 @@ func (l Location) NameFileLine() (name, file string, line int) {
 }
 
 func (l Location) nameFileLine() (name, file string, line int) {
-	pc := uintptr(l)
-	if pc == 0 {
+	if l == 0 {
 		return
 	}
 
-	funcInfo := findfunc(pc)
+	funcInfo := findfunc(l)
 	if funcInfo.entry == nil {
 		return
 	}
 	entry := *funcInfo.entry
-	if pc > entry {
+	if uintptr(l) > entry {
 		// We store the pc of the start of the instruction following
 		// the instruction in question (the call or the inline mark).
 		// This is done for historical reasons, and to make FuncForPC
 		// work correctly for entries in the result of runtime.Callers.
-		pc--
+		l--
 	}
 	name = funcname(funcInfo)
-	file, line32 := funcline1(funcInfo, pc, false)
+	file, line32 := funcline1(funcInfo, l, false)
 	line = int(line32)
 	if inldata := funcdata(funcInfo, _FUNCDATA_InlTree); inldata != nil {
-		ix := pcdatavalue(funcInfo, _PCDATA_InlTreeIndex, pc, nil)
+		ix := pcdatavalue(funcInfo, _PCDATA_InlTreeIndex, l, nil)
 		if ix >= 0 {
 			inltree := (*[1 << 20]inlinedCall)(inldata)
 			// Note: entry is not modified. It always refers to a real frame, not an inlined one.
@@ -100,9 +99,7 @@ func (l Location) nameFileLine() (name, file string, line int) {
 }
 
 func (l Location) Entry() uintptr {
-	pc := uintptr(l)
-
-	funcInfo := findfunc(pc)
+	funcInfo := findfunc(l)
 	if funcInfo.entry == nil {
 		return 0
 	}
@@ -110,10 +107,10 @@ func (l Location) Entry() uintptr {
 }
 
 //go:linkname findfunc runtime.findfunc
-func findfunc(pc uintptr) funcInfo
+func findfunc(pc Location) funcInfo
 
 //go:linkname funcline1 runtime.funcline1
-func funcline1(f funcInfo, targetpc uintptr, strict bool) (file string, line int32)
+func funcline1(f funcInfo, targetpc Location, strict bool) (file string, line int32)
 
 //go:linkname funcname runtime.funcname
 func funcname(f funcInfo) string
@@ -122,7 +119,7 @@ func funcname(f funcInfo) string
 func funcdata(f funcInfo, i uint8) unsafe.Pointer
 
 //go:linkname pcdatavalue runtime.pcdatavalue
-func pcdatavalue(f funcInfo, table int32, targetpc uintptr, cache unsafe.Pointer) int32
+func pcdatavalue(f funcInfo, table int32, targetpc Location, cache unsafe.Pointer) int32
 
 //go:linkname funcnameFromNameoff runtime.funcnameFromNameoff
 func funcnameFromNameoff(f funcInfo, nameoff int32) string
@@ -131,17 +128,17 @@ func bytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func stringToBytes(s string) []byte {
-	type sh struct {
-		p unsafe.Pointer
-		l int
-	}
-	type bh struct {
-		p unsafe.Pointer
-		l int
-		c int
-	}
+type sh struct {
+	p unsafe.Pointer
+	l int
+}
+type bh struct {
+	p unsafe.Pointer
+	l int
+	c int
+}
 
+func stringToBytes(s string) []byte {
 	h := *(*sh)(unsafe.Pointer(&s))
 	return *(*[]byte)(unsafe.Pointer(&bh{
 		p: h.p,

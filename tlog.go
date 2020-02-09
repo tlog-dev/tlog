@@ -3,6 +3,7 @@
 package tlog
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -41,7 +42,7 @@ type (
 	NamedWriter struct {
 		w        Writer
 		name     string
-		filter   *filter
+		filter   filter
 		verbosed bool // verbosed only, skip non-verbosed messages
 	}
 
@@ -107,9 +108,6 @@ var ( // testable time, rand
 	now    = time.Now
 	randID = stdRandID
 	ccrand = concurrentRandom{r: rand.New(rand.NewSource(time.Now().UnixNano()))}
-
-	digits  = []byte("0123456789abcdef")
-	digitsX = []byte("0123456789ABCDEF")
 )
 
 var ( // defaults
@@ -179,26 +177,26 @@ func SetLabels(ls Labels) {
 // Printf writes logging Message.
 // Arguments are handled in the manner of fmt.Printf.
 func Printf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 1, Span{}, f, args)
+	newmessage(DefaultLogger, 0, Span{}, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(DefaultLogger, d+1, Span{}, f, args)
+	newmessage(DefaultLogger, d, Span{}, f, args)
 }
 
 // Panicf does the same as Printf but panics in the end.
 // panic argument is fmt.Sprintf result with func arguments.
 func Panicf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 1, Span{}, f, args)
+	newmessage(DefaultLogger, 0, Span{}, f, args)
 	panic(fmt.Sprintf(f, args...))
 }
 
 // Fatalf does the same as Printf but calls os.Exit(1) in the end.
 func Fatalf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 1, Span{}, f, args)
+	newmessage(DefaultLogger, 0, Span{}, f, args)
 	os.Exit(1)
 }
 
@@ -207,7 +205,7 @@ func Fatalf(f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func PrintRaw(d int, b []byte) {
-	newmessage(DefaultLogger, d+1, Span{}, bytesToString(b), nil)
+	newmessage(DefaultLogger, d, Span{}, bytesToString(b), nil)
 }
 
 // V checks if topic tp is enabled and returns default Logger or nil.
@@ -319,7 +317,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 
 	var loc Location
 	if !l.NoLocations {
-		loc = Caller(d + 1)
+		loc = Caller(d + 2)
 	}
 
 	defer l.mu.Unlock()
@@ -397,27 +395,27 @@ func (l *Logger) Labels(ls Labels) {
 // Printf writes logging Message to Writer.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Printf(f string, args ...interface{}) {
-	newmessage(l, 1, Span{}, f, args)
+	newmessage(l, 0, Span{}, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(l, d+1, Span{}, f, args)
+	newmessage(l, d, Span{}, f, args)
 }
 
 // Panicf writes logging Message and panics.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Panicf(f string, args ...interface{}) {
-	newmessage(l, 1, Span{}, f, args)
+	newmessage(l, 0, Span{}, f, args)
 	panic(fmt.Sprintf(f, args...))
 }
 
 // Panicf writes logging Message and calls os.Exit(1) in the end.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Fatalf(f string, args ...interface{}) {
-	newmessage(l, 1, Span{}, f, args)
+	newmessage(l, 0, Span{}, f, args)
 	os.Exit(1)
 }
 
@@ -426,7 +424,7 @@ func (l *Logger) Fatalf(f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (l *Logger) PrintRaw(d int, b []byte) {
-	newmessage(l, d+1, Span{}, bytesToString(b), nil)
+	newmessage(l, d+0, Span{}, bytesToString(b), nil)
 }
 
 // Write is an io.Writer interface implementation.
@@ -436,7 +434,7 @@ func (l *Logger) Write(b []byte) (int, error) {
 	if l == nil {
 		return len(b), nil
 	}
-	newmessage(l, l.DepthCorrection+1, Span{}, bytesToString(b), nil)
+	newmessage(l, l.DepthCorrection, Span{}, bytesToString(b), nil)
 	return len(b), nil
 }
 
@@ -557,7 +555,7 @@ func (l *Logger) NamedFilter(name string) string {
 		if w.name != name {
 			continue
 		}
-		if w.filter == nil {
+		if w.filter.f == "" {
 			return ""
 		}
 		return w.filter.f
@@ -578,9 +576,6 @@ func (l *Logger) noLocations() *Logger {
 // Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
 func (s Span) V(tp string) Span {
 	l := s.l.v(tp)
-	if l == nil {
-		return Span{}
-	}
 	return Span{
 		l:       l,
 		ID:      s.ID,
@@ -595,14 +590,14 @@ func (s Span) Printf(f string, args ...interface{}) {
 		return
 	}
 
-	newmessage(s.l, 1, s, f, args)
+	newmessage(s.l, 0, s, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(s.l, d+1, s, f, args)
+	newmessage(s.l, d, s, f, args)
 }
 
 // PrintRaw writes logging Message with given text annotated with trace id.
@@ -610,11 +605,7 @@ func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (s Span) PrintRaw(d int, b []byte) {
-	if s.l == nil {
-		return
-	}
-
-	newmessage(s.l, d+1, s, bytesToString(b), nil)
+	newmessage(s.l, d, s, bytesToString(b), nil)
 }
 
 // Write is an io.Writer interface implementation.
@@ -625,7 +616,7 @@ func (s Span) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 
-	newmessage(s.l, s.l.DepthCorrection+1, s, bytesToString(b), nil)
+	newmessage(s.l, s.l.DepthCorrection, s, bytesToString(b), nil)
 
 	return len(b), nil
 }
@@ -719,10 +710,8 @@ func IDFromString(s string) (id ID, err error) {
 // ShouldIDFromString parses ID from string. It skips all errors.
 func ShouldIDFromString(s string) (id ID) {
 	a := []byte(s)
-	for i, c := range a {
-		if c == '_' {
-			a[i] = '0'
-		}
+	if bytes.Equal(a, []byte("________________________________")[:len(a)]) {
+		return
 	}
 	_, _ = hex.Decode(id[:], a)
 	return
@@ -730,18 +719,16 @@ func ShouldIDFromString(s string) (id ID) {
 
 // MustIDFromString parses ID from string. It panics if something is not ok.
 func MustIDFromString(s string) (id ID) {
-	a := []byte(s)
-	for i, c := range a {
-		if c == '_' {
-			a[i] = '0'
-		}
+	if len(s) < 2*len(id) {
+		panic(s)
 	}
-	n, err := hex.Decode(id[:], a)
+	a := []byte(s)
+	if bytes.Equal(a, []byte("________________________________")[:len(a)]) {
+		return
+	}
+	_, err := hex.Decode(id[:], a)
 	if err != nil {
 		panic(err)
-	}
-	if n < len(id) {
-		panic(id)
 	}
 	return
 }
@@ -767,32 +754,33 @@ func (i ID) Format(s fmt.State, c rune) {
 }
 
 func (i ID) FormatTo(b []byte, f rune) {
-	if (f == 'v' || f == 'V') && i == z {
-		for j := 0; j < 2*len(i) && j < len(b); j++ {
-			b[j] = '_'
+	if i == z {
+		if f == 'v' || f == 'V' {
+			copy(b, "________________________________")
+		} else {
+			copy(b, "00000000000000000000000000000000")
 		}
 		return
 	}
-	dg := digits
-	if f == 'X' {
+
+	digitsx := "0123456789abcdef"
+	digitsX := "0123456789ABCDEF"
+
+	dg := digitsx
+	if f == 'X' || f == 'V' {
 		dg = digitsX
 	}
-	for j := 0; j < 2*len(i) && j < len(b); j += 2 {
-		q := i[j/2]
-		b[j] = dg[q>>4&0xf]
-		if j+1 < len(b) {
-			b[j+1] = dg[q&0xf]
+	m := len(b)
+	if 2*len(i) < m {
+		m = 2 * len(i)
+	}
+
+	for j := 0; j < m; j += 2 {
+		b[j] = dg[i[j>>1]>>4]
+		if m&1 == 0 {
+			b[j+1] = dg[i[j>>1]&0xf]
 		}
 	}
-}
-
-func (i ID) FormatQuotedTo(b []byte, f rune) {
-	if len(b) < 3 {
-		panic(len(b))
-	}
-	b[0] = '"'
-	b[len(b)-1] = '"'
-	i.FormatTo(b[1:len(b)-1], f)
 }
 
 // AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time

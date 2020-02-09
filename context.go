@@ -57,15 +57,15 @@ func IDFromContext(ctx context.Context) ID {
 
 // SpanFromContext loads saved by ContextWithSpan Span from Context.
 // It returns empty (no-op) Span if no ID found.
-func SpanFromContext(ctx context.Context) Span {
+func SpanFromContext(ctx context.Context) (s Span) {
 	if DefaultLogger == nil {
 		return Span{}
 	}
 
 	v := ctx.Value(spankey{})
-	s, _ := v.(Span)
+	s, _ = v.(Span)
 
-	return s
+	return
 }
 
 // SpawnFromContext spawns new Span derived form Span ID from Context.

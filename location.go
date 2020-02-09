@@ -46,8 +46,7 @@ func StackTrace(skip, n int) Trace {
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
 func StackTraceFill(skip int, tr Trace) Trace {
-	pc := *(*[]uintptr)(unsafe.Pointer(&tr))
-	n := runtime.Callers(2+skip, pc)
+	n := runtime.Callers(2+skip, *(*[]uintptr)(unsafe.Pointer(&tr)))
 	return tr[:n]
 }
 

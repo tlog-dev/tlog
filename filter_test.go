@@ -136,8 +136,6 @@ func TestFilterMatchFilter(t *testing.T) {
 }
 
 func TestFilterMatchBase(t *testing.T) {
-	assert.False(t, ((*filter)(nil)).match("a"))
-
 	assert.False(t, newFilter("").match("a"))
 
 	assert.True(t, newFilter("*").match(""))

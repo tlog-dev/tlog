@@ -765,11 +765,28 @@ func appendTagVarint(b []byte, t byte, v uint64) []byte {
 }
 
 func varintSize(v uint64) int {
-	s := 0
-	for ; v != 0; v >>= 7 {
-		s++
+	switch {
+	case v < 0x80:
+		return 1
+	case v < 1<<14:
+		return 2
+	case v < 1<<21:
+		return 3
+	case v < 1<<28:
+		return 4
+	case v < 1<<35:
+		return 5
+	case v < 1<<42:
+		return 6
+	case v < 1<<49:
+		return 7
+	case v < 1<<56:
+		return 8
+	case v < 1<<63:
+		return 9
+	default:
+		return 10
 	}
-	return s
 }
 
 // NewTeeWriter creates multiwriter that writes the same events to all writers in the same order.
@@ -819,31 +836,27 @@ func NewLockedWriter(w Writer) *LockedWriter {
 }
 
 func (w *LockedWriter) Labels(ls Labels) {
-	defer w.mu.Unlock()
 	w.mu.Lock()
-
 	w.w.Labels(ls)
+	w.mu.Unlock()
 }
 
 func (w *LockedWriter) Message(m Message, s Span) {
-	defer w.mu.Unlock()
 	w.mu.Lock()
-
 	w.w.Message(m, s)
+	w.mu.Unlock()
 }
 
 func (w *LockedWriter) SpanStarted(s Span, par ID, loc Location) {
-	defer w.mu.Unlock()
 	w.mu.Lock()
-
 	w.w.SpanStarted(s, par, loc)
+	w.mu.Unlock()
 }
 
 func (w *LockedWriter) SpanFinished(s Span, el time.Duration) {
-	defer w.mu.Unlock()
 	w.mu.Lock()
-
 	w.w.SpanFinished(s, el)
+	w.mu.Unlock()
 }
 
 /*
