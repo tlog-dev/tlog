@@ -1,43 +1,30 @@
 language: go
 
 env:
-  - GO111MODULE=on
+  global:
+    - GO111MODULE=on
+
+os:
+  - linux
+  - osx
+  - windows
+
+arch:
+  - amd64
+
+go:
+  - "1.13"
+  - "1.12"
 
 jobs:
   include:
     - os: linux
-      go: "1.12"
-      arch: amd64
-      env:
-        - GO111MODULE=on
-        - CODECOV_UPLOAD=yes
-
-    - os: linux
-      go: "1.12"
-      arch: arm64
-
-    - os: linux
-      go: "1.13"
-      arch: amd64
-
-    - os: linux
       go: "1.13"
       arch: arm64
-
-    - os: osx
-      go: "1.12"
-
-    - os: osx
-      go: "1.13"
-
-    - os: windows
-      go: "1.12"
-
-    - os: windows
-      go: "1.13"
 
 script:
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 after_success:
+  - test "$TRAVIS_OS_NAME" = linux && test "$TRAVIS_CPU_ARCH" = amd64 && test "$TRAVIS_GO_VERSION" = "1.13" && export CODECOV_UPLOAD=yes
   - test $CODECOV_UPLOAD = "yes" && bash <(curl -s https://codecov.io/bash)

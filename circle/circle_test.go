@@ -7,7 +7,7 @@ import (
 )
 
 func TestCircleWrite(t *testing.T) {
-	b := NewCircleBuffer(3)
+	b := NewBuffer(3)
 
 	_, _ = b.Write([]byte("message 1\n"))
 	_, _ = b.Write([]byte("message 2\n"))
@@ -24,7 +24,7 @@ msg
 }
 
 func TestCircleMarshalText(t *testing.T) {
-	b := NewCircleBuffer(10)
+	b := NewBuffer(10)
 
 	_, _ = b.Write([]byte("message 1\n"))
 	_, _ = b.Write([]byte("message 2\n"))
@@ -39,7 +39,7 @@ message 3
 }
 
 func TestCircleMarshalJSON(t *testing.T) {
-	b := NewCircleBuffer(10)
+	b := NewBuffer(10)
 
 	_, _ = b.Write([]byte(`{"message":"1"}` + "\n"))
 	_, _ = b.Write([]byte(`{"message":"2"}`))
@@ -51,7 +51,7 @@ func TestCircleMarshalJSON(t *testing.T) {
 }
 
 func TestCircleMarshalJSONStream(t *testing.T) {
-	b := NewCircleBuffer(10)
+	b := NewBuffer(10)
 
 	_, _ = b.Write([]byte(`{"message":"1"}` + "\n"))
 	_, _ = b.Write([]byte(`{"message":"2"}` + "\n"))
