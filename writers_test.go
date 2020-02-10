@@ -175,7 +175,7 @@ func TestProtobufWriter(t *testing.T) {
 	var pbuf proto.Buffer
 
 	w.Labels(Labels{"a", "b=c"})
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: []string{"a", "b=c"}})
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{Label: []string{"a", "b=c"}}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
 	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
 

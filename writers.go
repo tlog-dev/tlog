@@ -549,15 +549,18 @@ func NewProtobufWriter(w io.Writer) *ProtobufWriter {
 
 // Labels writes Labels to the stream.
 func (w *ProtobufWriter) Labels(ls Labels) {
-	b := w.buf[:0]
-
 	sz := 0
 	for _, l := range ls {
 		q := len(l)
 		sz += 1 + varintSize(uint64(q)) + q
 	}
 
-	b = appendVarint(b, uint64(sz))
+	szs := varintSize(uint64(sz))
+
+	b := w.buf[:0]
+	b = appendVarint(b, uint64(1+szs+sz))
+
+	b = appendTagVarint(b, 1<<3|2, uint64(sz))
 
 	for _, l := range ls {
 		b = appendTagVarint(b, 1<<3|2, uint64(len(l)))
@@ -585,7 +588,9 @@ func (w *ProtobufWriter) Message(m Message, s Span) {
 	l = len(b)
 
 	sz := 0
-	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
+	if s.ID != z {
+		sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
+	}
 	if m.Location != 0 {
 		sz += 1 + varintSize(uint64(m.Location))
 	}
@@ -596,13 +601,10 @@ func (w *ProtobufWriter) Message(m Message, s Span) {
 	szss := varintSize(uint64(1 + szs + sz))
 
 	total := szss + 1 + szs + sz
-	if cap(b) < total {
-		q := make([]byte, total)
-		copy(q, b)
-		b = q
-	} else {
-		b = b[:total]
+	for cap(b) < total {
+		b = append(b, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	}
+	b = b[:total]
 
 	copy(b[total-l:], b[:l])
 
@@ -610,8 +612,10 @@ func (w *ProtobufWriter) Message(m Message, s Span) {
 
 	b = appendTagVarint(b, 3<<3|2, uint64(sz))
 
-	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
-	b = append(b, s.ID[:]...)
+	if s.ID != z {
+		b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
+		b = append(b, s.ID[:]...)
+	}
 
 	if m.Location != 0 {
 		b = appendTagVarint(b, 2<<3|0, uint64(m.Location))

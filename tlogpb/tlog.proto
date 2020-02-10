@@ -3,11 +3,15 @@ syntax = "proto3";
 package tlogpb;
 
 message Record {
-    repeated string labels = 1;
+    Labels labels = 1;
     Location location = 2;
     Message msg = 3;
     SpanStart span_start = 4;
     SpanFinish span_finish = 5;
+}
+
+message Labels {
+    repeated string label = 1;
 }
 
 message Location {
