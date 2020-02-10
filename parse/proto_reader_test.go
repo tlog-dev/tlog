@@ -2,17 +2,17 @@ package parse
 
 import (
 	"bytes"
+	"encoding/hex"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/nikandfor/tlog"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestJSONReader(t *testing.T) {
+func TestProtobufReader(t *testing.T) {
 	const Prefix = "github.com/nikandfor/tlog/"
 
 	var buf bytes.Buffer
@@ -22,7 +22,7 @@ func TestJSONReader(t *testing.T) {
 		return tm
 	}
 
-	w := tlog.NewJSONWriter(&buf)
+	w := tlog.NewProtobufWriter(&buf)
 
 	w.Labels(Labels{"a", "b=c"})
 
@@ -54,12 +54,12 @@ func TestJSONReader(t *testing.T) {
 
 	w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second)
 
-	t.Logf("json\n%s", buf.Bytes())
+	t.Logf("json\n%v", hex.Dump(buf.Bytes()))
 
 	// read
 	var res []interface{}
 	var err error
-	r := NewJSONReader(&buf)
+	r := NewProtobufReader(&buf)
 	locs := map[uintptr]uintptr{}
 
 	for {
@@ -106,8 +106,8 @@ func TestJSONReader(t *testing.T) {
 		Labels{"a", "b=c"},
 		Location{
 			PC:   1,
-			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "parse/json_reader_test.go",
+			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			File: "parse/proto_reader_test.go",
 			Line: 30,
 		},
 		Message{
@@ -118,8 +118,8 @@ func TestJSONReader(t *testing.T) {
 		},
 		Location{
 			PC:   2,
-			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "parse/json_reader_test.go",
+			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			File: "parse/proto_reader_test.go",
 			Line: 39,
 		},
 		SpanStart{
@@ -130,8 +130,8 @@ func TestJSONReader(t *testing.T) {
 		},
 		Location{
 			PC:   3,
-			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "parse/json_reader_test.go",
+			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			File: "parse/proto_reader_test.go",
 			Line: 42,
 		},
 		Message{
@@ -142,8 +142,8 @@ func TestJSONReader(t *testing.T) {
 		},
 		Location{
 			PC:   4,
-			Name: "github.com/nikandfor/tlog/parse.TestJSONReader",
-			File: "parse/json_reader_test.go",
+			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			File: "parse/proto_reader_test.go",
 			Line: 51,
 		},
 		SpanStart{

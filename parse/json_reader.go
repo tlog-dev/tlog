@@ -47,7 +47,7 @@ func (r *JSONReader) Read() (interface{}, error) {
 	case 'm':
 		return r.message()
 	case 's':
-		return r.span()
+		return r.spanStart()
 	case 'f':
 		return r.spanFinish()
 	default:
@@ -150,46 +150,46 @@ func (r *JSONReader) message() (Message, error) {
 	return m, nil
 }
 
-func (r *JSONReader) span() (Span, error) {
+func (r *JSONReader) spanStart() (SpanStart, error) {
 	if r.r.Type() != json.Object {
-		return Span{}, r.r.ErrorHere(errors.New("object expected"))
+		return SpanStart{}, r.r.ErrorHere(errors.New("object expected"))
 	}
 
-	var s Span
+	var s SpanStart
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
-			return Span{}, r.r.ErrorHere(errors.New("empty key"))
+			return SpanStart{}, r.r.ErrorHere(errors.New("empty key"))
 		}
 		switch k[0] {
 		case 'l':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseUint(n, 10, 64)
 			if err != nil {
-				return Span{}, r.r.ErrorHere(err)
+				return SpanStart{}, r.r.ErrorHere(err)
 			}
 			s.Location = uintptr(v)
 		case 's':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseInt(n, 10, 64)
 			if err != nil {
-				return Span{}, r.r.ErrorHere(err)
+				return SpanStart{}, r.r.ErrorHere(err)
 			}
 			s.Started = time.Unix(0, v<<tlog.TimeReduction)
 		case 'i':
 			b := r.r.NextString()
 			_, err := hex.Decode(s.ID[:], b)
 			if err != nil {
-				return Span{}, r.r.ErrorHere(err)
+				return SpanStart{}, r.r.ErrorHere(err)
 			}
 		case 'p':
 			b := r.r.NextString()
 			_, err := hex.Decode(s.Parent[:], b)
 			if err != nil {
-				return Span{}, r.r.ErrorHere(err)
+				return SpanStart{}, r.r.ErrorHere(err)
 			}
 		default:
-			return Span{}, r.r.ErrorHere(errors.New("unexpected key"))
+			return SpanStart{}, r.r.ErrorHere(errors.New("unexpected key"))
 		}
 	}
 

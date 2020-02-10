@@ -11,20 +11,19 @@ type (
 	Labels = tlog.Labels
 
 	Location struct {
-		PC   uintptr `json:"pc"`
+		PC   uintptr `json:"p"`
 		Name string  `json:"n"`
 		File string  `json:"f"`
 		Line int     `json:"l"`
 	}
 
-	Span struct {
+	SpanStart struct {
 		ID     ID
 		Parent ID
 
 		Location uintptr
 
 		Started time.Time
-		Elapsed time.Duration
 	}
 
 	SpanFinish struct {
