@@ -101,9 +101,12 @@ func (r *JSONReader) location() (Location, error) {
 			}
 			l.Line = int(v)
 		default:
-			return Location{}, r.r.ErrorHere(errors.New("unexpected key"))
+			tlog.V("skip").Printf("skip key %q", k)
+			r.r.Skip()
 		}
 	}
+
+	tlog.V("record").Printf("location: %v", l)
 
 	return l, nil
 }
@@ -143,9 +146,12 @@ func (r *JSONReader) message() (Message, error) {
 				return Message{}, r.r.ErrorHere(err)
 			}
 		default:
-			return Message{}, r.r.ErrorHere(errors.New("unexpected key"))
+			tlog.V("skip").Printf("skip key %q", k)
+			r.r.Skip()
 		}
 	}
+
+	tlog.V("record").Printf("message: %v", m)
 
 	return m, nil
 }
@@ -189,9 +195,12 @@ func (r *JSONReader) spanStart() (SpanStart, error) {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
 		default:
-			return SpanStart{}, r.r.ErrorHere(errors.New("unexpected key"))
+			tlog.V("skip").Printf("skip key %q", k)
+			r.r.Skip()
 		}
 	}
+
+	tlog.V("record").Printf("span start: %v", s)
 
 	return s, nil
 }
@@ -201,7 +210,7 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 		return SpanFinish{}, r.r.ErrorHere(errors.New("object expected"))
 	}
 
-	var s SpanFinish
+	var f SpanFinish
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
@@ -210,7 +219,7 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 		switch k[0] {
 		case 'i':
 			b := r.r.NextString()
-			_, err := hex.Decode(s.ID[:], b)
+			_, err := hex.Decode(f.ID[:], b)
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
@@ -220,9 +229,14 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
-			s.Elapsed = time.Duration(v << tlog.TimeReduction)
+			f.Elapsed = time.Duration(v << tlog.TimeReduction)
+		default:
+			tlog.V("skip").Printf("skip key %q", k)
+			r.r.Skip()
 		}
 	}
 
-	return s, nil
+	tlog.V("record").Printf("span finish: %v", f)
+
+	return f, nil
 }
