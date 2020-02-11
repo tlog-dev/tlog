@@ -169,7 +169,7 @@ func TestProtoAppendTagVarint(t *testing.T) {
 	}
 }
 
-func TespProtoWriter(t *testing.T) {
+func TestProtoWriter(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewProtoWriter(&buf)
 	var pbuf proto.Buffer

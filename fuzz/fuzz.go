@@ -7,6 +7,7 @@ import (
 	"github.com/nikandfor/tlog/parse"
 )
 
+//nolint:golint
 func FuzzJSON(d []byte) int {
 	r := parse.NewJSONReader(bytes.NewReader(d))
 
@@ -23,6 +24,7 @@ func FuzzJSON(d []byte) int {
 	return 1
 }
 
+//nolint:golint
 func FuzzProto(d []byte) int {
 	r := parse.NewProtoReader(bytes.NewReader(d))
 

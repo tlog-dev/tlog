@@ -1,3 +1,4 @@
+//nolint
 package tlog
 
 import (
@@ -96,5 +97,5 @@ func AppendPrintf(b []byte, format string, a ...interface{}) []byte {
 //go:nosplit
 func noescape(p unsafe.Pointer) unsafe.Pointer {
 	x := uintptr(p)
-	return unsafe.Pointer(x ^ 0)
+	return unsafe.Pointer(x ^ 0) //nolint:staticcheck
 }

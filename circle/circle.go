@@ -17,11 +17,11 @@ func NewBuffer(n int) *Buffer {
 	}
 }
 
-func (b *Buffer) Write(p []byte) (int, error) {
-	defer b.mu.Unlock()
-	b.mu.Lock()
+func (c *Buffer) Write(p []byte) (int, error) {
+	defer c.mu.Unlock()
+	c.mu.Lock()
 
-	l := b.l[b.i]
+	l := c.l[c.i]
 
 	if l == nil || cap(l) < len(p) {
 		l = make([]byte, len(p))
@@ -30,8 +30,8 @@ func (b *Buffer) Write(p []byte) (int, error) {
 		l = l[:len(p)]
 		copy(l, p)
 	}
-	b.l[b.i] = l
-	b.i = (b.i + 1) % len(b.l)
+	c.l[c.i] = l
+	c.i = (c.i + 1) % len(c.l)
 
 	return len(p), nil
 }
@@ -71,21 +71,21 @@ func (c *Buffer) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (b *Buffer) MarshalText() ([]byte, error) {
-	defer b.mu.Unlock()
-	b.mu.Lock()
+func (c *Buffer) MarshalText() ([]byte, error) {
+	defer c.mu.Unlock()
+	c.mu.Lock()
 
 	var buf bytes.Buffer
 
-	i := b.i
+	i := c.i
 	for {
-		if b.l[i] != nil {
-			buf.Write(b.l[i])
+		if c.l[i] != nil {
+			buf.Write(c.l[i])
 		}
 
-		i = (i + 1) % len(b.l)
+		i = (i + 1) % len(c.l)
 
-		if i == b.i {
+		if i == c.i {
 			break
 		}
 	}

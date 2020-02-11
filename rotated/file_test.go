@@ -100,7 +100,8 @@ func TestName(t *testing.T) {
 
 	assert.Equal(t, "", f.Name()) // not open yet
 
-	f.Write([]byte("something"))
+	_, err = f.Write([]byte("something"))
+	assert.NoError(t, err)
 	assert.Equal(t, "qwe_2006-01-02_15-04-05.log", filepath.Base(f.Name()))
 }
 

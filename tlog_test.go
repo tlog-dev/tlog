@@ -795,6 +795,7 @@ func BenchmarkTlogTracesDiscard(b *testing.B) {
 	}
 }
 
+//nolint:gocyclo
 func TestTlogGrandParallel(t *testing.T) {
 	const N = 10000
 

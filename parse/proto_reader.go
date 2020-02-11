@@ -77,7 +77,7 @@ func (r *ProtoReader) labels() (interface{}, error) {
 			r.i += x
 			ls = append(ls, l)
 		default:
-			if err = r.skip(); err != nil {
+			if err = r.skip(); err != nil { //nolint:gocritic
 				return nil, err
 			}
 		}
@@ -127,7 +127,7 @@ func (r *ProtoReader) location() (interface{}, error) {
 			}
 			l.Line = x
 		default:
-			if err = r.skip(); err != nil {
+			if err = r.skip(); err != nil { //nolint:gocritic
 				return nil, err
 			}
 		}
@@ -175,7 +175,7 @@ func (r *ProtoReader) message() (interface{}, error) {
 			m.Text = string(r.buf[r.i : r.i+x])
 			r.i += x
 		default:
-			if err = r.skip(); err != nil {
+			if err = r.skip(); err != nil { //nolint:gocritic
 				return nil, err
 			}
 		}
@@ -219,9 +219,9 @@ func (r *ProtoReader) spanStart() (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			s.Started = time.Unix(0, int64(x)<<tlog.TimeReduction)
+			s.Started = time.Unix(0, x<<tlog.TimeReduction)
 		default:
-			if err = r.skip(); err != nil {
+			if err = r.skip(); err != nil { //nolint:gocritic
 				return nil, err
 			}
 		}
@@ -256,7 +256,7 @@ func (r *ProtoReader) spanFinish() (interface{}, error) {
 			}
 			f.Elapsed = time.Duration(x) << tlog.TimeReduction
 		default:
-			if err = r.skip(); err != nil {
+			if err = r.skip(); err != nil { //nolint:gocritic
 				return nil, err
 			}
 		}
@@ -290,27 +290,9 @@ func (r *ProtoReader) skip() error {
 	return nil
 }
 
-func (r *ProtoReader) varint() (x int, err error) {
-	s := uint(0)
-	for i := 0; ; i++ {
-		if r.i == len(r.buf) {
-			if err = r.more(1); err != nil {
-				return
-			}
-		}
-		c := r.buf[r.i]
-		//	tlog.Printf("c at %x+%x : %x", r.pos, r.i, c)
-		r.i++
-
-		if c < 0x80 {
-			if i > 9 || i == 9 && c > 1 {
-				return x, errors.New("varint overflow")
-			}
-			return x | int(c)<<s, nil
-		}
-		x |= int(c&0x7f) << s
-		s += 7
-	}
+func (r *ProtoReader) varint() (int, error) {
+	x, err := r.varint64()
+	return int(x), err
 }
 
 func (r *ProtoReader) varint64() (x int64, err error) {
@@ -359,8 +341,4 @@ func (r *ProtoReader) more(s int) error {
 	}
 
 	return err
-}
-
-func (r *ProtoReader) newerr(msg string, args ...interface{}) error {
-	return fmt.Errorf(msg+" at pos %d", append(args, r.pos+r.i)...)
 }

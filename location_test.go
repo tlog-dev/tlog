@@ -53,7 +53,7 @@ func BenchmarkLocation(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		Caller(0).String()
+		_ = Caller(0).String()
 	}
 }
 

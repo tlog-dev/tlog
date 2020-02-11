@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nikandfor/tlog"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/nikandfor/tlog"
 )
 
-func TestProtoReader(t *testing.T) {
+func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Reader) Reader) {
 	const Prefix = "github.com/nikandfor/tlog/"
 
 	var buf bytes.Buffer
@@ -22,7 +23,7 @@ func TestProtoReader(t *testing.T) {
 		return tm
 	}
 
-	w := tlog.NewProtoWriter(&buf)
+	w := neww(&buf)
 
 	w.Labels(Labels{"a", "b=c"})
 
@@ -59,7 +60,7 @@ func TestProtoReader(t *testing.T) {
 	// read
 	var res []interface{}
 	var err error
-	r := NewProtoReader(&buf)
+	r := newr(&buf)
 	locs := map[uintptr]uintptr{}
 
 	for {
@@ -106,9 +107,9 @@ func TestProtoReader(t *testing.T) {
 		Labels{"a", "b=c"},
 		Location{
 			PC:   1,
-			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
+			Name: "github.com/nikandfor/tlog/parse.testReader",
 			File: "parse/proto_reader_test.go",
-			Line: 30,
+			Line: 31,
 		},
 		Message{
 			Span:     ID{},
@@ -118,9 +119,9 @@ func TestProtoReader(t *testing.T) {
 		},
 		Location{
 			PC:   2,
-			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
+			Name: "github.com/nikandfor/tlog/parse.testReader",
 			File: "parse/proto_reader_test.go",
-			Line: 39,
+			Line: 40,
 		},
 		SpanStart{
 			ID:       ID{1},
@@ -130,9 +131,9 @@ func TestProtoReader(t *testing.T) {
 		},
 		Location{
 			PC:   3,
-			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
+			Name: "github.com/nikandfor/tlog/parse.testReader",
 			File: "parse/proto_reader_test.go",
-			Line: 42,
+			Line: 43,
 		},
 		Message{
 			Span:     ID{1},
@@ -142,9 +143,9 @@ func TestProtoReader(t *testing.T) {
 		},
 		Location{
 			PC:   4,
-			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
+			Name: "github.com/nikandfor/tlog/parse.testReader",
 			File: "parse/proto_reader_test.go",
-			Line: 51,
+			Line: 52,
 		},
 		SpanStart{
 			ID:       ID{2},
@@ -161,4 +162,11 @@ func TestProtoReader(t *testing.T) {
 			Elapsed: 2 * time.Second,
 		},
 	}, res)
+}
+
+func TestProtoReader(t *testing.T) {
+	testReader(t,
+		func(w io.Writer) tlog.Writer { return tlog.NewProtoWriter(w) },
+		func(r io.Reader) Reader { return NewProtoReader(r) },
+	)
 }

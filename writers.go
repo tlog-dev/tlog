@@ -67,6 +67,8 @@ type (
 
 const TimeReduction = 6
 
+var spaces = "                                                                                                                                                "
+
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
@@ -78,8 +80,8 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	}
 }
 
-func (w *ConsoleWriter) appendSegments(b []byte, W int, name string, s byte) []byte {
-	end := len(b) + W
+func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) []byte {
+	end := len(b) + wid
 	for len(b) < end {
 		if len(name) <= end-len(b) {
 			b = append(b, name...)
@@ -100,6 +102,7 @@ func (w *ConsoleWriter) appendSegments(b []byte, W int, name string, s byte) []b
 	return b
 }
 
+//nolint:gocyclo
 func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	b := w.buf[:0]
 
@@ -203,7 +206,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 
 			i := len(b)
 
-			b = append(b, "                                                                                                                                                "[:w.Shortfile]...)
+			b = append(b, spaces[:w.Shortfile]...)
 			b = append(b[:i], file...)
 
 			e := len(b)
@@ -255,7 +258,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 
 			if l := len(fname); l <= w.Funcname {
 				i := len(b)
-				b = append(b, "                                                                                                                                                "[:w.Funcname]...)
+				b = append(b, spaces[:w.Funcname]...)
 				b = append(b[:i], fname...)
 				b = b[:i+w.Funcname]
 			} else {

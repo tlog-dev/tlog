@@ -73,11 +73,6 @@ type (
 	TooShortIDError struct {
 		N int
 	}
-
-	concurrentRandom struct {
-		mu sync.Mutex
-		r  *rand.Rand
-	}
 )
 
 var ( // ZeroID

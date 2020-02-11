@@ -37,11 +37,12 @@ again:
 complex:
 	r, width := utf8.DecodeRuneInString(s)
 
-	if r == utf8.RuneError && width == 1 {
+	switch {
+	case r == utf8.RuneError && width == 1:
 		b = append(b, '\\', 'x', tohex[s[0]>>4], tohex[s[0]&0xf])
-	} else if r <= 0xffff {
+	case r <= 0xffff:
 		b = append(b, '\\', 'u', tohex[r>>12&0xf], tohex[r>>8&0xf], tohex[r>>4&0xf], tohex[r&0xf])
-	} else {
+	default:
 		b = append(b, '\\', 'U', tohex[r>>28&0xf], tohex[r>>24&0xf], tohex[r>>20&0xf], tohex[r>>16&0xf], tohex[r>>12&0xf], tohex[r>>8&0xf], tohex[r>>4&0xf], tohex[r&0xf])
 	}
 
