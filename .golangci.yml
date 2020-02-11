@@ -54,3 +54,4 @@ linters:
     - gochecknoinits
     - gochecknoglobals
     - prealloc
+    - gomnd

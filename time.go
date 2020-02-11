@@ -1,7 +1,9 @@
 package tlog
 
-import "time"
-import _ "unsafe" //go:linkname
+import (
+	"time"
+	_ "unsafe" //go:linkname
+)
 
 func splitTime(t time.Time) (year, month, day, hour, min, sec int) {
 	u := timeAbs(t)

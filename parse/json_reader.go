@@ -55,26 +55,23 @@ func (r *JSONReader) Read() (interface{}, error) {
 	}
 }
 
-func (r *JSONReader) labels() (Labels, error) {
+func (r *JSONReader) labels() (ls Labels, err error) {
 	if r.r.Type() != json.Array {
 		return nil, r.r.ErrorHere(errors.New("array expected"))
 	}
 
-	var res Labels
 	for r.r.HasNext() {
 		l := string(r.r.NextString())
-		res = append(res, l)
+		ls = append(ls, l)
 	}
 
-	return res, nil
+	return ls, nil
 }
 
-func (r *JSONReader) location() (Location, error) {
+func (r *JSONReader) location() (l Location, err error) {
 	if r.r.Type() != json.Object {
 		return Location{}, r.r.ErrorHere(errors.New("object expected"))
 	}
-
-	var l Location
 
 	for r.r.HasNext() {
 		k := r.r.NextString()
@@ -111,12 +108,11 @@ func (r *JSONReader) location() (Location, error) {
 	return l, nil
 }
 
-func (r *JSONReader) message() (Message, error) {
+func (r *JSONReader) message() (m Message, err error) {
 	if r.r.Type() != json.Object {
 		return Message{}, r.r.ErrorHere(errors.New("object expected"))
 	}
 
-	var m Message
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
@@ -140,8 +136,7 @@ func (r *JSONReader) message() (Message, error) {
 			}
 			m.Time = time.Duration(v << tlog.TimeReduction)
 		case 's':
-			s := r.r.NextString()
-			_, err := hex.Decode(m.Span[:], s)
+			m.Span, err = r.id()
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
@@ -156,12 +151,11 @@ func (r *JSONReader) message() (Message, error) {
 	return m, nil
 }
 
-func (r *JSONReader) spanStart() (SpanStart, error) {
+func (r *JSONReader) spanStart() (s SpanStart, err error) {
 	if r.r.Type() != json.Object {
 		return SpanStart{}, r.r.ErrorHere(errors.New("object expected"))
 	}
 
-	var s SpanStart
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
@@ -183,14 +177,12 @@ func (r *JSONReader) spanStart() (SpanStart, error) {
 			}
 			s.Started = time.Unix(0, v<<tlog.TimeReduction)
 		case 'i':
-			b := r.r.NextString()
-			_, err := hex.Decode(s.ID[:], b)
+			s.ID, err = r.id()
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
 		case 'p':
-			b := r.r.NextString()
-			_, err := hex.Decode(s.Parent[:], b)
+			s.Parent, err = r.id()
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
@@ -205,12 +197,11 @@ func (r *JSONReader) spanStart() (SpanStart, error) {
 	return s, nil
 }
 
-func (r *JSONReader) spanFinish() (SpanFinish, error) {
+func (r *JSONReader) spanFinish() (f SpanFinish, err error) {
 	if r.r.Type() != json.Object {
 		return SpanFinish{}, r.r.ErrorHere(errors.New("object expected"))
 	}
 
-	var f SpanFinish
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
@@ -218,8 +209,7 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 		}
 		switch k[0] {
 		case 'i':
-			b := r.r.NextString()
-			_, err := hex.Decode(f.ID[:], b)
+			f.ID, err = r.id()
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
@@ -239,4 +229,16 @@ func (r *JSONReader) spanFinish() (SpanFinish, error) {
 	tlog.V("record").Printf("span finish: %v", f)
 
 	return f, nil
+}
+
+func (r *JSONReader) id() (id ID, err error) {
+	s := r.r.NextString()
+	if len(s) > 2*len(id) {
+		return id, errors.New("too big id")
+	}
+	_, err = hex.Decode(id[:], s)
+	if err != nil {
+		return id, err
+	}
+	return
 }
