@@ -14,6 +14,7 @@ import (
 var (
 	listen = flag.String("listen,l", ":8000", "address to listen to")
 	v      = flag.String("verbose,v", "", "tlog verbosity")
+	traces = flag.Bool("traces", false, "print parent traceid fo requests")
 )
 
 func main() {
@@ -23,8 +24,13 @@ func main() {
 
 	r := gin.New()
 
-	r.Use(tloggin.Traces)
-	r.Use(tloggin.Dumper) // must be after Traces
+	if *traces {
+		r.Use(tloggin.Tracer)
+	} else {
+		r.Use(tloggin.Logger)
+	}
+
+	r.Use(tloggin.Dumper) // must be after Tracer
 
 	v1 := r.Group("v1/")
 

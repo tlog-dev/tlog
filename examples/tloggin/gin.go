@@ -12,7 +12,15 @@ import (
 	"github.com/nikandfor/tlog"
 )
 
-func Traces(c *gin.Context) {
+func Tracer(c *gin.Context) {
+	traces(c, true)
+}
+
+func Logger(c *gin.Context) {
+	traces(c, false)
+}
+
+func traces(c *gin.Context, ptid bool) {
 	var trid tlog.ID
 
 	if xtr := c.GetHeader("X-Traceid"); xtr != "" {
@@ -34,10 +42,20 @@ func Traces(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("%v", p)})
 		}
 
-		tr.Printf("%-15v | %v | %3v | %13.3fs | %-8v %v", c.ClientIP(), trid, c.Writer.Status(), time.Since(tr.Started).Seconds(), c.Request.Method, c.Request.URL.Path)
+		if ptid {
+			tr.Printf("%-15v | %v | %3v | %13.3fs | %-8v %v", c.ClientIP(), trid, c.Writer.Status(), time.Since(tr.Started).Seconds(), c.Request.Method, c.Request.URL.Path)
+		} else {
+			tr.Printf("%-15v | %3v | %13.3fs | %-8v %v", c.ClientIP(), c.Writer.Status(), time.Since(tr.Started).Seconds(), c.Request.Method, c.Request.URL.Path)
+		}
 	}()
 
-	tr.V("begin").Printf("%-15v | %v | %-8v %v", c.ClientIP(), trid, c.Request.Method, c.Request.URL.Path)
+	if tr := tr.V("begin"); tr.Valid() {
+		if ptid {
+			tr.Printf("%-15v | %v | %-8v %v", c.ClientIP(), trid, c.Request.Method, c.Request.URL.Path)
+		} else {
+			tr.Printf("%-15v | %-8v %v", c.ClientIP(), c.Request.Method, c.Request.URL.Path)
+		}
+	}
 
 	c.Set("trace", tr)
 	c.Set("traceid", tr.ID)
