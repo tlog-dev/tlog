@@ -9,21 +9,21 @@ import (
 	"github.com/nikandfor/tlog"
 )
 
-type ProtobufReader struct {
+type ProtoReader struct {
 	r   io.Reader
 	buf []byte
 	i   int
 	pos int
 }
 
-func NewProtobufReader(r io.Reader) *ProtobufReader {
-	return &ProtobufReader{
+func NewProtoReader(r io.Reader) *ProtoReader {
+	return &ProtoReader{
 		r:   r,
 		buf: make([]byte, 0, 10),
 	}
 }
 
-func (r *ProtobufReader) Read() (interface{}, error) {
+func (r *ProtoReader) Read() (interface{}, error) {
 	rl, err := r.varint() // record len
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (r *ProtobufReader) Read() (interface{}, error) {
 	}
 }
 
-func (r *ProtobufReader) labels() (interface{}, error) {
+func (r *ProtoReader) labels() (interface{}, error) {
 	tl, err := r.varint()
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (r *ProtobufReader) labels() (interface{}, error) {
 	return ls, nil
 }
 
-func (r *ProtobufReader) location() (interface{}, error) {
+func (r *ProtoReader) location() (interface{}, error) {
 	tl, err := r.varint() // total len
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (r *ProtobufReader) location() (interface{}, error) {
 	return l, nil
 }
 
-func (r *ProtobufReader) message() (interface{}, error) {
+func (r *ProtoReader) message() (interface{}, error) {
 	tl, err := r.varint() // total len
 	if err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func (r *ProtobufReader) message() (interface{}, error) {
 	return m, nil
 }
 
-func (r *ProtobufReader) spanStart() (interface{}, error) {
+func (r *ProtoReader) spanStart() (interface{}, error) {
 	tl, err := r.varint() // total len
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func (r *ProtobufReader) spanStart() (interface{}, error) {
 	return s, nil
 }
 
-func (r *ProtobufReader) spanFinish() (interface{}, error) {
+func (r *ProtoReader) spanFinish() (interface{}, error) {
 	tl, err := r.varint() // total len
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (r *ProtobufReader) spanFinish() (interface{}, error) {
 	return f, nil
 }
 
-func (r *ProtobufReader) skip() error {
+func (r *ProtoReader) skip() error {
 	tag := r.buf[r.i-1]
 	tlog.V("skip").Printf("unknown tag found: %x type %x", tag>>3, tag&7)
 
@@ -290,7 +290,7 @@ func (r *ProtobufReader) skip() error {
 	return nil
 }
 
-func (r *ProtobufReader) varint() (x int, err error) {
+func (r *ProtoReader) varint() (x int, err error) {
 	s := uint(0)
 	for i := 0; ; i++ {
 		if r.i == len(r.buf) {
@@ -313,7 +313,7 @@ func (r *ProtobufReader) varint() (x int, err error) {
 	}
 }
 
-func (r *ProtobufReader) varint64() (x int64, err error) {
+func (r *ProtoReader) varint64() (x int64, err error) {
 	s := uint(0)
 	for i := 0; ; i++ {
 		if r.i == len(r.buf) {
@@ -336,7 +336,7 @@ func (r *ProtobufReader) varint64() (x int64, err error) {
 	}
 }
 
-func (r *ProtobufReader) more(s int) error {
+func (r *ProtoReader) more(s int) error {
 	r.pos += r.i
 	end := 0
 	if r.i < len(r.buf) {
@@ -361,6 +361,6 @@ func (r *ProtobufReader) more(s int) error {
 	return err
 }
 
-func (r *ProtobufReader) newerr(msg string, args ...interface{}) error {
+func (r *ProtoReader) newerr(msg string, args ...interface{}) error {
 	return fmt.Errorf(msg+" at pos %d", append(args, r.pos+r.i)...)
 }

@@ -711,7 +711,7 @@ func BenchmarkTlogTracesJSON(b *testing.B) {
 func BenchmarkTlogTracesProto(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtobufWriter(ioutil.Discard))
+	l := New(NewProtoWriter(ioutil.Discard))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -723,7 +723,7 @@ func BenchmarkTlogTracesProto(b *testing.B) {
 func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtobufWriter(ioutil.Discard))
+	l := New(NewProtoWriter(ioutil.Discard))
 
 	var buf = []byte("raw message") // reusable buffer
 
@@ -738,7 +738,7 @@ func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 func BenchmarkTlogTracesProtoWrite(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtobufWriter(ioutil.Discard))
+	l := New(NewProtoWriter(ioutil.Discard))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -801,7 +801,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	now = time.Now
 	var buf0, buf1, buf2 bytes.Buffer
 
-	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), "json", NewJSONWriter(&buf1), "pb", NewProtobufWriter(&buf2))
+	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), "json", NewJSONWriter(&buf1), "pb", NewProtoWriter(&buf2))
 
 	var wg sync.WaitGroup
 

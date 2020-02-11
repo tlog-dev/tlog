@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProtobufReader(t *testing.T) {
+func TestProtoReader(t *testing.T) {
 	const Prefix = "github.com/nikandfor/tlog/"
 
 	var buf bytes.Buffer
@@ -22,7 +22,7 @@ func TestProtobufReader(t *testing.T) {
 		return tm
 	}
 
-	w := tlog.NewProtobufWriter(&buf)
+	w := tlog.NewProtoWriter(&buf)
 
 	w.Labels(Labels{"a", "b=c"})
 
@@ -59,7 +59,7 @@ func TestProtobufReader(t *testing.T) {
 	// read
 	var res []interface{}
 	var err error
-	r := NewProtobufReader(&buf)
+	r := NewProtoReader(&buf)
 	locs := map[uintptr]uintptr{}
 
 	for {
@@ -106,7 +106,7 @@ func TestProtobufReader(t *testing.T) {
 		Labels{"a", "b=c"},
 		Location{
 			PC:   1,
-			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
 			File: "parse/proto_reader_test.go",
 			Line: 30,
 		},
@@ -118,7 +118,7 @@ func TestProtobufReader(t *testing.T) {
 		},
 		Location{
 			PC:   2,
-			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
 			File: "parse/proto_reader_test.go",
 			Line: 39,
 		},
@@ -130,7 +130,7 @@ func TestProtobufReader(t *testing.T) {
 		},
 		Location{
 			PC:   3,
-			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
 			File: "parse/proto_reader_test.go",
 			Line: 42,
 		},
@@ -142,7 +142,7 @@ func TestProtobufReader(t *testing.T) {
 		},
 		Location{
 			PC:   4,
-			Name: "github.com/nikandfor/tlog/parse.TestProtobufReader",
+			Name: "github.com/nikandfor/tlog/parse.TestProtoReader",
 			File: "parse/proto_reader_test.go",
 			Line: 51,
 		},

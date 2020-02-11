@@ -169,9 +169,9 @@ func TestProtoAppendTagVarint(t *testing.T) {
 	}
 }
 
-func TestProtobufWriter(t *testing.T) {
+func TespProtoWriter(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewProtobufWriter(&buf)
+	w := NewProtoWriter(&buf)
 	var pbuf proto.Buffer
 
 	w.Labels(Labels{"a", "b=c"})
@@ -369,7 +369,7 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 func BenchmarkWriterProtoMessage(b *testing.B) {
 	b.ReportAllocs()
 
-	w := NewProtobufWriter(ioutil.Discard)
+	w := NewProtoWriter(ioutil.Discard)
 
 	l := Caller(0)
 
