@@ -38,7 +38,22 @@ type (
 		Text     string
 	}
 
+	Type rune
+
 	Reader interface {
+		Type() (Type, error)
+		Any() (interface{}, error)
+
 		Read() (interface{}, error)
+
+		Labels() (Labels, error)
+		Location() (Location, error)
+		Message() (Message, error)
+		SpanStart() (SpanStart, error)
+		SpanFinish() (SpanFinish, error)
 	}
 )
+
+func (t Type) String() string {
+	return string(t)
+}

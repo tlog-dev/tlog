@@ -14,7 +14,10 @@ import (
 )
 
 type JSONReader struct {
-	r *json.Reader
+	r      *json.Reader
+	tp     Type
+	finish bool
+	err    error
 }
 
 func NewJSONReader(r io.Reader) *JSONReader {
@@ -25,39 +28,67 @@ func NewCustomJSONReader(r *json.Reader) *JSONReader {
 	return &JSONReader{r: r}
 }
 
-func (r *JSONReader) Read() (interface{}, error) {
-	if err := r.r.Err(); err != nil {
-		return nil, err
+func (r *JSONReader) Type() (Type, error) {
+	if r.err != nil {
+		return 0, r.err
+	}
+
+	if r.finish {
+		if r.r.HasNext() {
+			return 0, r.wraperr(fmt.Errorf("expected end of object, got %v", r.r.Type()))
+		}
 	}
 	if !r.r.HasNext() {
-		return nil, io.EOF
+		return 0, r.wraperr(io.EOF)
 	}
-	defer r.r.HasNext()
+	r.finish = true
 
 	tp := r.r.NextString()
 	if len(tp) != 1 {
-		return nil, r.r.ErrorHere(fmt.Errorf("unexpected object %q", tp))
+		return 0, r.wraperr(fmt.Errorf("unexpected object %q", tp))
 	}
 
+	tlog.V("tag").Printf("record tag: %v type %v", Type(tp[0]), r.r.Type())
+
 	switch tp[0] {
-	case 'L':
-		return r.labels()
-	case 'l':
-		return r.location()
-	case 'm':
-		return r.message()
-	case 's':
-		return r.spanStart()
-	case 'f':
-		return r.spanFinish()
+	case 'L', 'l', 'm', 's', 'f':
+		r.tp = Type(tp[0])
+		return r.tp, nil
 	default:
-		return nil, r.r.ErrorHere(fmt.Errorf("unexpected object %q", tp))
+		r.tp = 0
+		return 0, r.wraperr(fmt.Errorf("unexpected object %q", tp))
 	}
 }
 
-func (r *JSONReader) labels() (ls Labels, err error) {
+func (r *JSONReader) Any() (interface{}, error) {
+	if r.err != nil {
+		return 0, r.err
+	}
+
+	switch r.tp {
+	case 'L':
+		return r.Labels()
+	case 'l':
+		return r.Location()
+	case 'm':
+		return r.Message()
+	case 's':
+		return r.SpanStart()
+	case 'f':
+		return r.SpanFinish()
+	default:
+		return nil, r.r.ErrorHere(fmt.Errorf("unexpected object %q", r.tp))
+	}
+}
+
+func (r *JSONReader) Read() (interface{}, error) {
+	_, _ = r.Type()
+	return r.Any()
+}
+
+func (r *JSONReader) Labels() (ls Labels, err error) {
 	if r.r.Type() != json.Array {
-		return nil, r.r.ErrorHere(errors.New("array expected"))
+		return nil, r.r.ErrorHere(fmt.Errorf("array expected, got %v %v", r.r.Type(), r.tp))
 	}
 
 	for r.r.HasNext() {
@@ -65,10 +96,12 @@ func (r *JSONReader) labels() (ls Labels, err error) {
 		ls = append(ls, l)
 	}
 
+	tlog.V("record").Printf("labels: %v", ls)
+
 	return ls, nil
 }
 
-func (r *JSONReader) location() (l Location, err error) {
+func (r *JSONReader) Location() (l Location, err error) {
 	if r.r.Type() != json.Object {
 		return Location{}, r.r.ErrorHere(errors.New("object expected"))
 	}
@@ -108,7 +141,7 @@ func (r *JSONReader) location() (l Location, err error) {
 	return l, nil
 }
 
-func (r *JSONReader) message() (m Message, err error) {
+func (r *JSONReader) Message() (m Message, err error) {
 	if r.r.Type() != json.Object {
 		return Message{}, r.r.ErrorHere(errors.New("object expected"))
 	}
@@ -151,7 +184,7 @@ func (r *JSONReader) message() (m Message, err error) {
 	return m, nil
 }
 
-func (r *JSONReader) spanStart() (s SpanStart, err error) {
+func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 	if r.r.Type() != json.Object {
 		return SpanStart{}, r.r.ErrorHere(errors.New("object expected"))
 	}
@@ -197,7 +230,7 @@ func (r *JSONReader) spanStart() (s SpanStart, err error) {
 	return s, nil
 }
 
-func (r *JSONReader) spanFinish() (f SpanFinish, err error) {
+func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 	if r.r.Type() != json.Object {
 		return SpanFinish{}, r.r.ErrorHere(errors.New("object expected"))
 	}
@@ -241,4 +274,16 @@ func (r *JSONReader) id() (id ID, err error) {
 		return id, err
 	}
 	return
+}
+
+func (r *JSONReader) wraperr(err error) error {
+	if r.err != nil {
+		return r.err
+	}
+	if err == io.EOF {
+		r.err = err
+		return err
+	}
+	r.err = r.r.ErrorHere(err)
+	return r.err
 }

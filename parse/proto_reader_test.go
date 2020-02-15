@@ -55,7 +55,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second)
 
-	t.Logf("json\n%v", hex.Dump(buf.Bytes()))
+	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 
 	// read
 	var res []interface{}

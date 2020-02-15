@@ -1,7 +1,6 @@
 package parse
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -15,7 +14,9 @@ type ProtoReader struct {
 	i            int
 	pos          int
 	lim          int
+	tp           Type
 	MaxRecordLen int
+	err          error
 }
 
 func NewProtoReader(r io.Reader) *ProtoReader {
@@ -26,14 +27,18 @@ func NewProtoReader(r io.Reader) *ProtoReader {
 	}
 }
 
-func (r *ProtoReader) Read() (interface{}, error) {
+func (r *ProtoReader) Type() (Type, error) {
+	if r.err != nil {
+		return 0, r.wraperr(r.err)
+	}
+
 	start := r.pos + r.i
 	r.lim = start + 11
 
 again:
 	rl, err := r.varint() // record len
 	if err != nil {
-		return nil, err
+		return 0, r.wraperr(err)
 	}
 
 	if rl == 0 {
@@ -42,8 +47,8 @@ again:
 
 	err = r.more(rl)
 	if err != nil {
-		tlog.Printf("err: %v", err)
-		return nil, err
+		tlog.Printf("err: %+v", err)
+		return 0, r.wraperr(err)
 	}
 
 	r.lim = r.pos + r.i + rl
@@ -53,39 +58,65 @@ again:
 
 	ml, err := r.varint() // message len
 	if err != nil {
-		return nil, err
+		return 0, r.wraperr(r.err)
 	}
 
 	if r.pos+r.i+ml != r.lim {
 		r.i = start - r.pos
-		return nil, r.newerr("bad length")
+		return 0, r.newerr("bad length")
 	}
 	if tag&7 != 2 {
 		r.i = start - r.pos
-		return nil, r.newerr("bad record type")
+		return 0, r.newerr("bad record type")
 	}
 
 	tlog.V("tag").Printf("record tag: %x type %x len %x", tag>>3, tag&7, rl)
 
 	switch tag >> 3 {
 	case 1:
-		return r.labels()
+		r.tp = 'L'
 	case 2:
-		return r.location()
+		r.tp = 'l'
 	case 3:
-		return r.message()
+		r.tp = 'm'
 	case 4:
-		return r.spanStart()
+		r.tp = 's'
 	case 5:
-		return r.spanFinish()
+		r.tp = 'f'
 	default:
-		return nil, fmt.Errorf("unexpected object %x", tag)
+		return 0, r.wraperr(fmt.Errorf("unexpected object %x", tag))
+	}
+
+	return r.tp, nil
+}
+
+func (r *ProtoReader) Any() (interface{}, error) {
+	if r.err != nil {
+		return nil, r.wraperr(r.err)
+	}
+
+	switch r.tp {
+	case 'L':
+		return r.Labels()
+	case 'l':
+		return r.Location()
+	case 'm':
+		return r.Message()
+	case 's':
+		return r.SpanStart()
+	case 'f':
+		return r.SpanFinish()
+	default:
+		return nil, r.wraperr(fmt.Errorf("unexpected object %v", r.tp))
 	}
 }
 
-func (r *ProtoReader) labels() (_ interface{}, err error) {
-	var ls Labels
+func (r *ProtoReader) Read() (interface{}, error) {
+	_, _ = r.Type()
+	return r.Any()
+}
 
+func (r *ProtoReader) Labels() (ls Labels, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
@@ -109,9 +140,7 @@ func (r *ProtoReader) labels() (_ interface{}, err error) {
 	return ls, nil
 }
 
-func (r *ProtoReader) location() (_ interface{}, err error) {
-	var l Location
-
+func (r *ProtoReader) Location() (l Location, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
@@ -120,28 +149,28 @@ func (r *ProtoReader) location() (_ interface{}, err error) {
 		case 1<<3 | 0:
 			x, err := r.varint()
 			if err != nil {
-				return nil, err
+				return l, err
 			}
 			l.PC = uintptr(x)
 		case 2<<3 | 2:
 			l.Name, err = r.string()
 			if err != nil {
-				return nil, err
+				return l, err
 			}
 		case 3<<3 | 2:
 			l.File, err = r.string()
 			if err != nil {
-				return nil, err
+				return l, err
 			}
 		case 4<<3 | 0:
 			x, err := r.varint()
 			if err != nil {
-				return nil, err
+				return l, err
 			}
 			l.Line = x
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
-				return nil, err
+				return l, err
 			}
 		}
 	}
@@ -151,9 +180,7 @@ func (r *ProtoReader) location() (_ interface{}, err error) {
 	return l, nil
 }
 
-func (r *ProtoReader) message() (_ interface{}, err error) {
-	var m Message
-
+func (r *ProtoReader) Message() (m Message, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
@@ -167,23 +194,23 @@ func (r *ProtoReader) message() (_ interface{}, err error) {
 		case 2<<3 | 0:
 			x, err := r.varint()
 			if err != nil {
-				return nil, err
+				return m, err
 			}
 			m.Location = uintptr(x)
 		case 3<<3 | 0:
 			x, err := r.varint64()
 			if err != nil {
-				return nil, err
+				return m, err
 			}
 			m.Time = time.Duration(x) << tlog.TimeReduction
 		case 4<<3 | 2:
 			m.Text, err = r.string()
 			if err != nil {
-				return nil, err
+				return m, err
 			}
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
-				return nil, err
+				return m, err
 			}
 		}
 	}
@@ -193,9 +220,7 @@ func (r *ProtoReader) message() (_ interface{}, err error) {
 	return m, nil
 }
 
-func (r *ProtoReader) spanStart() (_ interface{}, err error) {
-	var s SpanStart
-
+func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
@@ -214,18 +239,18 @@ func (r *ProtoReader) spanStart() (_ interface{}, err error) {
 		case 3<<3 | 0:
 			x, err := r.varint()
 			if err != nil {
-				return nil, err
+				return s, err
 			}
 			s.Location = uintptr(x)
 		case 4<<3 | 0:
 			x, err := r.varint64()
 			if err != nil {
-				return nil, err
+				return s, err
 			}
 			s.Started = time.Unix(0, x<<tlog.TimeReduction)
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
-				return nil, err
+				return s, err
 			}
 		}
 	}
@@ -235,9 +260,7 @@ func (r *ProtoReader) spanStart() (_ interface{}, err error) {
 	return s, nil
 }
 
-func (r *ProtoReader) spanFinish() (_ interface{}, err error) {
-	var f SpanFinish
-
+func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
@@ -251,12 +274,12 @@ func (r *ProtoReader) spanFinish() (_ interface{}, err error) {
 		case 2<<3 | 0:
 			x, err := r.varint64()
 			if err != nil {
-				return nil, err
+				return f, err
 			}
 			f.Elapsed = time.Duration(x) << tlog.TimeReduction
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
-				return nil, err
+				return f, err
 			}
 		}
 	}
@@ -341,7 +364,7 @@ func (r *ProtoReader) varint64() (x int64, err error) {
 }
 
 func (r *ProtoReader) more(s int) error {
-	tlog.V("").Printf("more %3x before pos %3x + %3x buf %3x (%3x) %q", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf)
+	tlog.V("").PrintfDepth(1, "more %3x before pos %3x + %3x buf %3x (%3x) %q", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf)
 	r.pos += r.i
 	end := 0
 	if r.i < len(r.buf) {
@@ -359,34 +382,47 @@ func (r *ProtoReader) more(s int) error {
 	}
 	r.buf = r.buf[:cap(r.buf)]
 
-	max := 3
-more:
+again:
 	n, err := r.r.Read(r.buf[end:])
+	tlog.V("").Printf("Read %v %v of %v", n, err, len(r.buf)-end)
+	if n != 0 && end+n < s && err == nil {
+		end += n
+		goto again
+	}
 	r.buf = r.buf[:end+n]
 	if err == io.EOF {
-		if r.i+s <= len(r.buf) {
+		switch {
+		case s <= len(r.buf): // we read all we wanted
 			err = nil
+		case n == 0: // it's really EOF
+		default: // we've expected more data
+			err = io.ErrUnexpectedEOF
 		}
-		err = io.ErrUnexpectedEOF
-	}
-	if err == nil && len(r.buf) < s {
-		end += n
-		max--
-		if max == 0 {
-			return errors.New("bad source reader")
-		}
-		goto more
 	}
 
-	tlog.V("").Printf("more %3x after  pos %3x + %3x buf %3x (%3x) %q", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf)
+	tlog.V("").PrintfDepth(1, "more %3x after  pos %3x + %3x buf %3x (%3x) %q err %v", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf, err)
 
 	return err
 }
 
 func (r *ProtoReader) newerr(msg string) error {
-	return fmt.Errorf(msg+" (pos: %d)", r.pos+r.i)
+	if r.err != nil {
+		return r.err
+	}
+
+	r.err = fmt.Errorf(msg+" (pos: %d)", r.pos+r.i)
+	return r.err
 }
 
 func (r *ProtoReader) wraperr(err error) error {
-	return fmt.Errorf("%v (pos: %d)", err, r.pos+r.i)
+	if r.err != nil {
+		return r.err
+	}
+	if err == io.EOF {
+		r.err = err
+		return err
+	}
+
+	r.err = fmt.Errorf("%v (pos: %d)", err, r.pos+r.i)
+	return r.err
 }
