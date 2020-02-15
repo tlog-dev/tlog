@@ -27,6 +27,7 @@ func FuzzJSON(d []byte) int {
 //nolint:golint
 func FuzzProto(d []byte) int {
 	r := parse.NewProtoReader(bytes.NewReader(d))
+	r.MaxRecordLen = 1 << 20
 
 	for {
 		_, err := r.Read()

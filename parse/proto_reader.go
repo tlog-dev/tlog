@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -298,7 +299,7 @@ func (r *ProtoReader) string() (s string, err error) {
 	if err != nil {
 		return "", err
 	}
-	if r.i+x > len(r.buf) {
+	if r.i+x > r.lim {
 		r.i = i
 		return "", r.newerr("out of string")
 	}
@@ -358,12 +359,23 @@ func (r *ProtoReader) more(s int) error {
 	}
 	r.buf = r.buf[:cap(r.buf)]
 
+	max := 3
+more:
 	n, err := r.r.Read(r.buf[end:])
 	r.buf = r.buf[:end+n]
 	if err == io.EOF {
 		if r.i+s <= len(r.buf) {
 			err = nil
 		}
+		err = io.ErrUnexpectedEOF
+	}
+	if err == nil && len(r.buf) < s {
+		end += n
+		max--
+		if max == 0 {
+			return errors.New("bad source reader")
+		}
+		goto more
 	}
 
 	tlog.V("").Printf("more %3x after  pos %3x + %3x buf %3x (%3x) %q", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf)

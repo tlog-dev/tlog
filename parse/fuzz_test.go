@@ -25,11 +25,11 @@ func TestFuzzJSONCorpus(t *testing.T) {
 }
 
 func TestFuzzProtoCrashes(t *testing.T) {
-	testFuzz(t, filepath.Join("Proto_wd", "crashers"), func(r io.Reader) Reader { return NewProtoReader(r) })
+	testFuzz(t, filepath.Join("Proto_wd", "crashers"), func(r io.Reader) Reader { p := NewProtoReader(r); p.MaxRecordLen = 1 << 20; return p })
 }
 
 func TestFuzzProtoCorpus(t *testing.T) {
-	testFuzz(t, filepath.Join("Proto_wd", "corpus"), func(r io.Reader) Reader { return NewProtoReader(r) })
+	testFuzz(t, filepath.Join("Proto_wd", "corpus"), func(r io.Reader) Reader { p := NewProtoReader(r); p.MaxRecordLen = 1 << 20; return p })
 }
 
 func testFuzz(t *testing.T, dir string, newr func(r io.Reader) Reader) {
