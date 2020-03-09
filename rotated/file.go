@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
-const timeFormat = "2006-01-02_15-04-05"
+const timeFormat = "2006-01-02_15-04-05.000"
 
 type (
 	File struct {
 		mu     sync.Mutex
-		f      *os.File
+		f      io.Writer
 		nbytes int
 
 		name    string
@@ -23,7 +25,10 @@ type (
 
 		Fallback io.Writer // os.Stderr
 
-		Mode os.FileMode
+		Mode  os.FileMode
+		Fopen func(string, os.FileMode) (io.Writer, error)
+
+		stopc chan struct{}
 	}
 )
 
@@ -35,14 +40,31 @@ func Create(name string) *File {
 		MaxSize:  1 << 30,
 		Fallback: os.Stderr,
 		Mode:     0440,
+		Fopen:    FopenUniq,
+		stopc:    make(chan struct{}),
 	}
+}
+
+func CreateLogrotate(name string, sig ...os.Signal) *File {
+	f := &File{
+		name:     name,
+		Fallback: os.Stderr,
+		Mode:     0640,
+		Fopen:    FopenSimple,
+		stopc:    make(chan struct{}),
+	}
+	if len(sig) == 0 {
+		sig = append(sig, syscall.SIGUSR1)
+	}
+	f.RotateOnSignal(sig...)
+	return f
 }
 
 func (w *File) Write(p []byte) (int, error) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	if w.f == nil || w.nbytes+len(p) > w.MaxSize {
+	if w.f == nil || w.nbytes+len(p) > w.MaxSize && w.MaxSize != 0 {
 		err := w.rotate()
 		if err != nil {
 			fallback(w.Fallback, "ROTATE FAILED", err, p)
@@ -61,37 +83,64 @@ func (w *File) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (w *File) Name() string {
+func (w *File) RotateOnSignal(sig ...os.Signal) {
+	c := make(chan os.Signal, 3)
+	signal.Notify(c, sig...)
+
+	go w.rotator(c)
+}
+
+func (w *File) rotator(c chan os.Signal) {
+	for {
+		select {
+		case <-c:
+		case <-w.stopc:
+			return
+		}
+
+		w.Rotate()
+	}
+}
+
+func (w *File) Rotate() (err error) {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	if w.f == nil {
-		return ""
-	}
-
-	return w.f.Name()
+	return w.rotate()
 }
 
 func (w *File) rotate() (err error) {
-	if w.f != nil {
-		if err = w.f.Close(); err != nil {
+	if c, ok := w.f.(io.Closer); ok {
+		if err = c.Close(); err != nil {
 			fallback(w.Fallback, "CLOSE FAILED", err, nil)
 		}
 	}
 
+	w.f, err = w.Fopen(w.name, w.Mode)
+
+	w.nbytes = 0
+
+	return err
+}
+
+func FopenSimple(name string, mode os.FileMode) (io.Writer, error) {
+	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, mode)
+}
+
+func FopenUniq(name string, mode os.FileMode) (io.Writer, error) {
 	now := now()
 	try := 0
 
 again:
-	name := fname(w.name, now, try)
+	n := fname(name, now, try)
 
-	w.f, err = fopen(name, w.Mode)
+	f, err := os.OpenFile(n, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_EXCL, mode)
 	if os.IsExist(err) && try < 10 {
 		try++
 		goto again
 	}
 
-	return err
+	return f, err
 }
 
 func fname(name string, now time.Time, try int) string {
@@ -109,10 +158,6 @@ func fname(name string, now time.Time, try int) string {
 	return name + "_" + uniq + ext
 }
 
-func fopen(name string, mode os.FileMode) (*os.File, error) {
-	return os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_EXCL, mode)
-}
-
 func fallback(w io.Writer, r string, err error, msg []byte) {
 	if w == nil {
 		return
@@ -128,10 +173,13 @@ func fallback(w io.Writer, r string, err error, msg []byte) {
 }
 
 func (w *File) Close() (err error) {
-	if w.f == nil {
-		return nil
+	if c, ok := w.f.(io.Closer); ok {
+		err = c.Close()
 	}
-	err = w.f.Close()
+
 	w.f = nil
+
+	close(w.stopc)
+
 	return
 }
