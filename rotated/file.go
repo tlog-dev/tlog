@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -43,21 +42,6 @@ func Create(name string) *File {
 		Fopen:    FopenUniq,
 		stopc:    make(chan struct{}),
 	}
-}
-
-func CreateLogrotate(name string, sig ...os.Signal) *File {
-	f := &File{
-		name:     name,
-		Fallback: os.Stderr,
-		Mode:     0640,
-		Fopen:    FopenSimple,
-		stopc:    make(chan struct{}),
-	}
-	if len(sig) == 0 {
-		sig = append(sig, syscall.SIGUSR1)
-	}
-	f.RotateOnSignal(sig...)
-	return f
 }
 
 func (w *File) Write(p []byte) (int, error) {
