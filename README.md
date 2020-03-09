@@ -12,7 +12,7 @@ TraceLog - distributed tracing and logging.
 Explore [examples](examples).
 
 # Status
-It evolves as I use it. I still can change enything, but for now I'm quiet satisfied with most of details.
+It evolves as I use it. I still can change anything, but for now I'm quiet satisfied with most of details.
 
 It's tested a bit but bugs are possible. Please report if find.
 
