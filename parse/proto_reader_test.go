@@ -58,9 +58,13 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 
 	// read
+	r := newr(&buf)
+	if r, ok := r.(*ProtoReader); ok {
+		r.buf = r.buf[:10]
+	}
+
 	var res []interface{}
 	var err error
-	r := newr(&buf)
 	locs := map[uintptr]uintptr{}
 
 	for {

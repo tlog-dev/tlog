@@ -41,6 +41,10 @@ type (
 	Type rune
 
 	Reader interface {
+		Read() (interface{}, error)
+	}
+
+	LowReader interface {
 		Type() (Type, error)
 		Any() (interface{}, error)
 
@@ -52,6 +56,15 @@ type (
 		SpanStart() (SpanStart, error)
 		SpanFinish() (SpanFinish, error)
 	}
+)
+
+const (
+	TypeNone       Type = 0
+	TypeLabels     Type = 'L'
+	TypeLocation   Type = 'l'
+	TypeMessage    Type = 'm'
+	TypeSpanStart  Type = 's'
+	TypeSpanFinish Type = 'f'
 )
 
 func (t Type) String() string {

@@ -22,7 +22,7 @@ type ProtoReader struct {
 func NewProtoReader(r io.Reader) *ProtoReader {
 	return &ProtoReader{
 		r:            r,
-		buf:          make([]byte, 0, 10),
+		buf:          make([]byte, 0, 1000),
 		MaxRecordLen: 16 << 20, // 16MiB
 	}
 }
