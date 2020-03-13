@@ -133,7 +133,7 @@ func fname(name string, now time.Time, try int) string {
 		uniq += fmt.Sprintf("_%x", try)
 	}
 
-	if p := strings.LastIndexByte(name, '#'); p != -1 {
+	if p := strings.LastIndexByte(name, '@'); p != -1 {
 		return name[:p] + uniq + name[p+1:]
 	}
 

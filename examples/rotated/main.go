@@ -8,9 +8,10 @@ import (
 )
 
 func main() {
-	f := rotated.Create("logfile_template_#.log") // # will be substituted by time of file creation
+	f := rotated.Create("logfile_template_@.log") // ? will be substituted by time of file creation
 	defer f.Close()
 
+	f.Mode = 0660
 	f.MaxSize = 1 << 30    // 1GiB
 	f.Fallback = os.Stderr // in case of failure to write to the file, last chance to save log message
 

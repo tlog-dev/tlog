@@ -29,7 +29,7 @@ func TestFile(t *testing.T) {
 		t.Logf("dir: %v", dir)
 	}()
 
-	f := Create(filepath.Join(dir, fmt.Sprintf("file_#.%d.log", os.Getpid())))
+	f := Create(filepath.Join(dir, fmt.Sprintf("file_@.%d.log", os.Getpid())))
 	defer f.Close()
 	f.MaxSize = 20
 
@@ -129,10 +129,10 @@ func TestFname(t *testing.T) {
 	n = fname(filepath.Join("some", "path", "to_file"), tm, 0)
 	assert.Equal(t, filepath.Join("some", "path", "to_file_"+timeFormat), n)
 
-	n = fname(filepath.Join("some", "path", "to_#_file"), tm, 0)
+	n = fname(filepath.Join("some", "path", "to_@_file"), tm, 0)
 	assert.Equal(t, filepath.Join("some", "path", "to_"+timeFormat+"_file"), n)
 
-	n = fname(filepath.Join("some", "path", "to_#_file"), tm, 3)
+	n = fname(filepath.Join("some", "path", "to_@_file"), tm, 3)
 	assert.Equal(t, filepath.Join("some", "path", "to_"+timeFormat+"_3"+"_file"), n)
 }
 
