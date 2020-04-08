@@ -27,7 +27,6 @@ func TestRotateBySignal(t *testing.T) {
 
 	f := CreateLogrotate("name")
 	f.Fopen = func(name string, mode os.FileMode) (io.Writer, error) { n++; c <- struct{}{}; return &buf[n-1], nil }
-	f.RotateOnSignal()
 
 	q := make(chan os.Signal, 1)
 	signal.Notify(q, syscall.SIGUSR1)
@@ -50,9 +49,11 @@ loop:
 
 	f.Write([]byte("after"))
 
-	//	assert.True(t, n >= 2)
-	//	assert.Equal(t, "before", buf[0].String())
-	assert.Equal(t, "beforeafter", buf[0].String()+buf[1].String()+buf[2].String())
+	//	t.Logf("n: %v", n)
+	assert.True(t, n >= 2)
+	assert.Equal(t, "before", buf[0].String())
+	assert.Equal(t, "after", buf[1].String())
+	//	assert.Equal(t, "beforeafter", buf[0].String()+buf[1].String()+buf[2].String())
 }
 
 func TestFileLogrotate(t *testing.T) {
