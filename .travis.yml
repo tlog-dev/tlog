@@ -13,11 +13,15 @@ arch:
   - amd64
 
 go:
+  - "1.14"
   - "1.13"
   - "1.12"
 
 jobs:
   include:
+    - os: linux
+      go: "1.14"
+      arch: arm64
     - os: linux
       go: "1.13"
       arch: arm64
