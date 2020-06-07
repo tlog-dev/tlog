@@ -284,7 +284,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 }
 
 // Message writes Message event by single Write.
-func (w *ConsoleWriter) Message(m Message, s Span) {
+func (w *ConsoleWriter) Message(m Message, s Span) (err error) {
 	var t time.Time
 	if s.ID != z {
 		t = s.Started.Add(m.Time)
@@ -310,7 +310,9 @@ func (w *ConsoleWriter) Message(m Message, s Span) {
 
 	w.buf.NewLine()
 
-	_, _ = w.w.Write(w.buf)
+	_, err = w.w.Write(w.buf)
+
+	return
 }
 
 func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) {
@@ -324,7 +326,7 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm time.Time) {
 }
 
 // Message writes SpanStarted event by single Write.
-func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
+func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) (err error) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -343,11 +345,13 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) {
 		w.buf = append(b, '\n')
 	}
 
-	_, _ = w.w.Write(w.buf)
+	_, err = w.w.Write(w.buf)
+
+	return
 }
 
 // Message writes SpanFinished event by single Write.
-func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
+func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -361,11 +365,13 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) {
 
 	w.buf = append(b, "ms\n"...)
 
-	_, _ = w.w.Write(w.buf)
+	_, err = w.w.Write(w.buf)
+
+	return
 }
 
 // Message writes Labels by single Write.
-func (w *ConsoleWriter) Labels(ls Labels) {
+func (w *ConsoleWriter) Labels(ls Labels) error {
 	var buf [4]Location
 	StackTraceFill(1, buf[:])
 	i := 0
@@ -379,7 +385,7 @@ func (w *ConsoleWriter) Labels(ls Labels) {
 		break
 	}
 
-	w.Message(
+	return w.Message(
 		Message{
 			Location: buf[i],
 			Time:     time.Duration(now().UnixNano()),
@@ -399,7 +405,7 @@ func NewJSONWriter(w io.Writer) *JSONWriter {
 }
 
 // Labels writes Labels to the stream.
-func (w *JSONWriter) Labels(ls Labels) {
+func (w *JSONWriter) Labels(ls Labels) (err error) {
 	b := w.buf
 
 	b = append(b, `{"L":[`...)
@@ -418,11 +424,13 @@ func (w *JSONWriter) Labels(ls Labels) {
 
 	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 // Message writes event to the stream.
-func (w *JSONWriter) Message(m Message, s Span) {
+func (w *JSONWriter) Message(m Message, s Span) (err error) {
 	if _, ok := w.ls[m.Location]; !ok {
 		w.location(m.Location)
 	}
@@ -459,11 +467,13 @@ func (w *JSONWriter) Message(m Message, s Span) {
 
 	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 // SpanStarted writes event to the stream.
-func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
+func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	if _, ok := w.ls[loc]; !ok {
 		w.location(loc)
 	}
@@ -492,11 +502,13 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) {
 
 	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 // SpanFinished writes event to the stream.
-func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
+func (w *JSONWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	b := w.buf
 
 	b = append(b, `{"f":{"i":"`...)
@@ -511,7 +523,9 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) {
 
 	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 func (w *JSONWriter) location(l Location) {
@@ -551,7 +565,7 @@ func NewProtoWriter(w io.Writer) *ProtoWriter {
 }
 
 // Labels writes Labels to the stream.
-func (w *ProtoWriter) Labels(ls Labels) {
+func (w *ProtoWriter) Labels(ls Labels) (err error) {
 	sz := 0
 	for _, l := range ls {
 		q := len(l)
@@ -560,7 +574,7 @@ func (w *ProtoWriter) Labels(ls Labels) {
 
 	szs := varintSize(uint64(sz))
 
-	b := w.buf[:0]
+	b := w.buf
 	b = appendVarint(b, uint64(1+szs+sz))
 
 	b = appendTagVarint(b, 1<<3|2, uint64(sz))
@@ -570,25 +584,27 @@ func (w *ProtoWriter) Labels(ls Labels) {
 		b = append(b, l...)
 	}
 
-	w.buf = b
+	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 // Message writes enent to the stream.
-func (w *ProtoWriter) Message(m Message, s Span) {
+func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 	if _, ok := w.ls[m.Location]; !ok {
 		w.location(m.Location)
 	}
 
-	var b []byte
-	var l int
+	b := w.buf
+	st := len(b)
 	if m.Args != nil {
-		b = AppendPrintf(w.buf[:0], m.Format, m.Args...)
+		b = AppendPrintf(b, m.Format, m.Args...)
 	} else {
-		b = append(w.buf[:0], m.Format...)
+		b = append(b, m.Format...)
 	}
-	l = len(b)
+	l := len(b) - st
 
 	sz := 0
 	if s.ID != z {
@@ -604,14 +620,14 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	szss := varintSize(uint64(1 + szs + sz))
 
 	total := szss + 1 + szs + sz
-	for cap(b) < total {
+	for cap(b) < st+total {
 		b = append(b, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	}
-	b = b[:total]
+	b = b[:st+total]
 
-	copy(b[total-l:], b[:l])
+	copy(b[st+total-l:], b[st:st+l])
 
-	b = appendVarint(b[:0], uint64(1+szs+sz))
+	b = appendVarint(b[:st], uint64(1+szs+sz))
 
 	b = appendTagVarint(b, 3<<3|2, uint64(sz))
 
@@ -627,16 +643,19 @@ func (w *ProtoWriter) Message(m Message, s Span) {
 	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds()>>TimeReduction))
 
 	b = appendTagVarint(b, 4<<3|2, uint64(l))
+
 	// text is already in place
-	b = b[:total]
+	b = b[:st+total]
 
-	w.buf = b
+	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 // SpanStarted writes event to the stream.
-func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
+func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	if _, ok := w.ls[loc]; !ok {
 		w.location(loc)
 	}
@@ -651,7 +670,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 	}
 	sz += 1 + varintSize(uint64(s.Started.UnixNano()>>TimeReduction))
 
-	b := w.buf[:0]
+	b := w.buf
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -671,18 +690,20 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) {
 
 	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano()>>TimeReduction))
 
-	w.buf = b
+	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 // SpanFinished writes event to the stream.
-func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
+func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
 	sz += 1 + varintSize(uint64(el.Nanoseconds()>>TimeReduction))
 
-	b := w.buf[:0]
+	b := w.buf
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -693,9 +714,11 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) {
 
 	b = appendTagVarint(b, 2<<3|0, uint64(el.Nanoseconds()>>TimeReduction))
 
-	w.buf = b
+	w.buf = b[:0]
 
-	_, _ = w.w.Write(b)
+	_, err = w.w.Write(b)
+
+	return
 }
 
 func (w *ProtoWriter) location(l Location) {
@@ -729,8 +752,6 @@ func (w *ProtoWriter) location(l Location) {
 
 	w.ls[l] = struct{}{}
 	w.buf = b
-
-	_, _ = w.w.Write(b)
 }
 
 func appendVarint(b []byte, v uint64) []byte {
@@ -829,61 +850,85 @@ func NewTeeWriter(w ...Writer) TeeWriter {
 	return TeeWriter(ws)
 }
 
-func (w TeeWriter) Labels(ls Labels) {
+func (w TeeWriter) Labels(ls Labels) (err error) {
 	for _, w := range w {
-		w.Labels(ls)
+		e := w.Labels(ls)
+		if err == nil {
+			err = e
+		}
 	}
+
+	return
 }
 
-func (w TeeWriter) Message(m Message, s Span) {
+func (w TeeWriter) Message(m Message, s Span) (err error) {
 	for _, w := range w {
-		w.Message(m, s)
+		e := w.Message(m, s)
+		if err == nil {
+			err = e
+		}
 	}
+
+	return
 }
 
-func (w TeeWriter) SpanStarted(s Span, par ID, loc Location) {
+func (w TeeWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	for _, w := range w {
-		w.SpanStarted(s, par, loc)
+		e := w.SpanStarted(s, par, loc)
+		if err == nil {
+			err = e
+		}
 	}
+
+	return
 }
 
-func (w TeeWriter) SpanFinished(s Span, el time.Duration) {
+func (w TeeWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	for _, w := range w {
-		w.SpanFinished(s, el)
+		e := w.SpanFinished(s, el)
+		if err == nil {
+			err = e
+		}
 	}
+
+	return
 }
 
-func (w Discard) Labels(Labels)                    {}
-func (w Discard) Message(Message, Span)            {}
-func (w Discard) SpanStarted(Span, ID, Location)   {}
-func (w Discard) SpanFinished(Span, time.Duration) {}
+func (w Discard) Labels(Labels) (err error)                    { return nil }
+func (w Discard) Message(Message, Span) (err error)            { return nil }
+func (w Discard) SpanStarted(Span, ID, Location) (err error)   { return nil }
+func (w Discard) SpanFinished(Span, time.Duration) (err error) { return nil }
 
 func NewLockedWriter(w Writer) *LockedWriter {
 	return &LockedWriter{w: w}
 }
 
-func (w *LockedWriter) Labels(ls Labels) {
+func (w *LockedWriter) Labels(ls Labels) (err error) {
 	w.mu.Lock()
-	w.w.Labels(ls)
+	err = w.w.Labels(ls)
 	w.mu.Unlock()
+	return
 }
 
-func (w *LockedWriter) Message(m Message, s Span) {
+func (w *LockedWriter) Message(m Message, s Span) (err error) {
 	w.mu.Lock()
-	w.w.Message(m, s)
+	err = w.w.Message(m, s)
 	w.mu.Unlock()
+	return
 }
 
-func (w *LockedWriter) SpanStarted(s Span, par ID, loc Location) {
+func (w *LockedWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	w.mu.Lock()
-	w.w.SpanStarted(s, par, loc)
+	err = w.w.SpanStarted(s, par, loc)
 	w.mu.Unlock()
+	return
 }
 
-func (w *LockedWriter) SpanFinished(s Span, el time.Duration) {
+func (w *LockedWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	w.mu.Lock()
-	w.w.SpanFinished(s, el)
+	err = w.w.SpanFinished(s, el)
 	w.mu.Unlock()
+	return
 }
 
 /*

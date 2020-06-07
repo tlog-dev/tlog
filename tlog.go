@@ -47,10 +47,10 @@ type (
 
 	// Writer is an general encoder and writer of events.
 	Writer interface {
-		Labels(ls Labels)
-		SpanStarted(s Span, parent ID, l Location)
-		SpanFinished(s Span, el time.Duration)
-		Message(l Message, s Span)
+		Labels(ls Labels) error
+		SpanStarted(s Span, parent ID, l Location) error
+		SpanFinished(s Span, el time.Duration) error
+		Message(l Message, s Span) error
 	}
 
 	// Message is an Log event.
