@@ -99,9 +99,9 @@ func convert(c *cli.Command) error {
 
 	switch q {
 	case "json", "j":
-	//	w = parse.NewJSONWriter(fw)
+		w = parse.NewAnyWiter(tlog.NewJSONWriter(fw))
 	case "protobuf", "proto", "pb":
-	//	w = parse.NewProtoWriter(fw)
+		w = parse.NewAnyWiter(tlog.NewProtoWriter(fw))
 	case "console", "stderr", "log", "":
 		w = parse.NewConsoleWriter(fw, tlog.LdetFlags|tlog.Lspans|tlog.Lmessagespan)
 	default:
