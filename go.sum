@@ -36,8 +36,12 @@ github.com/modern-go/reflect2 v1.0.1 h1:9f412s+6RmYXLWZSEzVVgPGK7C2PphHj5RJrvfx9
 github.com/modern-go/reflect2 v1.0.1/go.mod h1:bx2lNnkwVCuqBIxFjflWJWanXIb3RllmbCylyMrvgv0=
 github.com/nikandfor/cli v0.0.0-20191110144133-cc2d6c00dcff h1:D8ZcFsqMlWpYEeKj9ojdi3LeN7R3g1+ff0DWmOyiFrs=
 github.com/nikandfor/cli v0.0.0-20191110144133-cc2d6c00dcff/go.mod h1:C/t0gdvxqG/I4ACiIdtjXIf7/VePgznBvxhSg6SRZ2g=
+github.com/nikandfor/errors v0.1.0 h1:IXmGXxYGkpGzNBwfuk4GaE+qf+zh9fME2JDxDoiJj2s=
+github.com/nikandfor/errors v0.1.0/go.mod h1:50/Nl1eEpvYT8IEx00Ksw54dwOsznrEtcmr+gDr9epg=
+github.com/nikandfor/json v0.0.0-20191030080807-1e239557e4e0/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9 h1:htAbsrcHQWWOo9b+8JLWkwA6oipPyXVYI5n1hlOXGKM=
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
+github.com/nikandfor/tlog v0.4.1/go.mod h1:2GfFJIRV8i6+3Bkiyt9coBHdqJv3tQcjsUKXIiDmx6o=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

@@ -46,8 +46,6 @@ type (
 
 	LowReader interface {
 		Type() (Type, error)
-		Any() (interface{}, error)
-
 		Read() (interface{}, error)
 
 		Labels() (Labels, error)

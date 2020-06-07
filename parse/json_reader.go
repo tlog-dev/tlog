@@ -33,6 +33,10 @@ func (r *JSONReader) Type() (Type, error) {
 		return 0, r.err
 	}
 
+	if r.tp != 0 {
+		return r.tp, nil
+	}
+
 	if r.finish {
 		if r.r.HasNext() {
 			return 0, r.wraperr(fmt.Errorf("expected end of object, got %v", r.r.Type()))
@@ -98,6 +102,8 @@ func (r *JSONReader) Labels() (ls Labels, err error) {
 
 	tlog.V("record").Printf("labels: %v", ls)
 
+	r.tp = 0
+
 	return ls, nil
 }
 
@@ -137,6 +143,8 @@ func (r *JSONReader) Location() (l Location, err error) {
 	}
 
 	tlog.V("record").Printf("location: %v", l)
+
+	r.tp = 0
 
 	return l, nil
 }
@@ -180,6 +188,8 @@ func (r *JSONReader) Message() (m Message, err error) {
 	}
 
 	tlog.V("record").Printf("message: %v", m)
+
+	r.tp = 0
 
 	return m, nil
 }
@@ -227,6 +237,8 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 
 	tlog.V("record").Printf("span start: %v", s)
 
+	r.tp = 0
+
 	return s, nil
 }
 
@@ -260,6 +272,8 @@ func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 	}
 
 	tlog.V("record").Printf("span finish: %v", f)
+
+	r.tp = 0
 
 	return f, nil
 }

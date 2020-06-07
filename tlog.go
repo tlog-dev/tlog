@@ -783,7 +783,11 @@ func (i ID) FormatTo(b []byte, f rune) {
 }
 
 // AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time
-func (m *Message) AbsTime() time.Time {
+func (m *Message) AbsTime() (t time.Time) {
+	if m.Time == 0 {
+		return
+	}
+
 	return time.Unix(0, int64(m.Time))
 }
 

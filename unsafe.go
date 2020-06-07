@@ -106,6 +106,16 @@ func (l Location) Entry() uintptr {
 	return *funcInfo.entry
 }
 
+func (l Location) SetCache(name, file string, line int) {
+	locmu.Lock()
+	locc[l] = nfl{
+		name: name,
+		file: file,
+		line: line,
+	}
+	locmu.Unlock()
+}
+
 //go:linkname findfunc runtime.findfunc
 func findfunc(pc Location) funcInfo
 
