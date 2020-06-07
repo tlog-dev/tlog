@@ -738,7 +738,7 @@ func (e TooShortIDError) Error() string {
 }
 
 // Format is fmt.Formatter interface implementation.
-// It supports settings width. '+' flag sets width to full id length
+// It supports width. '+' flag sets width to full id length
 func (i ID) Format(s fmt.State, c rune) {
 	var buf [32]byte
 	w := 16

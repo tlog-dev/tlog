@@ -1,6 +1,8 @@
 package tlog
 
 import (
+	"bytes"
+	"fmt"
 	"path"
 	"path/filepath"
 	"testing"
@@ -17,12 +19,12 @@ func testLocationInside(t *testing.T) {
 	name, file, line := pc.NameFileLine()
 	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
 	assert.Equal(t, "location_test.go", filepath.Base(file))
-	assert.Equal(t, 16, line)
+	assert.Equal(t, 18, line)
 }
 
 func TestLocationShort(t *testing.T) {
 	pc := Caller(0)
-	assert.Equal(t, "location_test.go:24", pc.String())
+	assert.Equal(t, "location_test.go:26", pc.String())
 }
 
 func TestLocation2(t *testing.T) {
@@ -30,9 +32,33 @@ func TestLocation2(t *testing.T) {
 		func() {
 			l := Funcentry(0)
 
-			assert.Equal(t, "location_test.go:30", l.String())
+			assert.Equal(t, "location_test.go:32", l.String())
 		}()
 	}()
+}
+
+func TestLocationFormat(t *testing.T) {
+	l := Caller(-1)
+
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "%v", l)
+	assert.Equal(t, "location.go:25", b.String())
+
+	b.Reset()
+
+	fmt.Fprintf(&b, "%.3v", l)
+	assert.Equal(t, "location.go: 25", b.String())
+
+	b.Reset()
+
+	fmt.Fprintf(&b, "%18.3v", l)
+	assert.Equal(t, "location.go   : 25", b.String())
+
+	b.Reset()
+
+	//	fmt.Fprintf(&b, "%+v", l)
+	//	assert.Equal(t, "location.go:25", b.String())
 }
 
 func TestLocationCropFileName(t *testing.T) {

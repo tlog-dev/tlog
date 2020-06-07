@@ -67,7 +67,7 @@ type (
 
 const TimeReduction = 6
 
-var spaces = "                                                                                                                                                "
+var spaces = []byte("                                                                                                                                                ")
 
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {

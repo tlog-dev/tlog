@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"fmt"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -74,6 +75,48 @@ func (l Location) String() string {
 	}
 
 	return string(b)
+}
+
+// Format is fmt.Formatter interface implementation.
+// It supports width. Precision sets line number width. '+' prints full path not base.
+func (l Location) Format(s fmt.State, c rune) {
+	_, file, line := l.NameFileLine()
+
+	if !s.Flag('+') {
+		file = filepath.Base(file)
+	}
+
+	n := 1
+	for q := line; q != 0; q /= 10 {
+		n++
+	}
+
+	p, ok := s.Precision()
+
+	if ok {
+		n = 1 + p
+	}
+
+	s.Write([]byte(file))
+
+	w, ok := s.Width()
+
+	if ok {
+		p := w - len(file) - n
+		if p > 0 {
+			s.Write(spaces[:p])
+		}
+	}
+
+	var b [20]byte
+	copy(b[:], ":                  ")
+
+	for q, j := line, n-1; q != 0 && j >= 1; j-- {
+		b[j] = byte(q%10) + '0'
+		q /= 10
+	}
+
+	s.Write(b[:n])
 }
 
 // String formats Trace as list of type_name (file.go:line)

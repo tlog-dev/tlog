@@ -51,19 +51,19 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Llongfile
 	w.buildHeader(loc, tm)
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:24  ", w.buf)
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(w.buf))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "location.go:24        ", string(w.buf))
+	assert.Equal(t, "location.go:25        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
 	w.buildHeader(loc, tm)
-	assert.Equal(t, "locatio:24  ", string(w.buf))
+	assert.Equal(t, "locatio:25  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.Funcname = 10
@@ -311,9 +311,9 @@ func TestTeeWriter(t *testing.T) {
 	w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
 	re := `{"L":\["a=b","f"\]}
-{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":24,"n":"github.com/nikandfor/tlog.Caller"}}
+{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
 {"m":{"t":0,"l":\d+,"m":"msg"}}
-{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":31,"n":"github.com/nikandfor/tlog.Funcentry"}}
+{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
 {"s":{"i":"64000000000000000000000000000000","s":24412629875000000,"l":\d+}}
 {"f":{"i":"64000000000000000000000000000000","e":15625000}}
 `
