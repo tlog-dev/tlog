@@ -19,6 +19,8 @@ func main() {
 		Before:      before,
 		Flags: []*cli.Flag{
 			cli.NewFlag("verbosity,v", "", "verbosity"),
+			cli.HelpFlag,
+			cli.FlagfileFlag,
 		},
 		Commands: []*cli.Command{{
 			Name:   "convert,c",

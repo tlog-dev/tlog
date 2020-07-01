@@ -22,7 +22,7 @@ type (
 	}
 
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
-	// A Logger can be called simultaneously if Writer supports it. Writers from this package does.
+	// A Logger methods can be called simultaneously.
 	Logger struct {
 		ws    []NamedWriter
 		wsbuf [3]NamedWriter

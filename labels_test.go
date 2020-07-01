@@ -67,7 +67,7 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	assert.Equal(t, Labels{"_hostname=myhost", "_user=myuser", "_pid=mypid", "_md5=mymd5", "_sha1=mysha1", "_project=myname"},
 		FillLabelsWithDefaults("_hostname=myhost", "_user=myuser", "_pid=mypid", "_md5=mymd5", "_sha1=mysha1", "_project=myname"))
 
-	ll := FillLabelsWithDefaults("_hostname", "_user", "_pid", "_md5", "_sha1", "_project")
+	ll := FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_execsha1", "_project")
 
 	t.Logf("%v", ll)
 
@@ -80,10 +80,10 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	re = regexp.MustCompile(`^_pid=\d+$`)
 	assert.True(t, re.MatchString(ll[2]), "%s is not %s ", ll[2], re)
 
-	re = regexp.MustCompile(`^_md5=[0-9a-z]{32}$`)
+	re = regexp.MustCompile(`^_execmd5=[0-9a-z]{32}$`)
 	assert.True(t, re.MatchString(ll[3]), "%s is not %s ", ll[3], re)
 
-	re = regexp.MustCompile(`^_sha1=[0-9a-z]{40}$`)
+	re = regexp.MustCompile(`^_execsha1=[0-9a-z]{40}$`)
 	assert.True(t, re.MatchString(ll[4]), "%s is not %s ", ll[4], re)
 
 	re = regexp.MustCompile(`^_project=tlog.test`) // no $ (.exe)

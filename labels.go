@@ -23,19 +23,23 @@ var (
 	//     _hostname - local hostname
 	//     _user - current user
 	//     _pid - process pid
-	//     _md5 - this binary md5 hash
-	//     _sha1 - this binary sha1 hash
+	//     _execmd5 - this binary md5 hash
+	//     _execsha1 - this binary sha1 hash
 	//     _project - project name (binary name)
+	//     _randid - random id. May be used to distinguish different runs.
 	AutoLabels = map[string]func() string{
 		"_hostname": Hostname,
 		"_user":     User,
 		"_pid": func() string {
 			return fmt.Sprintf("%d", os.Getpid())
 		},
-		"_md5":  ExecutableMD5,
-		"_sha1": ExecutableSHA1,
+		"_execmd5":  ExecutableMD5,
+		"_execsha1": ExecutableSHA1,
 		"_project": func() string {
 			return filepath.Base(os.Args[0])
+		},
+		"_randid": func() string {
+			return randID().FullString()
 		},
 	}
 )
