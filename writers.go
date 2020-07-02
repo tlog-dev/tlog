@@ -33,9 +33,9 @@ type (
 	//
 	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
-		w         io.Writer
-		ls        map[Location]struct{}
-		buf, buf2 []byte
+		w   io.Writer
+		ls  map[Location]struct{}
+		buf []byte
 	}
 
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
@@ -456,8 +456,7 @@ func (w *JSONWriter) Message(m Message, s Span) (err error) {
 
 	b = append(b, `,"m":"`...)
 	if m.Args != nil {
-		w.buf2 = AppendPrintf(w.buf2[:0], m.Format, m.Args...)
-		b = append(b, w.buf2...)
+		b = AppendPrintf(b, m.Format, m.Args...)
 	} else {
 		cv := stringToBytes(m.Format)
 		b = append(b, cv...)

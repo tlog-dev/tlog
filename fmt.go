@@ -78,7 +78,7 @@ func doPrintf(p *pp, format string, a []interface{})
 // AppendPrintf is similar to fmt.Fprintf but a little bit hacked.
 //
 // There is no sync.Pool.Get and Put. There is no copying buffer to io.Writer or conversion to string. There is no io.Writer interface dereference.
-// It's about 30ns per call. Yes, I know :).
+// All that gives advantage about 30-50 ns per call. Yes, I know :).
 func AppendPrintf(b []byte, format string, a ...interface{}) []byte {
 	var p pp
 	p.buf = b

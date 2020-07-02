@@ -3,10 +3,10 @@ syntax = "proto3";
 package tlogpb;
 
 message Record {
-    Labels labels = 1;
-    Location location = 2;
-    Message msg = 3;
-    SpanStart span_start = 4;
+    Labels labels          = 1;
+    Location location      = 2;
+    Message message        = 3;
+    SpanStart span_start   = 4;
     SpanFinish span_finish = 5;
 }
 
@@ -15,27 +15,27 @@ message Labels {
 }
 
 message Location {
-    int64 pc = 1;
+    int64 pc    = 1;
     string name = 2;
     string file = 3;
-    int32 line = 4;
+    int32 line  = 4;
 }
 
 message Message {
-    bytes span = 1;
+    bytes span     = 1;
     int64 location = 2;
-    int64 time = 3;
-    string text = 4;
+    int64 time     = 3;
+    string text    = 4;
 }
 
 message SpanStart {
-    bytes id = 1;
-    bytes parent = 2;
+    bytes id       = 1;
+    bytes parent   = 2;
     int64 location = 3;
-    int64 started = 4;
+    int64 started  = 4;
 }
 
 message SpanFinish {
-    bytes id = 1;
+    bytes id      = 1;
     int64 elapsed = 2;
 }

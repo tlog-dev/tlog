@@ -92,14 +92,14 @@ Type=encryption+telemetry # multiple topics for location separated by '+'
 ```
 List of filters is executed as chain of inclusion, exclusion and back inclusion of some locations.
 ```
-path/*,!path/subpackage,path/subpackage/file.go,!funcInFile,!subpackage/file.go=Write
+path/*,!path/subpackage,path/subpackage/file.go,!funcInFile,!subpackage/file.go=debug+trace
 
 What's happend:
 * path/* - include whole subtree
 * !path/subpackage - but exclude one of subpackages. Others: path/sub1/*, path/sub2/*, etc remain included.
 * path/subpackage/file.go - but we interested in logs in file, so include it
 * !funcInFile - except some function.
-* !subpackage/file.go=Write - and except function Write from file subpackage/file.go
+* !subpackage/file.go=debug+trace - and except topics `debug` and `trace` in file subpackage/file.go
 ```
 In most cases it's enough to have only one filter, but if you need, you may have more with no performance loss.
 

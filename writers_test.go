@@ -211,7 +211,7 @@ func TestProtoWriter(t *testing.T) {
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes()[:l])
 	t.Logf("Location:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf.Bytes()))
 
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Msg: &tlogpb.Message{
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
 		Time:     2,
