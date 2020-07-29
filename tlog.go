@@ -482,6 +482,7 @@ func (l *Logger) v(tp string) *Logger {
 
 	if !any {
 		mu.Unlock()
+
 		return nil
 	}
 
@@ -502,6 +503,9 @@ func (l *Logger) v(tp string) *Logger {
 
 	return sl
 }
+
+// Valid checks if Logger is not nil and was not disabled by filter.
+func (l *Logger) Valid() bool { return l != nil }
 
 // SetFilter sets filter to use in V.
 //

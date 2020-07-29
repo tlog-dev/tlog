@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"fmt"
 	"io"
 	"time"
 
@@ -23,6 +24,11 @@ type (
 	ConsoleWriter struct {
 		w       *tlog.ConsoleWriter
 		started map[ID]time.Time
+	}
+
+	ConvertWriter struct {
+		w  Writer
+		ls map[tlog.Location]struct{}
 	}
 )
 
@@ -145,6 +151,74 @@ func (w *ConsoleWriter) SpanFinish(f SpanFinish) error {
 	)
 
 	delete(w.started, f.ID)
+
+	return nil
+}
+
+func NewConvertWriter(w Writer) *ConvertWriter {
+	return &ConvertWriter{
+		w:  w,
+		ls: make(map[tlog.Location]struct{}),
+	}
+}
+
+func (w *ConvertWriter) Labels(ls tlog.Labels) error {
+	return w.w.Labels(ls)
+}
+
+func (w *ConvertWriter) Message(m tlog.Message, s tlog.Span) error {
+	err := w.location(m.Location)
+	if err != nil {
+		return err
+	}
+
+	return w.w.Message(Message{
+		Span:     s.ID,
+		Location: uintptr(m.Location),
+		Time:     m.Time,
+		Text:     fmt.Sprintf(m.Format, m.Args...),
+	})
+}
+
+func (w *ConvertWriter) SpanStarted(s tlog.Span, p ID, l tlog.Location) error {
+	err := w.location(l)
+	if err != nil {
+		return err
+	}
+
+	return w.w.SpanStart(SpanStart{
+		ID:       s.ID,
+		Parent:   p,
+		Location: uintptr(l),
+		Started:  s.Started,
+	})
+}
+
+func (w *ConvertWriter) SpanFinished(s tlog.Span, el time.Duration) error {
+	return w.w.SpanFinish(SpanFinish{
+		ID:      s.ID,
+		Elapsed: el,
+	})
+}
+
+func (w *ConvertWriter) location(l tlog.Location) error {
+	if _, ok := w.ls[l]; ok {
+		return nil
+	}
+
+	name, file, line := l.NameFileLine()
+
+	err := w.w.Location(Location{
+		PC:   uintptr(l),
+		Name: name,
+		File: file,
+		Line: line,
+	})
+	if err != nil {
+		return err
+	}
+
+	w.ls[l] = struct{}{}
 
 	return nil
 }
