@@ -7,8 +7,12 @@ import (
 )
 
 type (
-	ID     = tlog.ID
-	Labels = tlog.Labels
+	ID = tlog.ID
+
+	Labels struct {
+		Span   ID
+		Labels tlog.Labels
+	}
 
 	Location struct {
 		PC   uintptr `json:"p"`

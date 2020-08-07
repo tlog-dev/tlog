@@ -91,16 +91,34 @@ func (r *JSONReader) Read() (interface{}, error) {
 }
 
 func (r *JSONReader) Labels() (ls Labels, err error) {
-	if r.r.Type() != json.Array {
-		return nil, r.r.ErrorHere(fmt.Errorf("array expected, got %v %v", r.r.Type(), r.tp))
+	if r.r.Type() != json.Object {
+		return Labels{}, r.r.ErrorHere(fmt.Errorf("object expected, got %v %v", r.r.Type(), r.tp))
 	}
 
 	for r.r.HasNext() {
-		l := string(r.r.NextString())
-		ls = append(ls, l)
+		k := r.r.NextString()
+		if len(k) == 0 {
+			return Labels{}, r.r.ErrorHere(errors.New("empty key"))
+		}
+		switch k[0] {
+		case 's':
+			ls.Span, err = r.id()
+			if err != nil {
+				return Labels{}, r.r.ErrorHere(err)
+			}
+		case 'L':
+			if r.r.Type() != json.Array {
+				return Labels{}, r.r.ErrorHere(fmt.Errorf("array expected, got %v %v", r.r.Type(), r.tp))
+			}
+
+			for r.r.HasNext() {
+				l := string(r.r.NextString())
+				ls.Labels = append(ls.Labels, l)
+			}
+		}
 	}
 
-	tlog.V("record").Printf("labels: %v", ls)
+	tlog.V("record").Printf("labels: %v spanid %v", ls.Labels, ls.Span)
 
 	r.tp = 0
 

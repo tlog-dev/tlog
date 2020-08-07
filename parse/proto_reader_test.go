@@ -25,7 +25,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	w := neww(&buf)
 
-	w.Labels(Labels{"a", "b=c"})
+	w.Labels(tlog.Labels{"a", "b=c"}, ID{1, 2, 3, 4})
 
 	w.Message(tlog.Message{
 		Location: tlog.Caller(0),
@@ -108,7 +108,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	tm = time.Date(2019, 7, 31, 18, 21, 2, 0, time.UTC)
 
 	assert.Equal(t, []interface{}{
-		Labels{"a", "b=c"},
+		Labels{Labels: tlog.Labels{"a", "b=c"}, Span: ID{1, 2, 3, 4}},
 		Location{
 			PC:   1,
 			Name: "github.com/nikandfor/tlog/parse.testReader",

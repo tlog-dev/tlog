@@ -123,14 +123,19 @@ func (r *ProtoReader) Labels() (ls Labels, err error) {
 		tlog.V("tag").Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
 		switch tag {
 		case 1<<3 | 2:
+			x := int(r.buf[r.i])
+			r.i++ // len
+			copy(ls.Span[:], r.buf[r.i:r.i+x])
+			r.i += x
+		case 2<<3 | 2:
 			l, err := r.string()
 			if err != nil {
-				return nil, err
+				return Labels{}, err
 			}
-			ls = append(ls, l)
+			ls.Labels = append(ls.Labels, l)
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
-				return nil, err
+				return Labels{}, err
 			}
 		}
 	}

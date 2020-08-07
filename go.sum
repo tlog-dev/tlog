@@ -47,16 +47,12 @@ github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9 h1:htAbsrcHQWWOo9b+
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/nikandfor/testify v1.5.0 h1:0o/aZivSONmOBWhv2P2kg5LIvoGFStArgSnhKvJIixY=
 github.com/nikandfor/testify v1.5.0/go.mod h1:aPIL4mmn3iA8qaivxk5MkX9oxfJProuXMa7p5+fELBc=
-github.com/nikandfor/tlog v0.2.0/go.mod h1:a7Vl50CNFg8YATfnYN5yjxibbrma2GHhPtEaVFnOtoI=
 github.com/nikandfor/tlog v0.4.1/go.mod h1:2GfFJIRV8i6+3Bkiyt9coBHdqJv3tQcjsUKXIiDmx6o=
 github.com/nikandfor/tlog v0.4.2/go.mod h1:cHuUMNLZGK/rjlh2gUDE50Px9kmnojAYZ/Ub82yUxCY=
-github.com/nikandfor/xrain v0.0.0-20191230000312-833e5a14887f h1:/d1Dkpf7swswONmH/3yU7l0XjaNJQ6TduQXiEhyVaOI=
-github.com/nikandfor/xrain v0.0.0-20191230000312-833e5a14887f/go.mod h1:Rt8s2Sn6kQgx+yiCERpVRylcQyQFm3KO1KsVWlOiXOU=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/rakyll/statik v0.1.6/go.mod h1:OEi9wJV/fMUAGx1eNjq75DKDsJVuEv1U0oYdX6GX8Zs=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -73,6 +69,7 @@ github.com/urfave/cli v1.22.4/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
 go.etcd.io/bbolt v1.3.5/go.mod h1:G5EMThwa9y8QZGBClrRx5EY+Yw9kAhnjy3bSjsnlVTQ=
 golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a h1:aYOabOQFp6Vj6W1F80affTUvO9UxmJRx8K0gsfABByQ=
 golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 h1:LfCXLvNmTYH9kEmVgqbnsWfruoXZIrh4YBgqVHtDvw0=
 golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

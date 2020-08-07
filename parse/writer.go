@@ -37,7 +37,7 @@ func NewAnyWiter(w tlog.Writer) AnyWriter {
 }
 
 func (w AnyWriter) Labels(ls Labels) error {
-	return w.w.Labels(ls)
+	return w.w.Labels(ls.Labels, ls.Span)
 }
 
 func (w AnyWriter) Location(l Location) error {
@@ -162,8 +162,8 @@ func NewConvertWriter(w Writer) *ConvertWriter {
 	}
 }
 
-func (w *ConvertWriter) Labels(ls tlog.Labels) error {
-	return w.w.Labels(ls)
+func (w *ConvertWriter) Labels(ls tlog.Labels, sid ID) error {
+	return w.w.Labels(Labels{Labels: ls, Span: sid})
 }
 
 func (w *ConvertWriter) Message(m tlog.Message, s tlog.Span) error {
