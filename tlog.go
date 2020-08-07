@@ -212,15 +212,6 @@ func PrintRaw(d int, b []byte) {
 	newmessage(DefaultLogger, d, Span{}, bytesToString(b), nil)
 }
 
-// If returns default logger if condition is true and nil overwise. Nil logger is safe to use, but all events are discarded.
-func If(c bool) *Logger {
-	if !c {
-		return nil
-	}
-
-	return DefaultLogger
-}
-
 // V checks if topic tp is enabled and returns default Logger or nil.
 //
 // It's OK to use nil Logger, it wonn't crash and won't emit eny Messages to writer.

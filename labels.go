@@ -25,7 +25,7 @@ var (
 	//     _pid - process pid
 	//     _execmd5 - this binary md5 hash
 	//     _execsha1 - this binary sha1 hash
-	//     _project - project name (binary name)
+	//     _execname - executable base name (project name)
 	//     _randid - random id. May be used to distinguish different runs.
 	AutoLabels = map[string]func() string{
 		"_hostname": Hostname,
@@ -35,7 +35,7 @@ var (
 		},
 		"_execmd5":  ExecutableMD5,
 		"_execsha1": ExecutableSHA1,
-		"_project": func() string {
+		"_execname": func() string {
 			return filepath.Base(os.Args[0])
 		},
 		"_randid": func() string {

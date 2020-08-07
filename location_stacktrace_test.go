@@ -11,7 +11,7 @@ import (
 func TestLocationStackTraceFill(t *testing.T) {
 	st := make(Trace, 1)
 
-	st = StackTraceFill(0, st)
+	st = FillStackTrace(0, st)
 
 	assert.Len(t, st, 1)
 	assert.Equal(t, "location_stacktrace_test.go:14", st[0].String())

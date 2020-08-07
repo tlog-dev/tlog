@@ -389,9 +389,6 @@ func TestIfVArg(t *testing.T) {
 
 	l.SetFilter("enabled")
 
-	assert.True(t, DefaultLogger == If(true))
-	assert.Nil(t, If(false))
-
 	assert.True(t, l == l.If(true))
 	assert.Nil(t, l.If(false))
 

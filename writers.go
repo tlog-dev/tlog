@@ -373,7 +373,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) (err error) {
 // Message writes Labels by single Write.
 func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	var buf [4]Location
-	StackTraceFill(1, buf[:])
+	FillStackTrace(1, buf[:])
 	i := 0
 	for i+1 < len(buf) {
 		name, _, _ := buf[i].NameFileLine()
