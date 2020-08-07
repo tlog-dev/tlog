@@ -549,6 +549,9 @@ func (w *JSONWriter) location(l Location) {
 	b = append(b, `{"l":{"p":`...)
 	b = strconv.AppendInt(b, int64(l), 10)
 
+	b = append(b, `,"e":`...)
+	b = strconv.AppendInt(b, int64(l.Entry()), 10)
+
 	b = append(b, `,"f":"`...)
 	b = appendSafe(b, file)
 
@@ -750,6 +753,7 @@ func (w *ProtoWriter) location(l Location) {
 
 	sz := 0
 	sz += 1 + varintSize(uint64(l))
+	sz += 1 + varintSize(uint64(l.Entry()))
 	sz += 1 + varintSize(uint64(len(name))) + len(name)
 	sz += 1 + varintSize(uint64(len(file))) + len(file)
 	sz += 1 + varintSize(uint64(line))
@@ -760,13 +764,15 @@ func (w *ProtoWriter) location(l Location) {
 
 	b = appendTagVarint(b, 1<<3|0, uint64(l))
 
-	b = appendTagVarint(b, 2<<3|2, uint64(len(name)))
+	b = appendTagVarint(b, 2<<3|0, uint64(l.Entry()))
+
+	b = appendTagVarint(b, 3<<3|2, uint64(len(name)))
 	b = append(b, name...)
 
-	b = appendTagVarint(b, 3<<3|2, uint64(len(file)))
+	b = appendTagVarint(b, 4<<3|2, uint64(len(file)))
 	b = append(b, file...)
 
-	b = appendTagVarint(b, 4<<3|0, uint64(line))
+	b = appendTagVarint(b, 5<<3|0, uint64(line))
 
 	w.ls[l] = struct{}{}
 	w.buf = b

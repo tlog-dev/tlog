@@ -87,6 +87,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 				locs[t.PC] = ex
 			}
 			t.PC = ex
+			t.Entry = 0x100 + ex
 			t.File = strings.TrimPrefix(t.File, Prefix) // cut prefix in case of repo is not in GOPATH or similar folder structure
 			o = t
 		case Message:
@@ -110,10 +111,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	assert.Equal(t, []interface{}{
 		Labels{Labels: tlog.Labels{"a", "b=c"}, Span: ID{1, 2, 3, 4}},
 		Location{
-			PC:   1,
-			Name: "github.com/nikandfor/tlog/parse.testReader",
-			File: "parse/proto_reader_test.go",
-			Line: 31,
+			PC:    1,
+			Entry: 0x101,
+			Name:  "github.com/nikandfor/tlog/parse.testReader",
+			File:  "parse/proto_reader_test.go",
+			Line:  31,
 		},
 		Message{
 			Span:     ID{},
@@ -122,10 +124,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Text:     "3",
 		},
 		Location{
-			PC:   2,
-			Name: "github.com/nikandfor/tlog/parse.testReader",
-			File: "parse/proto_reader_test.go",
-			Line: 40,
+			PC:    2,
+			Entry: 0x102,
+			Name:  "github.com/nikandfor/tlog/parse.testReader",
+			File:  "parse/proto_reader_test.go",
+			Line:  40,
 		},
 		SpanStart{
 			ID:       ID{1},
@@ -134,10 +137,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Started:  now(),
 		},
 		Location{
-			PC:   3,
-			Name: "github.com/nikandfor/tlog/parse.testReader",
-			File: "parse/proto_reader_test.go",
-			Line: 43,
+			PC:    3,
+			Entry: 0x103,
+			Name:  "github.com/nikandfor/tlog/parse.testReader",
+			File:  "parse/proto_reader_test.go",
+			Line:  43,
 		},
 		Message{
 			Span:     ID{1},
@@ -146,10 +150,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Text:     "5",
 		},
 		Location{
-			PC:   4,
-			Name: "github.com/nikandfor/tlog/parse.testReader",
-			File: "parse/proto_reader_test.go",
-			Line: 52,
+			PC:    4,
+			Entry: 0x104,
+			Name:  "github.com/nikandfor/tlog/parse.testReader",
+			File:  "parse/proto_reader_test.go",
+			Line:  52,
 		},
 		SpanStart{
 			ID:       ID{2},

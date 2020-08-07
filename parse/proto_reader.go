@@ -17,6 +17,8 @@ type ProtoReader struct {
 	tp           Type
 	MaxRecordLen int
 	err          error
+
+	l *tlog.Logger
 }
 
 func NewProtoReader(r io.Reader) *ProtoReader {
@@ -47,7 +49,7 @@ again:
 
 	err = r.more(rl)
 	if err != nil {
-		tlog.Printf("err: %+v", err)
+		r.l.Printf("err: %+v", err)
 		return 0, r.wraperr(err)
 	}
 
@@ -70,7 +72,9 @@ again:
 		return 0, r.newerr("bad record type")
 	}
 
-	tlog.V("tag").Printf("record tag: %x type %x len %x", tag>>3, tag&7, rl)
+	if r.l.V("tag") != nil {
+		r.l.Printf("record tag: %x type %x len %x", tag>>3, tag&7, rl)
+	}
 
 	switch tag >> 3 {
 	case 1:
@@ -120,7 +124,9 @@ func (r *ProtoReader) Labels() (ls Labels, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
-		tlog.V("tag").Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -140,7 +146,9 @@ func (r *ProtoReader) Labels() (ls Labels, err error) {
 		}
 	}
 
-	tlog.V("record").Printf("labels: %q", ls)
+	if r.l.V("record") != nil {
+		r.l.Printf("labels: %q", ls)
+	}
 
 	return ls, nil
 }
@@ -149,7 +157,9 @@ func (r *ProtoReader) Location() (l Location, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
-		tlog.V("tag").Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
 		switch tag {
 		case 1<<3 | 0:
 			x, err := r.varint()
@@ -157,17 +167,23 @@ func (r *ProtoReader) Location() (l Location, err error) {
 				return l, err
 			}
 			l.PC = uintptr(x)
-		case 2<<3 | 2:
+		case 2<<3 | 0:
+			x, err := r.varint()
+			if err != nil {
+				return l, err
+			}
+			l.Entry = uintptr(x)
+		case 3<<3 | 2:
 			l.Name, err = r.string()
 			if err != nil {
 				return l, err
 			}
-		case 3<<3 | 2:
+		case 4<<3 | 2:
 			l.File, err = r.string()
 			if err != nil {
 				return l, err
 			}
-		case 4<<3 | 0:
+		case 5<<3 | 0:
 			x, err := r.varint()
 			if err != nil {
 				return l, err
@@ -180,7 +196,9 @@ func (r *ProtoReader) Location() (l Location, err error) {
 		}
 	}
 
-	tlog.V("record").Printf("location: %v", l)
+	if r.l.V("record") != nil {
+		r.l.Printf("location: %v", l)
+	}
 
 	return l, nil
 }
@@ -189,7 +207,9 @@ func (r *ProtoReader) Message() (m Message, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
-		tlog.V("tag").Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -220,7 +240,9 @@ func (r *ProtoReader) Message() (m Message, err error) {
 		}
 	}
 
-	tlog.V("record").Printf("message: %v", m)
+	if r.l.V("record") != nil {
+		r.l.Printf("message: %v", m)
+	}
 
 	return m, nil
 }
@@ -229,7 +251,9 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
-		tlog.V("tag").Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -260,7 +284,9 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 		}
 	}
 
-	tlog.V("record").Printf("span start: %v", s)
+	if r.l.V("record") != nil {
+		r.l.Printf("span start: %v", s)
+	}
 
 	return s, nil
 }
@@ -269,7 +295,9 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
-		tlog.V("tag").Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -289,14 +317,18 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 		}
 	}
 
-	tlog.V("record").Printf("span finish: %v", f)
+	if r.l.V("record") != nil {
+		r.l.Printf("span finish: %v", f)
+	}
 
 	return f, nil
 }
 
 func (r *ProtoReader) skip() error {
 	tag := r.buf[r.i-1]
-	tlog.V("skip").Printf("tag: %x type %x unknown tag, skip it", tag>>3, tag&7)
+	if r.l.V("skip") != nil {
+		r.l.Printf("tag: %x type %x unknown tag, skip it", tag>>3, tag&7)
+	}
 
 	switch tag & 7 {
 	case 0:
@@ -353,7 +385,7 @@ func (r *ProtoReader) varint64() (x int64, err error) {
 			}
 		}
 		c := r.buf[r.i]
-		//	tlog.Printf("c at %x+%x : %x", r.pos, r.i, c)
+		//	r.l.Printf("c at %x+%x : %x", r.pos, r.i, c)
 		r.i++
 
 		if c < 0x80 {
@@ -369,7 +401,9 @@ func (r *ProtoReader) varint64() (x int64, err error) {
 }
 
 func (r *ProtoReader) more(s int) error {
-	tlog.V("").PrintfDepth(1, "more %3x before pos %3x + %3x buf %3x (%3x) %q", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf)
+	if r.l.V("") != nil {
+		r.l.PrintfDepth(1, "more %3x before pos %3x + %3x buf %3x (%3x) %q", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf)
+	}
 	r.pos += r.i
 	end := 0
 	if r.i < len(r.buf) {
@@ -389,7 +423,9 @@ func (r *ProtoReader) more(s int) error {
 
 again:
 	n, err := r.r.Read(r.buf[end:])
-	tlog.V("").Printf("Read %v %v of %v", n, err, len(r.buf)-end)
+	if r.l.V("") != nil {
+		r.l.Printf("Read %v %v of %v", n, err, len(r.buf)-end)
+	}
 	if n != 0 && end+n < s && err == nil {
 		end += n
 		goto again
@@ -405,7 +441,9 @@ again:
 		}
 	}
 
-	tlog.V("").PrintfDepth(1, "more %3x after  pos %3x + %3x buf %3x (%3x) %q err %v", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf, err)
+	if r.l.V("") != nil {
+		r.l.PrintfDepth(1, "more %3x after  pos %3x + %3x buf %3x (%3x) %q err %v", s, r.pos, r.i, len(r.buf), len(r.buf)-r.i, r.buf, err)
+	}
 
 	return err
 }

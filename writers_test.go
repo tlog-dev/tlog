@@ -201,10 +201,11 @@ func TestProtoWriter(t *testing.T) {
 		Span{ID: id},
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
-		Pc:   int64(loc),
-		Name: name,
-		File: file,
-		Line: int32(line),
+		Pc:    int64(loc),
+		Entry: int64(loc.Entry()),
+		Name:  name,
+		File:  file,
+		Line:  int32(line),
 	}})
 	l := len(pbuf.Bytes())
 	if l > buf.Len() {
@@ -240,10 +241,11 @@ func TestProtoWriter(t *testing.T) {
 		loc,
 	)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
-		Pc:   int64(loc),
-		Name: name,
-		File: file,
-		Line: int32(line),
+		Pc:    int64(loc),
+		Entry: int64(loc.Entry()),
+		Name:  name,
+		File:  file,
+		Line:  int32(line),
 	}})
 	l = len(pbuf.Bytes())
 	if l > buf.Len() {
@@ -328,9 +330,9 @@ func TestTeeWriter(t *testing.T) {
 	w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
 	re := `{"L":{"L":\["a=b","f"\]}}
-{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
+{"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
 {"m":{"t":0,"l":\d+,"m":"msg"}}
-{"l":{"p":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
+{"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
 {"s":{"i":"64000000000000000000000000000000","s":24412629875000000,"l":\d+}}
 {"f":{"i":"64000000000000000000000000000000","e":15625000}}
 `

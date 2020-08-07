@@ -10,36 +10,37 @@ type (
 	ID = tlog.ID
 
 	Labels struct {
-		Span   ID
-		Labels tlog.Labels
+		Span   ID          `json:"s"`
+		Labels tlog.Labels `json:"L"`
 	}
 
 	Location struct {
-		PC   uintptr `json:"p"`
-		Name string  `json:"n"`
-		File string  `json:"f"`
-		Line int     `json:"l"`
+		PC    uintptr `json:"p"`
+		Entry uintptr `json:"e"`
+		Name  string  `json:"n"`
+		File  string  `json:"f"`
+		Line  int     `json:"l"`
 	}
 
 	SpanStart struct {
-		ID     ID
-		Parent ID
+		ID     ID `json:"i"`
+		Parent ID `json:"p"`
 
-		Location uintptr
+		Location uintptr `json:"l"`
 
-		Started time.Time
+		Started time.Time `json:"s"`
 	}
 
 	SpanFinish struct {
-		ID      ID
-		Elapsed time.Duration
+		ID      ID            `json:"i"`
+		Elapsed time.Duration `json:"e"`
 	}
 
 	Message struct {
-		Span     ID
-		Location uintptr
-		Time     time.Duration
-		Text     string
+		Span     ID            `json:"s"`
+		Location uintptr       `json:"l"`
+		Time     time.Duration `json:"t"`
+		Text     string        `json:"m"`
 	}
 
 	Type rune

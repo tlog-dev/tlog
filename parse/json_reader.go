@@ -18,6 +18,8 @@ type JSONReader struct {
 	tp     Type
 	finish bool
 	err    error
+
+	l *tlog.Logger
 }
 
 func NewJSONReader(r io.Reader) *JSONReader {
@@ -52,7 +54,9 @@ func (r *JSONReader) Type() (Type, error) {
 		return 0, r.wraperr(fmt.Errorf("unexpected object %q", tp))
 	}
 
-	tlog.V("tag").Printf("record tag: %v type %v", Type(tp[0]), r.r.Type())
+	if r.l.V("tag") != nil {
+		r.l.Printf("record tag: %v type %v", Type(tp[0]), r.r.Type())
+	}
 
 	switch tp[0] {
 	case 'L', 'l', 'm', 's', 'f':
@@ -118,7 +122,9 @@ func (r *JSONReader) Labels() (ls Labels, err error) {
 		}
 	}
 
-	tlog.V("record").Printf("labels: %v spanid %v", ls.Labels, ls.Span)
+	if r.l.V("record") != nil {
+		r.l.Printf("labels: %v spanid %v", ls.Labels, ls.Span)
+	}
 
 	r.tp = 0
 
@@ -155,12 +161,16 @@ func (r *JSONReader) Location() (l Location, err error) {
 			}
 			l.Line = int(v)
 		default:
-			tlog.V("skip").Printf("skip key %q", k)
+			if r.l.V("skip") != nil {
+				r.l.Printf("skip key %q", k)
+			}
 			r.r.Skip()
 		}
 	}
 
-	tlog.V("record").Printf("location: %v", l)
+	if r.l.V("record") != nil {
+		r.l.Printf("location: %v", l)
+	}
 
 	r.tp = 0
 
@@ -200,12 +210,16 @@ func (r *JSONReader) Message() (m Message, err error) {
 				return Message{}, r.r.ErrorHere(err)
 			}
 		default:
-			tlog.V("skip").Printf("skip key %q", k)
+			if r.l.V("skip") != nil {
+				r.l.Printf("skip key %q", k)
+			}
 			r.r.Skip()
 		}
 	}
 
-	tlog.V("record").Printf("message: %v", m)
+	if r.l.V("record") != nil {
+		r.l.Printf("message: %v", m)
+	}
 
 	r.tp = 0
 
@@ -248,12 +262,16 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
 		default:
-			tlog.V("skip").Printf("skip key %q", k)
+			if r.l.V("skip") != nil {
+				r.l.Printf("skip key %q", k)
+			}
 			r.r.Skip()
 		}
 	}
 
-	tlog.V("record").Printf("span start: %v", s)
+	if r.l.V("record") != nil {
+		r.l.Printf("span start: %v", s)
+	}
 
 	r.tp = 0
 
@@ -284,12 +302,16 @@ func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 			}
 			f.Elapsed = time.Duration(v << tlog.TimeReduction)
 		default:
-			tlog.V("skip").Printf("skip key %q", k)
+			if r.l.V("skip") != nil {
+				r.l.Printf("skip key %q", k)
+			}
 			r.r.Skip()
 		}
 	}
 
-	tlog.V("record").Printf("span finish: %v", f)
+	if r.l.V("record") != nil {
+		r.l.Printf("span finish: %v", f)
+	}
 
 	r.tp = 0
 
