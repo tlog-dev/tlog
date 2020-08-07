@@ -80,10 +80,20 @@ func (l Location) String() string {
 // Format is fmt.Formatter interface implementation.
 // It supports width. Precision sets line number width. '+' prints full path not base.
 func (l Location) Format(s fmt.State, c rune) {
-	_, file, line := l.NameFileLine()
+	name, file, line := l.NameFileLine()
+
+	nn := file
+
+	if s.Flag('#') {
+		nn = name
+	}
 
 	if !s.Flag('+') {
-		file = filepath.Base(file)
+		if s.Flag('#') && !s.Flag('-') {
+			nn = filepath.Ext(nn)[1:]
+		} else {
+			nn = filepath.Base(nn)
+		}
 	}
 
 	n := 1
@@ -97,12 +107,12 @@ func (l Location) Format(s fmt.State, c rune) {
 		n = 1 + p
 	}
 
-	s.Write([]byte(file))
+	s.Write([]byte(nn))
 
 	w, ok := s.Width()
 
 	if ok {
-		p := w - len(file) - n
+		p := w - len(nn) - n
 		if p > 0 {
 			s.Write(spaces[:p])
 		}
@@ -130,6 +140,22 @@ func (t Trace) String() string {
 		b = AppendPrintf(b, "%-60s  at %s:%d\n", n, f, l)
 	}
 	return string(b)
+}
+
+func (t Trace) Format(s fmt.State, c rune) {
+	switch {
+	case s.Flag('+'):
+		for _, l := range t {
+			s.Write([]byte("at "))
+			l.Format(s, c)
+			s.Write([]byte("\n"))
+		}
+	default:
+		for _, l := range t {
+			s.Write([]byte(" at "))
+			l.Format(s, c)
+		}
+	}
 }
 
 func cropFilename(fn, tp string) string {

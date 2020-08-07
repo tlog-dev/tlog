@@ -6,11 +6,18 @@ import (
 	"strings"
 )
 
-type filter struct {
-	f string
+type (
+	filter struct {
+		f string
 
-	c map[Location]bool
-}
+		c map[filterkey]bool
+	}
+
+	filterkey struct {
+		l  Location
+		tp string
+	}
+)
 
 func newFilter(f string) filter {
 	if f == "" {
@@ -18,7 +25,7 @@ func newFilter(f string) filter {
 	}
 	return filter{
 		f: f,
-		c: make(map[Location]bool),
+		c: make(map[filterkey]bool),
 	}
 }
 
@@ -33,10 +40,15 @@ func (f filter) match(t string) bool {
 
 	loc := Caller(3)
 
-	en, ok := f.c[loc]
+	k := filterkey{
+		l:  loc,
+		tp: t,
+	}
+
+	en, ok := f.c[k]
 	if !ok {
 		en = f.matchFilter(loc, t)
-		f.c[loc] = en
+		f.c[k] = en
 	}
 
 	return en

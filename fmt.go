@@ -4,7 +4,6 @@ package tlog
 import (
 	"reflect"
 	"unsafe"
-	_ "unsafe"
 )
 
 type (

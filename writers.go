@@ -80,6 +80,14 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	}
 }
 
+func (w *ConsoleWriter) Flags() int {
+	return w.f
+}
+
+func (w *ConsoleWriter) SetFlags(f int) {
+	w.f = f
+}
+
 func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) []byte {
 	end := len(b) + wid
 	for len(b) < end {

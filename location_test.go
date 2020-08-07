@@ -75,6 +75,13 @@ func TestLocationCropFileName(t *testing.T) {
 	assert.Equal(t, "subpkg/file.go", cropFilename("/path/to/src/subpkg/file.go", "github.com/nikandfor/tlog/subpkg.(*type).method"))
 }
 
+func TestCaller(t *testing.T) {
+	a, b := Caller(0),
+		Caller(0)
+
+	assert.False(t, a == b, "%x == %x", uintptr(a), uintptr(b))
+}
+
 func BenchmarkLocationString(b *testing.B) {
 	b.ReportAllocs()
 

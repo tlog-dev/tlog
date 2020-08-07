@@ -144,3 +144,15 @@ func TestFilterMatchBase(t *testing.T) {
 
 	assert.False(t, newFilter("*,!a").match("a"))
 }
+
+func BenchmarkMatchFilter(b *testing.B) {
+	b.ReportAllocs()
+
+	f := newFilter("a,b,!another_file.go=a")
+
+	c := Caller(0)
+
+	for i := 0; i < b.N; i++ {
+		f.matchFilter(c, "a,b")
+	}
+}

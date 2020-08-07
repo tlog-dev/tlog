@@ -753,7 +753,7 @@ func BenchmarkIDFormat(b *testing.B) {
 	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}
 
 	for i := 0; i < b.N; i++ {
-		_ = fmt.Sprintf("%+x", id)
+		fmt.Fprintf(ioutil.Discard, "%+x", id)
 	}
 }
 

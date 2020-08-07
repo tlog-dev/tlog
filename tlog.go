@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 type (
@@ -80,10 +81,16 @@ var ( // ZeroID
 	z      ID
 )
 
+var ( // for you not to import os if you don't want
+	Stderr = os.Stderr
+	Stdout = os.Stdout
+)
+
 // ConsoleWriter flags. Similar to log.Logger flags.
 const ( // console writer flags
 	Ldate = 1 << iota
 	Ltime
+	Lseconds
 	Lmilliseconds
 	Lmicroseconds
 	Lshortfile
@@ -201,6 +208,15 @@ func Fatalf(f string, args ...interface{}) {
 // All possible allocs are eliminated. You should reuse buffer either.
 func PrintRaw(d int, b []byte) {
 	newmessage(DefaultLogger, d, Span{}, bytesToString(b), nil)
+}
+
+// If returns default logger if condition is true and nil overwise. Nil logger is safe to use, but all events are discarded.
+func If(c bool) *Logger {
+	if !c {
+		return nil
+	}
+
+	return DefaultLogger
 }
 
 // V checks if topic tp is enabled and returns default Logger or nil.
@@ -457,6 +473,46 @@ func (l *Logger) Spawn(id ID) Span {
 	return newspan(l, id)
 }
 
+// If returns the same logger if condition is true and nil overwise. Nil logger is safe to use, but all events are discarded.
+func (l *Logger) If(c bool) *Logger {
+	if !c {
+		return nil
+	}
+
+	return l
+}
+
+func (l *Logger) IfArg(c bool, a, b interface{}) interface{} {
+	if !c {
+		return b
+	}
+
+	return a
+}
+
+func (l *Logger) VArg(tp string, a, b interface{}) interface{} {
+	if l == nil {
+		return b
+	}
+
+	any := false
+
+	mu.Lock()
+
+	for _, w := range l.ws {
+		ok := w.filter.matchFilter(Caller(1), tp)
+		any = any || ok
+	}
+
+	mu.Unlock()
+
+	if !any {
+		return b
+	}
+
+	return a
+}
+
 // V checks if one of topics in tp is enabled and returns default Logger or nil.
 //
 // It's OK to use nil Logger, it won't crash and won't emit eny Messages to writer.
@@ -569,6 +625,46 @@ func (l *Logger) NamedFilter(name string) string {
 func (l *Logger) noLocations() *Logger {
 	l.NoLocations = true
 	return l
+}
+
+// If returns the same Span if condition is true and nil overwise. Nil logger is safe to use, but all events are discarded.
+func (s Span) If(c bool) Span {
+	if !c {
+		return Span{}
+	}
+
+	return s
+}
+
+func (s Span) IfArg(c bool, a, b interface{}) interface{} {
+	if !c {
+		return b
+	}
+
+	return a
+}
+
+func (s Span) VArg(tp string, a, b interface{}) interface{} {
+	if s.l == nil {
+		return b
+	}
+
+	any := false
+
+	mu.Lock()
+
+	for _, w := range s.l.ws {
+		ok := w.filter.matchFilter(Caller(1), tp)
+		any = any || ok
+	}
+
+	mu.Unlock()
+
+	if !any {
+		return b
+	}
+
+	return a
 }
 
 // V checks if one of topics in tp is enabled and returns the same Span or empty.
@@ -744,7 +840,10 @@ func (e TooShortIDError) Error() string {
 // Format is fmt.Formatter interface implementation.
 // It supports width. '+' flag sets width to full id length
 func (i ID) Format(s fmt.State, c rune) {
-	var buf [32]byte
+	var buf0 [32]byte
+	buf1 := buf0[:]
+	buf := *(*[]byte)(noescape(unsafe.Pointer(&buf1)))
+
 	w := 16
 	if W, ok := s.Width(); ok {
 		w = W
