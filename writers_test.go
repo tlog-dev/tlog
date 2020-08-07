@@ -104,7 +104,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 	w := NewConsoleWriter(ioutil.Discard, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
 
-	l.Labels(Labels{"a=b", "f"})
+	l.SetLabels(Labels{"a=b", "f"})
 
 	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: ["a=b" "f"]`+"\n", string(w.buf))
 
@@ -112,25 +112,29 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	assert.Equal(t, "2019/07/07_16:31:12.000  0194fdc2fa2ffcc0  Span started\n", string(w.buf))
 
+	tr.SetLabels(Labels{"a=c", "c=d", "g"})
+
+	assert.Equal(t, `2019/07/07_16:31:13.000  0194fdc2fa2ffcc0  Labels: ["a=c" "c=d" "g"]`+"\n", string(w.buf))
+
 	tr1 := l.Spawn(tr.ID)
 
-	assert.Equal(t, "2019/07/07_16:31:13.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:14.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(w.buf))
 
 	tr1.Printf("message")
 
-	assert.Equal(t, "2019/07/07_16:31:14.000  6e4ff95ff662a5ee  message\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:15.000  6e4ff95ff662a5ee  message\n", string(w.buf))
 
 	tr1.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:15.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:16.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(w.buf))
 
 	tr.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:16.000  0194fdc2fa2ffcc0  Span finished - elapsed 4000.00ms\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:17.000  0194fdc2fa2ffcc0  Span finished - elapsed 5000.00ms\n", string(w.buf))
 
 	l.Printf("not traced message")
 
-	assert.Equal(t, "2019/07/07_16:31:17.000  ________________  not traced message\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:18.000  ________________  not traced message\n", string(w.buf))
 }
 
 func TestProtoAppendVarint(t *testing.T) {
@@ -174,8 +178,8 @@ func TestProtoWriter(t *testing.T) {
 	w := NewProtoWriter(&buf)
 	var pbuf proto.Buffer
 
-	w.Labels(Labels{"a", "b=c"})
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{Label: []string{"a", "b=c"}}})
+	w.Labels(Labels{"a", "b=c"}, z)
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{Labels: []string{"a", "b=c"}}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
 	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
 
@@ -259,6 +263,19 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf.Reset()
 
+	w.Labels(Labels{"b=d", "d"}, id)
+
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{
+		Span:   id[:],
+		Labels: []string{"b=d", "d"},
+	}})
+
+	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
+	t.Logf("Span Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
+
+	buf.Reset()
+	pbuf.Reset()
+
 	w.SpanFinished(
 		Span{
 			ID: id,
@@ -288,7 +305,7 @@ func TestProtoWriter(t *testing.T) {
 func TestLockedWriter(t *testing.T) {
 	l := New(NewLockedWriter(Discard{}))
 
-	l.Labels(Labels{"a", "b"})
+	l.SetLabels(Labels{"a", "b"})
 	tr := l.Start()
 	tr.Printf("message: %v", 2)
 	tr.Finish()
@@ -305,12 +322,12 @@ func TestTeeWriter(t *testing.T) {
 	fe := Funcentry(-1)
 	loc := Caller(-1)
 
-	w.Labels(Labels{"a=b", "f"})
+	w.Labels(Labels{"a=b", "f"}, z)
 	w.Message(Message{Location: loc, Format: "msg"}, Span{})
 	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, fe)
 	w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
-	re := `{"L":\["a=b","f"\]}
+	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
 {"m":{"t":0,"l":\d+,"m":"msg"}}
 {"l":{"p":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}

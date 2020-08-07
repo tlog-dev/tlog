@@ -11,7 +11,8 @@ message Record {
 }
 
 message Labels {
-    repeated string label = 1;
+    bytes span             = 1;
+    repeated string labels = 2;
 }
 
 message Location {

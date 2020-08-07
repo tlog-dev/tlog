@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,12 +20,12 @@ func testLocationInside(t *testing.T) {
 	name, file, line := pc.NameFileLine()
 	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
 	assert.Equal(t, "location_test.go", filepath.Base(file))
-	assert.Equal(t, 18, line)
+	assert.Equal(t, 19, line)
 }
 
 func TestLocationShort(t *testing.T) {
 	pc := Caller(0)
-	assert.Equal(t, "location_test.go:26", pc.String())
+	assert.Equal(t, "location_test.go:27", pc.String())
 }
 
 func TestLocation2(t *testing.T) {
@@ -32,7 +33,7 @@ func TestLocation2(t *testing.T) {
 		func() {
 			l := Funcentry(0)
 
-			assert.Equal(t, "location_test.go:32", l.String())
+			assert.Equal(t, "location_test.go:33", l.String())
 		}()
 	}()
 }
@@ -57,8 +58,13 @@ func TestLocationFormat(t *testing.T) {
 
 	b.Reset()
 
-	//	fmt.Fprintf(&b, "%+v", l)
-	//	assert.Equal(t, "location.go:25", b.String())
+	fmt.Fprintf(&b, "%+v", l)
+	assert.True(t, regexp.MustCompile(`[\w.-/]*location.go:25`).MatchString(b.String()))
+
+	b.Reset()
+
+	fmt.Fprintf(&b, "%#v", l)
+	assert.Equal(t, "Caller:25", b.String())
 }
 
 func TestLocationCropFileName(t *testing.T) {
@@ -80,6 +86,16 @@ func TestCaller(t *testing.T) {
 		Caller(0)
 
 	assert.False(t, a == b, "%x == %x", uintptr(a), uintptr(b))
+}
+
+func TestSetCache(t *testing.T) {
+	l := Location(0x1234567890)
+
+	assert.NotEqual(t, "file.go:10", l.String())
+
+	l.SetCache("Name", "file.go", 10)
+
+	assert.Equal(t, "file.go:10", l.String())
 }
 
 func BenchmarkLocationString(b *testing.B) {

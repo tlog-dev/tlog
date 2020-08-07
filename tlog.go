@@ -48,7 +48,7 @@ type (
 
 	// Writer is an general encoder and writer of events.
 	Writer interface {
-		Labels(ls Labels) error
+		Labels(ls Labels, sid ID) error
 		SpanStarted(s Span, parent ID, l Location) error
 		SpanFinished(s Span, el time.Duration) error
 		Message(l Message, s Span) error
@@ -79,6 +79,8 @@ type (
 var ( // ZeroID
 	ZeroID ID // to compare with
 	z      ID
+
+	zeroTime time.Time
 )
 
 var ( // for you not to import os if you don't want
@@ -173,7 +175,7 @@ func NewNamedDumper(name, filter string, w Writer) NamedWriter {
 
 // SetLabels sets labels for default logger
 func SetLabels(ls Labels) {
-	DefaultLogger.Labels(ls)
+	newlabels(DefaultLogger, z, ls)
 }
 
 // Printf writes logging Message.
@@ -284,8 +286,24 @@ func NamedFilter(name string) string {
 	return DefaultLogger.NamedFilter(name)
 }
 
-func newspan(l *Logger, par ID) Span {
+func newlabels(l *Logger, sid ID, ls Labels) {
+	if l == nil {
+		return
+	}
 
+	mu.Lock()
+
+	for _, w := range l.ws {
+		if w.verbosed && !l.verbosed {
+			continue
+		}
+		w.w.Labels(ls, sid)
+	}
+
+	mu.Unlock()
+}
+
+func newspan(l *Logger, par ID) Span {
 	var loc Location
 	if !l.NoLocations {
 		loc = Funcentry(2)
@@ -386,21 +404,8 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, id)
 }
 
-func (l *Logger) Labels(ls Labels) {
-	if l == nil {
-		return
-	}
-
-	mu.Lock()
-
-	for _, w := range l.ws {
-		if w.verbosed && !l.verbosed {
-			continue
-		}
-		w.w.Labels(ls)
-	}
-
-	mu.Unlock()
+func (l *Logger) SetLabels(ls Labels) {
+	newlabels(l, z, ls)
 }
 
 // Printf writes logging Message to Writer.
@@ -445,7 +450,9 @@ func (l *Logger) Write(b []byte) (int, error) {
 	if l == nil {
 		return len(b), nil
 	}
+
 	newmessage(l, l.DepthCorrection, Span{}, bytesToString(b), nil)
+
 	return len(b), nil
 }
 
@@ -561,6 +568,7 @@ func (l *Logger) v(tp string) *Logger {
 }
 
 // Valid checks if Logger is not nil and was not disabled by filter.
+// Valid returns true if you created Logger with no Writers by hand. In other cases it is correct.
 func (l *Logger) Valid() bool { return l != nil }
 
 // SetFilter sets filter to use in V.
@@ -681,13 +689,13 @@ func (s Span) V(tp string) Span {
 	}
 }
 
+func (s Span) SetLabels(ls Labels) {
+	newlabels(s.l, s.ID, ls)
+}
+
 // Printf writes logging Message annotated with trace id.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) Printf(f string, args ...interface{}) {
-	if s.l == nil {
-		return
-	}
-
 	newmessage(s.l, 0, s, f, args)
 }
 
@@ -818,7 +826,7 @@ func ShouldIDFromString(s string) (id ID) {
 
 // MustIDFromString parses ID from string. It panics if something is not ok.
 func MustIDFromString(s string) (id ID) {
-	if len(s) < 2*len(id) {
+	if len(s) != 2*len(id) {
 		panic(s)
 	}
 	a := []byte(s)
@@ -886,7 +894,7 @@ func (i ID) FormatTo(b []byte, f rune) {
 }
 
 // AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time
-func (m *Message) AbsTime() (t time.Time) {
+func (m Message) AbsTime() (t time.Time) {
 	if m.Time == 0 {
 		return
 	}

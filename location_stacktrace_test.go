@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -13,7 +14,7 @@ func TestLocationStackTraceFill(t *testing.T) {
 	st = StackTraceFill(0, st)
 
 	assert.Len(t, st, 1)
-	assert.Equal(t, "location_stacktrace_test.go:13", st[0].String())
+	assert.Equal(t, "location_stacktrace_test.go:14", st[0].String())
 }
 
 func testStackTraceInside() (st Trace) {
@@ -25,7 +26,7 @@ func testStackTraceInside() (st Trace) {
 	return
 }
 
-func TestLocationStackTrace(t *testing.T) {
+func TestLocationStackTraceString(t *testing.T) {
 	var st Trace
 	func() {
 		func() {
@@ -34,15 +35,33 @@ func TestLocationStackTrace(t *testing.T) {
 	}()
 
 	assert.Len(t, st, 3)
-	assert.Equal(t, "location_stacktrace_test.go:23", st[0].String())
-	assert.Equal(t, "location_stacktrace_test.go:24", st[1].String())
-	assert.Equal(t, "location_stacktrace_test.go:32", st[2].String())
+	assert.Equal(t, "location_stacktrace_test.go:24", st[0].String())
+	assert.Equal(t, "location_stacktrace_test.go:25", st[1].String())
+	assert.Equal(t, "location_stacktrace_test.go:33", st[2].String())
 
-	re := `tlog.testStackTraceInside.func1                               at [\w.-/]*location_stacktrace_test.go:23
-tlog.testStackTraceInside                                     at [\w.-/]*location_stacktrace_test.go:24
-tlog.TestLocationStackTrace.func1.1                           at [\w.-/]*location_stacktrace_test.go:32
+	re := `tlog.testStackTraceInside.func1                               at [\w.-/]*location_stacktrace_test.go:24
+tlog.testStackTraceInside                                     at [\w.-/]*location_stacktrace_test.go:25
+tlog.TestLocationStackTraceString.func1.1                     at [\w.-/]*location_stacktrace_test.go:33
 `
 	ok, err := regexp.MatchString(re, st.String())
 	assert.NoError(t, err)
 	assert.True(t, ok, "expected:\n%v\ngot:\n%v\n", re, st.String())
+}
+
+func TestLocationStackTraceFormat(t *testing.T) {
+	var st Trace
+	func() {
+		func() {
+			st = testStackTraceInside()
+		}()
+	}()
+
+	assert.Equal(t, "location_stacktrace_test.go:24 at location_stacktrace_test.go:25 at location_stacktrace_test.go:55", fmt.Sprintf("%v", st))
+
+	assert.Equal(t, "testStackTraceInside.func1:24 at testStackTraceInside:25 at TestLocationStackTraceFormat.func1.1:55", fmt.Sprintf("%#v", st))
+
+	assert.Equal(t, `at github.com/nikandfor/tlog/location_stacktrace_test.go:24
+at github.com/nikandfor/tlog/location_stacktrace_test.go:25
+at github.com/nikandfor/tlog/location_stacktrace_test.go:55
+`, fmt.Sprintf("%+v", st))
 }

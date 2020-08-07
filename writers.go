@@ -80,14 +80,6 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	}
 }
 
-func (w *ConsoleWriter) Flags() int {
-	return w.f
-}
-
-func (w *ConsoleWriter) SetFlags(f int) {
-	w.f = f
-}
-
 func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) []byte {
 	end := len(b) + wid
 	for len(b) < end {
@@ -294,7 +286,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 // Message writes Message event by single Write.
 func (w *ConsoleWriter) Message(m Message, s Span) (err error) {
 	var t time.Time
-	if s.ID != z {
+	if s.Started != zeroTime {
 		t = s.Started.Add(m.Time)
 	} else {
 		t = m.AbsTime()
@@ -379,7 +371,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el time.Duration) (err error) {
 }
 
 // Message writes Labels by single Write.
-func (w *ConsoleWriter) Labels(ls Labels) error {
+func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	var buf [4]Location
 	StackTraceFill(1, buf[:])
 	i := 0
@@ -400,7 +392,7 @@ func (w *ConsoleWriter) Labels(ls Labels) error {
 			Format:   "Labels: %q",
 			Args:     []interface{}{ls},
 		},
-		Span{},
+		Span{ID: sid},
 	)
 }
 
@@ -413,10 +405,19 @@ func NewJSONWriter(w io.Writer) *JSONWriter {
 }
 
 // Labels writes Labels to the stream.
-func (w *JSONWriter) Labels(ls Labels) (err error) {
+func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
 	b := w.buf
 
-	b = append(b, `{"L":[`...)
+	b = append(b, `{"L":{`...)
+
+	if sid != z {
+		b = append(b, `"s":"`...)
+		i := len(b)
+		b = append(b, `123456789_123456789_123456789_12",`...)
+		sid.FormatTo(b[i:], 'x')
+	}
+
+	b = append(b, `"L":[`...)
 
 	for i, l := range ls {
 		if i == 0 {
@@ -428,7 +429,7 @@ func (w *JSONWriter) Labels(ls Labels) (err error) {
 		b = append(b, '"')
 	}
 
-	b = append(b, "]}\n"...)
+	b = append(b, "]}}\n"...)
 
 	w.buf = b[:0]
 
@@ -572,8 +573,13 @@ func NewProtoWriter(w io.Writer) *ProtoWriter {
 }
 
 // Labels writes Labels to the stream.
-func (w *ProtoWriter) Labels(ls Labels) (err error) {
+func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 	sz := 0
+
+	if sid != z {
+		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
+	}
+
 	for _, l := range ls {
 		q := len(l)
 		sz += 1 + varintSize(uint64(q)) + q
@@ -586,8 +592,13 @@ func (w *ProtoWriter) Labels(ls Labels) (err error) {
 
 	b = appendTagVarint(b, 1<<3|2, uint64(sz))
 
+	if sid != z {
+		b = appendTagVarint(b, 1<<3|2, uint64(len(sid)))
+		b = append(b, sid[:]...)
+	}
+
 	for _, l := range ls {
-		b = appendTagVarint(b, 1<<3|2, uint64(len(l)))
+		b = appendTagVarint(b, 2<<3|2, uint64(len(l)))
 		b = append(b, l...)
 	}
 
@@ -857,9 +868,9 @@ func NewTeeWriter(w ...Writer) TeeWriter {
 	return TeeWriter(ws)
 }
 
-func (w TeeWriter) Labels(ls Labels) (err error) {
+func (w TeeWriter) Labels(ls Labels, sid ID) (err error) {
 	for _, w := range w {
-		e := w.Labels(ls)
+		e := w.Labels(ls, sid)
 		if err == nil {
 			err = e
 		}
@@ -901,7 +912,7 @@ func (w TeeWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	return
 }
 
-func (w Discard) Labels(Labels) (err error)                    { return nil }
+func (w Discard) Labels(Labels, ID) (err error)                { return nil }
 func (w Discard) Message(Message, Span) (err error)            { return nil }
 func (w Discard) SpanStarted(Span, ID, Location) (err error)   { return nil }
 func (w Discard) SpanFinished(Span, time.Duration) (err error) { return nil }
@@ -910,9 +921,9 @@ func NewLockedWriter(w Writer) *LockedWriter {
 	return &LockedWriter{w: w}
 }
 
-func (w *LockedWriter) Labels(ls Labels) (err error) {
+func (w *LockedWriter) Labels(ls Labels, sid ID) (err error) {
 	w.mu.Lock()
-	err = w.w.Labels(ls)
+	err = w.w.Labels(ls, sid)
 	w.mu.Unlock()
 	return
 }

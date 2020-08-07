@@ -89,10 +89,10 @@ func (l Location) Format(s fmt.State, c rune) {
 	}
 
 	if !s.Flag('+') {
+		nn = filepath.Base(nn)
 		if s.Flag('#') && !s.Flag('-') {
-			nn = filepath.Ext(nn)[1:]
-		} else {
-			nn = filepath.Base(nn)
+			p := strings.IndexByte(nn, '.')
+			nn = nn[p+1:]
 		}
 	}
 
@@ -151,8 +151,10 @@ func (t Trace) Format(s fmt.State, c rune) {
 			s.Write([]byte("\n"))
 		}
 	default:
-		for _, l := range t {
-			s.Write([]byte(" at "))
+		for i, l := range t {
+			if i != 0 {
+				s.Write([]byte(" at "))
+			}
 			l.Format(s, c)
 		}
 	}

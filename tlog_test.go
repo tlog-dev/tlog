@@ -333,8 +333,8 @@ func TestVerbosity3(t *testing.T) {
 		NewNamedDumper("a", "a", NewConsoleWriter(&buf1, Lspans)),
 		NewNamedDumper("b", "b", NewConsoleWriter(&buf2, Lspans)))
 
-	l.Labels(Labels{"q"})
-	l.V("a").Labels(Labels{"a"})
+	l.SetLabels(Labels{"q"})
+	l.V("a").SetLabels(Labels{"a"})
 
 	l.Printf("unconditional")
 
@@ -378,6 +378,44 @@ a trace
 	assert.Equal(t, `b only
 b3
 `, buf2.String())
+}
+
+func TestIfVArg(t *testing.T) {
+	l := New(Discard{})
+	s := Span{
+		l:  l,
+		ID: ID{1, 2, 3},
+	}
+
+	l.SetFilter("enabled")
+
+	assert.True(t, DefaultLogger == If(true))
+	assert.Nil(t, If(false))
+
+	assert.True(t, l == l.If(true))
+	assert.Nil(t, l.If(false))
+
+	assert.True(t, s == s.If(true))
+	assert.True(t, Span{} == s.If(false))
+
+	assert.Equal(t, 1, l.IfArg(true, 1, 2))
+	assert.Equal(t, 2, l.IfArg(false, 1, 2))
+
+	assert.Equal(t, 1, s.IfArg(true, 1, 2))
+	assert.Equal(t, 2, s.IfArg(false, 1, 2))
+
+	assert.Equal(t, 1, l.VArg("enabled", 1, 2))
+	assert.Equal(t, 2, l.VArg("disabled", 1, 2))
+	assert.Equal(t, 2, ((*Logger)(nil)).VArg("enabled", 1, 2))
+
+	assert.Equal(t, 1, s.VArg("enabled", 1, 2))
+	assert.Equal(t, 2, s.VArg("disabled", 1, 2))
+	assert.Equal(t, 2, Span{}.VArg("disabled", 1, 2))
+
+	assert.True(t, l.Valid())
+
+	l = nil
+	assert.False(t, l.Valid())
 }
 
 func TestSetFilter(t *testing.T) {
@@ -531,6 +569,12 @@ func TestIDFromMustShould(t *testing.T) {
 
 	assert.Panics(t, func() { MustIDFromString("1234567") })
 
+	b := make([]byte, len(id)*2)
+	id.FormatTo(b, 'x')
+	b[10] = 'g'
+
+	assert.Panics(t, func() { MustIDFromString(string(b)) })
+
 	res = MustIDFromString(ID{}.FullString())
 	assert.Equal(t, z, res)
 
@@ -564,9 +608,11 @@ func TestJSONWriterSpans(t *testing.T) {
 	w := NewJSONWriter(&buf)
 	l := New(w)
 
-	l.Labels(Labels{"a=b", "f"})
+	l.SetLabels(Labels{"a=b", "f"})
 
 	tr := l.Start()
+
+	tr.SetLabels(Labels{"a=d", "g"})
 
 	tr1 := l.Spawn(tr.ID)
 
@@ -576,9 +622,10 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr.Finish()
 
-	re := `{"L":\["a=b","f"\]}
+	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":24414329234375000,"l":\d+}}
+{"L":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","L":\["a=d","g"\]}}
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":24414329250000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
 {"l":{"p":\d+,"f":"[\w.-/]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":15625000,"l":\d+,"m":"message 2"}}
@@ -625,9 +672,9 @@ func TestCoverUncovered(t *testing.T) {
 
 	SetLabels(Labels{"a", "q"})
 
-	assert.Equal(t, `{"L":["a","q"]}`+"\n", buf.String())
+	assert.Equal(t, `{"L":{"L":["a","q"]}}`+"\n", buf.String())
 
-	(*Logger)(nil).Labels(Labels{"a"})
+	(*Logger)(nil).SetLabels(Labels{"a"})
 
 	assert.Equal(t, "", DefaultLogger.NamedFilter("qq"))
 
@@ -639,8 +686,13 @@ func TestCoverUncovered(t *testing.T) {
 	ID{0xaa, 0xbb, 0xcc, 0x44, 0x55}.FormatTo(b, 'X')
 	assert.Equal(t, "AABBCC44", string(b))
 
+	ID{}.FormatTo(b, 'x')
+	assert.Equal(t, "00000000", string(b))
+
 	id := stdRandID()
 	assert.NotZero(t, id)
+
+	assert.True(t, zeroTime == Message{}.AbsTime())
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {

@@ -40,7 +40,7 @@ func main() {
 	defer cl()
 
 	lab := tlog.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "myflag")
-	ll.Labels(lab)
+	ll.SetLabels(lab)
 	ll.Printf("os.Args: %v", os.Args)
 
 	ll.Printf("main: %d", *f)
