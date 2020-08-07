@@ -60,8 +60,10 @@ func TestLocationStackTraceFormat(t *testing.T) {
 
 	assert.Equal(t, "testStackTraceInside.func1:24 at testStackTraceInside:25 at TestLocationStackTraceFormat.func1.1:55", fmt.Sprintf("%#v", st))
 
-	assert.Equal(t, `at github.com/nikandfor/tlog/location_stacktrace_test.go:24
-at github.com/nikandfor/tlog/location_stacktrace_test.go:25
-at github.com/nikandfor/tlog/location_stacktrace_test.go:55
-`, fmt.Sprintf("%+v", st))
+	re := `at [\w.-/]*location_stacktrace_test.go:24
+at [\w.-/]*location_stacktrace_test.go:25
+at [\w.-/]*location_stacktrace_test.go:55
+`
+	v := fmt.Sprintf("%+v", st)
+	assert.True(t, regexp.MustCompile(re).MatchString(v), "expected:\n%vgot:\n%v", re, v)
 }
