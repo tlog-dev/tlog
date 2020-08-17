@@ -25,6 +25,8 @@ type (
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger methods can be called simultaneously.
 	Logger struct {
+		mu *sync.Mutex
+
 		ws    []NamedWriter
 		wsbuf [3]NamedWriter
 
@@ -36,6 +38,9 @@ type (
 		//     log.SetOutput(l) // stdlib.
 		// Have effect on Write function only.
 		DepthCorrection int
+
+		rnd    *rand.Rand
+		randID func() ID
 	}
 
 	// NamedWriter is an Writer guarded by filter (Logger.V("topic")).
@@ -107,18 +112,18 @@ const ( // console writer flags
 	Lnone        = 0
 )
 
-var ( // testable time, rand
-	now    = time.Now
-	mu     sync.Mutex
-	randID = stdRandID
-	rnd    = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
-)
+var now = time.Now
 
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 
 // New creates new Logger with given writers.
 func New(ws ...interface{}) *Logger {
-	l := &Logger{}
+	l := &Logger{
+		mu:  &sync.Mutex{},
+		rnd: rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec
+	}
+	l.randID = l.stdRandID
+
 	l.ws = l.wsbuf[:0]
 
 	l.AppendWriter(ws...)
@@ -280,7 +285,7 @@ func newlabels(l *Logger, sid ID, ls Labels) {
 		return
 	}
 
-	mu.Lock()
+	l.mu.Lock()
 
 	for _, w := range l.ws {
 		if w.verbosed && !l.verbosed {
@@ -289,7 +294,7 @@ func newlabels(l *Logger, sid ID, ls Labels) {
 		_ = w.w.Labels(ls, sid)
 	}
 
-	mu.Unlock()
+	l.mu.Unlock()
 }
 
 func newspan(l *Logger, par ID) Span {
@@ -303,9 +308,9 @@ func newspan(l *Logger, par ID) Span {
 		Started: now(),
 	}
 
-	mu.Lock()
+	l.mu.Lock()
 
-	s.ID = randID()
+	s.ID = l.randID()
 
 	for _, w := range l.ws {
 		if w.verbosed && !l.verbosed {
@@ -314,7 +319,7 @@ func newspan(l *Logger, par ID) Span {
 		_ = w.w.SpanStarted(s, par, loc)
 	}
 
-	mu.Unlock()
+	l.mu.Unlock()
 
 	return s
 }
@@ -331,7 +336,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 		loc = Caller(d + 2)
 	}
 
-	mu.Lock()
+	l.mu.Lock()
 
 	for _, w := range l.ws {
 		if w.verbosed && !l.verbosed {
@@ -348,7 +353,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 		)
 	}
 
-	mu.Unlock()
+	l.mu.Unlock()
 }
 
 // Start creates new root trace.
@@ -488,14 +493,14 @@ func (l *Logger) VArg(tp string, a, b interface{}) interface{} {
 
 	any := false
 
-	mu.Lock()
+	l.mu.Lock()
 
 	for _, w := range l.ws {
 		ok := w.filter.matchFilter(Caller(1), tp)
 		any = any || ok
 	}
 
-	mu.Unlock()
+	l.mu.Unlock()
 
 	if !any {
 		return b
@@ -520,7 +525,7 @@ func (l *Logger) v(tp string) *Logger {
 
 	any := false
 
-	mu.Lock()
+	l.mu.Lock()
 
 	for _, w := range l.ws {
 		ok := w.filter.match(tp)
@@ -528,15 +533,18 @@ func (l *Logger) v(tp string) *Logger {
 	}
 
 	if !any {
-		mu.Unlock()
+		l.mu.Unlock()
 
 		return nil
 	}
 
 	sl := &Logger{
+		mu:              l.mu,
 		verbosed:        true,
 		NoLocations:     l.NoLocations,
 		DepthCorrection: l.DepthCorrection,
+		rnd:             l.rnd,
+		randID:          l.randID,
 	}
 	sl.ws = sl.wsbuf[:0]
 
@@ -546,7 +554,7 @@ func (l *Logger) v(tp string) *Logger {
 		}
 	}
 
-	mu.Unlock()
+	l.mu.Unlock()
 
 	return sl
 }
@@ -570,7 +578,7 @@ func (l *Logger) SetNamedFilter(name, filters string) {
 		return
 	}
 
-	mu.Lock()
+	l.mu.Lock()
 
 	for i, w := range l.ws {
 		if w.name != name {
@@ -580,7 +588,7 @@ func (l *Logger) SetNamedFilter(name, filters string) {
 		l.ws[i].filter = newFilter(filters)
 	}
 
-	mu.Unlock()
+	l.mu.Unlock()
 }
 
 // Filter returns current verbosity filter value for default filter.
@@ -598,8 +606,8 @@ func (l *Logger) NamedFilter(name string) string {
 		return ""
 	}
 
-	defer mu.Unlock()
-	mu.Lock()
+	defer l.mu.Unlock()
+	l.mu.Lock()
 
 	for _, w := range l.ws {
 		if w.name != name {
@@ -643,14 +651,14 @@ func (s Span) VArg(tp string, a, b interface{}) interface{} {
 
 	any := false
 
-	mu.Lock()
+	s.l.mu.Lock()
 
 	for _, w := range s.l.ws {
 		ok := w.filter.matchFilter(Caller(1), tp)
 		any = any || ok
 	}
 
-	mu.Unlock()
+	s.l.mu.Unlock()
 
 	if !any {
 		return b
@@ -719,7 +727,7 @@ func (s Span) Finish() {
 
 	el := now().Sub(s.Started)
 
-	mu.Lock()
+	s.l.mu.Lock()
 
 	for _, w := range s.l.ws {
 		if w.verbosed && !s.l.verbosed {
@@ -728,7 +736,7 @@ func (s Span) Finish() {
 		_ = w.w.SpanFinished(s, el)
 	}
 
-	mu.Unlock()
+	s.l.mu.Unlock()
 }
 
 // Valid checks if Span was initialized.
@@ -877,9 +885,14 @@ func (i ID) FormatTo(b []byte, f rune) {
 	}
 }
 
-func stdRandID() (id ID) {
-	for id == z {
-		_, _ = rnd.Read(id[:])
+func (l *Logger) stdRandID() (id ID) {
+	if l == nil {
+		return
 	}
+
+	for id == z {
+		_, _ = l.rnd.Read(id[:])
+	}
+
 	return
 }

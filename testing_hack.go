@@ -12,8 +12,7 @@ type testingWriter struct {
 }
 
 func newTestingWriter(t testing.TB) testingWriter {
-	v := reflect.ValueOf(t).Pointer()
-	return testingWriter{t: unsafe.Pointer(v)}
+	return testingWriter{t: unsafe.Pointer(reflect.ValueOf(t).Pointer())}
 }
 
 func (t testingWriter) Write(p []byte) (int, error) {

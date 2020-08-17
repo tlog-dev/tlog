@@ -42,14 +42,13 @@ func TestTlogParallel(t *testing.T) {
 	const M = 10
 	const N = 2
 
-	randID = testRandID()
-
-	var buf bytes.Buffer
-
 	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
+
+	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
+	DefaultLogger.randID = testRandID()
 
 	var wg sync.WaitGroup
 	wg.Add(M)
@@ -81,6 +80,7 @@ func TestPanicf(t *testing.T) {
 
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
+	DefaultLogger.randID = testRandID()
 
 	assert.Panics(t, func() {
 		Panicf("panic! %v", 1)
@@ -259,7 +259,6 @@ func TestVerbosity2(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
-	randID = testRandID()
 
 	var buf0, buf1, buf2 bytes.Buffer
 
@@ -267,6 +266,7 @@ func TestVerbosity2(t *testing.T) {
 		NewConsoleWriter(&buf0, Lspans),
 		NewNamedWriter("a", "a", NewConsoleWriter(&buf1, Lspans)),
 		NewNamedWriter("b", "b", NewConsoleWriter(&buf2, Lspans)))
+	l.randID = testRandID()
 
 	l.Printf("unconditional")
 
@@ -327,7 +327,6 @@ func TestVerbosity3(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
-	randID = testRandID()
 
 	var buf0, buf1, buf2 bytes.Buffer
 
@@ -335,6 +334,7 @@ func TestVerbosity3(t *testing.T) {
 		NewConsoleWriter(&buf0, Lspans),
 		NewNamedDumper("a", "a", NewConsoleWriter(&buf1, Lspans)),
 		NewNamedDumper("b", "b", NewConsoleWriter(&buf2, Lspans)))
+	l.randID = testRandID()
 
 	l.SetLabels(Labels{"q"})
 	l.V("a").SetLabels(Labels{"a"})
@@ -602,11 +602,11 @@ func TestJSONWriterSpans(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
-	randID = testRandID()
 
 	var buf bytes.Buffer
 	w := NewJSONWriter(&buf)
 	l := New(w)
+	l.randID = testRandID()
 
 	l.SetLabels(Labels{"a=b", "f"})
 
@@ -689,7 +689,7 @@ func TestCoverUncovered(t *testing.T) {
 	ID{}.FormatTo(b, 'x')
 	assert.Equal(t, "00000000", string(b))
 
-	id := stdRandID()
+	id := DefaultLogger.stdRandID()
 	assert.NotZero(t, id)
 
 	assert.True(t, zeroTime == Message{}.Time)

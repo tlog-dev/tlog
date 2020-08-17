@@ -100,10 +100,10 @@ func TestConsoleWriterSpans(t *testing.T) {
 		tm = tm.Add(time.Second)
 		return tm
 	}
-	randID = testRandID()
 
 	w := NewConsoleWriter(ioutil.Discard, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
+	l.randID = testRandID()
 
 	l.SetLabels(Labels{"a=b", "f"})
 

@@ -19,9 +19,14 @@ func ContextWithID(ctx context.Context, id ID) context.Context {
 // ContextWithRandomID creates new context with random Span ID context.Value.
 // May be useful to enable logging in submudules even if parent trace is not started.
 func ContextWithRandomID(ctx context.Context) context.Context {
-	mu.Lock()
-	id := randID()
-	mu.Unlock()
+	if DefaultLogger == nil {
+		return ctx
+	}
+
+	DefaultLogger.mu.Lock()
+	id := DefaultLogger.randID()
+	DefaultLogger.mu.Unlock()
+
 	return context.WithValue(ctx, key{}, id)
 }
 
@@ -29,10 +34,9 @@ func ContextWithRandomID(ctx context.Context) context.Context {
 // If id is zero new random ID is generated.
 func ContextWithIDOrRandom(ctx context.Context, id ID) context.Context {
 	if id == z {
-		mu.Lock()
-		id = randID()
-		mu.Unlock()
+		return ContextWithRandomID(ctx)
 	}
+
 	return context.WithValue(ctx, key{}, id)
 }
 

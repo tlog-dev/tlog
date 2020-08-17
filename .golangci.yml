@@ -17,15 +17,16 @@ linters-settings:
   depguard:
     list-type: whitelist
     packages:
+      - github.com/beorn7/perks/quantile
+      - github.com/golang/glog
+      - github.com/golang/protobuf/proto
+      - github.com/nikandfor/cli
+      - github.com/nikandfor/errors
+      - github.com/nikandfor/json
+      - github.com/nikandfor/tlog
+      - github.com/nikandfor/xrain
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
-      - github.com/beorn7/perks/quantile
-      - github.com/nikandfor/json
-      - github.com/nikandfor/cli
-      - github.com/nikandfor/tlog
-      - github.com/nikandfor/errors
-      - github.com/golang/protobuf/proto
-      - github.com/golang/glog
       - google.golang.org/protobuf
   misspell:
     locale: US

@@ -12,10 +12,10 @@ func TestContextWithID(t *testing.T) {
 	defer func(old *Logger) {
 		DefaultLogger = old
 	}(DefaultLogger)
-	randID = testRandID()
 
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
+	DefaultLogger.randID = testRandID()
 
 	ctx := ContextWithID(context.Background(), z)
 	tr := SpawnFromContext(ctx)
@@ -53,10 +53,10 @@ func TestContextWithSpan(t *testing.T) {
 	defer func(old *Logger) {
 		DefaultLogger = old
 	}(DefaultLogger)
-	randID = testRandID()
 
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
+	DefaultLogger.randID = testRandID()
 
 	id := ID{10, 20}
 
@@ -95,10 +95,10 @@ func TestContextWithRandom(t *testing.T) {
 	defer func(old *Logger) {
 		DefaultLogger = old
 	}(DefaultLogger)
-	randID = testRandID()
 
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
+	DefaultLogger.randID = testRandID()
 
 	id := ID{10, 20}
 

@@ -36,7 +36,7 @@ var AutoLabels = map[string]func() string{
 		return filepath.Base(os.Args[0])
 	},
 	"_randid": func() string {
-		return randID().FullString()
+		return DefaultLogger.randID().FullString()
 	},
 }
 
