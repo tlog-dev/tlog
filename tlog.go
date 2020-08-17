@@ -57,7 +57,7 @@ type (
 	// Message is an Log event.
 	Message struct {
 		Location Location
-		Time     time.Duration
+		Time     time.Time
 		Format   string
 		Args     []interface{}
 	}
@@ -324,12 +324,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 		return
 	}
 
-	var t time.Duration
-	if s.l == nil {
-		t = time.Duration(now().UnixNano())
-	} else {
-		t = now().Sub(s.Started)
-	}
+	t := now()
 
 	var loc Location
 	if !l.NoLocations {
@@ -880,15 +875,6 @@ func (i ID) FormatTo(b []byte, f rune) {
 			b[j+1] = dg[i[j>>1]&0xf]
 		}
 	}
-}
-
-// AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time.
-func (m Message) AbsTime() (t time.Time) {
-	if m.Time == 0 {
-		return
-	}
-
-	return time.Unix(0, int64(m.Time))
 }
 
 func stdRandID() (id ID) {

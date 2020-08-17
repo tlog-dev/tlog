@@ -17,7 +17,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	const Prefix = "github.com/nikandfor/tlog/"
 
 	var buf bytes.Buffer
-	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.UTC)
+	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.Local)
 	now := func() time.Time {
 		tm = tm.Add(time.Second)
 		return tm
@@ -29,7 +29,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
-		Time:     time.Duration(now().UnixNano()),
+		Time:     now(),
 		Format:   "%v",
 		Args:     []interface{}{3},
 	}, tlog.Span{})
@@ -41,7 +41,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
-		Time:     time.Duration(now().UnixNano()),
+		Time:     now(),
 		Format:   "%v",
 		Args:     []interface{}{5},
 	}, tlog.Span{ID: ID{1}})
@@ -95,7 +95,6 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			o = t
 		case SpanStart:
 			t.Location = locs[t.Location]
-			t.Started = t.Started.UTC()
 			o = t
 		}
 
@@ -106,7 +105,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		return
 	}
 
-	tm = time.Date(2019, 7, 31, 18, 21, 2, 0, time.UTC)
+	tm = time.Date(2019, 7, 31, 18, 21, 2, 0, time.Local)
 
 	assert.Equal(t, []interface{}{
 		Labels{Labels: tlog.Labels{"a", "b=c"}, Span: ID{1, 2, 3, 4}},
@@ -120,7 +119,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Message{
 			Span:     ID{},
 			Location: 1,
-			Time:     time.Duration(now().UnixNano()),
+			Time:     now(),
 			Text:     "3",
 		},
 		Location{
@@ -146,7 +145,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Message{
 			Span:     ID{1},
 			Location: 3,
-			Time:     time.Duration(now().UnixNano()),
+			Time:     now(),
 			Text:     "5",
 		},
 		Location{

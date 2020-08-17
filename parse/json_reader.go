@@ -204,7 +204,7 @@ func (r *JSONReader) Message() (m Message, err error) {
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
-			m.Time = time.Duration(v)
+			m.Time = time.Unix(0, v)
 		case 's':
 			m.Span, err = r.id()
 			if err != nil {

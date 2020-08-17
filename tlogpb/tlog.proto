@@ -28,15 +28,15 @@ message Location {
 message Message {
     bytes span     = 1;
     int64 location = 2;
-    int64 time     = 3;
+    sfixed64 time  = 3;
     string text    = 4;
 }
 
 message SpanStart {
-    bytes id       = 1;
-    bytes parent   = 2;
-    int64 location = 3;
-    int64 started  = 4;
+    bytes id         = 1;
+    bytes parent     = 2;
+    int64 location   = 3;
+    sfixed64 started = 4;
 }
 
 message SpanFinish {

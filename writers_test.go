@@ -184,7 +184,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Duration(2),
+			Time:     time.Unix(2, 0),
 			Format:   "%v",
 			Args:     []interface{}{4},
 		},
@@ -209,7 +209,7 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
-		Time:     2,
+		Time:     time.Unix(2, 0).UnixNano(),
 		Text:     "4",
 	}})
 	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
@@ -287,7 +287,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Duration(2),
+			Time:     time.Unix(2, 0),
 			Format:   string(make([]byte, 1000)),
 		},
 		Span{ID: id},
@@ -295,11 +295,12 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
-		Time:     2,
+		Time:     time.Unix(2, 0).UnixNano(),
 		Text:     string(make([]byte, 1000)),
 	}})
-	assert.Equal(t, pbuf, buf.Bytes())
-	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+	if !assert.Equal(t, pbuf, buf.Bytes()) {
+		t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+	}
 }
 
 func TestLockedWriter(t *testing.T) {
@@ -323,13 +324,13 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, z)
-	_ = w.Message(Message{Location: loc, Format: "msg"}, Span{})
+	_ = w.Message(Message{Location: loc, Format: "msg", Time: time.Unix(1, 0)}, Span{})
 	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, fe)
 	_ = w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
-{"m":{"t":0,"l":\d+,"m":"msg"}}
+{"m":{"t":1000000000,"l":\d+,"m":"msg"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
 {"s":{"i":"64000000000000000000000000000000","s":1562408312000000000,"l":\d+}}
 {"f":{"i":"64000000000000000000000000000000","e":1000000000}}
@@ -361,7 +362,7 @@ func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = w.Message(Message{
 			Location: l,
-			Time:     time.Second,
+			Time:     time.Unix(1, 0),
 			Format:   "some message",
 		}, Span{})
 	}
@@ -377,7 +378,7 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = w.Message(Message{
 			Location: l,
-			Time:     time.Second,
+			Time:     time.Unix(1, 0),
 			Format:   "some message",
 		}, Span{})
 	}
@@ -393,7 +394,7 @@ func BenchmarkWriterProtoMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = w.Message(Message{
 			Location: l,
-			Time:     time.Second,
+			Time:     time.Unix(1, 0),
 			Format:   "some message",
 		}, Span{})
 	}

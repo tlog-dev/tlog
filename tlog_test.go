@@ -628,7 +628,7 @@ func TestJSONWriterSpans(t *testing.T) {
 {"L":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","L":\["a=d","g"\]}}
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":1562517072000000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1000000000,"l":\d+,"m":"message 2"}}
+{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":2000000000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":4000000000}}
 `
@@ -692,7 +692,7 @@ func TestCoverUncovered(t *testing.T) {
 	id := stdRandID()
 	assert.NotZero(t, id)
 
-	assert.True(t, zeroTime == Message{}.AbsTime())
+	assert.True(t, zeroTime == Message{}.Time)
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {
@@ -729,47 +729,59 @@ func BenchmarkLogLoggerDetailed(b *testing.B) {
 func BenchmarkTlogConsoleDetailed(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags))
+	var w CountableDiscard
+	l := New(NewConsoleWriter(&w, LdetFlags))
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
 	}
+
+	b.ReportMetric(float64(w.N/b.N), "B/cycle")
 }
 
 func BenchmarkTlogTracesConsoleDetailed(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags|Lspans))
+	var w CountableDiscard
+	l := New(NewConsoleWriter(&w, LdetFlags|Lspans))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
 		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
 		tr.Finish()
 	}
+
+	b.ReportMetric(float64(w.N/b.N), "B/cycle")
 }
 
 func BenchmarkTlogTracesJSON(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewJSONWriter(ioutil.Discard))
+	var w CountableDiscard
+	l := New(NewJSONWriter(&w))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
 		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
 		tr.Finish()
 	}
+
+	b.ReportMetric(float64(w.N/b.N), "B/cycle")
 }
 
 func BenchmarkTlogTracesProto(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(NewProtoWriter(ioutil.Discard))
+	var w CountableDiscard
+	l := New(NewProtoWriter(&w))
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
 		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
 		tr.Finish()
 	}
+
+	b.ReportMetric(float64(w.N/b.N), "B/cycle")
 }
 
 func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
@@ -956,4 +968,14 @@ func TestTlogGrandParallel(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+type CountableDiscard struct {
+	N int
+}
+
+func (w *CountableDiscard) Write(p []byte) (int, error) {
+	w.N += len(p)
+
+	return len(p), nil
 }

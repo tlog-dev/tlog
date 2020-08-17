@@ -37,10 +37,10 @@ type (
 	}
 
 	Message struct {
-		Span     ID            `json:"s"`
-		Location uintptr       `json:"l"`
-		Time     time.Duration `json:"t"`
-		Text     string        `json:"m"`
+		Span     ID        `json:"s"`
+		Location uintptr   `json:"l"`
+		Time     time.Time `json:"t"`
+		Text     string    `json:"m"`
 	}
 
 	Type rune

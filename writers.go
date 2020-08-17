@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"encoding/binary"
 	"io"
 	"path"
 	"path/filepath"
@@ -283,14 +284,7 @@ func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 
 // Message writes Message event by single Write.
 func (w *ConsoleWriter) Message(m Message, s Span) (err error) {
-	var t time.Time
-	if s.Started != zeroTime {
-		t = s.Started.Add(m.Time)
-	} else {
-		t = m.AbsTime()
-	}
-
-	w.buildHeader(m.Location, t)
+	w.buildHeader(m.Location, m.Time)
 
 	if w.f&Lmessagespan != 0 {
 		i := len(w.buf)
@@ -386,7 +380,7 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	return w.Message(
 		Message{
 			Location: buf[i],
-			Time:     time.Duration(now().UnixNano()),
+			Time:     now(),
 			Format:   "Labels: %q",
 			Args:     []interface{}{ls},
 		},
@@ -454,7 +448,7 @@ func (w *JSONWriter) Message(m Message, s Span) (err error) {
 	}
 
 	b = append(b, `"t":`...)
-	b = strconv.AppendInt(b, m.Time.Nanoseconds(), 10)
+	b = strconv.AppendInt(b, m.Time.UnixNano(), 10)
 
 	if m.Location != 0 {
 		b = append(b, `,"l":`...)
@@ -632,7 +626,7 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 	if m.Location != 0 {
 		sz += 1 + varintSize(uint64(m.Location))
 	}
-	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()))
+	sz += 1 + 8 // m.Time
 	sz += 1 + varintSize(uint64(l)) + l
 
 	szs := varintSize(uint64(sz))
@@ -659,7 +653,8 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 		b = appendTagVarint(b, 2<<3|0, uint64(m.Location)) //nolint:staticcheck
 	}
 
-	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds())) //nolint:staticcheck
+	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time.UnixNano()))
 
 	b = appendTagVarint(b, 4<<3|2, uint64(l))
 
@@ -687,7 +682,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	if loc != 0 {
 		sz += 1 + varintSize(uint64(loc))
 	}
-	sz += 1 + varintSize(uint64(s.Started.UnixNano()))
+	sz += 1 + 8 // s.Started
 
 	b := w.buf
 	szs := varintSize(uint64(sz))
@@ -707,7 +702,8 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 		b = appendTagVarint(b, 3<<3|0, uint64(loc)) //nolint:staticcheck
 	}
 
-	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano())) //nolint:staticcheck
+	b = append(b, 4<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(s.Started.UnixNano()))
 
 	w.buf = b[:0]
 

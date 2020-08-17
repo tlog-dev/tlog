@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"time"
@@ -222,12 +223,8 @@ func (r *ProtoReader) Message() (m Message, err error) {
 				return m, err
 			}
 			m.Location = uintptr(x)
-		case 3<<3 | 0: //nolint:staticcheck
-			x, err := r.varint64()
-			if err != nil {
-				return m, err
-			}
-			m.Time = time.Duration(x)
+		case 3<<3 | 1:
+			m.Time = time.Unix(0, r.time())
 		case 4<<3 | 2:
 			m.Text, err = r.string()
 			if err != nil {
@@ -271,12 +268,8 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 				return s, err
 			}
 			s.Location = uintptr(x)
-		case 4<<3 | 0: //nolint:staticcheck
-			x, err := r.varint64()
-			if err != nil {
-				return s, err
-			}
-			s.Started = time.Unix(0, x)
+		case 4<<3 | 1:
+			s.Started = time.Unix(0, r.time())
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
 				return s, err
@@ -398,6 +391,12 @@ func (r *ProtoReader) varint64() (x int64, err error) {
 		x |= int64(c&0x7f) << s
 		s += 7
 	}
+}
+
+func (r *ProtoReader) time() (t int64) {
+	t = int64(binary.LittleEndian.Uint64(r.buf[r.i:]))
+	r.i += 8
+	return
 }
 
 func (r *ProtoReader) more(s int) error {
