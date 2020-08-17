@@ -902,7 +902,7 @@ func (i *ID) UnmarshalJSON(b []byte) error {
 		return errors.New("bad format")
 	}
 
-	q, err := IDFromString(string(b))
+	q, err := IDFromString(string(b[1 : len(b)-1]))
 	if err != nil {
 		return err
 	}
