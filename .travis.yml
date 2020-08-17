@@ -1,9 +1,5 @@
 language: go
 
-env:
-  global:
-    - GO111MODULE=on
-
 os:
   - linux
   - osx
@@ -16,7 +12,6 @@ go:
   - "1.15"
   - "1.14"
   - "1.13"
-  - "1.12"
 
 jobs:
   include:
