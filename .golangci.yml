@@ -26,6 +26,7 @@ linters-settings:
       - github.com/nikandfor/errors
       - github.com/golang/protobuf/proto
       - github.com/golang/glog
+      - google.golang.org/protobuf
   misspell:
     locale: US
   lll:

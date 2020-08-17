@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/nikandfor/tlog/tlogpb"
 )
@@ -138,53 +139,42 @@ func TestConsoleWriterSpans(t *testing.T) {
 }
 
 func TestProtoAppendVarint(t *testing.T) {
-	var pbuf proto.Buffer
+	var pbuf []byte
 
 	for i := uint(0); i < 64; i++ {
 		b := appendVarint(nil, uint64(1<<i))
 
-		pbuf.Reset()
-		err := pbuf.EncodeVarint(uint64(1 << i))
-		if !assert.NoError(t, err) {
-			break
-		}
+		pbuf = protowire.AppendVarint(pbuf[:0], uint64(1<<i))
 
-		assert.Equal(t, pbuf.Bytes(), b, "%x", uint64(1<<i))
+		assert.Equal(t, pbuf, b, "%x", uint64(1<<i))
 	}
 }
 
 func TestProtoAppendTagVarint(t *testing.T) {
-	var pbuf proto.Buffer
+	var pbuf []byte
 
 	for i := uint(0); i < 64; i++ {
 		b := appendTagVarint(nil, 0x77, uint64(1<<i))
 
-		pbuf.Reset()
-		err := pbuf.EncodeVarint(uint64(0x77))
-		if !assert.NoError(t, err) {
-			break
-		}
-		err = pbuf.EncodeVarint(uint64(1 << i))
-		if !assert.NoError(t, err) {
-			break
-		}
+		pbuf = protowire.AppendVarint(pbuf[:0], 0x77)
+		pbuf = protowire.AppendVarint(pbuf, uint64(1<<i))
 
-		assert.Equal(t, pbuf.Bytes(), b, "%x", uint64(1<<i))
+		assert.Equal(t, pbuf, b, "%x", uint64(1<<i))
 	}
 }
 
 func TestProtoWriter(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewProtoWriter(&buf)
-	var pbuf proto.Buffer
+	var pbuf []byte
 
 	_ = w.Labels(Labels{"a", "b=c"}, z)
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{Labels: []string{"a", "b=c"}}})
-	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
-	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
+	pbuf = encode(pbuf[:0], &tlogpb.Record{Labels: &tlogpb.Labels{Labels: []string{"a", "b=c"}}})
+	assert.Equal(t, pbuf, buf.Bytes())
+	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
 
 	buf.Reset()
-	pbuf.Reset()
+	pbuf = pbuf[:0]
 
 	loc := Caller(-1)
 	name, file, line := loc.NameFileLine()
@@ -200,33 +190,33 @@ func TestProtoWriter(t *testing.T) {
 		},
 		Span{ID: id},
 	)
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
+	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
 		Pc:    int64(loc),
 		Entry: int64(loc.Entry()),
 		Name:  name,
 		File:  file,
 		Line:  int32(line),
 	}})
-	l := len(pbuf.Bytes())
+	l := len(pbuf)
 	if l > buf.Len() {
-		assert.Equal(t, pbuf.Bytes(), buf.Bytes())
+		assert.Equal(t, pbuf, buf.Bytes())
 		return
 	}
 
-	assert.Equal(t, pbuf.Bytes(), buf.Bytes()[:l])
-	t.Logf("Location:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf.Bytes()))
+	assert.Equal(t, pbuf, buf.Bytes()[:l])
+	t.Logf("Location:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf))
 
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Message: &tlogpb.Message{
+	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
 		Time:     2,
 		Text:     "4",
 	}})
-	assert.Equal(t, pbuf.Bytes()[l:], buf.Bytes()[l:])
-	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf.Bytes()[l:]))
+	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
+	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf[l:]))
 
 	buf.Reset()
-	pbuf.Reset()
+	pbuf = pbuf[:0]
 	delete(w.ls, loc)
 
 	id = ID{5, 15, 25, 35}
@@ -240,43 +230,43 @@ func TestProtoWriter(t *testing.T) {
 		par,
 		loc,
 	)
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Location: &tlogpb.Location{
+	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
 		Pc:    int64(loc),
 		Entry: int64(loc.Entry()),
 		Name:  name,
 		File:  file,
 		Line:  int32(line),
 	}})
-	l = len(pbuf.Bytes())
+	l = len(pbuf)
 	if l > buf.Len() {
-		assert.Equal(t, pbuf.Bytes(), buf.Bytes())
+		assert.Equal(t, pbuf, buf.Bytes())
 		return
 	}
 
-	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanStart: &tlogpb.SpanStart{
+	pbuf = encode(pbuf, &tlogpb.Record{SpanStart: &tlogpb.SpanStart{
 		Id:       id[:],
 		Parent:   par[:],
 		Location: int64(loc),
 		Started:  2,
 	}})
-	assert.Equal(t, pbuf.Bytes()[l:], buf.Bytes()[l:])
-	t.Logf("SpanStart:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf.Bytes()[l:]))
+	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
+	t.Logf("SpanStart:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf[l:]))
 
 	buf.Reset()
-	pbuf.Reset()
+	pbuf = pbuf[:0]
 
 	_ = w.Labels(Labels{"b=d", "d"}, id)
 
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{
+	pbuf = encode(pbuf, &tlogpb.Record{Labels: &tlogpb.Labels{
 		Span:   id[:],
 		Labels: []string{"b=d", "d"},
 	}})
 
-	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
-	t.Logf("Span Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
+	assert.Equal(t, pbuf, buf.Bytes())
+	t.Logf("Span Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
 
 	buf.Reset()
-	pbuf.Reset()
+	pbuf = pbuf[:0]
 
 	_ = w.SpanFinished(
 		Span{
@@ -284,15 +274,15 @@ func TestProtoWriter(t *testing.T) {
 		},
 		time.Second,
 	)
-	_ = pbuf.EncodeMessage(&tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
+	pbuf = encode(pbuf, &tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      id[:],
 		Elapsed: time.Second.Nanoseconds() >> TimeReduction,
 	}})
-	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
-	t.Logf("SpanFinish:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
+	assert.Equal(t, pbuf, buf.Bytes())
+	t.Logf("SpanFinish:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
 
 	buf.Reset()
-	pbuf.Reset()
+	pbuf = pbuf[:0]
 
 	_ = w.Message(
 		Message{
@@ -302,14 +292,14 @@ func TestProtoWriter(t *testing.T) {
 		},
 		Span{ID: id},
 	)
-	_ = pbuf.EncodeMessage(&tlogpb.Record{Message: &tlogpb.Message{
+	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
 		Time:     2,
 		Text:     string(make([]byte, 1000)),
 	}})
-	assert.Equal(t, pbuf.Bytes()[l:], buf.Bytes()[l:])
-	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf.Bytes()[l:]))
+	assert.Equal(t, pbuf, buf.Bytes())
+	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
 }
 
 func TestLockedWriter(t *testing.T) {
@@ -407,4 +397,19 @@ func BenchmarkWriterProtoMessage(b *testing.B) {
 			Format:   "some message",
 		}, Span{})
 	}
+}
+
+func encode(pbuf []byte, m proto.Message) []byte {
+	pbuf = protowire.AppendVarint(pbuf, uint64(proto.Size(m)))
+
+	var err error
+	pbuf, err = proto.MarshalOptions{
+		Deterministic: true,
+	}.MarshalAppend(pbuf, m)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return pbuf
 }
