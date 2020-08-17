@@ -73,9 +73,9 @@ func TestPanicf(t *testing.T) {
 	}(DefaultLogger)
 	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
 
-	now = func() time.Time {
+	now = func() int64 {
 		tm = tm.Add(time.Second)
-		return tm
+		return tm.UnixNano()
 	}
 
 	var buf bytes.Buffer
@@ -177,13 +177,13 @@ raw message 3
 
 //nolint:wsl
 func TestVerbosity(t *testing.T) {
-	defer func(old func() time.Time) {
+	defer func(old func() int64) {
 		now = old
 	}(now)
 	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
-	now = func() time.Time {
+	now = func() int64 {
 		tm = tm.Add(time.Second)
-		return tm
+		return tm.UnixNano()
 	}
 
 	assert.Equal(t, "", (*Logger)(nil).Filter())
@@ -251,13 +251,13 @@ trace conditioned message 2
 }
 
 func TestVerbosity2(t *testing.T) {
-	defer func(old func() time.Time) {
+	defer func(old func() int64) {
 		now = old
 	}(now)
 	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
-	now = func() time.Time {
+	now = func() int64 {
 		tm = tm.Add(time.Second)
-		return tm
+		return tm.UnixNano()
 	}
 
 	var buf0, buf1, buf2 bytes.Buffer
@@ -319,13 +319,13 @@ unconditional 2
 }
 
 func TestVerbosity3(t *testing.T) {
-	defer func(old func() time.Time) {
+	defer func(old func() int64) {
 		now = old
 	}(now)
 	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
-	now = func() time.Time {
+	now = func() int64 {
 		tm = tm.Add(time.Second)
-		return tm
+		return tm.UnixNano()
 	}
 
 	var buf0, buf1, buf2 bytes.Buffer
@@ -594,13 +594,13 @@ func TestIDFromMustShould(t *testing.T) {
 }
 
 func TestJSONWriterSpans(t *testing.T) {
-	defer func(f func() time.Time) {
+	defer func(f func() int64) {
 		now = f
 	}(now)
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.UTC)
-	now = func() time.Time {
+	now = func() int64 {
 		tm = tm.Add(time.Second)
-		return tm
+		return tm.UnixNano()
 	}
 
 	var buf bytes.Buffer
@@ -691,8 +691,6 @@ func TestCoverUncovered(t *testing.T) {
 
 	id := DefaultLogger.stdRandID()
 	assert.NotZero(t, id)
-
-	assert.True(t, zeroTime == Message{}.Time)
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {
@@ -844,8 +842,8 @@ func BenchmarkTlogTracesDiscard(b *testing.B) {
 
 	t := time.Now()
 
-	now = func() time.Time {
-		return t
+	now = func() int64 {
+		return t.UnixNano()
 	}
 
 	msg := []byte("message")
@@ -863,7 +861,7 @@ func BenchmarkTlogTracesDiscard(b *testing.B) {
 func TestTlogGrandParallel(t *testing.T) {
 	const N = 10000
 
-	now = time.Now
+	now = func() int64 { return time.Now().UnixNano() }
 	var buf0, buf1, buf2 bytes.Buffer
 
 	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), "json", NewJSONWriter(&buf1), "pb", NewProtoWriter(&buf2))
@@ -978,4 +976,11 @@ func (w *CountableDiscard) Write(p []byte) (int, error) {
 	w.N += len(p)
 
 	return len(p), nil
+}
+
+func testNow(tm *time.Time) func() int64 {
+	return func() int64 {
+		*tm = tm.Add(time.Second)
+		return (*tm).UnixNano()
+	}
 }

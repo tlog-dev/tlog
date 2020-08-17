@@ -5,6 +5,7 @@ package tlog
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -55,14 +56,14 @@ type (
 	Writer interface {
 		Labels(ls Labels, sid ID) error
 		SpanStarted(s Span, parent ID, l Location) error
-		SpanFinished(s Span, el time.Duration) error
+		SpanFinished(s Span, el int64) error
 		Message(l Message, s Span) error
 	}
 
 	// Message is an Log event.
 	Message struct {
 		Location Location
-		Time     time.Time
+		Time     int64
 		Format   string
 		Args     []interface{}
 	}
@@ -73,7 +74,7 @@ type (
 
 		ID ID
 
-		Started time.Time
+		Started int64
 	}
 
 	TooShortIDError struct {
@@ -112,7 +113,7 @@ const ( // console writer flags
 	Lnone        = 0
 )
 
-var now = time.Now
+var now = func() int64 { return time.Now().UnixNano() }
 
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 
@@ -725,7 +726,7 @@ func (s Span) Finish() {
 		return
 	}
 
-	el := now().Sub(s.Started)
+	el := now() - s.Started
 
 	s.l.mu.Lock()
 
@@ -883,6 +884,32 @@ func (i ID) FormatTo(b []byte, f rune) {
 			b[j+1] = dg[i[j>>1]&0xf]
 		}
 	}
+}
+
+func (i ID) MarshalJSON() (d []byte, err error) {
+	var b [34]byte
+
+	b[0] = '"'
+	b[len(b)-1] = '"'
+
+	i.FormatTo(b[1:len(b)-1], 'x')
+
+	return b[:], nil
+}
+
+func (i *ID) UnmarshalJSON(b []byte) error {
+	if b[0] != '"' || b[len(b)-1] != '"' {
+		return errors.New("bad format")
+	}
+
+	q, err := IDFromString(string(b))
+	if err != nil {
+		return err
+	}
+
+	*i = q
+
+	return nil
 }
 
 func (l *Logger) stdRandID() (id ID) {

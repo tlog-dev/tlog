@@ -18,9 +18,9 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	var buf bytes.Buffer
 	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.Local)
-	now := func() time.Time {
+	now := func() int64 {
 		tm = tm.Add(time.Second)
-		return tm
+		return tm.UnixNano()
 	}
 
 	w := neww(&buf)
@@ -51,9 +51,9 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Started: now(),
 	}, ID{1}, tlog.Caller(0))
 
-	_ = w.SpanFinished(tlog.Span{ID: ID{2}}, time.Second)
+	_ = w.SpanFinished(tlog.Span{ID: ID{2}}, time.Second.Nanoseconds())
 
-	_ = w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second)
+	_ = w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second.Nanoseconds())
 
 	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 
@@ -163,11 +163,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		},
 		SpanFinish{
 			ID:      ID{2},
-			Elapsed: 1 * time.Second,
+			Elapsed: 1 * time.Second.Nanoseconds(),
 		},
 		SpanFinish{
 			ID:      ID{1},
-			Elapsed: 2 * time.Second,
+			Elapsed: 2 * time.Second.Nanoseconds(),
 		},
 	}, res)
 }

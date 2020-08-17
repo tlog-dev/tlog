@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"time"
 
 	"github.com/nikandfor/json"
 
@@ -200,11 +199,10 @@ func (r *JSONReader) Message() (m Message, err error) {
 			m.Location = uintptr(v)
 		case 't':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			m.Time, err = strconv.ParseInt(n, 10, 64)
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
-			m.Time = time.Unix(0, v)
 		case 's':
 			m.Span, err = r.id()
 			if err != nil {
@@ -247,11 +245,10 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 			s.Location = uintptr(v)
 		case 's':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			s.Started, err = strconv.ParseInt(n, 10, 64)
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
-			s.Started = time.Unix(0, v)
 		case 'i':
 			s.ID, err = r.id()
 			if err != nil {
@@ -297,11 +294,10 @@ func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 			}
 		case 'e':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseInt(n, 10, 64)
+			f.Elapsed, err = strconv.ParseInt(n, 10, 64)
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
-			f.Elapsed = time.Duration(v)
 		default:
 			if r.l.V("skip") != nil {
 				r.l.Printf("skip key %q", k)

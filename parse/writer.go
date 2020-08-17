@@ -3,7 +3,6 @@ package parse
 import (
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/nikandfor/tlog"
 )
@@ -23,7 +22,7 @@ type (
 
 	ConsoleWriter struct {
 		w       *tlog.ConsoleWriter
-		started map[ID]time.Time
+		started map[ID]int64
 	}
 
 	ConvertWriter struct {
@@ -81,8 +80,7 @@ func (w AnyWriter) SpanFinish(f SpanFinish) error {
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
-		w:       tlog.NewConsoleWriter(w, f),
-		started: make(map[ID]time.Time),
+		w: tlog.NewConsoleWriter(w, f),
 	}
 }
 
@@ -110,14 +108,13 @@ func (w *ConsoleWriter) Message(m Message) (err error) {
 			Format:   m.Text,
 		},
 		tlog.Span{
-			ID:      m.Span,
-			Started: w.started[m.Span],
+			ID: m.Span,
 		},
 	)
 }
 
 func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
-	err = w.w.SpanStarted(
+	return w.w.SpanStarted(
 		tlog.Span{
 			ID:      s.ID,
 			Started: s.Started,
@@ -125,24 +122,16 @@ func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
 		s.Parent,
 		tlog.Location(s.Location),
 	)
-
-	w.started[s.ID] = s.Started
-
-	return
 }
 
 func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
-	err = w.w.SpanFinished(
+	return w.w.SpanFinished(
 		tlog.Span{
 			ID:      f.ID,
 			Started: w.started[f.ID],
 		},
 		f.Elapsed,
 	)
-
-	delete(w.started, f.ID)
-
-	return
 }
 
 func NewConvertWriter(w Writer) *ConvertWriter {
@@ -184,7 +173,7 @@ func (w *ConvertWriter) SpanStarted(s tlog.Span, p ID, l tlog.Location) error {
 	})
 }
 
-func (w *ConvertWriter) SpanFinished(s tlog.Span, el time.Duration) error {
+func (w *ConvertWriter) SpanFinished(s tlog.Span, el int64) error {
 	return w.w.SpanFinish(SpanFinish{
 		ID:      s.ID,
 		Elapsed: el,

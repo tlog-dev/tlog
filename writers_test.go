@@ -43,63 +43,60 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(w.buf))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(w.buf))
 
 	w.f = Llongfile
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", w.buf)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(w.buf))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "location.go:25        ", string(w.buf))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "locatio:25  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.Funcname = 10
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "Caller      ", string(w.buf))
 
 	w.f = Lfuncname
 	w.Funcname = 4
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "Call  ", string(w.buf))
 
 	w.f = Lfuncname
 	w.Funcname = 15
-	w.buildHeader((&testt{}).testloc2(), tm)
+	w.buildHeader((&testt{}).testloc2(), tm.UnixNano())
 	assert.Equal(t, "testloc2.func1   ", string(w.buf))
 
 	w.f = Lfuncname
 	w.Funcname = 12
-	w.buildHeader((&testt{}).testloc2(), tm)
+	w.buildHeader((&testt{}).testloc2(), tm.UnixNano())
 	assert.Equal(t, "testloc2.fu1  ", string(w.buf))
 
 	w.f = Ltypefunc
-	w.buildHeader(loc, tm)
+	w.buildHeader(loc, tm.UnixNano())
 	assert.Equal(t, "tlog.Caller  ", string(w.buf))
 
-	w.buildHeader((&testt{}).testloc2(), tm)
+	w.buildHeader((&testt{}).testloc2(), tm.UnixNano())
 	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(w.buf))
 }
 
 func TestConsoleWriterSpans(t *testing.T) {
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.Local)
-	now = func() time.Time {
-		tm = tm.Add(time.Second)
-		return tm
-	}
+	now = testNow(&tm)
 
 	w := NewConsoleWriter(ioutil.Discard, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
@@ -184,7 +181,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Unix(2, 0),
+			Time:     2,
 			Format:   "%v",
 			Args:     []interface{}{4},
 		},
@@ -209,7 +206,7 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
-		Time:     time.Unix(2, 0).UnixNano(),
+		Time:     2,
 		Text:     "4",
 	}})
 	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
@@ -225,7 +222,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.SpanStarted(
 		Span{
 			ID:      id,
-			Started: time.Unix(0, 2),
+			Started: 2,
 		},
 		par,
 		loc,
@@ -272,7 +269,7 @@ func TestProtoWriter(t *testing.T) {
 		Span{
 			ID: id,
 		},
-		time.Second,
+		time.Second.Nanoseconds(),
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      id[:],
@@ -287,7 +284,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Unix(2, 0),
+			Time:     2,
 			Format:   string(make([]byte, 1000)),
 		},
 		Span{ID: id},
@@ -295,7 +292,7 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
 		Location: int64(loc),
-		Time:     time.Unix(2, 0).UnixNano(),
+		Time:     2,
 		Text:     string(make([]byte, 1000)),
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
@@ -324,13 +321,13 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, z)
-	_ = w.Message(Message{Location: loc, Format: "msg", Time: time.Unix(1, 0)}, Span{})
-	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, fe)
-	_ = w.SpanFinished(Span{ID: ID{100}}, time.Second)
+	_ = w.Message(Message{Location: loc, Format: "msg", Time: 1}, Span{})
+	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano()}, z, fe)
+	_ = w.SpanFinished(Span{ID: ID{100}}, time.Second.Nanoseconds())
 
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
-{"m":{"t":1000000000,"l":\d+,"m":"msg"}}
+{"m":{"t":1,"l":\d+,"m":"msg"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
 {"s":{"i":"64000000000000000000000000000000","s":1562408312000000000,"l":\d+}}
 {"f":{"i":"64000000000000000000000000000000","e":1000000000}}
@@ -362,7 +359,7 @@ func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = w.Message(Message{
 			Location: l,
-			Time:     time.Unix(1, 0),
+			Time:     1,
 			Format:   "some message",
 		}, Span{})
 	}
@@ -378,7 +375,7 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = w.Message(Message{
 			Location: l,
-			Time:     time.Unix(1, 0),
+			Time:     1,
 			Format:   "some message",
 		}, Span{})
 	}
@@ -394,7 +391,7 @@ func BenchmarkWriterProtoMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = w.Message(Message{
 			Location: l,
-			Time:     time.Unix(1, 0),
+			Time:     1,
 			Format:   "some message",
 		}, Span{})
 	}

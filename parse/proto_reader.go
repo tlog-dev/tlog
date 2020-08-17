@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/nikandfor/tlog"
 )
@@ -224,7 +223,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			}
 			m.Location = uintptr(x)
 		case 3<<3 | 1:
-			m.Time = time.Unix(0, r.time())
+			m.Time = r.time()
 		case 4<<3 | 2:
 			m.Text, err = r.string()
 			if err != nil {
@@ -269,7 +268,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			}
 			s.Location = uintptr(x)
 		case 4<<3 | 1:
-			s.Started = time.Unix(0, r.time())
+			s.Started = r.time()
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
 				return s, err
@@ -298,11 +297,10 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 			copy(f.ID[:], r.buf[r.i:r.i+x])
 			r.i += x
 		case 2<<3 | 0: //nolint:staticcheck
-			x, err := r.varint64()
+			f.Elapsed, err = r.varint64()
 			if err != nil {
 				return f, err
 			}
-			f.Elapsed = time.Duration(x)
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
 				return f, err

@@ -1,8 +1,6 @@
 package parse
 
 import (
-	"time"
-
 	"github.com/nikandfor/tlog"
 )
 
@@ -28,19 +26,19 @@ type (
 
 		Location uintptr `json:"l"`
 
-		Started time.Time `json:"s"`
+		Started int64 `json:"s"`
 	}
 
 	SpanFinish struct {
-		ID      ID            `json:"i"`
-		Elapsed time.Duration `json:"e"`
+		ID      ID    `json:"i"`
+		Elapsed int64 `json:"e"`
 	}
 
 	Message struct {
-		Span     ID        `json:"s"`
-		Location uintptr   `json:"l"`
-		Time     time.Time `json:"t"`
-		Text     string    `json:"m"`
+		Span     ID      `json:"s"`
+		Location uintptr `json:"l"`
+		Time     int64   `json:"t"`
+		Text     string  `json:"m"`
 	}
 
 	Type rune
