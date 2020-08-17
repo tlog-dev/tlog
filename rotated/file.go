@@ -20,7 +20,7 @@ type (
 		nbytes int
 
 		name    string
-		MaxSize int // 1 GiB
+		MaxSize int // 1 GB
 
 		Fallback io.Writer // os.Stderr
 

@@ -2,7 +2,7 @@ package tlog
 
 import (
 	"time"
-	_ "unsafe" //go:linkname
+	_ "unsafe" // go:linkname
 )
 
 func splitTime(t time.Time) (year, month, day, hour, min, sec int) {

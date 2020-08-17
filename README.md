@@ -45,7 +45,7 @@ func main() {
 		tlog.DefaultLogger.AppendWriter(
 			tlog.NewNamedWriter("debug", *filtersFlag, // filter name, initial value
 				tlog.NewJSONWriter(
-					rotated.Create("/tmp/log_#.json"))))
+					rotated.Create("/tmp/log.json"))))
 	}
 
 	// ...
@@ -229,7 +229,7 @@ func (b *VideosBackend) Search(ctx context.Context, q string) ([]*Page, error) {
 ```
 Traces may be used as metrics either. Analyzing time of messages you can measure how much each function elapsed, how much time has passed since one message to another.
 
-**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, it's just an `[16]byte`.**
+**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, it's just an `[16]byte` and have helper methods.**
 
 Analysing and visualising tool is going to be later.
 

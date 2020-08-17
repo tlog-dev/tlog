@@ -13,12 +13,16 @@ arch:
   - amd64
 
 go:
+  - "1.15"
   - "1.14"
   - "1.13"
   - "1.12"
 
 jobs:
   include:
+    - os: linux
+      go: "1.15"
+      arch: arm64
     - os: linux
       go: "1.14"
       arch: arm64
@@ -30,5 +34,5 @@ script:
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 after_success:
-  - test "$TRAVIS_OS_NAME" = linux && test "$TRAVIS_CPU_ARCH" = amd64 && test "$TRAVIS_GO_VERSION" = "1.13" && export CODECOV_UPLOAD=yes
+  - test "$TRAVIS_OS_NAME" = linux && test "$TRAVIS_CPU_ARCH" = amd64 && test "$TRAVIS_GO_VERSION" = "1.15" && export CODECOV_UPLOAD=yes
   - test $CODECOV_UPLOAD = "yes" && bash <(curl -s https://codecov.io/bash)
