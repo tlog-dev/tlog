@@ -204,7 +204,7 @@ func (r *JSONReader) Message() (m Message, err error) {
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
-			m.Time = time.Duration(v << tlog.TimeReduction)
+			m.Time = time.Duration(v)
 		case 's':
 			m.Span, err = r.id()
 			if err != nil {
@@ -251,7 +251,7 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
-			s.Started = time.Unix(0, v<<tlog.TimeReduction)
+			s.Started = time.Unix(0, v)
 		case 'i':
 			s.ID, err = r.id()
 			if err != nil {
@@ -301,7 +301,7 @@ func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 			if err != nil {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
-			f.Elapsed = time.Duration(v << tlog.TimeReduction)
+			f.Elapsed = time.Duration(v)
 		default:
 			if r.l.V("skip") != nil {
 				r.l.Printf("skip key %q", k)

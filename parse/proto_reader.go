@@ -227,7 +227,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			if err != nil {
 				return m, err
 			}
-			m.Time = time.Duration(x) << tlog.TimeReduction
+			m.Time = time.Duration(x)
 		case 4<<3 | 2:
 			m.Text, err = r.string()
 			if err != nil {
@@ -276,7 +276,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			if err != nil {
 				return s, err
 			}
-			s.Started = time.Unix(0, x<<tlog.TimeReduction)
+			s.Started = time.Unix(0, x)
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
 				return s, err
@@ -309,7 +309,7 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 			if err != nil {
 				return f, err
 			}
-			f.Elapsed = time.Duration(x) << tlog.TimeReduction
+			f.Elapsed = time.Duration(x)
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
 				return f, err

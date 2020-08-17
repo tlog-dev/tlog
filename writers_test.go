@@ -184,7 +184,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Duration(2) << TimeReduction,
+			Time:     time.Duration(2),
 			Format:   "%v",
 			Args:     []interface{}{4},
 		},
@@ -225,7 +225,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.SpanStarted(
 		Span{
 			ID:      id,
-			Started: time.Unix(0, 2<<TimeReduction),
+			Started: time.Unix(0, 2),
 		},
 		par,
 		loc,
@@ -276,7 +276,7 @@ func TestProtoWriter(t *testing.T) {
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      id[:],
-		Elapsed: time.Second.Nanoseconds() >> TimeReduction,
+		Elapsed: time.Second.Nanoseconds(),
 	}})
 	assert.Equal(t, pbuf, buf.Bytes())
 	t.Logf("SpanFinish:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
@@ -287,7 +287,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			Location: loc,
-			Time:     time.Duration(2) << TimeReduction,
+			Time:     time.Duration(2),
 			Format:   string(make([]byte, 1000)),
 		},
 		Span{ID: id},
@@ -331,8 +331,8 @@ func TestTeeWriter(t *testing.T) {
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
 {"m":{"t":0,"l":\d+,"m":"msg"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
-{"s":{"i":"64000000000000000000000000000000","s":24412629875000000,"l":\d+}}
-{"f":{"i":"64000000000000000000000000000000","e":15625000}}
+{"s":{"i":"64000000000000000000000000000000","s":1562408312000000000,"l":\d+}}
+{"f":{"i":"64000000000000000000000000000000","e":1000000000}}
 `
 	ok, err := regexp.Match(re, buf1.Bytes())
 	assert.NoError(t, err)

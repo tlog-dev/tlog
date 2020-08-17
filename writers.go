@@ -65,8 +65,6 @@ type (
 	bufWriter []byte
 )
 
-const TimeReduction = 6
-
 var spaces = []byte("                                                                                                                                                ")
 
 // NewConsoleWriter creates writer with similar output as log.Logger.
@@ -456,7 +454,7 @@ func (w *JSONWriter) Message(m Message, s Span) (err error) {
 	}
 
 	b = append(b, `"t":`...)
-	b = strconv.AppendInt(b, m.Time.Nanoseconds()>>TimeReduction, 10)
+	b = strconv.AppendInt(b, m.Time.Nanoseconds(), 10)
 
 	if m.Location != 0 {
 		b = append(b, `,"l":`...)
@@ -494,7 +492,7 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	s.ID.FormatTo(b[i:], 'x')
 
 	b = append(b, `,"s":`...)
-	b = strconv.AppendInt(b, s.Started.UnixNano()>>TimeReduction, 10)
+	b = strconv.AppendInt(b, s.Started.UnixNano(), 10)
 
 	b = append(b, `,"l":`...)
 	b = strconv.AppendInt(b, int64(loc), 10)
@@ -525,7 +523,7 @@ func (w *JSONWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	s.ID.FormatTo(b[i:], 'x')
 
 	b = append(b, `,"e":`...)
-	b = strconv.AppendInt(b, el.Nanoseconds()>>TimeReduction, 10)
+	b = strconv.AppendInt(b, el.Nanoseconds(), 10)
 
 	b = append(b, "}}\n"...)
 
@@ -634,7 +632,7 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 	if m.Location != 0 {
 		sz += 1 + varintSize(uint64(m.Location))
 	}
-	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()>>TimeReduction))
+	sz += 1 + varintSize(uint64(m.Time.Nanoseconds()))
 	sz += 1 + varintSize(uint64(l)) + l
 
 	szs := varintSize(uint64(sz))
@@ -661,7 +659,7 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 		b = appendTagVarint(b, 2<<3|0, uint64(m.Location)) //nolint:staticcheck
 	}
 
-	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds()>>TimeReduction)) //nolint:staticcheck
+	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds())) //nolint:staticcheck
 
 	b = appendTagVarint(b, 4<<3|2, uint64(l))
 
@@ -689,7 +687,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	if loc != 0 {
 		sz += 1 + varintSize(uint64(loc))
 	}
-	sz += 1 + varintSize(uint64(s.Started.UnixNano()>>TimeReduction))
+	sz += 1 + varintSize(uint64(s.Started.UnixNano()))
 
 	b := w.buf
 	szs := varintSize(uint64(sz))
@@ -709,7 +707,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 		b = appendTagVarint(b, 3<<3|0, uint64(loc)) //nolint:staticcheck
 	}
 
-	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano()>>TimeReduction)) //nolint:staticcheck
+	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano())) //nolint:staticcheck
 
 	w.buf = b[:0]
 
@@ -722,7 +720,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
-	sz += 1 + varintSize(uint64(el.Nanoseconds()>>TimeReduction))
+	sz += 1 + varintSize(uint64(el.Nanoseconds()))
 
 	b := w.buf
 	szs := varintSize(uint64(sz))
@@ -733,7 +731,7 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
-	b = appendTagVarint(b, 2<<3|0, uint64(el.Nanoseconds()>>TimeReduction)) //nolint:staticcheck
+	b = appendTagVarint(b, 2<<3|0, uint64(el.Nanoseconds())) //nolint:staticcheck
 
 	w.buf = b[:0]
 

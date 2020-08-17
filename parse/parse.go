@@ -71,5 +71,8 @@ const (
 )
 
 func (t Type) String() string {
+	if t == 0 {
+		return `0`
+	}
 	return string(t)
 }
