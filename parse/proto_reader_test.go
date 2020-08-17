@@ -25,35 +25,35 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	w := neww(&buf)
 
-	w.Labels(tlog.Labels{"a", "b=c"}, ID{1, 2, 3, 4})
+	_ = w.Labels(tlog.Labels{"a", "b=c"}, ID{1, 2, 3, 4})
 
-	w.Message(tlog.Message{
+	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     time.Duration(now().UnixNano()),
 		Format:   "%v",
 		Args:     []interface{}{3},
 	}, tlog.Span{})
 
-	w.SpanStarted(tlog.Span{
+	_ = w.SpanStarted(tlog.Span{
 		ID:      ID{1},
 		Started: now(),
 	}, tlog.ZeroID, tlog.Caller(0))
 
-	w.Message(tlog.Message{
+	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     time.Duration(now().UnixNano()),
 		Format:   "%v",
 		Args:     []interface{}{5},
 	}, tlog.Span{ID: ID{1}})
 
-	w.SpanStarted(tlog.Span{
+	_ = w.SpanStarted(tlog.Span{
 		ID:      ID{2},
 		Started: now(),
 	}, ID{1}, tlog.Caller(0))
 
-	w.SpanFinished(tlog.Span{ID: ID{2}}, time.Second)
+	_ = w.SpanFinished(tlog.Span{ID: ID{2}}, time.Second)
 
-	w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second)
+	_ = w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second)
 
 	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 

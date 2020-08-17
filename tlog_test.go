@@ -1,3 +1,4 @@
+//nolint:gosec
 package tlog
 
 import (
@@ -55,6 +56,7 @@ func TestTlogParallel(t *testing.T) {
 	for j := 0; j < M; j++ {
 		go func(j int) {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				Printf("do j %d i %d", j, i)
 				tr := Start()
@@ -173,6 +175,7 @@ raw message 3
 	assert.Equal(t, 3, n)
 }
 
+//nolint:wsl
 func TestVerbosity(t *testing.T) {
 	defer func(old func() time.Time) {
 		now = old
@@ -774,7 +777,7 @@ func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 
 	l := New(NewProtoWriter(ioutil.Discard))
 
-	var buf = []byte("raw message") // reusable buffer
+	buf := []byte("raw message") // reusable buffer
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
@@ -844,7 +847,7 @@ func BenchmarkTlogTracesDiscard(b *testing.B) {
 	}
 }
 
-//nolint:gocyclo
+//nolint:gocognit
 func TestTlogGrandParallel(t *testing.T) {
 	const N = 10000
 
@@ -862,6 +865,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				switch i & 7 {
 				case 0:
@@ -888,6 +892,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				DefaultLogger.Printf("message %d", i)
 			}
@@ -897,6 +902,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				V("a").Printf("message %d", i)
 			}
@@ -906,6 +912,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				tr := DefaultLogger.Start()
 				tr.Printf("message %d", i)
@@ -917,6 +924,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				tr := DefaultLogger.V("b").Start()
 				tr.Printf("message %d", i)
@@ -928,6 +936,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				tr := Start()
 				tr.V("a").Printf("message %d", i)
@@ -939,6 +948,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
+
 			for i := 0; i < N; i++ {
 				tr.Printf("message %d", i)
 			}

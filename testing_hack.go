@@ -30,13 +30,13 @@ func (t testingWriter) Write(p []byte) (int, error) {
 		line *= 10
 	}
 
-	p = append(p, "                                     "[:pad]...)
-	copy(p[pad:], p)
-	for i := range p[:pad] {
-		p[i] = ' '
+	padded := make([]byte, len(p)+pad)
+	copy(padded[pad:], p)
+	for i := 0; i < pad; i++ {
+		padded[i] = ' '
 	}
 
-	testingLogDepth(t.t, string(p), 5)
+	testingLogDepth(t.t, string(padded), 5)
 
 	return len(p), nil
 }

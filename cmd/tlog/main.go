@@ -8,6 +8,7 @@ import (
 
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/parse"
 )
@@ -43,6 +44,7 @@ func before(c *cli.Command) error {
 	return nil
 }
 
+//nolint:gocognit,gocyclo
 func convert(c *cli.Command) error {
 	var inext, outext string
 
@@ -121,7 +123,7 @@ loop:
 			break
 		}
 
-		switch tp {
+		switch rune(tp) {
 		case 'L':
 			ls, err := r.Labels()
 			if err != nil {

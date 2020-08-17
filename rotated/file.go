@@ -82,7 +82,7 @@ func (w *File) rotator(c chan os.Signal) {
 			return
 		}
 
-		w.Rotate()
+		_ = w.Rotate()
 	}
 }
 

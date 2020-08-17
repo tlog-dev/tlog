@@ -4,7 +4,7 @@ import "unicode/utf8"
 
 const tohex = "0123456789abcdef"
 
-// appendSafe appends string to buffer with JSON compatible esaping
+// appendSafe appends string to buffer with JSON compatible esaping.
 func appendSafe(b []byte, s string) []byte {
 again:
 	i := 0

@@ -31,7 +31,7 @@ func TestRotateBySignal(t *testing.T) {
 	q := make(chan os.Signal, 1)
 	signal.Notify(q, syscall.SIGUSR1)
 
-	f.Write([]byte("before"))
+	_, _ = f.Write([]byte("before"))
 
 	err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ loop:
 		}
 	}
 
-	f.Write([]byte("after"))
+	_, _ = f.Write([]byte("after"))
 
 	//	t.Logf("n: %v", n)
 	assert.True(t, n >= 2)

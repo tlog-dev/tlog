@@ -47,7 +47,7 @@ func (w AnyWriter) Location(l Location) error {
 }
 
 func (w AnyWriter) Message(m Message) error {
-	w.w.Message(
+	return w.w.Message(
 		tlog.Message{
 			Location: tlog.Location(m.Location),
 			Time:     m.Time,
@@ -57,12 +57,10 @@ func (w AnyWriter) Message(m Message) error {
 			ID: m.Span,
 		},
 	)
-
-	return nil
 }
 
 func (w AnyWriter) SpanStart(s SpanStart) error {
-	w.w.SpanStarted(
+	return w.w.SpanStarted(
 		tlog.Span{
 			ID:      s.ID,
 			Started: s.Started,
@@ -70,19 +68,15 @@ func (w AnyWriter) SpanStart(s SpanStart) error {
 		s.Parent,
 		tlog.Location(s.Location),
 	)
-
-	return nil
 }
 
 func (w AnyWriter) SpanFinish(f SpanFinish) error {
-	w.w.SpanFinished(
+	return w.w.SpanFinished(
 		tlog.Span{
 			ID: f.ID,
 		},
 		f.Elapsed,
 	)
-
-	return nil
 }
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
@@ -93,15 +87,13 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) error {
-	w.w.Message(
+	return w.w.Message(
 		tlog.Message{
 			Format: "Labels: %q",
 			Args:   []interface{}{ls},
 		},
 		tlog.Span{},
 	)
-
-	return nil
 }
 
 func (w *ConsoleWriter) Location(l Location) error {
@@ -110,8 +102,8 @@ func (w *ConsoleWriter) Location(l Location) error {
 	return nil
 }
 
-func (w *ConsoleWriter) Message(m Message) error {
-	w.w.Message(
+func (w *ConsoleWriter) Message(m Message) (err error) {
+	return w.w.Message(
 		tlog.Message{
 			Location: tlog.Location(m.Location),
 			Time:     m.Time,
@@ -122,12 +114,10 @@ func (w *ConsoleWriter) Message(m Message) error {
 			Started: w.started[m.Span],
 		},
 	)
-
-	return nil
 }
 
-func (w *ConsoleWriter) SpanStart(s SpanStart) error {
-	w.w.SpanStarted(
+func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
+	err = w.w.SpanStarted(
 		tlog.Span{
 			ID:      s.ID,
 			Started: s.Started,
@@ -138,11 +128,11 @@ func (w *ConsoleWriter) SpanStart(s SpanStart) error {
 
 	w.started[s.ID] = s.Started
 
-	return nil
+	return
 }
 
-func (w *ConsoleWriter) SpanFinish(f SpanFinish) error {
-	w.w.SpanFinished(
+func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
+	err = w.w.SpanFinished(
 		tlog.Span{
 			ID:      f.ID,
 			Started: w.started[f.ID],
@@ -152,7 +142,7 @@ func (w *ConsoleWriter) SpanFinish(f SpanFinish) error {
 
 	delete(w.started, f.ID)
 
-	return nil
+	return
 }
 
 func NewConvertWriter(w Writer) *ConvertWriter {

@@ -59,7 +59,7 @@ func TestLocationFormat(t *testing.T) {
 	b.Reset()
 
 	fmt.Fprintf(&b, "%+v", l)
-	assert.True(t, regexp.MustCompile(`[\w.-/]*location.go:25`).MatchString(b.String()))
+	assert.True(t, regexp.MustCompile(`[\w./-]*location.go:25`).MatchString(b.String()))
 
 	b.Reset()
 
@@ -130,5 +130,5 @@ func BenchmarkLocationNameFileLine(b *testing.B) {
 		n, f, line = l.nameFileLine()
 	}
 
-	_, _, _ = n, f, line
+	_, _, _ = n, f, line //nolint:dogsled
 }

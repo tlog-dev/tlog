@@ -11,38 +11,34 @@ import (
 	"strings"
 )
 
-type (
-	// Labels is a set of labels with optional values.
-	//
-	// Labels are attached to all following events (in an optimal way) until replaced.
-	Labels []string
-)
+// Labels is a set of labels with optional values.
+//
+// Labels are attached to all following events (in an optimal way) until replaced.
+type Labels []string
 
-var (
-	// AutoLabels is a list of automatically filled labels
-	//     _hostname - local hostname
-	//     _user - current user
-	//     _pid - process pid
-	//     _execmd5 - this binary md5 hash
-	//     _execsha1 - this binary sha1 hash
-	//     _execname - executable base name (project name)
-	//     _randid - random id. May be used to distinguish different runs.
-	AutoLabels = map[string]func() string{
-		"_hostname": Hostname,
-		"_user":     User,
-		"_pid": func() string {
-			return fmt.Sprintf("%d", os.Getpid())
-		},
-		"_execmd5":  ExecutableMD5,
-		"_execsha1": ExecutableSHA1,
-		"_execname": func() string {
-			return filepath.Base(os.Args[0])
-		},
-		"_randid": func() string {
-			return randID().FullString()
-		},
-	}
-)
+// AutoLabels is a list of automatically filled labels
+//     _hostname - local hostname
+//     _user - current user
+//     _pid - process pid
+//     _execmd5 - this binary md5 hash
+//     _execsha1 - this binary sha1 hash
+//     _execname - executable base name (project name)
+//     _randid - random id. May be used to distinguish different runs.
+var AutoLabels = map[string]func() string{
+	"_hostname": Hostname,
+	"_user":     User,
+	"_pid": func() string {
+		return fmt.Sprintf("%d", os.Getpid())
+	},
+	"_execmd5":  ExecutableMD5,
+	"_execsha1": ExecutableSHA1,
+	"_execname": func() string {
+		return filepath.Base(os.Args[0])
+	},
+	"_randid": func() string {
+		return randID().FullString()
+	},
+}
 
 // Hostname returns hostname or err.Error().
 func Hostname() string {
@@ -132,7 +128,7 @@ func FillLabelsWithDefaults(labels ...string) Labels {
 	return ll
 }
 
-// Set sets k label value to v
+// Set sets k label value to v.
 func (ls *Labels) Set(k, v string) {
 	val := k
 	if v != "" {
@@ -149,7 +145,7 @@ func (ls *Labels) Set(k, v string) {
 	*ls = append(*ls, val)
 }
 
-// Get gets k label value or "", false
+// Get gets k label value or "", false.
 func (ls *Labels) Get(k string) (string, bool) {
 	for _, l := range *ls {
 		if l == k {
@@ -179,7 +175,7 @@ func (ls *Labels) Del(k string) {
 	}
 }
 
-// Merge merges two Labels sets
+// Merge merges two Labels sets.
 func (ls *Labels) Merge(b Labels) {
 	for _, add := range b {
 		if add == "" {
@@ -194,7 +190,7 @@ func (ls *Labels) Merge(b Labels) {
 	}
 }
 
-// Copy copies Labels including deleted thumbstones
+// Copy copies Labels including deleted thumbstones.
 func (ls *Labels) Copy() Labels {
 	r := make(Labels, len(*ls))
 	for i, v := range *ls {

@@ -1,3 +1,4 @@
+//nolint:goerr113
 package parse
 
 import (
@@ -73,7 +74,7 @@ func (r *JSONReader) Any() (interface{}, error) {
 		return 0, r.err
 	}
 
-	switch r.tp {
+	switch rune(r.tp) {
 	case 'L':
 		return r.Labels()
 	case 'l':

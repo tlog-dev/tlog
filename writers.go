@@ -102,12 +102,12 @@ func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) [
 	return b
 }
 
-//nolint:gocyclo
+//nolint:gocognit,nestif
 func (w *ConsoleWriter) buildHeader(loc Location, t time.Time) {
 	b := w.buf[:0]
 
 	var fname, file string
-	var line = -1
+	line := -1
 
 	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
 		if w.f&LUTC != 0 {
@@ -658,10 +658,10 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 	}
 
 	if m.Location != 0 {
-		b = appendTagVarint(b, 2<<3|0, uint64(m.Location))
+		b = appendTagVarint(b, 2<<3|0, uint64(m.Location)) //nolint:staticcheck
 	}
 
-	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds()>>TimeReduction))
+	b = appendTagVarint(b, 3<<3|0, uint64(m.Time.Nanoseconds()>>TimeReduction)) //nolint:staticcheck
 
 	b = appendTagVarint(b, 4<<3|2, uint64(l))
 
@@ -706,10 +706,10 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	}
 
 	if loc != 0 {
-		b = appendTagVarint(b, 3<<3|0, uint64(loc))
+		b = appendTagVarint(b, 3<<3|0, uint64(loc)) //nolint:staticcheck
 	}
 
-	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano()>>TimeReduction))
+	b = appendTagVarint(b, 4<<3|0, uint64(s.Started.UnixNano()>>TimeReduction)) //nolint:staticcheck
 
 	w.buf = b[:0]
 
@@ -733,7 +733,7 @@ func (w *ProtoWriter) SpanFinished(s Span, el time.Duration) (err error) {
 	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
-	b = appendTagVarint(b, 2<<3|0, uint64(el.Nanoseconds()>>TimeReduction))
+	b = appendTagVarint(b, 2<<3|0, uint64(el.Nanoseconds()>>TimeReduction)) //nolint:staticcheck
 
 	w.buf = b[:0]
 
@@ -762,9 +762,9 @@ func (w *ProtoWriter) location(l Location) {
 
 	b = appendTagVarint(b, 2<<3|2, uint64(sz))
 
-	b = appendTagVarint(b, 1<<3|0, uint64(l))
+	b = appendTagVarint(b, 1<<3|0, uint64(l)) //nolint:staticcheck
 
-	b = appendTagVarint(b, 2<<3|0, uint64(l.Entry()))
+	b = appendTagVarint(b, 2<<3|0, uint64(l.Entry())) //nolint:staticcheck
 
 	b = appendTagVarint(b, 3<<3|2, uint64(len(name)))
 	b = append(b, name...)
@@ -772,7 +772,7 @@ func (w *ProtoWriter) location(l Location) {
 	b = appendTagVarint(b, 4<<3|2, uint64(len(file)))
 	b = append(b, file...)
 
-	b = appendTagVarint(b, 5<<3|0, uint64(line))
+	b = appendTagVarint(b, 5<<3|0, uint64(line)) //nolint:staticcheck
 
 	w.ls[l] = struct{}{}
 	w.buf = b
@@ -864,6 +864,7 @@ func varintSize(v uint64) int {
 // NewTeeWriter creates multiwriter that writes the same events to all writers in the same order.
 func NewTeeWriter(w ...Writer) TeeWriter {
 	var ws []Writer
+
 	for _, w := range w {
 		if t, ok := w.(TeeWriter); ok {
 			ws = append(ws, t...)
@@ -871,6 +872,7 @@ func NewTeeWriter(w ...Writer) TeeWriter {
 			ws = append(ws, w)
 		}
 	}
+
 	return TeeWriter(ws)
 }
 

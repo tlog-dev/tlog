@@ -178,7 +178,7 @@ func TestProtoWriter(t *testing.T) {
 	w := NewProtoWriter(&buf)
 	var pbuf proto.Buffer
 
-	w.Labels(Labels{"a", "b=c"}, z)
+	_ = w.Labels(Labels{"a", "b=c"}, z)
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{Labels: []string{"a", "b=c"}}})
 	assert.Equal(t, pbuf.Bytes(), buf.Bytes())
 	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf.Bytes()))
@@ -191,7 +191,7 @@ func TestProtoWriter(t *testing.T) {
 
 	id := ID{10, 20, 30, 40}
 
-	w.Message(
+	_ = w.Message(
 		Message{
 			Location: loc,
 			Time:     time.Duration(2) << TimeReduction,
@@ -232,7 +232,7 @@ func TestProtoWriter(t *testing.T) {
 	id = ID{5, 15, 25, 35}
 	par := ID{4, 14, 24, 34}
 
-	w.SpanStarted(
+	_ = w.SpanStarted(
 		Span{
 			ID:      id,
 			Started: time.Unix(0, 2<<TimeReduction),
@@ -265,7 +265,7 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf.Reset()
 
-	w.Labels(Labels{"b=d", "d"}, id)
+	_ = w.Labels(Labels{"b=d", "d"}, id)
 
 	_ = pbuf.EncodeMessage(&tlogpb.Record{Labels: &tlogpb.Labels{
 		Span:   id[:],
@@ -278,7 +278,7 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf.Reset()
 
-	w.SpanFinished(
+	_ = w.SpanFinished(
 		Span{
 			ID: id,
 		},
@@ -294,7 +294,7 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf.Reset()
 
-	w.Message(
+	_ = w.Message(
 		Message{
 			Location: loc,
 			Time:     time.Duration(2) << TimeReduction,
@@ -302,6 +302,14 @@ func TestProtoWriter(t *testing.T) {
 		},
 		Span{ID: id},
 	)
+	_ = pbuf.EncodeMessage(&tlogpb.Record{Message: &tlogpb.Message{
+		Span:     id[:],
+		Location: int64(loc),
+		Time:     2,
+		Text:     string(make([]byte, 1000)),
+	}})
+	assert.Equal(t, pbuf.Bytes()[l:], buf.Bytes()[l:])
+	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf.Bytes()[l:]))
 }
 
 func TestLockedWriter(t *testing.T) {
@@ -324,10 +332,10 @@ func TestTeeWriter(t *testing.T) {
 	fe := Funcentry(-1)
 	loc := Caller(-1)
 
-	w.Labels(Labels{"a=b", "f"}, z)
-	w.Message(Message{Location: loc, Format: "msg"}, Span{})
-	w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, fe)
-	w.SpanFinished(Span{ID: ID{100}}, time.Second)
+	_ = w.Labels(Labels{"a=b", "f"}, z)
+	_ = w.Message(Message{Location: loc, Format: "msg"}, Span{})
+	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC)}, z, fe)
+	_ = w.SpanFinished(Span{ID: ID{100}}, time.Second)
 
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
@@ -361,7 +369,7 @@ func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
 	l := Caller(0)
 
 	for i := 0; i < b.N; i++ {
-		w.Message(Message{
+		_ = w.Message(Message{
 			Location: l,
 			Time:     time.Second,
 			Format:   "some message",
@@ -377,7 +385,7 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 	l := Caller(0)
 
 	for i := 0; i < b.N; i++ {
-		w.Message(Message{
+		_ = w.Message(Message{
 			Location: l,
 			Time:     time.Second,
 			Format:   "some message",
@@ -393,7 +401,7 @@ func BenchmarkWriterProtoMessage(b *testing.B) {
 	l := Caller(0)
 
 	for i := 0; i < b.N; i++ {
-		w.Message(Message{
+		_ = w.Message(Message{
 			Location: l,
 			Time:     time.Second,
 			Format:   "some message",

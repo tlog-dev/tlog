@@ -14,7 +14,7 @@ import (
 )
 
 type (
-	// ID is a Span ID
+	// ID is a Span ID.
 	ID [16]byte
 
 	// Printfer is an interface to print to *Logger and to Span in the same time.
@@ -111,12 +111,10 @@ var ( // testable time, rand
 	now    = time.Now
 	mu     sync.Mutex
 	randID = stdRandID
-	rnd    = rand.New(rand.NewSource(time.Now().UnixNano()))
+	rnd    = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
 )
 
-var ( // defaults
-	DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
-)
+var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 
 // New creates new Logger with given writers.
 func New(ws ...interface{}) *Logger {
@@ -173,7 +171,7 @@ func NewNamedDumper(name, filter string, w Writer) NamedWriter {
 	return NamedWriter{name: name, filter: newFilter(filter), w: w, verbosed: true}
 }
 
-// SetLabels sets labels for default logger
+// SetLabels sets labels for default logger.
 func SetLabels(ls Labels) {
 	newlabels(DefaultLogger, z, ls)
 }
@@ -288,7 +286,7 @@ func newlabels(l *Logger, sid ID, ls Labels) {
 		if w.verbosed && !l.verbosed {
 			continue
 		}
-		w.w.Labels(ls, sid)
+		_ = w.w.Labels(ls, sid)
 	}
 
 	mu.Unlock()
@@ -313,7 +311,7 @@ func newspan(l *Logger, par ID) Span {
 		if w.verbosed && !l.verbosed {
 			continue
 		}
-		w.w.SpanStarted(s, par, loc)
+		_ = w.w.SpanStarted(s, par, loc)
 	}
 
 	mu.Unlock()
@@ -344,7 +342,7 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 		if w.verbosed && !l.verbosed {
 			continue
 		}
-		w.w.Message(
+		_ = w.w.Message(
 			Message{
 				Location: loc,
 				Time:     t,
@@ -732,7 +730,7 @@ func (s Span) Finish() {
 		if w.verbosed && !s.l.verbosed {
 			continue
 		}
-		w.w.SpanFinished(s, el)
+		_ = w.w.SpanFinished(s, el)
 	}
 
 	mu.Unlock()
@@ -837,7 +835,7 @@ func (e TooShortIDError) Error() string {
 }
 
 // Format is fmt.Formatter interface implementation.
-// It supports width. '+' flag sets width to full id length
+// It supports width. '+' flag sets width to full id length.
 func (i ID) Format(s fmt.State, c rune) {
 	var buf0 [32]byte
 	buf1 := buf0[:]
@@ -884,7 +882,7 @@ func (i ID) FormatTo(b []byte, f rune) {
 	}
 }
 
-// AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time
+// AbsTime converts Message Time field from nanoseconds from Unix epoch to time.Time.
 func (m Message) AbsTime() (t time.Time) {
 	if m.Time == 0 {
 		return
@@ -895,7 +893,7 @@ func (m Message) AbsTime() (t time.Time) {
 
 func stdRandID() (id ID) {
 	for id == z {
-		_, _ = rnd.Read(id[:]) //nolint:gosec
+		_, _ = rnd.Read(id[:])
 	}
 	return
 }

@@ -88,7 +88,7 @@ again:
 	case 5:
 		r.tp = 'f'
 	default:
-		return 0, r.wraperr(fmt.Errorf("unexpected object %x", tag))
+		return 0, r.newerr("unexpected object %x", tag)
 	}
 
 	return r.tp, nil
@@ -99,7 +99,7 @@ func (r *ProtoReader) Any() (interface{}, error) {
 		return nil, r.wraperr(r.err)
 	}
 
-	switch r.tp {
+	switch rune(r.tp) {
 	case 'L':
 		return r.Labels()
 	case 'l':
@@ -111,7 +111,7 @@ func (r *ProtoReader) Any() (interface{}, error) {
 	case 'f':
 		return r.SpanFinish()
 	default:
-		return nil, r.wraperr(fmt.Errorf("unexpected object %v", r.tp))
+		return nil, r.newerr("unexpected object %v", r.tp)
 	}
 }
 
@@ -161,13 +161,13 @@ func (r *ProtoReader) Location() (l Location, err error) {
 			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
 		}
 		switch tag {
-		case 1<<3 | 0:
+		case 1<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
 			if err != nil {
 				return l, err
 			}
 			l.PC = uintptr(x)
-		case 2<<3 | 0:
+		case 2<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
 			if err != nil {
 				return l, err
@@ -183,7 +183,7 @@ func (r *ProtoReader) Location() (l Location, err error) {
 			if err != nil {
 				return l, err
 			}
-		case 5<<3 | 0:
+		case 5<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
 			if err != nil {
 				return l, err
@@ -216,13 +216,13 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			r.i++ // len
 			copy(m.Span[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 2<<3 | 0:
+		case 2<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
 			if err != nil {
 				return m, err
 			}
 			m.Location = uintptr(x)
-		case 3<<3 | 0:
+		case 3<<3 | 0: //nolint:staticcheck
 			x, err := r.varint64()
 			if err != nil {
 				return m, err
@@ -265,13 +265,13 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			r.i++ // len
 			copy(s.Parent[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 3<<3 | 0:
+		case 3<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
 			if err != nil {
 				return s, err
 			}
 			s.Location = uintptr(x)
-		case 4<<3 | 0:
+		case 4<<3 | 0: //nolint:staticcheck
 			x, err := r.varint64()
 			if err != nil {
 				return s, err
@@ -304,7 +304,7 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 			r.i++ // len
 			copy(f.ID[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 2<<3 | 0:
+		case 2<<3 | 0: //nolint:staticcheck
 			x, err := r.varint64()
 			if err != nil {
 				return f, err
@@ -347,7 +347,7 @@ func (r *ProtoReader) skip() error {
 		}
 		r.i += x
 	default:
-		return fmt.Errorf("unsupported tag type: %v", tag&7)
+		return r.newerr("unsupported tag type: %v", tag&7)
 	}
 
 	return nil
@@ -448,12 +448,15 @@ again:
 	return err
 }
 
-func (r *ProtoReader) newerr(msg string) error {
+func (r *ProtoReader) newerr(msg string, args ...interface{}) error {
 	if r.err != nil {
 		return r.err
 	}
 
-	r.err = fmt.Errorf(msg+" (pos: %d)", r.pos+r.i)
+	err := fmt.Errorf(msg, args...) //nolint:goerr113
+
+	r.err = fmt.Errorf("%w (pos: %d)", err, r.pos+r.i)
+
 	return r.err
 }
 
@@ -466,6 +469,7 @@ func (r *ProtoReader) wraperr(err error) error {
 		return err
 	}
 
-	r.err = fmt.Errorf("%v (pos: %d)", err, r.pos+r.i)
+	r.err = fmt.Errorf("%w (pos: %d)", err, r.pos+r.i)
+
 	return r.err
 }

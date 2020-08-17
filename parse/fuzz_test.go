@@ -12,8 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nikandfor/tlog"
 	"github.com/stretchr/testify/require"
+
+	"github.com/nikandfor/tlog"
 )
 
 func TestFuzzJSONCrashes(t *testing.T) {
@@ -83,9 +84,7 @@ func testFuzz(t *testing.T, dir string, newr func(r io.Reader) Reader) {
 	}
 }
 
-var (
-	v = flag.String("tlog", "", "tlog verbosity filter")
-)
+var v = flag.String("tlog-v", "", "tlog verbosity filter")
 
 func TestMain(m *testing.M) {
 	flag.Parse()
