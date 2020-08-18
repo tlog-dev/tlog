@@ -29,7 +29,6 @@ linters-settings:
       - github.com/stretchr/testify/require
       - google.golang.org/protobuf
   misspell:
-    locale: US
   lll:
     line-length: 170
   goimports:
@@ -65,3 +64,4 @@ linters:
     - godox
     - gci
     - wsl
+    - goerr113

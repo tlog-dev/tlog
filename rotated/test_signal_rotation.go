@@ -28,7 +28,7 @@ func main() {
 	}()
 	f.Mode = 0660
 
-	tlog.Printf("writing infinit logs to file %v", *file)
+	tlog.Printf("writing infinite logs to file %v", *file)
 
 	var i int64
 

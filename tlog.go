@@ -85,8 +85,6 @@ type (
 var ( // ZeroID
 	ZeroID ID // to compare with
 	z      ID
-
-	zeroTime time.Time
 )
 
 var ( // for you not to import os if you don't want

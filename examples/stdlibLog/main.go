@@ -8,7 +8,7 @@ import (
 	"github.com/nikandfor/tlog"
 )
 
-// If you use tlog but some of your dependancies are not, it's not a problem.
+// If you use tlog but some of your dependencies are not, it's not a problem.
 
 func main() {
 	var buf bytes.Buffer // imagine it's file

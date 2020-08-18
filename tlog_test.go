@@ -843,6 +843,7 @@ func BenchmarkTlogTracesDiscard(b *testing.B) {
 	t := time.Now()
 
 	now = func() int64 {
+		t.Add(time.Second)
 		return t.UnixNano()
 	}
 
@@ -981,6 +982,6 @@ func (w *CountableDiscard) Write(p []byte) (int, error) {
 func testNow(tm *time.Time) func() int64 {
 	return func() int64 {
 		*tm = tm.Add(time.Second)
-		return (*tm).UnixNano()
+		return tm.UnixNano()
 	}
 }

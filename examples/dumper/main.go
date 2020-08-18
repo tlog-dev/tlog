@@ -17,7 +17,7 @@ var (
 
 // Imagine you work with big requests and responses in some rpc or database.
 // Sometimes you got unexpected behaviour, you logged add the important details, but situation is still unclear.
-// Dumping requests and responses could be helpfull in that situation but writing them to the same file as logs
+// Dumping requests and responses could be helpful in that situation but writing them to the same file as logs
 // makes logs hard to read. Cnditional dumper can help.
 //
 // Add NamedDumper with separate file as destination set filter to it and inspect reqeust and responses content when needed.

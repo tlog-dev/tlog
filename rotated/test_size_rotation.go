@@ -24,7 +24,7 @@ func main() {
 	f.Mode = 0660
 	f.MaxSize = 1 << 20
 
-	tlog.Printf("writing infinit logs to file %v", *file)
+	tlog.Printf("writing infinite logs to file %v", *file)
 
 	l := tlog.New(tlog.NewConsoleWriter(f, tlog.LdetFlags))
 
