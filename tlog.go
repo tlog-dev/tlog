@@ -291,10 +291,10 @@ func newlabels(l *Logger, sid ID, ls Labels) {
 	l.mu.Unlock()
 }
 
-func newspan(l *Logger, par ID) Span {
+func newspan(l *Logger, d int, par ID) Span {
 	var loc Location
 	if !l.NoLocations {
-		loc = Funcentry(2)
+		loc = Funcentry(d + 2)
 	}
 
 	s := Span{
@@ -350,6 +350,14 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 	l.mu.Unlock()
 }
 
+func NewSpan(l *Logger, par ID, d int) Span {
+	if l == nil {
+		return Span{}
+	}
+
+	return newspan(l, d, par)
+}
+
 // Start creates new root trace.
 //
 // Span must be Finished in the end.
@@ -358,7 +366,7 @@ func Start() Span {
 		return Span{}
 	}
 
-	return newspan(DefaultLogger, ID{})
+	return newspan(DefaultLogger, 0, ID{})
 }
 
 // Spawn creates new child trace.
@@ -371,7 +379,7 @@ func Spawn(id ID) Span {
 		return Span{}
 	}
 
-	return newspan(DefaultLogger, id)
+	return newspan(DefaultLogger, 0, id)
 }
 
 // SpawnOrStart creates new child trace if id is not zero and new trace overwise.
@@ -384,7 +392,7 @@ func SpawnOrStart(id ID) Span {
 		return Span{}
 	}
 
-	return newspan(DefaultLogger, id)
+	return newspan(DefaultLogger, 0, id)
 }
 
 func (l *Logger) SetLabels(ls Labels) {
@@ -447,7 +455,7 @@ func (l *Logger) Start() Span {
 		return Span{}
 	}
 
-	return newspan(l, ID{})
+	return newspan(l, 0, ID{})
 }
 
 // Spawn creates new child trace.
@@ -460,7 +468,7 @@ func (l *Logger) Spawn(id ID) Span {
 		return Span{}
 	}
 
-	return newspan(l, id)
+	return newspan(l, 0, id)
 }
 
 // If checks if some of topics enabled.

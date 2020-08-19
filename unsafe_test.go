@@ -23,7 +23,7 @@ func TestLocationZero(t *testing.T) {
 	var l Location
 
 	entry := l.Entry()
-	assert.Equal(t, uintptr(0), entry)
+	assert.Equal(t, Location(0), entry)
 
 	name, file, line := l.NameFileLine()
 	assert.Equal(t, "", name)

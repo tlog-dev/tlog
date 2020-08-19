@@ -98,12 +98,12 @@ func (l Location) nameFileLine() (name, file string, line int) {
 	return
 }
 
-func (l Location) Entry() uintptr {
+func (l Location) Entry() Location {
 	funcInfo := findfunc(l)
 	if funcInfo.entry == nil {
 		return 0
 	}
-	return *funcInfo.entry
+	return Location(*funcInfo.entry)
 }
 
 func (l Location) SetCache(name, file string, line int) {

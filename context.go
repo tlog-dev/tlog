@@ -88,7 +88,7 @@ func SpawnFromContext(ctx context.Context) Span {
 		return Span{}
 	}
 
-	return newspan(DefaultLogger, id)
+	return newspan(DefaultLogger, 0, id)
 }
 
 // SpanFromContextOrStart loads saved by ContextWithSpan Span from Context.
@@ -100,5 +100,5 @@ func SpawnFromContextOrStart(ctx context.Context) Span {
 
 	id := IDFromContext(ctx)
 
-	return newspan(DefaultLogger, id)
+	return newspan(DefaultLogger, 0, id)
 }
