@@ -468,44 +468,26 @@ func (l *Logger) Spawn(id ID) Span {
 	return newspan(l, id)
 }
 
-// If returns the same logger if condition is true and nil overwise. Nil logger is safe to use, but all events are discarded.
-func (l *Logger) If(c bool) *Logger {
-	if !c {
-		return nil
-	}
-
-	return l
+// If checks if some of topics enabled.
+func (l *Logger) If(tp string) bool {
+	return l.ifv(tp)
 }
 
-func (l *Logger) IfArg(c bool, a, b interface{}) interface{} {
-	if !c {
-		return b
-	}
-
-	return a
-}
-
-func (l *Logger) VArg(tp string, a, b interface{}) interface{} {
+func (l *Logger) ifv(tp string) (any bool) {
 	if l == nil {
-		return b
+		return false
 	}
-
-	any := false
 
 	l.mu.Lock()
 
 	for _, w := range l.ws {
-		ok := w.filter.matchFilter(Caller(1), tp)
+		ok := w.filter.match(tp)
 		any = any || ok
 	}
 
 	l.mu.Unlock()
 
-	if !any {
-		return b
-	}
-
-	return a
+	return any
 }
 
 // V checks if one of topics in tp is enabled and returns default Logger or nil.
@@ -626,44 +608,8 @@ func (l *Logger) noLocations() *Logger {
 	return l
 }
 
-// If returns the same Span if condition is true and nil overwise. Nil logger is safe to use, but all events are discarded.
-func (s Span) If(c bool) Span {
-	if !c {
-		return Span{}
-	}
-
-	return s
-}
-
-func (s Span) IfArg(c bool, a, b interface{}) interface{} {
-	if !c {
-		return b
-	}
-
-	return a
-}
-
-func (s Span) VArg(tp string, a, b interface{}) interface{} {
-	if s.l == nil {
-		return b
-	}
-
-	any := false
-
-	s.l.mu.Lock()
-
-	for _, w := range s.l.ws {
-		ok := w.filter.matchFilter(Caller(1), tp)
-		any = any || ok
-	}
-
-	s.l.mu.Unlock()
-
-	if !any {
-		return b
-	}
-
-	return a
+func (s Span) If(tp string) bool {
+	return s.l.ifv(tp)
 }
 
 // V checks if one of topics in tp is enabled and returns the same Span or empty.

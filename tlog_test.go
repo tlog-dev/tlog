@@ -383,41 +383,6 @@ b3
 `, buf2.String())
 }
 
-func TestIfVArg(t *testing.T) {
-	l := New(Discard{})
-	s := Span{
-		l:  l,
-		ID: ID{1, 2, 3},
-	}
-
-	l.SetFilter("enabled")
-
-	assert.True(t, l == l.If(true))
-	assert.Nil(t, l.If(false))
-
-	assert.True(t, s == s.If(true))
-	assert.True(t, Span{} == s.If(false))
-
-	assert.Equal(t, 1, l.IfArg(true, 1, 2))
-	assert.Equal(t, 2, l.IfArg(false, 1, 2))
-
-	assert.Equal(t, 1, s.IfArg(true, 1, 2))
-	assert.Equal(t, 2, s.IfArg(false, 1, 2))
-
-	assert.Equal(t, 1, l.VArg("enabled", 1, 2))
-	assert.Equal(t, 2, l.VArg("disabled", 1, 2))
-	assert.Equal(t, 2, ((*Logger)(nil)).VArg("enabled", 1, 2))
-
-	assert.Equal(t, 1, s.VArg("enabled", 1, 2))
-	assert.Equal(t, 2, s.VArg("disabled", 1, 2))
-	assert.Equal(t, 2, Span{}.VArg("disabled", 1, 2))
-
-	assert.True(t, l.Valid())
-
-	l = nil
-	assert.False(t, l.Valid())
-}
-
 func TestSetFilter(t *testing.T) {
 	const N = 100
 
