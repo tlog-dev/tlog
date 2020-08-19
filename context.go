@@ -10,7 +10,7 @@ type (
 // ContextWithID creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
 func ContextWithID(ctx context.Context, id ID) context.Context {
-	if id == z {
+	if id == (ID{}) {
 		return ctx
 	}
 	return context.WithValue(ctx, key{}, id)
@@ -33,7 +33,7 @@ func ContextWithRandomID(ctx context.Context) context.Context {
 // ContextWithIDOrRandom creates new context with Span ID context.Value.
 // If id is zero new random ID is generated.
 func ContextWithIDOrRandom(ctx context.Context, id ID) context.Context {
-	if id == z {
+	if id == (ID{}) {
 		return ContextWithRandomID(ctx)
 	}
 
@@ -43,7 +43,7 @@ func ContextWithIDOrRandom(ctx context.Context, id ID) context.Context {
 // ContextWithSpan creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
 func ContextWithSpan(ctx context.Context, s Span) context.Context {
-	if s.ID == z {
+	if s.ID == (ID{}) {
 		return ctx
 	}
 	return context.WithValue(ctx, spankey{}, s)
@@ -60,7 +60,7 @@ func IDFromContext(ctx context.Context) ID {
 	if s, ok := v.(Span); ok {
 		return s.ID
 	}
-	return z
+	return ID{}
 }
 
 // SpanFromContext loads saved by ContextWithSpan Span from Context.
@@ -84,7 +84,7 @@ func SpawnFromContext(ctx context.Context) Span {
 	}
 
 	id := IDFromContext(ctx)
-	if id == z {
+	if id == (ID{}) {
 		return Span{}
 	}
 

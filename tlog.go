@@ -82,11 +82,6 @@ type (
 	}
 )
 
-var ( // ZeroID
-	ZeroID ID // to compare with
-	z      ID
-)
-
 var ( // for you not to import os if you don't want
 	Stderr = os.Stderr
 	Stdout = os.Stdout
@@ -177,7 +172,7 @@ func NewNamedDumper(name, filter string, w Writer) NamedWriter {
 
 // SetLabels sets labels for default logger.
 func SetLabels(ls Labels) {
-	newlabels(DefaultLogger, z, ls)
+	newlabels(DefaultLogger, ID{}, ls)
 }
 
 // Printf writes logging Message.
@@ -363,7 +358,7 @@ func Start() Span {
 		return Span{}
 	}
 
-	return newspan(DefaultLogger, z)
+	return newspan(DefaultLogger, ID{})
 }
 
 // Spawn creates new child trace.
@@ -372,7 +367,7 @@ func Start() Span {
 //
 // Span must be Finished in the end.
 func Spawn(id ID) Span {
-	if DefaultLogger == nil || id == z {
+	if DefaultLogger == nil || id == (ID{}) {
 		return Span{}
 	}
 
@@ -393,7 +388,7 @@ func SpawnOrStart(id ID) Span {
 }
 
 func (l *Logger) SetLabels(ls Labels) {
-	newlabels(l, z, ls)
+	newlabels(l, ID{}, ls)
 }
 
 // Printf writes logging Message to Writer.
@@ -452,7 +447,7 @@ func (l *Logger) Start() Span {
 		return Span{}
 	}
 
-	return newspan(l, z)
+	return newspan(l, ID{})
 }
 
 // Spawn creates new child trace.
@@ -461,7 +456,7 @@ func (l *Logger) Start() Span {
 //
 // Span must be Finished in the end.
 func (l *Logger) Spawn(id ID) Span {
-	if l == nil || id == z {
+	if l == nil || id == (ID{}) {
 		return Span{}
 	}
 
@@ -687,7 +682,7 @@ func (s Span) Finish() {
 // Valid checks if Span was initialized.
 // Span was initialized if it was created by tlog.Start or tlog.Spawn* functions.
 // Span could be empty (not initialized) if verbosity filter was false at the moment of Span creation, eg tlog.V("ignored_topic").Start().
-func (s Span) Valid() bool { return s.l != nil && s.ID != z }
+func (s Span) Valid() bool { return s.l != nil && s.ID != ID{} }
 
 // String returns short string representation.
 func (i ID) String() string {
@@ -801,7 +796,7 @@ func (i ID) Format(s fmt.State, c rune) {
 }
 
 func (i ID) FormatTo(b []byte, f rune) {
-	if i == z {
+	if i == (ID{}) {
 		if f == 'v' || f == 'V' {
 			copy(b, "________________________________")
 		} else {
@@ -861,7 +856,7 @@ func (l *Logger) stdRandID() (id ID) {
 		return
 	}
 
-	for id == z {
+	for id == (ID{}) {
 		_, _ = l.rnd.Read(id[:])
 	}
 

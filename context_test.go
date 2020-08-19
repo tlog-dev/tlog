@@ -17,7 +17,7 @@ func TestContextWithID(t *testing.T) {
 	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
 	DefaultLogger.randID = testRandID()
 
-	ctx := ContextWithID(context.Background(), z)
+	ctx := ContextWithID(context.Background(), ID{})
 	tr := SpawnFromContext(ctx)
 	assert.Zero(t, tr)
 

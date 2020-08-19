@@ -21,7 +21,7 @@ func testRandID() func() ID {
 	rnd := rand.New(rand.NewSource(0))
 
 	return func() (id ID) {
-		for id == z {
+		for id == (ID{}) {
 			_, _ = rnd.Read(id[:])
 		}
 		return
@@ -438,7 +438,7 @@ func TestSpan(t *testing.T) {
 	tr2 := Spawn(tr.ID)
 	assert.NotZero(t, tr2)
 
-	tr2 = SpawnOrStart(z)
+	tr2 = SpawnOrStart(ID{})
 	assert.NotZero(t, tr2)
 
 	tr = DefaultLogger.Start()
@@ -521,10 +521,10 @@ func TestIDFromMustShould(t *testing.T) {
 	assert.Equal(t, ID{1, 2, 3, 4, 5, 6, 7, 8}, res)
 
 	res = ShouldIDFromString(ID{}.FullString())
-	assert.Equal(t, z, res)
+	assert.Equal(t, ID{}, res)
 
 	res = ShouldIDFromString(ID{}.String())
-	assert.Equal(t, z, res)
+	assert.Equal(t, ID{}, res)
 
 	// must
 	res = MustIDFromString(id.FullString())
@@ -541,13 +541,13 @@ func TestIDFromMustShould(t *testing.T) {
 	assert.Panics(t, func() { MustIDFromString(string(b)) })
 
 	res = MustIDFromString(ID{}.FullString())
-	assert.Equal(t, z, res)
+	assert.Equal(t, ID{}, res)
 
 	assert.Panics(t, func() { MustIDFromString(ID{}.String()) })
 
 	// bytes
 	res = ShouldIDFromBytes(nil)
-	assert.Equal(t, z, res)
+	assert.Equal(t, ID{}, res)
 
 	res = ShouldIDFromBytes(id[:])
 	assert.Equal(t, id, res)
@@ -792,7 +792,7 @@ func BenchmarkIDFormatTo(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		if i&0xf == 0 {
-			z.FormatTo(buf[:], 'v')
+			ID{}.FormatTo(buf[:], 'v')
 		} else {
 			id.FormatTo(buf[:], 'v')
 		}

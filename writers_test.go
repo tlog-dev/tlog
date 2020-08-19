@@ -165,7 +165,7 @@ func TestProtoWriter(t *testing.T) {
 	w := NewProtoWriter(&buf)
 	var pbuf []byte
 
-	_ = w.Labels(Labels{"a", "b=c"}, z)
+	_ = w.Labels(Labels{"a", "b=c"}, ID{})
 	pbuf = encode(pbuf[:0], &tlogpb.Record{Labels: &tlogpb.Labels{Labels: []string{"a", "b=c"}}})
 	assert.Equal(t, pbuf, buf.Bytes())
 	t.Logf("Labels:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
@@ -320,9 +320,9 @@ func TestTeeWriter(t *testing.T) {
 	fe := Funcentry(-1)
 	loc := Caller(-1)
 
-	_ = w.Labels(Labels{"a=b", "f"}, z)
+	_ = w.Labels(Labels{"a=b", "f"}, ID{})
 	_ = w.Message(Message{Location: loc, Format: "msg", Time: 1}, Span{})
-	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano()}, z, fe)
+	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano()}, ID{}, fe)
 	_ = w.SpanFinished(Span{ID: ID{100}}, time.Second.Nanoseconds())
 
 	re := `{"L":{"L":\["a=b","f"\]}}

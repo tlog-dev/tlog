@@ -326,7 +326,7 @@ func (w *ConsoleWriter) SpanStarted(s Span, par ID, l Location) (err error) {
 
 	w.spanHeader(s.ID, par, l, s.Started)
 
-	if par == z {
+	if par == (ID{}) {
 		w.buf = append(w.buf, "Span started\n"...)
 	} else {
 		b := append(w.buf, "Span spawned from "...)
@@ -349,7 +349,7 @@ func (w *ConsoleWriter) SpanFinished(s Span, el int64) (err error) {
 		return
 	}
 
-	w.spanHeader(s.ID, z, 0, s.Started+el)
+	w.spanHeader(s.ID, ID{}, 0, s.Started+el)
 
 	b := append(w.buf, "Span finished - elapsed "...)
 
@@ -403,7 +403,7 @@ func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
 
 	b = append(b, `{"L":{`...)
 
-	if sid != z {
+	if sid != (ID{}) {
 		b = append(b, `"s":"`...)
 		i := len(b)
 		b = append(b, `123456789_123456789_123456789_12",`...)
@@ -441,7 +441,7 @@ func (w *JSONWriter) Message(m Message, s Span) (err error) {
 
 	b = append(b, `{"m":{`...)
 
-	if s.ID != z {
+	if s.ID != (ID{}) {
 		b = append(b, `"s":"`...)
 		i := len(b)
 		b = append(b, `123456789_123456789_123456789_12",`...)
@@ -492,7 +492,7 @@ func (w *JSONWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	b = append(b, `,"l":`...)
 	b = strconv.AppendInt(b, int64(loc), 10)
 
-	if par != z {
+	if par != (ID{}) {
 		b = append(b, `,"p":"`...)
 		i = len(b)
 		b = append(b, `123456789_123456789_123456789_12"`...)
@@ -572,7 +572,7 @@ func NewProtoWriter(w io.Writer) *ProtoWriter {
 func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 	sz := 0
 
-	if sid != z {
+	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
 
@@ -588,7 +588,7 @@ func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 
 	b = appendTagVarint(b, 1<<3|2, uint64(sz))
 
-	if sid != z {
+	if sid != (ID{}) {
 		b = appendTagVarint(b, 1<<3|2, uint64(len(sid)))
 		b = append(b, sid[:]...)
 	}
@@ -621,7 +621,7 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 	l := len(b) - st
 
 	sz := 0
-	if s.ID != z {
+	if s.ID != (ID{}) {
 		sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
 	}
 	if m.Location != 0 {
@@ -645,7 +645,7 @@ func (w *ProtoWriter) Message(m Message, s Span) (err error) {
 
 	b = appendTagVarint(b, 3<<3|2, uint64(sz))
 
-	if s.ID != z {
+	if s.ID != (ID{}) {
 		b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 		b = append(b, s.ID[:]...)
 	}
@@ -677,7 +677,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 
 	sz := 0
 	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
-	if par != z {
+	if par != (ID{}) {
 		sz += 1 + varintSize(uint64(len(par))) + len(par)
 	}
 	if loc != 0 {
@@ -694,7 +694,7 @@ func (w *ProtoWriter) SpanStarted(s Span, par ID, loc Location) (err error) {
 	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
 	b = append(b, s.ID[:]...)
 
-	if par != z {
+	if par != (ID{}) {
 		b = appendTagVarint(b, 2<<3|2, uint64(len(par)))
 		b = append(b, par[:]...)
 	}

@@ -37,7 +37,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	_ = w.SpanStarted(tlog.Span{
 		ID:      ID{1},
 		Started: now(),
-	}, tlog.ZeroID, tlog.Caller(0))
+	}, ID{}, tlog.Caller(0))
 
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
