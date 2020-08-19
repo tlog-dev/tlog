@@ -3,8 +3,9 @@ package tlargs
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/nikandfor/tlog"
-	"github.com/tj/assert"
 )
 
 func TestIfVArg(t *testing.T) {

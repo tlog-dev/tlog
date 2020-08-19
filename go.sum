@@ -62,6 +62,8 @@ github.com/nikandfor/cli v0.0.0-20200325075312-052d5b29bac6 h1:Tsn+hx7+2j8kSzI/p
 github.com/nikandfor/cli v0.0.0-20200325075312-052d5b29bac6/go.mod h1:vDZahPcaASu760o++viryRcGaM9Lxw+hIyOaZAf+WUw=
 github.com/nikandfor/errors v0.1.0 h1:IXmGXxYGkpGzNBwfuk4GaE+qf+zh9fME2JDxDoiJj2s=
 github.com/nikandfor/errors v0.1.0/go.mod h1:50/Nl1eEpvYT8IEx00Ksw54dwOsznrEtcmr+gDr9epg=
+github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798 h1:4HvomaWx26c2F4mu6MH22BrslnXGgXIO3S/i7d/5AkA=
+github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798/go.mod h1:HLpQhF6OkyIUeJcWELWMF3/Fb3St5i3gfcLSJP19qFM=
 github.com/nikandfor/json v0.0.0-20191030080807-1e239557e4e0/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9 h1:htAbsrcHQWWOo9b+8JLWkwA6oipPyXVYI5n1hlOXGKM=
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
@@ -69,8 +71,10 @@ github.com/nikandfor/testify v1.5.0 h1:0o/aZivSONmOBWhv2P2kg5LIvoGFStArgSnhKvJIi
 github.com/nikandfor/testify v1.5.0/go.mod h1:aPIL4mmn3iA8qaivxk5MkX9oxfJProuXMa7p5+fELBc=
 github.com/nikandfor/tlog v0.4.1/go.mod h1:2GfFJIRV8i6+3Bkiyt9coBHdqJv3tQcjsUKXIiDmx6o=
 github.com/nikandfor/tlog v0.4.2/go.mod h1:cHuUMNLZGK/rjlh2gUDE50Px9kmnojAYZ/Ub82yUxCY=
-github.com/nikandfor/xrain v0.0.0-20200808102054-6a1388982a5e h1:Ke6KNBPToor0K4Kwtu2dDr9jTKAOrLzK2uSmQG+Bkzk=
+github.com/nikandfor/tlog v0.5.1-0.20200818001742-8a93f3f3c653/go.mod h1:p3CPQJOM8Sq2hzeKIpfbSoqsaLiAQ/gv0p+UhhPlwsg=
 github.com/nikandfor/xrain v0.0.0-20200808102054-6a1388982a5e/go.mod h1:sXdCXqFpifJeBONAcfzn+XJ4nuvKn+Rd10AfHtUtzhQ=
+github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405 h1:tm/CEU2CZpXrg5I5DQNWeGvlx0RBXkZ9A5KMalsW01o=
+github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405/go.mod h1:2GwCWm2IwYYMBcX4c7U/ehkkb40kDbyWaIjjgp5LiWI=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
@@ -145,6 +149,7 @@ gopkg.in/go-playground/validator.v9 v9.29.1 h1:SvGtYmN60a5CVKTOzMSyfzWDeZRxRuGvR
 gopkg.in/go-playground/validator.v9 v9.29.1/go.mod h1:+c9/zcJMFNgbLvly1L1V+PpxWdVbfP1avr/N00E2vyQ=
 gopkg.in/yaml.v2 v2.2.2 h1:ZCJp+EgiOT7lHqUV2J862kp8Qj64Jo6az82+3Td9dZw=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c h1:dUUwHk2QECo/6vqA44rthZ8ie2QXMNeKRTHCNY2nXvo=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c h1:grhR+C34yXImVGp7EzNk+DTIk+323eIUWOmEevy6bDo=
 gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=

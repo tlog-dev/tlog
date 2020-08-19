@@ -8,10 +8,10 @@ require (
 	github.com/golang/protobuf v1.4.1
 	github.com/nikandfor/cli v0.0.0-20200325075312-052d5b29bac6
 	github.com/nikandfor/errors v0.1.0
+	github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798
 	github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9
-	github.com/nikandfor/xrain v0.0.0-20200808102054-6a1388982a5e
+	github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405
 	github.com/stretchr/testify v1.6.1
-	github.com/tj/assert v0.0.3
 	google.golang.org/protobuf v1.25.0
 )
 
