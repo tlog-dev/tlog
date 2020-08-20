@@ -55,9 +55,10 @@ type (
 	// Writer is an general encoder and writer of events.
 	Writer interface {
 		Labels(ls Labels, sid ID) error
-		SpanStarted(s Span, parent ID, l Location) error
-		SpanFinished(s Span, el int64) error
-		Message(l Message, s Span) error
+		SpanStarted(sid, parent ID, st int64, l Location) error
+		SpanFinished(sid ID, el int64) error
+		Message(m Message, sid ID) error
+		Metric(m Metric, sid ID) error
 	}
 
 	// Message is an Log event.
@@ -68,7 +69,12 @@ type (
 		Args     []interface{}
 	}
 
-	// Span is an tracing primitive. Span represents some function call.
+	Metric struct {
+		Name  string
+		Value float64
+	}
+
+	// Span is an tracing primitive. Span usually represents some function call.
 	Span struct {
 		l *Logger
 
@@ -172,32 +178,32 @@ func NewNamedDumper(name, filter string, w Writer) NamedWriter {
 
 // SetLabels sets labels for default logger.
 func SetLabels(ls Labels) {
-	newlabels(DefaultLogger, ID{}, ls)
+	newlabels(DefaultLogger, ls, ID{})
 }
 
 // Printf writes logging Message.
 // Arguments are handled in the manner of fmt.Printf.
 func Printf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 0, Span{}, f, args)
+	newmessage(DefaultLogger, 0, ID{}, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(DefaultLogger, d, Span{}, f, args)
+	newmessage(DefaultLogger, d, ID{}, f, args)
 }
 
 // Panicf does the same as Printf but panics in the end.
 // panic argument is fmt.Sprintf result with func arguments.
 func Panicf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 0, Span{}, f, args)
+	newmessage(DefaultLogger, 0, ID{}, f, args)
 	panic(fmt.Sprintf(f, args...))
 }
 
 // Fatalf does the same as Printf but calls os.Exit(1) in the end.
 func Fatalf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 0, Span{}, f, args)
+	newmessage(DefaultLogger, 0, ID{}, f, args)
 	os.Exit(1)
 }
 
@@ -206,7 +212,7 @@ func Fatalf(f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func PrintRaw(d int, b []byte) {
-	newmessage(DefaultLogger, d, Span{}, bytesToString(b), nil)
+	newmessage(DefaultLogger, d, ID{}, bytesToString(b), nil)
 }
 
 // V checks if topic tp is enabled and returns default Logger or nil.
@@ -274,7 +280,7 @@ func NamedFilter(name string) string {
 	return DefaultLogger.NamedFilter(name)
 }
 
-func newlabels(l *Logger, sid ID, ls Labels) {
+func newlabels(l *Logger, ls Labels, sid ID) {
 	if l == nil {
 		return
 	}
@@ -310,7 +316,7 @@ func newspan(l *Logger, d int, par ID) Span {
 		if w.verbosed && !l.verbosed {
 			continue
 		}
-		_ = w.w.SpanStarted(s, par, loc)
+		_ = w.w.SpanStarted(s.ID, par, s.Started, loc)
 	}
 
 	l.mu.Unlock()
@@ -318,7 +324,7 @@ func newspan(l *Logger, d int, par ID) Span {
 	return s
 }
 
-func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
+func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 	if l == nil {
 		return
 	}
@@ -343,11 +349,26 @@ func newmessage(l *Logger, d int, s Span, f string, args []interface{}) {
 				Format:   f,
 				Args:     args,
 			},
-			s,
+			sid,
 		)
 	}
 
 	l.mu.Unlock()
+}
+
+func newmetric(l *Logger, sid ID, n string, v float64) {
+	for _, w := range l.ws {
+		if w.verbosed && !l.verbosed {
+			continue
+		}
+		_ = w.w.Metric(
+			Metric{
+				Name:  n,
+				Value: v,
+			},
+			sid,
+		)
+	}
 }
 
 func NewSpan(l *Logger, par ID, d int) Span {
@@ -395,34 +416,38 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
+func SetMetric(n string, f float64) {
+	newmetric(DefaultLogger, ID{}, n, f)
+}
+
 func (l *Logger) SetLabels(ls Labels) {
-	newlabels(l, ID{}, ls)
+	newlabels(l, ls, ID{})
 }
 
 // Printf writes logging Message to Writer.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Printf(f string, args ...interface{}) {
-	newmessage(l, 0, Span{}, f, args)
+	newmessage(l, 0, ID{}, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(l, d, Span{}, f, args)
+	newmessage(l, d, ID{}, f, args)
 }
 
 // Panicf writes logging Message and panics.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Panicf(f string, args ...interface{}) {
-	newmessage(l, 0, Span{}, f, args)
+	newmessage(l, 0, ID{}, f, args)
 	panic(fmt.Sprintf(f, args...))
 }
 
 // Panicf writes logging Message and calls os.Exit(1) in the end.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Fatalf(f string, args ...interface{}) {
-	newmessage(l, 0, Span{}, f, args)
+	newmessage(l, 0, ID{}, f, args)
 	os.Exit(1)
 }
 
@@ -431,7 +456,7 @@ func (l *Logger) Fatalf(f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (l *Logger) PrintRaw(d int, b []byte) {
-	newmessage(l, d+0, Span{}, bytesToString(b), nil)
+	newmessage(l, d+0, ID{}, bytesToString(b), nil)
 }
 
 // Write is an io.Writer interface implementation.
@@ -442,9 +467,13 @@ func (l *Logger) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 
-	newmessage(l, l.DepthCorrection, Span{}, bytesToString(b), nil)
+	newmessage(l, l.DepthCorrection, ID{}, bytesToString(b), nil)
 
 	return len(b), nil
+}
+
+func (l *Logger) Metric(n string, v float64) {
+	newmetric(l, ID{}, n, v)
 }
 
 // Start creates new root trace.
@@ -630,20 +659,20 @@ func (s Span) V(tp string) Span {
 }
 
 func (s Span) SetLabels(ls Labels) {
-	newlabels(s.l, s.ID, ls)
+	newlabels(s.l, ls, s.ID)
 }
 
 // Printf writes logging Message annotated with trace id.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) Printf(f string, args ...interface{}) {
-	newmessage(s.l, 0, s, f, args)
+	newmessage(s.l, 0, s.ID, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(s.l, d, s, f, args)
+	newmessage(s.l, d, s.ID, f, args)
 }
 
 // PrintRaw writes logging Message with given text annotated with trace id.
@@ -651,7 +680,7 @@ func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (s Span) PrintRaw(d int, b []byte) {
-	newmessage(s.l, d, s, bytesToString(b), nil)
+	newmessage(s.l, d, s.ID, bytesToString(b), nil)
 }
 
 // Write is an io.Writer interface implementation.
@@ -662,9 +691,13 @@ func (s Span) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 
-	newmessage(s.l, s.l.DepthCorrection, s, bytesToString(b), nil)
+	newmessage(s.l, s.l.DepthCorrection, s.ID, bytesToString(b), nil)
 
 	return len(b), nil
+}
+
+func (s Span) Metric(n string, v float64) {
+	newmetric(s.l, s.ID, n, v)
 }
 
 // Finish writes Span finish event to Writer.
@@ -681,7 +714,7 @@ func (s Span) Finish() {
 		if w.verbosed && !s.l.verbosed {
 			continue
 		}
-		_ = w.w.SpanFinished(s, el)
+		_ = w.w.SpanFinished(s.ID, el)
 	}
 
 	s.l.mu.Unlock()

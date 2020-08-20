@@ -41,6 +41,12 @@ type (
 		Text     string  `json:"m"`
 	}
 
+	Metric struct {
+		Span  ID      `json:"s"`
+		Name  string  `json:"n"`
+		Value float64 `json:"v"`
+	}
+
 	Type rune
 
 	Reader interface {

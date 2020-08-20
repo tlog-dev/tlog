@@ -32,28 +32,22 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Time:     now(),
 		Format:   "%v",
 		Args:     []interface{}{3},
-	}, tlog.Span{})
+	}, tlog.ID{})
 
-	_ = w.SpanStarted(tlog.Span{
-		ID:      ID{1},
-		Started: now(),
-	}, ID{}, tlog.Caller(0))
+	_ = w.SpanStarted(ID{1}, ID{}, now(), tlog.Caller(0))
 
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     now(),
 		Format:   "%v",
 		Args:     []interface{}{5},
-	}, tlog.Span{ID: ID{1}})
+	}, ID{1})
 
-	_ = w.SpanStarted(tlog.Span{
-		ID:      ID{2},
-		Started: now(),
-	}, ID{1}, tlog.Caller(0))
+	_ = w.SpanStarted(ID{2}, ID{1}, now(), tlog.Caller(0))
 
-	_ = w.SpanFinished(tlog.Span{ID: ID{2}}, time.Second.Nanoseconds())
+	_ = w.SpanFinished(ID{2}, time.Second.Nanoseconds())
 
-	_ = w.SpanFinished(tlog.Span{ID: ID{1}}, 2*time.Second.Nanoseconds())
+	_ = w.SpanFinished(ID{1}, 2*time.Second.Nanoseconds())
 
 	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 
@@ -127,7 +121,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x102,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  40,
+			Line:  37,
 		},
 		SpanStart{
 			ID:       ID{1},
@@ -140,7 +134,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x103,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  43,
+			Line:  40,
 		},
 		Message{
 			Span:     ID{1},
@@ -153,7 +147,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x104,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  52,
+			Line:  46,
 		},
 		SpanStart{
 			ID:       ID{2},

@@ -72,9 +72,12 @@ github.com/nikandfor/testify v1.5.0/go.mod h1:aPIL4mmn3iA8qaivxk5MkX9oxfJProuXMa
 github.com/nikandfor/tlog v0.4.1/go.mod h1:2GfFJIRV8i6+3Bkiyt9coBHdqJv3tQcjsUKXIiDmx6o=
 github.com/nikandfor/tlog v0.4.2/go.mod h1:cHuUMNLZGK/rjlh2gUDE50Px9kmnojAYZ/Ub82yUxCY=
 github.com/nikandfor/tlog v0.5.1-0.20200818001742-8a93f3f3c653/go.mod h1:p3CPQJOM8Sq2hzeKIpfbSoqsaLiAQ/gv0p+UhhPlwsg=
+github.com/nikandfor/tlog v0.5.1-0.20200819205345-b32d421a95e9/go.mod h1:u6MVPQc3ix2ek2cdySN7w+wapNqXtx576056MxDvBZo=
 github.com/nikandfor/xrain v0.0.0-20200808102054-6a1388982a5e/go.mod h1:sXdCXqFpifJeBONAcfzn+XJ4nuvKn+Rd10AfHtUtzhQ=
 github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405 h1:tm/CEU2CZpXrg5I5DQNWeGvlx0RBXkZ9A5KMalsW01o=
 github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405/go.mod h1:2GwCWm2IwYYMBcX4c7U/ehkkb40kDbyWaIjjgp5LiWI=
+github.com/nikandfor/xrain v0.0.0-20200819205557-69e05adfd002 h1:7B7l5ui6gx4DkM+YpTt4TrZMBJFi/qEir3kr7kYvuAk=
+github.com/nikandfor/xrain v0.0.0-20200819205557-69e05adfd002/go.mod h1:4EY0llqled+vqNGdQjNZSjkUmLXAis9DPBGCKF0BhHU=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

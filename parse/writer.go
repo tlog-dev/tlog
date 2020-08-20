@@ -12,6 +12,7 @@ type (
 		Labels(Labels) error
 		Location(Location) error
 		Message(Message) error
+		Metric(Metric) error
 		SpanStart(SpanStart) error
 		SpanFinish(SpanFinish) error
 	}
@@ -52,28 +53,32 @@ func (w AnyWriter) Message(m Message) error {
 			Time:     m.Time,
 			Format:   m.Text,
 		},
-		tlog.Span{
-			ID: m.Span,
+		m.Span,
+	)
+}
+
+func (w AnyWriter) Metric(m Metric) error {
+	return w.w.Metric(
+		tlog.Metric{
+			Name:  m.Name,
+			Value: m.Value,
 		},
+		m.Span,
 	)
 }
 
 func (w AnyWriter) SpanStart(s SpanStart) error {
 	return w.w.SpanStarted(
-		tlog.Span{
-			ID:      s.ID,
-			Started: s.Started,
-		},
+		s.ID,
 		s.Parent,
+		s.Started,
 		tlog.Location(s.Location),
 	)
 }
 
 func (w AnyWriter) SpanFinish(f SpanFinish) error {
 	return w.w.SpanFinished(
-		tlog.Span{
-			ID: f.ID,
-		},
+		f.ID,
 		f.Elapsed,
 	)
 }
@@ -90,7 +95,7 @@ func (w *ConsoleWriter) Labels(ls Labels) error {
 			Format: "Labels: %q",
 			Args:   []interface{}{ls},
 		},
-		tlog.Span{},
+		ls.Span,
 	)
 }
 
@@ -107,29 +112,32 @@ func (w *ConsoleWriter) Message(m Message) (err error) {
 			Time:     m.Time,
 			Format:   m.Text,
 		},
-		tlog.Span{
-			ID: m.Span,
+		m.Span,
+	)
+}
+
+func (w *ConsoleWriter) Metric(m Metric) (err error) {
+	return w.w.Metric(
+		tlog.Metric{
+			Name:  m.Name,
+			Value: m.Value,
 		},
+		m.Span,
 	)
 }
 
 func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
 	return w.w.SpanStarted(
-		tlog.Span{
-			ID:      s.ID,
-			Started: s.Started,
-		},
+		s.ID,
 		s.Parent,
+		s.Started,
 		tlog.Location(s.Location),
 	)
 }
 
 func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
 	return w.w.SpanFinished(
-		tlog.Span{
-			ID:      f.ID,
-			Started: w.started[f.ID],
-		},
+		f.ID,
 		f.Elapsed,
 	)
 }

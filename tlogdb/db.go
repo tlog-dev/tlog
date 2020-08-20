@@ -23,7 +23,7 @@ import (
 
 	i -> <span_id> => <span_ts>
 	p -> <span_id> => <parent_span_id>
-	c -> <span_id> -> <child_span_id> =>
+	c -> <span_id> -> <child_span_ts> => <child_span_id>
 
 	M -> <span_id> -> <message_ts> =>
 
@@ -43,6 +43,14 @@ type (
 		*parse.SpanStart
 		*parse.SpanFinish
 		*parse.Message
+	}
+
+	stream struct {
+		c chan []byte
+
+		top []byte
+
+		stopc struct{}
 	}
 )
 
@@ -94,6 +102,18 @@ func (d *DB) All(it []byte, n int) (evs []Event, next []byte, err error) {
 		return nil
 	})
 
+	return
+}
+
+func (d *DB) messages(tx *xrain.Tx, seek []byte, stopc chan struct{}) (c chan []byte, errc chan error) {
+	return
+}
+
+func (d *DB) merge(a, b chan []byte, stopc chan struct{}) (c chan []byte, errc chan error) {
+	return
+}
+
+func (d *DB) substract(a, b chan []byte, stopc chan struct{}) (c chan []byte, errc chan error) {
 	return
 }
 
@@ -150,6 +170,10 @@ func (w *Writer) Message(m parse.Message) (err error) {
 		return nil
 	})
 
+	return
+}
+
+func (w *Writer) Metric(m parse.Metric) (err error) {
 	return
 }
 

@@ -10,7 +10,7 @@ require (
 	github.com/nikandfor/errors v0.1.0
 	github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798
 	github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9
-	github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405
+	github.com/nikandfor/xrain v0.0.0-20200819205557-69e05adfd002
 	github.com/stretchr/testify v1.6.1
 	google.golang.org/protobuf v1.25.0
 )

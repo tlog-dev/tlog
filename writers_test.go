@@ -124,15 +124,15 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	tr1.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:16.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:17.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(w.buf))
 
 	tr.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:17.000  0194fdc2fa2ffcc0  Span finished - elapsed 5000.00ms\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:19.000  0194fdc2fa2ffcc0  Span finished - elapsed 6000.00ms\n", string(w.buf))
 
 	l.Printf("not traced message")
 
-	assert.Equal(t, "2019/07/07_16:31:18.000  ________________  not traced message\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:20.000  ________________  not traced message\n", string(w.buf))
 }
 
 func TestProtoAppendVarint(t *testing.T) {
@@ -185,7 +185,7 @@ func TestProtoWriter(t *testing.T) {
 			Format:   "%v",
 			Args:     []interface{}{4},
 		},
-		Span{ID: id},
+		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
 		Pc:    int64(loc),
@@ -220,11 +220,9 @@ func TestProtoWriter(t *testing.T) {
 	par := ID{4, 14, 24, 34}
 
 	_ = w.SpanStarted(
-		Span{
-			ID:      id,
-			Started: 2,
-		},
+		id,
 		par,
+		2,
 		loc,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
@@ -266,9 +264,7 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = pbuf[:0]
 
 	_ = w.SpanFinished(
-		Span{
-			ID: id,
-		},
+		id,
 		time.Second.Nanoseconds(),
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
@@ -287,7 +283,7 @@ func TestProtoWriter(t *testing.T) {
 			Time:     2,
 			Format:   string(make([]byte, 1000)),
 		},
-		Span{ID: id},
+		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
 		Span:     id[:],
@@ -297,6 +293,25 @@ func TestProtoWriter(t *testing.T) {
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+	}
+
+	buf.Reset()
+	pbuf = pbuf[:0]
+
+	_ = w.Metric(
+		Metric{
+			Name:  "op_name_metric",
+			Value: 123.456,
+		},
+		id,
+	)
+	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
+		Span:  id[:],
+		Name:  "op_name_metric",
+		Value: 123.456,
+	}})
+	if !assert.Equal(t, pbuf, buf.Bytes()) {
+		t.Logf("Metric:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
 	}
 }
 
@@ -321,9 +336,9 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, ID{})
-	_ = w.Message(Message{Location: loc, Format: "msg", Time: 1}, Span{})
-	_ = w.SpanStarted(Span{ID: ID{100}, Started: time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano()}, ID{}, fe)
-	_ = w.SpanFinished(Span{ID: ID{100}}, time.Second.Nanoseconds())
+	_ = w.Message(Message{Location: loc, Format: "msg", Time: 1}, ID{})
+	_ = w.SpanStarted(ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe)
+	_ = w.SpanFinished(ID{100}, time.Second.Nanoseconds())
 
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
@@ -361,7 +376,7 @@ func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
 			Location: l,
 			Time:     1,
 			Format:   "some message",
-		}, Span{})
+		}, ID{})
 	}
 }
 
@@ -377,7 +392,7 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 			Location: l,
 			Time:     1,
 			Format:   "some message",
-		}, Span{})
+		}, ID{})
 	}
 }
 
@@ -393,7 +408,7 @@ func BenchmarkWriterProtoMessage(b *testing.B) {
 			Location: l,
 			Time:     1,
 			Format:   "some message",
-		}, Span{})
+		}, ID{})
 	}
 }
 
