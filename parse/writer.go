@@ -22,8 +22,7 @@ type (
 	}
 
 	ConsoleWriter struct {
-		w       *tlog.ConsoleWriter
-		started map[ID]int64
+		w *tlog.ConsoleWriter
 	}
 
 	ConvertWriter struct {

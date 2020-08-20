@@ -32,7 +32,7 @@ func Caller(s int) Location {
 func Funcentry(s int) Location {
 	var pc [1]uintptr
 	runtime.Callers(2+s, pc[:])
-	return Location(Location(pc[0]).Entry())
+	return Location(pc[0]).Entry()
 }
 
 // StackTrace returns callers stack trace.

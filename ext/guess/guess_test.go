@@ -10,7 +10,7 @@ import (
 var l *Logger
 
 func TestGuess(t *testing.T) {
-	tl = tlog.DefaultLogger
+	//	tl = tlog.DefaultLogger
 
 	var buf bytes.Buffer
 	l = tlog.New(tlog.NewConsoleWriter(&buf, tlog.Lspans|tlog.Lmessagespan|tlog.Lshortfile|tlog.Lfuncname))

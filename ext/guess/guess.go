@@ -2,7 +2,6 @@ package guess
 
 import (
 	"sync"
-	_ "unsafe"
 
 	"github.com/nikandfor/goid"
 
@@ -25,7 +24,7 @@ var (
 	mu sync.Mutex
 	c  = map[key]tlog.ID{}
 
-	tl *Logger
+//	tl *Logger
 )
 
 func StartDef() Span {
@@ -54,7 +53,7 @@ func SpawnFrom(l *Logger, par ID) Span {
 
 func newspan(l *Logger, search bool, par ID) (s Span) {
 	var loc Location
-	goid := goid.ID()
+	id := goid.ID()
 
 	if search {
 		var pc [20]Location
@@ -63,7 +62,7 @@ func newspan(l *Logger, search bool, par ID) (s Span) {
 
 		mu.Lock()
 		for _, loc := range st {
-			p, ok := c[key{goid: goid, pc: loc.Entry()}]
+			p, ok := c[key{goid: id, pc: loc.Entry()}]
 			if ok {
 				par = p
 				break
@@ -79,7 +78,7 @@ func newspan(l *Logger, search bool, par ID) (s Span) {
 	s = tlog.NewSpan(l, par, 2)
 
 	mu.Lock()
-	c[key{goid: goid, pc: loc}] = s.ID
+	c[key{goid: id, pc: loc}] = s.ID
 	mu.Unlock()
 
 	return
@@ -88,10 +87,10 @@ func newspan(l *Logger, search bool, par ID) (s Span) {
 func Finish(s Span) {
 	s.Finish()
 
-	goid := goid.ID()
+	id := goid.ID()
 	loc := tlog.Funcentry(1)
 
 	mu.Lock()
-	delete(c, key{goid: goid, pc: loc})
+	delete(c, key{goid: id, pc: loc})
 	mu.Unlock()
 }
