@@ -64,6 +64,14 @@ type (
 		w  Writer
 	}
 
+	// FallbackWriter writes all the events to Writer.
+	// If non-nil error was returned the same event is passed to Fallback.
+	// Writer error is returned anyway.
+	FallbackWriter struct {
+		Writer   Writer
+		Fallback Writer
+	}
+
 	bufWriter []byte
 )
 
@@ -73,6 +81,7 @@ var (
 	_ Writer = &ProtoWriter{}
 	_ Writer = &TeeWriter{}
 	_ Writer = &LockedWriter{}
+	_ Writer = FallbackWriter{}
 
 	Discard Writer = DiscardWriter{}
 )
@@ -1058,6 +1067,53 @@ func (w *LockedWriter) SpanFinished(sid ID, el int64) (err error) {
 	w.mu.Lock()
 	err = w.w.SpanFinished(sid, el)
 	w.mu.Unlock()
+	return
+}
+
+func NewFallbackWriter(w, fb Writer) FallbackWriter {
+	return FallbackWriter{
+		Writer:   w,
+		Fallback: fb,
+	}
+}
+
+func (w FallbackWriter) Labels(ls Labels, sid ID) (err error) {
+	err = w.Writer.Labels(ls, sid)
+	if err != nil {
+		_ = w.Fallback.Labels(ls, sid)
+	}
+	return
+}
+
+func (w FallbackWriter) Message(m Message, sid ID) (err error) {
+	err = w.Writer.Message(m, sid)
+	if err != nil {
+		_ = w.Fallback.Message(m, sid)
+	}
+	return
+}
+
+func (w FallbackWriter) Metric(m Metric, sid ID) (err error) {
+	err = w.Writer.Metric(m, sid)
+	if err != nil {
+		_ = w.Fallback.Metric(m, sid)
+	}
+	return
+}
+
+func (w FallbackWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
+	err = w.Writer.SpanStarted(sid, par, st, loc)
+	if err != nil {
+		_ = w.Fallback.SpanStarted(sid, par, st, loc)
+	}
+	return
+}
+
+func (w FallbackWriter) SpanFinished(sid ID, el int64) (err error) {
+	err = w.Writer.SpanFinished(sid, el)
+	if err != nil {
+		_ = w.Fallback.SpanFinished(sid, el)
+	}
 	return
 }
 
