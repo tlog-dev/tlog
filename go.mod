@@ -8,7 +8,7 @@ require (
 	github.com/golang/protobuf v1.4.1
 	github.com/nikandfor/cli v0.0.0-20200325075312-052d5b29bac6
 	github.com/nikandfor/errors v0.1.0
-	github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798
+	github.com/nikandfor/goid v0.0.0-20200820130530-5be5feaca12c
 	github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9
 	github.com/nikandfor/xrain v0.0.0-20200819205557-69e05adfd002
 	github.com/stretchr/testify v1.6.1

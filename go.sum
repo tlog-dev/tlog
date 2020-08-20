@@ -64,6 +64,8 @@ github.com/nikandfor/errors v0.1.0 h1:IXmGXxYGkpGzNBwfuk4GaE+qf+zh9fME2JDxDoiJj2
 github.com/nikandfor/errors v0.1.0/go.mod h1:50/Nl1eEpvYT8IEx00Ksw54dwOsznrEtcmr+gDr9epg=
 github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798 h1:4HvomaWx26c2F4mu6MH22BrslnXGgXIO3S/i7d/5AkA=
 github.com/nikandfor/goid v0.0.0-20200819190206-f6e0bfa73798/go.mod h1:HLpQhF6OkyIUeJcWELWMF3/Fb3St5i3gfcLSJP19qFM=
+github.com/nikandfor/goid v0.0.0-20200820130530-5be5feaca12c h1:8U+G3UysBcKw2o8BLyrkRn2fZn4DeVAKfDu3w3SXhr4=
+github.com/nikandfor/goid v0.0.0-20200820130530-5be5feaca12c/go.mod h1:HLpQhF6OkyIUeJcWELWMF3/Fb3St5i3gfcLSJP19qFM=
 github.com/nikandfor/json v0.0.0-20191030080807-1e239557e4e0/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9 h1:htAbsrcHQWWOo9b+8JLWkwA6oipPyXVYI5n1hlOXGKM=
 github.com/nikandfor/json v0.0.0-20200211224126-de471ddb3ea9/go.mod h1:ZcmY3qkD2zEvNx7/lqbzPR5MLEPgjSAiDpMLQG364cU=
