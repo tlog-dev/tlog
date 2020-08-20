@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/nikandfor/tlog"
 )
@@ -87,6 +88,8 @@ again:
 		r.tp = 's'
 	case 5:
 		r.tp = 'f'
+	case 6:
+		r.tp = 'v'
 	default:
 		return 0, r.newerr("unexpected object %x", tag)
 	}
@@ -106,6 +109,8 @@ func (r *ProtoReader) Any() (interface{}, error) {
 		return r.Location()
 	case 'm':
 		return r.Message()
+	case 'v':
+		return r.Metric()
 	case 's':
 		return r.SpanStart()
 	case 'f':
@@ -238,6 +243,41 @@ func (r *ProtoReader) Message() (m Message, err error) {
 
 	if r.l.V("record") != nil {
 		r.l.Printf("message: %v", m)
+	}
+
+	return m, nil
+}
+
+func (r *ProtoReader) Metric() (m Metric, err error) {
+	for r.pos+r.i < r.lim {
+		tag := r.buf[r.i]
+		r.i++
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
+		switch tag {
+		case 1<<3 | 2:
+			x := int(r.buf[r.i])
+			r.i++ // len
+			copy(m.Span[:], r.buf[r.i:r.i+x])
+			r.i += x
+		case 2<<3 | 2:
+			m.Name, err = r.string()
+			if err != nil {
+				return m, err
+			}
+		case 3<<3 | 1:
+			v := r.time()
+			m.Value = math.Float64frombits(uint64(v))
+		default:
+			if err = r.skip(); err != nil { //nolint:gocritic
+				return m, err
+			}
+		}
+	}
+
+	if r.l.V("record") != nil {
+		r.l.Printf("metric: %v", m)
 	}
 
 	return m, nil

@@ -60,6 +60,7 @@ type (
 		Labels() (Labels, error)
 		Location() (Location, error)
 		Message() (Message, error)
+		Metric() (Metric, error)
 		SpanStart() (SpanStart, error)
 		SpanFinish() (SpanFinish, error)
 	}
@@ -70,6 +71,7 @@ const (
 	TypeLabels     Type = 'L'
 	TypeLocation   Type = 'l'
 	TypeMessage    Type = 'm'
+	TypeMetric     Type = 'v'
 	TypeSpanStart  Type = 's'
 	TypeSpanFinish Type = 'f'
 )

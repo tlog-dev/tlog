@@ -59,7 +59,7 @@ func (r *JSONReader) Type() (Type, error) {
 	}
 
 	switch tp[0] {
-	case 'L', 'l', 'm', 's', 'f':
+	case 'L', 'l', 'm', 'v', 's', 'f':
 		r.tp = Type(tp[0])
 		return r.tp, nil
 	default:
@@ -80,6 +80,8 @@ func (r *JSONReader) Any() (interface{}, error) {
 		return r.Location()
 	case 'm':
 		return r.Message()
+	case 'v':
+		return r.Metric()
 	case 's':
 		return r.SpanStart()
 	case 'f':
@@ -218,6 +220,47 @@ func (r *JSONReader) Message() (m Message, err error) {
 
 	if r.l.V("record") != nil {
 		r.l.Printf("message: %v", m)
+	}
+
+	r.tp = 0
+
+	return m, nil
+}
+
+func (r *JSONReader) Metric() (m Metric, err error) {
+	if r.r.Type() != json.Object {
+		return Metric{}, r.r.ErrorHere(errors.New("object expected"))
+	}
+
+	for r.r.HasNext() {
+		k := r.r.NextString()
+		if len(k) == 0 {
+			return Metric{}, r.r.ErrorHere(errors.New("empty key"))
+		}
+		switch k[0] {
+		case 'n':
+			m.Name = string(r.r.NextString())
+		case 'v':
+			n := string(r.r.NextNumber())
+			m.Value, err = strconv.ParseFloat(n, 64)
+			if err != nil {
+				return Metric{}, r.r.ErrorHere(err)
+			}
+		case 's':
+			m.Span, err = r.id()
+			if err != nil {
+				return Metric{}, r.r.ErrorHere(err)
+			}
+		default:
+			if r.l.V("skip") != nil {
+				r.l.Printf("skip key %q", k)
+			}
+			r.r.Skip()
+		}
+	}
+
+	if r.l.V("record") != nil {
+		r.l.Printf("metric: %v", m)
 	}
 
 	r.tp = 0

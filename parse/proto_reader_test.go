@@ -45,6 +45,8 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.SpanStarted(ID{2}, ID{1}, now(), tlog.Caller(0))
 
+	_ = w.Metric(tlog.Metric{Name: "op_metric", Value: 123.456789}, ID{2})
+
 	_ = w.SpanFinished(ID{2}, time.Second.Nanoseconds())
 
 	_ = w.SpanFinished(ID{1}, 2*time.Second.Nanoseconds())
@@ -154,6 +156,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Parent:   ID{1},
 			Location: 4,
 			Started:  now(),
+		},
+		Metric{
+			Span:  ID{2},
+			Name:  "op_metric",
+			Value: 123.456789,
 		},
 		SpanFinish{
 			ID:      ID{2},
