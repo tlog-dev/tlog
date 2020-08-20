@@ -28,13 +28,12 @@ type (
 	Logger struct {
 		mu *sync.Mutex
 
-		ws    []NamedWriter
-		wsbuf [3]NamedWriter
-
-		verbosed bool
+		Writer
+		filter filter
 
 		// NoLocations disables locations capturing.
 		NoLocations bool
+
 		// DepthCorrection is for passing Logger to another loggers. Example:
 		//     log.SetOutput(l) // stdlib.
 		// Have effect on Write function only.
@@ -42,14 +41,6 @@ type (
 
 		rnd    *rand.Rand
 		randID func() ID
-	}
-
-	// NamedWriter is an Writer guarded by filter (Logger.V("topic")).
-	NamedWriter struct {
-		w        Writer
-		name     string
-		filter   filter
-		verbosed bool // verbosed only, skip non-verbosed messages
 	}
 
 	// Writer is an general encoder and writer of events.
@@ -117,63 +108,51 @@ var now = func() int64 { return time.Now().UnixNano() }
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 
 // New creates new Logger with given writers.
-func New(ws ...interface{}) *Logger {
+func New(ws ...Writer) *Logger {
 	l := &Logger{
 		mu:  &sync.Mutex{},
 		rnd: rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec
 	}
 	l.randID = l.stdRandID
 
-	l.ws = l.wsbuf[:0]
-
-	l.AppendWriter(ws...)
+	switch len(ws) {
+	case 0:
+		l.Writer = Discard
+	case 1:
+		l.Writer = ws[0]
+	default:
+		l.Writer = NewTeeWriter(ws...)
+	}
 
 	return l
 }
 
-func (l *Logger) AppendWriter(ws ...interface{}) {
-	for i := 0; i < len(ws); i++ {
-		switch w := ws[i].(type) {
-		case NamedWriter:
-			l.appendWriter(w)
-		case Writer:
-			l.appendWriter(NamedWriter{w: w})
-		case string:
-			if i+1 == len(ws) {
-				panic(w)
-			}
-			nw, ok := ws[i+1].(Writer)
-			if !ok {
-				panic(ws[i+1])
-			}
-			i++
-			l.appendWriter(NamedWriter{name: w, w: nw})
-		default:
-			panic(w)
+func (l *Logger) AppendWriter(ws ...Writer) {
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	switch w := l.Writer.(type) {
+	case DiscardWriter:
+		if len(ws) == 1 {
+			l.Writer = ws[0]
+		} else {
+			l.Writer = NewTeeWriter(ws...)
 		}
+
+	case TeeWriter:
+		l.Writer = append(w, ws...)
+
+	default:
+		tw := NewTeeWriter(w)
+		l.Writer = append(tw, ws...)
 	}
 }
 
-func (l *Logger) appendWriter(w NamedWriter) {
-	for i, h := range l.ws {
-		if h.name != w.name {
-			continue
-		}
+func (l *Logger) SetWriter(w Writer) {
+	defer l.mu.Unlock()
+	l.mu.Lock()
 
-		l.ws[i].w = NewTeeWriter(h.w, w.w)
-
-		return
-	}
-
-	l.ws = append(l.ws, w)
-}
-
-func NewNamedWriter(name, filter string, w Writer) NamedWriter {
-	return NamedWriter{name: name, filter: newFilter(filter), w: w}
-}
-
-func NewNamedDumper(name, filter string, w Writer) NamedWriter {
-	return NamedWriter{name: name, filter: newFilter(filter), w: w, verbosed: true}
+	l.Writer = w
 }
 
 // SetLabels sets labels for default logger.
@@ -229,7 +208,15 @@ func PrintRaw(d int, b []byte) {
 //         l.Printf("use result: %d")
 //     }
 func V(tp string) *Logger {
-	return DefaultLogger.v(tp)
+	if !DefaultLogger.ifv(tp) {
+		return nil
+	}
+
+	return DefaultLogger
+}
+
+func If(tp string) bool {
+	return DefaultLogger.ifv(tp)
 }
 
 // SetFilter sets filter to use in V.
@@ -262,22 +249,12 @@ func V(tp string) *Logger {
 //
 // SetFilter can be called simultaneously with V.
 func SetFilter(f string) {
-	DefaultLogger.SetNamedFilter("", f)
-}
-
-// SetNamedFilter is the same as SetFilter but changes filter with given name.
-func SetNamedFilter(name, f string) {
-	DefaultLogger.SetNamedFilter(name, f)
+	DefaultLogger.SetFilter(f)
 }
 
 // Filter returns current verbosity filter for default NamedWriter in DefaultLogger.
 func Filter() string {
-	return DefaultLogger.NamedFilter("")
-}
-
-// NamedFilter returns current verbosity filter for given NamedWriter in DefaultLogger.
-func NamedFilter(name string) string {
-	return DefaultLogger.NamedFilter(name)
+	return DefaultLogger.Filter()
 }
 
 func newlabels(l *Logger, ls Labels, sid ID) {
@@ -287,12 +264,7 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 
 	l.mu.Lock()
 
-	for _, w := range l.ws {
-		if w.verbosed && !l.verbosed {
-			continue
-		}
-		_ = w.w.Labels(ls, sid)
-	}
+	_ = l.Labels(ls, sid)
 
 	l.mu.Unlock()
 }
@@ -312,12 +284,7 @@ func newspan(l *Logger, d int, par ID) Span {
 
 	s.ID = l.randID()
 
-	for _, w := range l.ws {
-		if w.verbosed && !l.verbosed {
-			continue
-		}
-		_ = w.w.SpanStarted(s.ID, par, s.Started, loc)
-	}
+	_ = l.SpanStarted(s.ID, par, s.Started, loc)
 
 	l.mu.Unlock()
 
@@ -338,37 +305,27 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 
 	l.mu.Lock()
 
-	for _, w := range l.ws {
-		if w.verbosed && !l.verbosed {
-			continue
-		}
-		_ = w.w.Message(
-			Message{
-				Location: loc,
-				Time:     t,
-				Format:   f,
-				Args:     args,
-			},
-			sid,
-		)
-	}
+	_ = l.Message(
+		Message{
+			Location: loc,
+			Time:     t,
+			Format:   f,
+			Args:     args,
+		},
+		sid,
+	)
 
 	l.mu.Unlock()
 }
 
 func newmetric(l *Logger, sid ID, n string, v float64) {
-	for _, w := range l.ws {
-		if w.verbosed && !l.verbosed {
-			continue
-		}
-		_ = w.w.Metric(
-			Metric{
-				Name:  n,
-				Value: v,
-			},
-			sid,
-		)
-	}
+	_ = l.Metric(
+		Metric{
+			Name:  n,
+			Value: v,
+		},
+		sid,
+	)
 }
 
 func NewSpan(l *Logger, par ID, d int) Span {
@@ -416,7 +373,7 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
-func SetMetric(n string, f float64) {
+func Observe(n string, f float64) {
 	newmetric(DefaultLogger, ID{}, n, f)
 }
 
@@ -472,7 +429,7 @@ func (l *Logger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (l *Logger) Metric(n string, v float64) {
+func (l *Logger) Observe(n string, v float64) {
 	newmetric(l, ID{}, n, v)
 }
 
@@ -505,21 +462,18 @@ func (l *Logger) If(tp string) bool {
 	return l.ifv(tp)
 }
 
-func (l *Logger) ifv(tp string) (any bool) {
+func (l *Logger) ifv(tp string) (ok bool) {
 	if l == nil {
 		return false
 	}
 
 	l.mu.Lock()
 
-	for _, w := range l.ws {
-		ok := w.filter.match(tp)
-		any = any || ok
-	}
+	ok = l.filter.match(tp)
 
 	l.mu.Unlock()
 
-	return any
+	return ok
 }
 
 // V checks if one of topics in tp is enabled and returns default Logger or nil.
@@ -528,48 +482,11 @@ func (l *Logger) ifv(tp string) (any bool) {
 //
 // Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
 func (l *Logger) V(tp string) *Logger {
-	return l.v(tp)
-}
-
-func (l *Logger) v(tp string) *Logger {
-	if l == nil {
+	if l == nil || !l.ifv(tp) {
 		return nil
 	}
 
-	any := false
-
-	l.mu.Lock()
-
-	for _, w := range l.ws {
-		ok := w.filter.match(tp)
-		any = any || ok
-	}
-
-	if !any {
-		l.mu.Unlock()
-
-		return nil
-	}
-
-	sl := &Logger{
-		mu:              l.mu,
-		verbosed:        true,
-		NoLocations:     l.NoLocations,
-		DepthCorrection: l.DepthCorrection,
-		rnd:             l.rnd,
-		randID:          l.randID,
-	}
-	sl.ws = sl.wsbuf[:0]
-
-	for _, w := range l.ws {
-		if w.filter.match(tp) {
-			sl.ws = append(sl.ws, w)
-		}
-	}
-
-	l.mu.Unlock()
-
-	return sl
+	return l
 }
 
 // Valid checks if Logger is not nil and was not disabled by filter.
@@ -580,26 +497,13 @@ func (l *Logger) Valid() bool { return l != nil }
 //
 // See package.SetFilter description for details.
 func (l *Logger) SetFilter(filters string) {
-	l.SetNamedFilter("", filters)
-}
-
-// SetNamedFilter sets filter with given name which is used for V verbosity.
-//
-// See package.SetFilter description for details.
-func (l *Logger) SetNamedFilter(name, filters string) {
 	if l == nil {
 		return
 	}
 
 	l.mu.Lock()
 
-	for i, w := range l.ws {
-		if w.name != name {
-			continue
-		}
-
-		l.ws[i].filter = newFilter(filters)
-	}
+	l.filter = newFilter(filters)
 
 	l.mu.Unlock()
 }
@@ -608,13 +512,6 @@ func (l *Logger) SetNamedFilter(name, filters string) {
 //
 // See package.SetFilter description for details.
 func (l *Logger) Filter() string {
-	return l.NamedFilter("")
-}
-
-// NamedFilter returns current verbosity filter value for given filter.
-//
-// See package.SetFilter description for details.
-func (l *Logger) NamedFilter(name string) string {
 	if l == nil {
 		return ""
 	}
@@ -622,17 +519,7 @@ func (l *Logger) NamedFilter(name string) string {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	for _, w := range l.ws {
-		if w.name != name {
-			continue
-		}
-		if w.filter.f == "" {
-			return ""
-		}
-		return w.filter.f
-	}
-
-	return ""
+	return l.filter.f
 }
 
 func (l *Logger) noLocations() *Logger {
@@ -650,12 +537,11 @@ func (s Span) If(tp string) bool {
 //
 // Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
 func (s Span) V(tp string) Span {
-	l := s.l.v(tp)
-	return Span{
-		l:       l,
-		ID:      s.ID,
-		Started: s.Started,
+	if !s.l.ifv(tp) {
+		return Span{}
 	}
+
+	return s
 }
 
 func (s Span) SetLabels(ls Labels) {
@@ -696,7 +582,7 @@ func (s Span) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (s Span) Metric(n string, v float64) {
+func (s Span) Observe(n string, v float64) {
 	newmetric(s.l, s.ID, n, v)
 }
 
@@ -710,12 +596,7 @@ func (s Span) Finish() {
 
 	s.l.mu.Lock()
 
-	for _, w := range s.l.ws {
-		if w.verbosed && !s.l.verbosed {
-			continue
-		}
-		_ = w.w.SpanFinished(s.ID, el)
-	}
+	_ = s.l.SpanFinished(s.ID, el)
 
 	s.l.mu.Unlock()
 }

@@ -20,8 +20,7 @@ var (
 // Dumping requests and responses could be helpful in that situation but writing them to the same file as logs
 // makes logs hard to read. Cnditional dumper can help.
 //
-// Add NamedDumper with separate file as destination set filter to it and inspect reqeust and responses content when needed.
-
+// Initialize separate Logger with separate file as destination, set filter to it and inspect reqeust and responses content when needed.
 func main() {
 	flag.Parse()
 
@@ -37,20 +36,18 @@ func main() {
 		}
 		defer f.Close()
 
-		tlog.DefaultLogger.AppendWriter(
-			tlog.NewNamedDumper( // Skip unconditionals, tlog.NewNamedFilter will capture all unconditional messages either.
-				"dumps",                      // Name to change filter later. And to distinguish from default writer (it has name "").
-				*dumpf,                       // Initial filter value.
-				tlog.NewConsoleWriter(f, 0))) // Any flags could be used here if you want. tlog.Lmessagespan could help match log messages with dumps
-
+		dumper = tlog.New(tlog.NewConsoleWriter(f, 0))
+		dumper.SetFilter(*dumpf)
 	}
 
 	tlog.Printf("usual log message (appears in console only)")
 
-	tlog.V("dump,pkg").Write([]byte("some big file content (appears in dumps file only, if selected by filter)"))
+	dumper.V("dump,pkg").Write([]byte("some big file content (appears in dumps file only, if selected by filter)"))
 
 	request()
 }
+
+var dumper *tlog.Logger
 
 func request() {
 	// Should be Spawned from client trace
@@ -60,19 +57,19 @@ func request() {
 	tr.Printf("request information")
 
 	// Add your own description for dump (third option to identify dump).
-	tr.V("dump,traced").Printf("dump description\n%s", []byte("from traces works the same (appears in dumps file only, if selected by filter)"))
+	dumper.V("dump,traced").Printf("dump description (spanid %x)\n%s", tr.ID, []byte("from traces works the same (appears in dumps file only, if selected by filter)"))
 }
 
 // Example outout:
 //
 // $ go run ./examples/dumper/
-// 2020/02/08_15:59:13  ________________  usual log message (appears in console only)
-// 2020/02/08_15:59:13  e9540718d06cceab  request information
+// 2020/08/20_05:18:33  ________________  usual log message (appears in console only)
+// 2020/08/20_05:18:33  295cb45b66b75747  request information
 //
-// $ go run ./examples/dumper/ --dump dumps.log
-// 2020/02/08_16:16:04  ________________  usual log message (appears in console only)
-// 2020/02/08_16:16:04  c927194bd7694d86  request information
-// $ cat dumps.log
+// $ go run ./examples/dumper/ --dump dumper.log
+// 2020/08/20_05:18:37  ________________  usual log message (appears in console only)
+// 2020/08/20_05:18:37  644a9505e11726c8  request information
+// $ cat dumper.log
 // some big file content (appears in dumps file only, if selected by filter)
-// dump description
+// dump description (spanid 644a9505e11726c8)
 // from traces works the same (appears in dumps file only, if selected by filter)

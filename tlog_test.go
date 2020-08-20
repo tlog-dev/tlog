@@ -187,7 +187,6 @@ func TestVerbosity(t *testing.T) {
 	}
 
 	assert.Equal(t, "", (*Logger)(nil).Filter())
-	assert.Equal(t, "", NamedFilter(""))
 
 	var buf bytes.Buffer
 
@@ -196,10 +195,6 @@ func TestVerbosity(t *testing.T) {
 	V("any_topic").Printf("All conditionals are disabled by default")
 
 	SetFilter("topic1,tlog=topic3")
-
-	assert.Equal(t, "topic1,tlog=topic3", Filter())
-
-	SetNamedFilter("", "topic1,tlog=topic3")
 
 	assert.Equal(t, "topic1,tlog=topic3", Filter())
 
@@ -244,149 +239,15 @@ trace conditioned message 2
 `, buf.String())
 
 	(*Logger)(nil).V("a,b,c").Printf("nothing")
-	(*Logger)(nil).SetNamedFilter("", "a,b,c")
 
 	DefaultLogger = nil
 	V("a").Printf("none")
 }
 
-func TestVerbosity2(t *testing.T) {
-	defer func(old func() int64) {
-		now = old
-	}(now)
-	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
-	now = func() int64 {
-		tm = tm.Add(time.Second)
-		return tm.UnixNano()
-	}
-
-	var buf0, buf1, buf2 bytes.Buffer
-
-	l := New(
-		NewConsoleWriter(&buf0, Lspans),
-		NewNamedWriter("a", "a", NewConsoleWriter(&buf1, Lspans)),
-		NewNamedWriter("b", "b", NewConsoleWriter(&buf2, Lspans)))
-	l.randID = testRandID()
-
-	l.Printf("unconditional")
-
-	l.V("a").Printf("a only")
-
-	l.V("b").Printf("b only")
-
-	l.V("c").Printf("nowhere")
-
-	tr := l.Start()
-	tr.V("a").Printf("a trace")
-	tr.Finish()
-
-	l.SetNamedFilter("b", "b,c")
-
-	assert.Equal(t, "b,c", l.NamedFilter("b"))
-	assert.Equal(t, "", l.Filter())
-	assert.Equal(t, "", (*Logger)(nil).Filter())
-
-	l.V("c").Printf("b3")
-
-	l.SetFilter("q")
-
-	l.Printf("unconditional 2")
-	l.V("q").Printf("conditional 1")
-	l.V("w").Printf("conditional 2")
-
-	assert.Equal(t, `unconditional
-0194fdc2fa2ffcc0  Span started
-0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
-unconditional 2
-conditional 1
-`, buf0.String())
-
-	assert.Equal(t, `unconditional
-a only
-0194fdc2fa2ffcc0  Span started
-a trace
-0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
-unconditional 2
-`, buf1.String())
-
-	assert.Equal(t, `unconditional
-b only
-0194fdc2fa2ffcc0  Span started
-0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
-b3
-unconditional 2
-`, buf2.String())
-}
-
-func TestVerbosity3(t *testing.T) {
-	defer func(old func() int64) {
-		now = old
-	}(now)
-	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
-	now = func() int64 {
-		tm = tm.Add(time.Second)
-		return tm.UnixNano()
-	}
-
-	var buf0, buf1, buf2 bytes.Buffer
-
-	l := New(
-		NewConsoleWriter(&buf0, Lspans),
-		NewNamedDumper("a", "a", NewConsoleWriter(&buf1, Lspans)),
-		NewNamedDumper("b", "b", NewConsoleWriter(&buf2, Lspans)))
-	l.randID = testRandID()
-
-	l.SetLabels(Labels{"q"})
-	l.V("a").SetLabels(Labels{"a"})
-
-	l.Printf("unconditional")
-
-	l.V("a").Printf("a only")
-
-	l.V("b").Printf("b only")
-
-	l.V("c").Printf("nowhere")
-
-	tr := l.Start()
-	tr.V("a").Printf("a trace")
-	tr.Finish()
-
-	l.SetNamedFilter("b", "b,c")
-
-	assert.Equal(t, "b,c", l.NamedFilter("b"))
-	assert.Equal(t, "", l.Filter())
-	assert.Equal(t, "", (*Logger)(nil).Filter())
-
-	l.V("c").Printf("b3")
-
-	l.SetFilter("q")
-
-	l.Printf("unconditional 2")
-	l.V("q").Printf("conditional 1")
-	l.V("w").Printf("conditional 2")
-
-	assert.Equal(t, `Labels: ["q"]
-unconditional
-0194fdc2fa2ffcc0  Span started
-0194fdc2fa2ffcc0  Span finished - elapsed 2000.00ms
-unconditional 2
-conditional 1
-`, buf0.String())
-
-	assert.Equal(t, `Labels: ["a"]
-a only
-a trace
-`, buf1.String())
-
-	assert.Equal(t, `b only
-b3
-`, buf2.String())
-}
-
 func TestSetFilter(t *testing.T) {
 	const N = 100
 
-	l := New(Discard{})
+	l := New(Discard)
 
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -583,7 +444,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Printf("message %d", 2)
 
-	tr1.Metric("metric_name", 123.456789)
+	tr1.Observe("metric_name", 123.456789)
 
 	tr1.Finish()
 
@@ -607,27 +468,21 @@ func TestJSONWriterSpans(t *testing.T) {
 }
 
 func TestAppendWriter(t *testing.T) {
-	l := New(NewNamedWriter("a", "a", Discard{}), NewNamedWriter("b", "b", Discard{}))
+	l := New()
 
-	l.AppendWriter(NewNamedWriter("b", "b", Discard{}))
+	assert.Equal(t, l.Writer, Discard)
 
-	assert.Len(t, l.ws, 2)
+	l.AppendWriter(Discard)
 
-	assert.Panics(t, func() {
-		l.AppendWriter(l)
-	})
+	assert.Equal(t, l.Writer, Discard)
 
-	assert.Panics(t, func() {
-		l.AppendWriter("qwe")
-	})
+	l.AppendWriter(Discard, Discard)
 
-	assert.Panics(t, func() {
-		l.AppendWriter("qwe", NewNamedWriter("", "", Discard{}))
-	})
+	assert.Equal(t, l.Writer, TeeWriter{Discard, Discard})
 
-	l.AppendWriter("c", Discard{})
+	l.AppendWriter(Discard)
 
-	assert.Len(t, l.ws, 3)
+	assert.Equal(t, l.Writer, TeeWriter{Discard, Discard, Discard})
 }
 
 func TestCoverUncovered(t *testing.T) {
@@ -643,8 +498,6 @@ func TestCoverUncovered(t *testing.T) {
 	assert.Equal(t, `{"L":{"L":["a","q"]}}`+"\n", buf.String())
 
 	(*Logger)(nil).SetLabels(Labels{"a"})
-
-	assert.Equal(t, "", DefaultLogger.NamedFilter("qq"))
 
 	assert.Equal(t, "too short id: 7, wanted 32", TooShortIDError{N: 7}.Error())
 
@@ -805,7 +658,7 @@ func BenchmarkIDFormatTo(b *testing.B) {
 func BenchmarkTlogTracesDiscard(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(Discard{})
+	l := New(Discard)
 	l.NoLocations = true
 
 	t := time.Now()
@@ -833,7 +686,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	now = func() int64 { return time.Now().UnixNano() }
 	var buf0, buf1, buf2 bytes.Buffer
 
-	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), "json", NewJSONWriter(&buf1), "pb", NewProtoWriter(&buf2))
+	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), NewJSONWriter(&buf1), NewProtoWriter(&buf2))
 
 	var wg sync.WaitGroup
 
@@ -846,23 +699,11 @@ func TestTlogGrandParallel(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < N; i++ {
-				switch i & 7 {
+				switch i & 2 {
 				case 0:
 					SetFilter("")
 				case 1:
 					SetFilter("a")
-				case 2:
-					SetNamedFilter("json", "")
-				case 3:
-					SetNamedFilter("json", "b")
-				case 4:
-					SetNamedFilter("pb", "")
-				case 5:
-					SetNamedFilter("pb", "a")
-				case 6:
-					SetNamedFilter("pb", "b")
-				case 7:
-					SetNamedFilter("pb", "c")
 				}
 			}
 		}()

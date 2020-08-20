@@ -9,7 +9,7 @@ import (
 )
 
 func TestIfVArg(t *testing.T) {
-	l := tlog.New(tlog.Discard{})
+	l := tlog.New(tlog.Discard)
 
 	l.SetFilter("enabled")
 

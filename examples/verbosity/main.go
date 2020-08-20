@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"os"
 	"runtime"
 
@@ -10,33 +8,21 @@ import (
 )
 
 func main() {
-	var buf bytes.Buffer // Imagine this is file
+	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags))
 
-	tlog.DefaultLogger = tlog.New(
-		tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags), // standard logs to stderr
-		tlog.NewNamedWriter( // more detailed logs to a file
-			"verbose", // name to address filter later
-			"*",       // capture all topics
-			tlog.NewConsoleWriter(&buf, tlog.LdetFlags))) // writer with more detailed flags
-
-	tlog.SetNamedFilter("verbose", "topic,debug") // change filter in flight
-
-	fmt.Fprintf(os.Stderr, "STDERR OUTPUT:\n")
+	tlog.SetFilter("topic,info") // change filter in flight
 
 	tlog.Printf("unconditional log message")
 
 	tlog.V("topic").Printf("simple condition")
 
-	tlog.V("trace").Printf("simple condition (will not be printed)")
+	tlog.V("debug").Printf("simple condition (will not be printed)")
 
-	if l := tlog.V("debug"); l != nil { // l is a *tlog.Logger
+	if l := tlog.V("info"); l != nil {
 		dumpSomeStats(l)
 	}
 
 	funcUnconditionalTrace()
-
-	// file content:
-	fmt.Fprintf(os.Stderr, "FILE CONTENT:\n%s", buf.Bytes())
 }
 
 func funcUnconditionalTrace() {
@@ -52,14 +38,14 @@ func funcConditionalTrace(id tlog.ID) {
 	tr := tlog.V("topic").Spawn(id)
 	defer tr.Finish()
 
-	tr.Printf("printed only to a file")
+	tr.Printf("this line printed if filter includes topic")
 
 	if tr.Valid() { // true if topic enabled
 		p := 1 + 1 // complex calculations
 		tr.Printf("verbose output: %v", p)
 	}
 
-	if tr2 := tr.V("subtopic"); tr2.Valid() { // true if both: topic and subtopic enabled by filter
+	if tr.If("subtopic") { // true if both: topic and subtopic enabled by filter
 		p := 2 + 3 + 4 // even more complex calculations
 		tr.Printf("very verbose output: %v", p)
 	}

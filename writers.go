@@ -54,8 +54,8 @@ type (
 	// TeeWriter writes the same events in the same order to all Writers one after another.
 	TeeWriter []Writer
 
-	// Discard discards all events.
-	Discard struct{}
+	// DiscardWriter discards all events.
+	DiscardWriter struct{}
 
 	// LockedWriter is a Writer under Mutex
 	// It's safe to write event simultaneously.
@@ -72,8 +72,9 @@ var (
 	_ Writer = &JSONWriter{}
 	_ Writer = &ProtoWriter{}
 	_ Writer = &TeeWriter{}
-	_ Writer = Discard{}
 	_ Writer = &LockedWriter{}
+
+	Discard Writer = DiscardWriter{}
 )
 
 var spaces = []byte("                                                                                                                                                ")
@@ -1015,11 +1016,11 @@ func (w TeeWriter) SpanFinished(sid ID, el int64) (err error) {
 	return
 }
 
-func (w Discard) Labels(Labels, ID) (err error)                   { return nil }
-func (w Discard) Message(Message, ID) (err error)                 { return nil }
-func (w Discard) Metric(Metric, ID) (err error)                   { return nil }
-func (w Discard) SpanStarted(ID, ID, int64, Location) (err error) { return nil }
-func (w Discard) SpanFinished(ID, int64) (err error)              { return nil }
+func (w DiscardWriter) Labels(Labels, ID) (err error)                   { return nil }
+func (w DiscardWriter) Message(Message, ID) (err error)                 { return nil }
+func (w DiscardWriter) Metric(Metric, ID) (err error)                   { return nil }
+func (w DiscardWriter) SpanStarted(ID, ID, int64, Location) (err error) { return nil }
+func (w DiscardWriter) SpanFinished(ID, int64) (err error)              { return nil }
 
 func NewLockedWriter(w Writer) *LockedWriter {
 	return &LockedWriter{w: w}

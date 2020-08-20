@@ -29,24 +29,31 @@ var (
 )
 
 func StartDef() Span {
-	return newspan(tlog.DefaultLogger, false)
+	return newspan(tlog.DefaultLogger, false, ID{})
 }
 
 func SpawnDef() Span {
-	return newspan(tlog.DefaultLogger, true)
+	return newspan(tlog.DefaultLogger, true, ID{})
+}
+
+func SpawnDefFrom(par ID) Span {
+	return newspan(tlog.DefaultLogger, false, par)
 }
 
 func Start(l *Logger) Span {
-	return newspan(l, false)
+	return newspan(l, false, ID{})
 }
 
 func Spawn(l *Logger) Span {
-	return newspan(l, true)
+	return newspan(l, true, ID{})
 }
 
-func newspan(l *Logger, search bool) (s Span) {
+func SpawnFrom(l *Logger, par ID) Span {
+	return newspan(l, false, par)
+}
+
+func newspan(l *Logger, search bool, par ID) (s Span) {
 	var loc Location
-	var par ID
 	goid := goid.ID()
 
 	if search {

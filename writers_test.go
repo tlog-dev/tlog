@@ -316,7 +316,7 @@ func TestProtoWriter(t *testing.T) {
 }
 
 func TestLockedWriter(t *testing.T) {
-	l := New(NewLockedWriter(Discard{}))
+	l := New(NewLockedWriter(Discard))
 
 	l.SetLabels(Labels{"a", "b"})
 	tr := l.Start()
@@ -355,11 +355,11 @@ func TestTeeWriter(t *testing.T) {
 }
 
 func TestNewTeeWriter(t *testing.T) {
-	a := NewTeeWriter(Discard{})
-	b := NewTeeWriter(Discard{})
-	c := NewTeeWriter(Discard{}, Discard{})
+	a := NewTeeWriter(Discard)
+	b := NewTeeWriter(Discard)
+	c := NewTeeWriter(Discard, Discard)
 
-	d := NewTeeWriter(a, b, c, Discard{})
+	d := NewTeeWriter(a, b, c, Discard)
 
 	assert.Len(t, d, 5)
 }
