@@ -1,5 +1,7 @@
 language: go
 
+dist: xenial
+
 os:
   - linux
   - osx
@@ -7,23 +9,13 @@ os:
 
 arch:
   - amd64
+  - i386
+  - arm64
 
 go:
   - "1.15"
   - "1.14"
   - "1.13"
-
-jobs:
-  include:
-    - os: linux
-      go: "1.15"
-      arch: arm64
-    - os: linux
-      go: "1.14"
-      arch: arm64
-    - os: linux
-      go: "1.13"
-      arch: arm64
 
 script:
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
