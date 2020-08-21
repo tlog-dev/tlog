@@ -112,87 +112,9 @@ func convert(c *cli.Command) error {
 		return errors.New("undefined writer format: %v", q)
 	}
 
-loop:
-	for {
-		tp, err := r.Type()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			tlog.Printf("read record: %v", err)
-			break
-		}
-
-		switch rune(tp) {
-		case 'L':
-			ls, err := r.Labels()
-			if err != nil {
-				tlog.Printf("read record body: %v", err)
-				break loop
-			}
-
-			err = w.Labels(ls)
-			if err != nil {
-				tlog.Printf("write record: %v", err)
-				break loop
-			}
-		case 'l':
-			l, err := r.Location()
-			if err != nil {
-				tlog.Printf("read record body: %v", err)
-				break loop
-			}
-
-			err = w.Location(l)
-			if err != nil {
-				tlog.Printf("write record: %v", err)
-				break loop
-			}
-		case 'm':
-			m, err := r.Message()
-			if err != nil {
-				tlog.Printf("read record body: %v", err)
-				break loop
-			}
-
-			err = w.Message(m)
-			if err != nil {
-				tlog.Printf("write record: %v", err)
-				break loop
-			}
-		case 's':
-			s, err := r.SpanStart()
-			if err != nil {
-				tlog.Printf("read record body: %v", err)
-				break loop
-			}
-
-			err = w.SpanStart(s)
-			if err != nil {
-				tlog.Printf("write record: %v", err)
-				break loop
-			}
-		case 'f':
-			f, err := r.SpanFinish()
-			if err != nil {
-				tlog.Printf("read record body: %v", err)
-				break loop
-			}
-
-			err = w.SpanFinish(f)
-			if err != nil {
-				tlog.Printf("write record: %v", err)
-				break loop
-			}
-		default:
-			tlog.Printf("unexpected record type: %v", tp)
-
-			_, err = r.Read()
-			if err != nil {
-				tlog.Printf("read record body: %+v", err)
-				break loop
-			}
-		}
+	err = parse.Copy(w, r)
+	if err != nil {
+		return err
 	}
 
 	return nil
