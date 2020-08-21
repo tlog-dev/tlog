@@ -18,6 +18,8 @@ import (
 	-> means bucket
 	=> means key-value pair
 
+	L -> <k=v> -> <span_ts> => <span_id>
+
 	m -> <ts> => <message>
 	s -> <ts> => <span_start>
 	f -> <ts> => <span_finish>

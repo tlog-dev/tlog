@@ -18,14 +18,15 @@ linters-settings:
     list-type: whitelist
     packages:
       - github.com/beorn7/perks/quantile
+      - github.com/gin-gonic/gin
       - github.com/golang/glog
       - github.com/golang/protobuf/proto
       - github.com/nikandfor/cli
       - github.com/nikandfor/errors
+      - github.com/nikandfor/goid
       - github.com/nikandfor/json
       - github.com/nikandfor/tlog
       - github.com/nikandfor/xrain
-      - github.com/nikandfor/goid
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
       - google.golang.org/protobuf

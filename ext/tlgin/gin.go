@@ -44,9 +44,11 @@ func traces(c *gin.Context, ptid bool) {
 		}
 
 		if ptid {
-			tr.Printf("%-15v | %v | %3v | %13.3fs | %-8v %v", c.ClientIP(), trid, c.Writer.Status(), time.Since(time.Unix(0, tr.Started)).Seconds(), c.Request.Method, c.Request.URL.Path)
+			tr.Printf("%-15v | %v | %3v | %13.3fs | %-8v %v",
+				c.ClientIP(), trid, c.Writer.Status(), time.Since(time.Unix(0, tr.Started)).Seconds(), c.Request.Method, c.Request.URL.Path)
 		} else {
-			tr.Printf("%-15v | %3v | %13.3fs | %-8v %v", c.ClientIP(), c.Writer.Status(), time.Since(time.Unix(0, tr.Started)).Seconds(), c.Request.Method, c.Request.URL.Path)
+			tr.Printf("%-15v | %3v | %13.3fs | %-8v %v",
+				c.ClientIP(), c.Writer.Status(), time.Since(time.Unix(0, tr.Started)).Seconds(), c.Request.Method, c.Request.URL.Path)
 		}
 	}()
 

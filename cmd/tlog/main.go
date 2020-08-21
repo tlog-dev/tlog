@@ -44,7 +44,6 @@ func before(c *cli.Command) error {
 	return nil
 }
 
-//nolint:gocognit,gocyclo
 func convert(c *cli.Command) error {
 	var inext, outext string
 

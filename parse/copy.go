@@ -6,6 +6,7 @@ import (
 	"github.com/nikandfor/errors"
 )
 
+//nolint:gocognit
 func Copy(w Writer, r LowReader) error {
 	for {
 		tp, err := r.Type()
@@ -84,6 +85,4 @@ func Copy(w Writer, r LowReader) error {
 			}
 		}
 	}
-
-	return nil
 }
