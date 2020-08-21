@@ -112,7 +112,7 @@ func convert(c *cli.Command) error {
 		return errors.New("undefined writer format: %v", q)
 	}
 
-	err = parse.Copy(w, r)
+	err := parse.Copy(w, r)
 	if err != nil {
 		return err
 	}

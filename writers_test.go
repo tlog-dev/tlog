@@ -392,7 +392,20 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 			Location: l,
 			Time:     1,
 			Format:   "some message",
-		}, ID{})
+		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
+	}
+}
+
+func BenchmarkWriterJSONMetric(b *testing.B) {
+	b.ReportAllocs()
+
+	w := NewJSONWriter(ioutil.Discard)
+
+	for i := 0; i < b.N; i++ {
+		_ = w.Metric(Metric{
+			Name:  "some_metric",
+			Value: 123.456,
+		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 	}
 }
 
