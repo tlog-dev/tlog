@@ -26,7 +26,7 @@ type (
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger methods can be called simultaneously.
 	Logger struct {
-		mu *sync.Mutex
+		sync.Mutex
 
 		Writer
 		filter filter
@@ -67,7 +67,7 @@ type (
 
 	// Span is an tracing primitive. Span usually represents some function call.
 	Span struct {
-		l *Logger
+		*Logger
 
 		ID ID
 
@@ -110,7 +110,6 @@ var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 // New creates new Logger with given writers.
 func New(ws ...Writer) *Logger {
 	l := &Logger{
-		mu:  &sync.Mutex{},
 		rnd: rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec
 	}
 	l.randID = l.stdRandID
@@ -128,8 +127,8 @@ func New(ws ...Writer) *Logger {
 }
 
 func (l *Logger) AppendWriter(ws ...Writer) {
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
 	switch w := l.Writer.(type) {
 	case DiscardWriter:
@@ -149,8 +148,8 @@ func (l *Logger) AppendWriter(ws ...Writer) {
 }
 
 func (l *Logger) SetWriter(w Writer) {
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
 	l.Writer = w
 }
@@ -262,11 +261,11 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 		return
 	}
 
-	l.mu.Lock()
+	l.Lock()
 
-	_ = l.Labels(ls, sid)
+	_ = l.Writer.Labels(ls, sid)
 
-	l.mu.Unlock()
+	l.Unlock()
 }
 
 func newspan(l *Logger, d int, par ID) Span {
@@ -276,17 +275,17 @@ func newspan(l *Logger, d int, par ID) Span {
 	}
 
 	s := Span{
-		l:       l,
+		Logger:  l,
 		Started: now(),
 	}
 
-	l.mu.Lock()
+	l.Lock()
 
 	s.ID = l.randID()
 
-	_ = l.SpanStarted(s.ID, par, s.Started, loc)
+	_ = l.Writer.SpanStarted(s.ID, par, s.Started, loc)
 
-	l.mu.Unlock()
+	l.Unlock()
 
 	return s
 }
@@ -303,9 +302,9 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 		loc = Caller(d + 2)
 	}
 
-	l.mu.Lock()
+	l.Lock()
 
-	_ = l.Message(
+	_ = l.Writer.Message(
 		Message{
 			Location: loc,
 			Time:     t,
@@ -315,17 +314,21 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 		sid,
 	)
 
-	l.mu.Unlock()
+	l.Unlock()
 }
 
 func newmetric(l *Logger, sid ID, n string, v float64) {
-	_ = l.Metric(
+	l.Lock()
+
+	_ = l.Writer.Metric(
 		Metric{
 			Name:  n,
 			Value: v,
 		},
 		sid,
 	)
+
+	l.Unlock()
 }
 
 func NewSpan(l *Logger, par ID, d int) Span {
@@ -457,6 +460,14 @@ func (l *Logger) Spawn(id ID) Span {
 	return newspan(l, 0, id)
 }
 
+func (l *Logger) Migrate(s Span) Span {
+	return Span{
+		Logger:  l,
+		ID:      s.ID,
+		Started: s.Started,
+	}
+}
+
 // If checks if some of topics enabled.
 func (l *Logger) If(tp string) bool {
 	return l.ifv(tp)
@@ -467,11 +478,11 @@ func (l *Logger) ifv(tp string) (ok bool) {
 		return false
 	}
 
-	l.mu.Lock()
+	l.Lock()
 
 	ok = l.filter.match(tp)
 
-	l.mu.Unlock()
+	l.Unlock()
 
 	return ok
 }
@@ -501,11 +512,11 @@ func (l *Logger) SetFilter(filters string) {
 		return
 	}
 
-	l.mu.Lock()
+	l.Lock()
 
 	l.filter = newFilter(filters)
 
-	l.mu.Unlock()
+	l.Unlock()
 }
 
 // Filter returns current verbosity filter value for default filter.
@@ -516,8 +527,8 @@ func (l *Logger) Filter() string {
 		return ""
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
 	return l.filter.f
 }
@@ -527,8 +538,41 @@ func (l *Logger) noLocations() *Logger {
 	return l
 }
 
-func (s Span) If(tp string) bool {
-	return s.l.ifv(tp)
+// writer interface
+
+func (l *Logger) Labels(ls Labels, sid ID) (err error) {
+	l.Lock()
+	err = l.Writer.Labels(ls, sid)
+	l.Unlock()
+	return
+}
+
+func (l *Logger) SpanStarted(id, par ID, st int64, loc Location) (err error) {
+	l.Lock()
+	err = l.Writer.SpanStarted(id, par, st, loc)
+	l.Unlock()
+	return
+}
+
+func (l *Logger) SpanFinished(id ID, el int64) (err error) {
+	l.Lock()
+	err = l.Writer.SpanFinished(id, el)
+	l.Unlock()
+	return
+}
+
+func (l *Logger) Message(m Message, sid ID) (err error) {
+	l.Lock()
+	err = l.Writer.Message(m, sid)
+	l.Unlock()
+	return
+}
+
+func (l *Logger) Metric(m Metric, sid ID) (err error) {
+	l.Lock()
+	err = l.Writer.Metric(m, sid)
+	l.Unlock()
+	return
 }
 
 // V checks if one of topics in tp is enabled and returns the same Span or empty.
@@ -537,7 +581,7 @@ func (s Span) If(tp string) bool {
 //
 // Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
 func (s Span) V(tp string) Span {
-	if !s.l.ifv(tp) {
+	if !s.Logger.ifv(tp) {
 		return Span{}
 	}
 
@@ -545,20 +589,20 @@ func (s Span) V(tp string) Span {
 }
 
 func (s Span) SetLabels(ls Labels) {
-	newlabels(s.l, ls, s.ID)
+	newlabels(s.Logger, ls, s.ID)
 }
 
 // Printf writes logging Message annotated with trace id.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) Printf(f string, args ...interface{}) {
-	newmessage(s.l, 0, s.ID, f, args)
+	newmessage(s.Logger, 0, s.ID, f, args)
 }
 
 // PrintfDepth writes logging Message.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
-	newmessage(s.l, d, s.ID, f, args)
+	newmessage(s.Logger, d, s.ID, f, args)
 }
 
 // PrintRaw writes logging Message with given text annotated with trace id.
@@ -566,45 +610,45 @@ func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
 func (s Span) PrintRaw(d int, b []byte) {
-	newmessage(s.l, d, s.ID, bytesToString(b), nil)
+	newmessage(s.Logger, d, s.ID, bytesToString(b), nil)
 }
 
 // Write is an io.Writer interface implementation.
 //
 // It never returns any error.
 func (s Span) Write(b []byte) (int, error) {
-	if s.l == nil {
+	if s.Logger == nil {
 		return len(b), nil
 	}
 
-	newmessage(s.l, s.l.DepthCorrection, s.ID, bytesToString(b), nil)
+	newmessage(s.Logger, s.Logger.DepthCorrection, s.ID, bytesToString(b), nil)
 
 	return len(b), nil
 }
 
 func (s Span) Observe(n string, v float64) {
-	newmetric(s.l, s.ID, n, v)
+	newmetric(s.Logger, s.ID, n, v)
 }
 
 // Finish writes Span finish event to Writer.
 func (s Span) Finish() {
-	if s.l == nil {
+	if s.Logger == nil {
 		return
 	}
 
 	el := now() - s.Started
 
-	s.l.mu.Lock()
+	s.Logger.Lock()
 
-	_ = s.l.SpanFinished(s.ID, el)
+	_ = s.Logger.Writer.SpanFinished(s.ID, el)
 
-	s.l.mu.Unlock()
+	s.Logger.Unlock()
 }
 
 // Valid checks if Span was initialized.
 // Span was initialized if it was created by tlog.Start or tlog.Spawn* functions.
 // Span could be empty (not initialized) if verbosity filter was false at the moment of Span creation, eg tlog.V("ignored_topic").Start().
-func (s Span) Valid() bool { return s.l != nil && s.ID != ID{} }
+func (s Span) Valid() bool { return s.Logger != nil && s.ID != ID{} }
 
 // String returns short string representation.
 func (i ID) String() string {

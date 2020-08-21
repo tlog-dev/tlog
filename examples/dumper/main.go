@@ -57,7 +57,7 @@ func request() {
 	tr.Printf("request information")
 
 	// Add your own description for dump (third option to identify dump).
-	dumper.V("dump,traced").Printf("dump description (spanid %x)\n%s", tr.ID, []byte("from traces works the same (appears in dumps file only, if selected by filter)"))
+	dumper.V("dump,traced").Migrate(tr).Printf("dump description\n%s", []byte("from traces works the same (appears in dumps file only, if selected by filter)"))
 }
 
 // Example outout:
