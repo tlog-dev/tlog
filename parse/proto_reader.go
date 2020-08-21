@@ -269,6 +269,14 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 		case 3<<3 | 1:
 			v := r.time()
 			m.Value = math.Float64frombits(uint64(v))
+		case 4<<3 | 2:
+			var l string
+			l, err = r.string()
+			if err != nil {
+				return m, err
+			}
+
+			m.Labels = append(m.Labels, l)
 		default:
 			if err = r.skip(); err != nil { //nolint:gocritic
 				return m, err

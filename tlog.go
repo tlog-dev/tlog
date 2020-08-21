@@ -61,8 +61,9 @@ type (
 	}
 
 	Metric struct {
-		Name  string
-		Value float64
+		Labels Labels
+		Name   string
+		Value  float64
 	}
 
 	// Span is an tracing primitive. Span usually represents some function call.
@@ -317,13 +318,14 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 	l.Unlock()
 }
 
-func newmetric(l *Logger, sid ID, n string, v float64) {
+func newmetric(l *Logger, sid ID, n string, v float64, ls Labels) {
 	l.Lock()
 
 	_ = l.Writer.Metric(
 		Metric{
-			Name:  n,
-			Value: v,
+			Labels: ls,
+			Name:   n,
+			Value:  v,
 		},
 		sid,
 	)
@@ -376,8 +378,8 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
-func Observe(n string, f float64) {
-	newmetric(DefaultLogger, ID{}, n, f)
+func Observe(n string, f float64, ls Labels) {
+	newmetric(DefaultLogger, ID{}, n, f, ls)
 }
 
 func (l *Logger) SetLabels(ls Labels) {
@@ -432,8 +434,8 @@ func (l *Logger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (l *Logger) Observe(n string, v float64) {
-	newmetric(l, ID{}, n, v)
+func (l *Logger) Observe(n string, v float64, ls Labels) {
+	newmetric(l, ID{}, n, v, ls)
 }
 
 // Start creates new root trace.
@@ -626,8 +628,8 @@ func (s Span) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (s Span) Observe(n string, v float64) {
-	newmetric(s.Logger, s.ID, n, v)
+func (s Span) Observe(n string, v float64, ls Labels) {
+	newmetric(s.Logger, s.ID, n, v, ls)
 }
 
 // Finish writes Span finish event to Writer.

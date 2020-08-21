@@ -57,7 +57,7 @@ func work() {
 	var a A
 	a.func1(tr.ID)
 
-	tr.Observe("op_metric", 123.456)
+	tr.Observe("op_metric", 123.456, tlog.Labels{"account=123456", "algo=fast"})
 }
 
 type A struct{}

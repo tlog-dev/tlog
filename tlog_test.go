@@ -444,7 +444,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Printf("message %d", 2)
 
-	tr1.Observe("metric_name", 123.456789)
+	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
 
 	tr1.Finish()
 
@@ -457,7 +457,7 @@ func TestJSONWriterSpans(t *testing.T) {
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":1562517072000000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
-{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":123.456789}}
+{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":123.456789,"L":\["q=w","e=1"\]}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":2000000000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":4000000000}}
 `

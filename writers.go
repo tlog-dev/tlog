@@ -405,8 +405,8 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 		Message{
 			Location: loc,
 			Time:     now(),
-			Format:   "%v %15.5f",
-			Args:     []interface{}{m.Name, m.Value},
+			Format:   "%v %15.5f %v",
+			Args:     []interface{}{m.Name, m.Value, m.Labels},
 		},
 		sid,
 	)
@@ -530,6 +530,19 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 
 	b = append(b, `","v":`...)
 	b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
+
+	if len(m.Labels) != 0 {
+		b = append(b, `,"L":[`...)
+		for i, l := range m.Labels {
+			if i != 0 {
+				b = append(b, ',')
+			}
+			b = append(b, '"')
+			b = appendSafe(b, l)
+			b = append(b, '"')
+		}
+		b = append(b, ']')
+	}
 
 	b = append(b, `}}`+"\n"...)
 
@@ -743,6 +756,10 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 	}
 	sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
 	sz += 1 + 8 // value
+	for _, l := range m.Labels {
+		q := len(l)
+		sz += 1 + varintSize(uint64(q)) + q
+	}
 
 	b := w.buf
 	szs := varintSize(uint64(sz))
@@ -760,6 +777,11 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 
 	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
+
+	for _, l := range m.Labels {
+		b = appendTagVarint(b, 4<<3|2, uint64(len(l)))
+		b = append(b, l...)
+	}
 
 	w.buf = b[:0]
 

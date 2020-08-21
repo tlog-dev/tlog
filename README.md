@@ -257,7 +257,7 @@ tlog.Printf("but logs don't appear in traces")
 tr := tlog.Start()
 defer tr.Finish()
 
-tr.Observe("metric_name", 123.456)
+tr.Observe("metric_name", 123.456, tlog.Labels{"worker=3", "acc=593934"})
 ```
 
 Check out prometheus naming convention https://prometheus.io/docs/practices/naming/.

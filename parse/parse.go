@@ -42,9 +42,10 @@ type (
 	}
 
 	Metric struct {
-		Span  ID      `json:"s"`
-		Name  string  `json:"n"`
-		Value float64 `json:"v"`
+		Span   ID          `json:"s"`
+		Labels tlog.Labels `json:"L"`
+		Name   string      `json:"n"`
+		Value  float64     `json:"v"`
 	}
 
 	Type rune
