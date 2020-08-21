@@ -1,5 +1,3 @@
-// +build ignore
-
 package main
 
 import (
@@ -7,8 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nikandfor/cli/flag"
+
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/examples/tloggin"
+	"github.com/nikandfor/tlog/ext/tlgin"
 )
 
 var (
@@ -25,12 +24,12 @@ func main() {
 	r := gin.New()
 
 	if *traces {
-		r.Use(tloggin.Tracer)
+		r.Use(tlgin.Tracer)
 	} else {
-		r.Use(tloggin.Logger)
+		r.Use(tlgin.Logger)
 	}
 
-	r.Use(tloggin.Dumper) // must be after Tracer
+	r.Use(tlgin.Dumper) // must be after Tracer
 
 	v1 := r.Group("v1/")
 

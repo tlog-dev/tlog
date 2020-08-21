@@ -1,4 +1,4 @@
-package tloggin
+package tlgin
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/nikandfor/tlog"
 )
 
@@ -27,7 +28,7 @@ func traces(c *gin.Context, ptid bool) {
 		var err error
 		trid, err = tlog.IDFromString(xtr)
 		if err != nil {
-			tlog.Printf("bad trace id: %v", err)
+			tlog.Printf("bad trace id %v: %v", xtr, err)
 			trid = tlog.ID{}
 		}
 	}
