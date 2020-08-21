@@ -7,7 +7,7 @@
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/nikandfor/tlog?sort=semver)
 
 # tlog
-TraceLog - distributed tracing and logging.
+TraceLog - distributed tracing, logging and metrics.
 
 Explore [examples](examples).
 
@@ -41,16 +41,9 @@ Actually it's not verbosity levels but debug topics. Each conditional operation 
 func main() {
     // ...
 	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags))
-	if *filtersFlag != "" {
-		tlog.DefaultLogger.AppendWriter(
-			tlog.NewNamedWriter("debug", *filtersFlag, // filter name, initial value
-				tlog.NewJSONWriter(
-					rotated.Create("/tmp/log.json"))))
-	}
 
-	// ...
-	// later you can change filter by name.
-	tlog.SetNamedFilter("debug", newFilterValue)
+	// change filter at any time.
+	tlog.SetFilter(filter) // filter = "telemetry" or "Conn" or "Send=encrypt" or "file.go"
 }
 
 // path/to/module/and/file.go
@@ -175,12 +168,15 @@ l = tlog.New(cw, jw) // the same result as before
 You can implement your own `tlog.Writer`.
 ```golang
 Writer interface {
-    Labels(ls Labels)
-    SpanStarted(s Span, parent ID, l Location)
-    SpanFinished(s Span, el time.Duration)
-    Message(m Message, s Span)
+    Labels(Labels, ID)
+    SpanStarted(id, parent Span, started int64, loc Location)
+    SpanFinished(sid ID, elapsed int64)
+    Message(m Message, sid ID)
+    Metric(m Metric, sid ID)
 }
 ```
+
+There are more writers in `tlog` package, find them in [docs](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc).
 
 # Tracing
 
@@ -188,29 +184,37 @@ It's hard to overvalue tracing when it comes to many parallel requests and espec
 So tracing is here.
 ```golang
 func Google(ctx context.Context, user, query string) (*Response, error) {
-    tr := tlog.Start()
-    defer tr.Finish()
+    tr := tlog.Start() // records start time and location (function name, file and line)
+    defer tr.Finish() // records duration
 
-    tr.Printf("user %s made query: %s", user, q)
+    tr.SetLabels(Labels{"user=" + user}) // attach to Span and each of it's messages.
+        // In contrast with (*Logger).SetLabels it can be called at any point.
+	// Even after all messages and metrics.
 
     for _, b := range backends {
         go func(){
             subctx := tlog.ContextWithID(ctx, tr.ID)
+	    
             res := b.Search(subctx, u, q)
+	    
             // handle res
         }()
     }
 
     var res Response
+
     // wait for and take results of backends
 
+    // each message contains time, so you can measure each block between messages
     tr.Printf("%d Pages found on backends", len(res.Pages))
 
     // ...
 
     tr.Printf("advertisments added")
 
-    res.TraceID = tr.ID // return it in HTTP Header or somehow. Later you can use it to find all subSpans
+    // return it in HTTP Header or somehow.
+    // Later you can use it to find all related Spans and Messages.
+    res.TraceID = tr.ID
 
     return res, nil
 }
@@ -229,7 +233,7 @@ func (b *VideosBackend) Search(ctx context.Context, q string) ([]*Page, error) {
 ```
 Traces may be used as metrics either. Analyzing time of messages you can measure how much each function elapsed, how much time has passed since one message to another.
 
-**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, it's just an `[16]byte` and have helper methods.**
+**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, there are helpers.**
 
 Analysing and visualising tool is going to be later.
 
@@ -245,6 +249,72 @@ defer tr.Finish()
 tr.Printf("each time you print something to trace it appears in logs either")
 
 tlog.Printf("but logs don't appear in traces")
+```
+
+# Metrics
+
+```golang
+tr := tlog.Start()
+defer tr.Finish()
+
+tr.Observe("metric_name", 123.456)
+```
+
+Check out prometheus naming convention https://prometheus.io/docs/practices/naming/.
+
+# Distributed
+
+Distributed traces work almost the same as local logger.
+
+## Labels
+
+First thing you sould set up is `Labels`. They are attached to each following message and starting span. You can find out later which machine and process produced each log event by these labels. There are some predefined label names that can be filled for you.
+
+```golang
+tlog.DefaultLogger = tlog.New(...)
+
+// full list is in tlog.AutoLabels
+base := tlog.FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_randid")
+ls := append(Labels{"service=myservice"}, base...)
+ls = append(ls, tlog.ParseLabels(*userLabelsFlag)...)
+
+tlog.SetLabels(ls)
+```
+
+## Span.ID
+
+In a local code you may pass `Span.ID` in a `context.Context` as `tlog.ContextWithID` and derive from it as `tlog.SpawnFromContext`.
+But additional actions are required in case of remote procedure call. You need to send `Span.ID` with arguments as a `string` of `[]byte`.
+There are helper functions for that: `ID.FullString`, `tlog.IDFromString`, `ID[:]`, `tlog.IDFromBytes`.
+Example for gin is here: [ext/tlgin/gin.goo](ext/tlgin/gin.go)
+
+```golang
+func server(w http.ResponseWriter, req *http.Request) {
+    xtr := req.Header.Get("X-Traceid")
+    trid, err := tlog.IDFromString(xtr)
+    if err != nil {
+        trid = tlog.ID{}	    
+    }
+    
+    tr := tlog.StartOrSpawn(trid)
+    defer tr.Finish()
+
+    if err != nil && xtr != "" {
+        tr.Printf("bad trace id: %v %v", xtr, err)
+    }
+
+    // ...
+}
+
+func client(ctx context.Context) {
+    req := &http.Request{}
+
+    if id := tlog.IDFromContext(ctx); id != (tlog.ID{}) {
+        req.Header.Set("X-Traceid", id.FullString())
+    }
+    
+    // ...
+}
 ```
 
 # Performance
@@ -281,10 +351,6 @@ BenchmarkLocation-8               	 2987563	       396 ns/op	      32 B/op	     
 2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
 
 2 more allocs in `LogLoggerDetailed` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
-
-## Writes
-
-Writers designed to have one single write for each message you log, no more, no less. More writes per message is more operations and more system calls (if you write to `os.Stderr` or `*os.File`), so less performance and a risk to loose half of the message. Less writes (it means buffering multiple messages and write them together) is a chance to lose last messages in case of crash. And we don't want to lose message that describes reason why we crashed, do we?
 
 # Roadmap
 * Create swiss knife tool to analyse system performance through traces.
