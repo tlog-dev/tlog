@@ -127,9 +127,10 @@ func (w *ConsoleWriter) buildHeader(loc Location, ts int64) {
 
 	var fname, file string
 	line := -1
-	t := time.Unix(0, ts)
 
 	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
+		t := time.Unix(0, ts)
+
 		if w.f&LUTC != 0 {
 			t = t.UTC()
 		}
@@ -315,10 +316,13 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 		w.buf = append(b, ' ', ' ')
 	}
 
-	if m.Args != nil {
-		w.buf = AppendPrintf(w.buf, m.Format, m.Args...)
-	} else {
+	switch {
+	case m.Args == nil:
 		w.buf = append(w.buf, m.Format...)
+	case m.Format == "":
+		w.buf = AppendPrintln(w.buf, m.Args...)
+	default:
+		w.buf = AppendPrintf(w.buf, m.Format, m.Args...)
 	}
 
 	w.buf.NewLine()
@@ -338,7 +342,7 @@ func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm int64) {
 	w.buf = append(b, ' ', ' ')
 }
 
-// Message writes SpanStarted event by single Write.
+// SpanStarted writes SpanStarted event by single Write.
 func (w *ConsoleWriter) SpanStarted(sid, par ID, st int64, l Location) (err error) {
 	if w.f&Lspans == 0 {
 		return
@@ -363,7 +367,7 @@ func (w *ConsoleWriter) SpanStarted(sid, par ID, st int64, l Location) (err erro
 	return
 }
 
-// Message writes SpanFinished event by single Write.
+// SpanFinished writes SpanFinished event by single Write.
 func (w *ConsoleWriter) SpanFinished(sid ID, el int64) (err error) {
 	if w.f&Lspans == 0 {
 		return
@@ -383,7 +387,7 @@ func (w *ConsoleWriter) SpanFinished(sid ID, el int64) (err error) {
 	return
 }
 
-// Message writes Labels by single Write.
+// Labels writes Labels by single Write.
 func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	loc := w.caller()
 
@@ -497,11 +501,13 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	}
 
 	b = append(b, `,"m":"`...)
-	if m.Args != nil {
+	switch {
+	case m.Args == nil:
+		b = append(b, m.Format...)
+	case m.Format == "":
+		b = AppendPrintln(b, m.Args...)
+	default:
 		b = AppendPrintf(b, m.Format, m.Args...)
-	} else {
-		cv := stringToBytes(m.Format)
-		b = append(b, cv...)
 	}
 
 	b = append(b, "\"}}\n"...)
@@ -693,10 +699,13 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 
 	b := w.buf
 	st := len(b)
-	if m.Args != nil {
-		b = AppendPrintf(b, m.Format, m.Args...)
-	} else {
+	switch {
+	case m.Args == nil:
 		b = append(b, m.Format...)
+	case m.Format == "":
+		b = AppendPrintln(b, m.Args...)
+	default:
+		b = AppendPrintf(b, m.Format, m.Args...)
 	}
 	l := len(b) - st
 

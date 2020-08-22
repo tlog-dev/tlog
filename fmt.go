@@ -74,6 +74,10 @@ type (
 //go:noescape
 func doPrintf(p *pp, format string, a []interface{})
 
+//go:linkname doPrintln fmt.(*pp).doPrintln
+//go:noescape
+func doPrintln(p *pp, a []interface{})
+
 // AppendPrintf is similar to fmt.Fprintf but a little bit hacked.
 //
 // There is no sync.Pool.Get and Put. There is no copying buffer to io.Writer or conversion to string. There is no io.Writer interface dereference.
@@ -85,7 +89,15 @@ func AppendPrintf(b []byte, format string, a ...interface{}) []byte {
 	doPrintf(&p, format, a)
 	b = *(*[]byte)(noescape(unsafe.Pointer(&p.buf)))
 	return b
-	//	return p.buf
+}
+
+func AppendPrintln(b []byte, a ...interface{}) []byte {
+	var p pp
+	p.buf = b
+	p.fmt.buf = &p.buf
+	doPrintln(&p, a)
+	b = *(*[]byte)(noescape(unsafe.Pointer(&p.buf)))
+	return b
 }
 
 // noescape hides a pointer from escape analysis.  noescape is

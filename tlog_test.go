@@ -480,9 +480,9 @@ func TestAppendWriter(t *testing.T) {
 
 	assert.Equal(t, l.Writer, TeeWriter{Discard, Discard})
 
-	l.AppendWriter(Discard)
+	l.AppendWriter(Discard, Discard)
 
-	assert.Equal(t, l.Writer, TeeWriter{Discard, Discard, Discard})
+	assert.Equal(t, l.Writer, TeeWriter{Discard, Discard, Discard, Discard})
 }
 
 func TestCoverUncovered(t *testing.T) {
@@ -512,6 +512,35 @@ func TestCoverUncovered(t *testing.T) {
 
 	id := DefaultLogger.stdRandID()
 	assert.NotZero(t, id)
+}
+
+func TestPrintfVsPrintln(t *testing.T) {
+	var buf bytes.Buffer
+
+	l := New(NewConsoleWriter(&buf, 0))
+
+	l.Printf("message %v %v %v", 1, 2, 3)
+
+	a := buf.String()
+	buf.Reset()
+
+	l.Printf("", "message", 1, 2, 3)
+
+	b := buf.String()
+
+	assert.Equal(t, a, b)
+}
+
+func BenchmarkPrintfVsPrintln(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewConsoleWriter(ioutil.Discard, 0))
+	l.NoLocations = true
+
+	for i := 0; i < b.N; i++ {
+		l.Printf("message %d %d %d", i, i+1, i+2)
+		l.Printf("", "message", i, i+1, i+2)
+	}
 }
 
 func BenchmarkLogLoggerStd(b *testing.B) {

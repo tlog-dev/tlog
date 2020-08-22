@@ -421,6 +421,10 @@ func (l *Logger) PrintRaw(d int, b []byte) {
 	newmessage(l, d+0, ID{}, bytesToString(b), nil)
 }
 
+func (l *Logger) Println(args ...interface{}) {
+	newmessage(l, 0, ID{}, "", args)
+}
+
 // Write is an io.Writer interface implementation.
 //
 // It never returns any error.
@@ -613,6 +617,10 @@ func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
 // All possible allocs are eliminated. You should reuse buffer either.
 func (s Span) PrintRaw(d int, b []byte) {
 	newmessage(s.Logger, d, s.ID, bytesToString(b), nil)
+}
+
+func (s Span) Println(args ...interface{}) {
+	newmessage(s.Logger, 0, s.ID, "", args)
 }
 
 // Write is an io.Writer interface implementation.
