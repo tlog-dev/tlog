@@ -138,26 +138,6 @@ func bytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-type sh struct {
-	p unsafe.Pointer
-	l int
-}
-
-type bh struct {
-	p unsafe.Pointer
-	l int
-	c int
-}
-
-func stringToBytes(s string) []byte {
-	h := *(*sh)(unsafe.Pointer(&s))
-	return *(*[]byte)(unsafe.Pointer(&bh{
-		p: h.p,
-		l: h.l,
-		c: h.l,
-	}))
-}
-
 func UnsafeBytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }

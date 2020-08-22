@@ -1,7 +1,12 @@
+// +build ignore
+
 package tlogdb
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/nikandfor/xrain"
@@ -12,13 +17,25 @@ import (
 	"github.com/nikandfor/tlog/parse"
 )
 
+var tlogV = flag.String("tlog-v", "", "")
+
 func TestDBSmoke(t *testing.T) {
-	tl = tlog.NewTestLogger(t, "", false)
+	tl = tlog.NewTestLogger(t, *tlogV, false)
+	tlog.DefaultLogger = tl
+
+	t.Skip()
 
 	const N = 3
 
-	b := xrain.NewMemBack(0)
-	db, err := xrain.NewDB(b, 0, nil)
+	b, err := xrain.Mmap("/tmp/tlogdb.xrain", os.O_CREATE|os.O_RDWR)
+	require.NoError(t, err)
+
+	l := xrain.NewKVLayout2(nil)
+	l.Compare = func(a, b []byte) int {
+		return bytes.Compare(b, a)
+	}
+
+	db, err := xrain.NewDB(b, 0x200, nil)
 	require.NoError(t, err)
 
 	d := NewDB(db)
@@ -41,37 +58,104 @@ func TestDBSmoke(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	var evs []Event
+	err = db.View(func(tx *xrain.Tx) error {
+		xrain.DebugDump(tl, tx.SimpleBucket)
+
+		return nil
+	})
+	require.NoError(t, err)
+
+	var msgs []*parse.Message
 	var next []byte
 
+	tl.Printf("scan with no query")
+
 	for lim := 10; lim >= 0; lim-- {
-		var e []Event
-		e, next, err = d.All(next, 2)
+		var e []*parse.Message
+		e, next, err = d.Messages(nil, "", next, 2)
 		if !assert.NoError(t, err) {
 			break
 		}
 
-		evs = append(evs, e...)
+		msgs = append(msgs, e...)
 
 		if next == nil {
 			break
 		}
 	}
 
-	if assert.Len(t, evs, N) {
-		assert.Equal(t, []Event{
-			{Message: &parse.Message{
+	if assert.Len(t, msgs, N) {
+		assert.Equal(t, []*parse.Message{
+			{
 				Time: 1,
 				Text: "message: 0.1",
-			}},
-			{Message: &parse.Message{
+			}, {
 				Time: 2,
 				Text: "message: 1.1",
-			}},
-			{Message: &parse.Message{
+			}, {
 				Time: 3,
 				Text: "message: 2.1",
-			}},
-		}, evs)
+			},
+		}, msgs)
+	}
+
+	msgs = msgs[:0]
+
+	tl.Printf("scan with query 'essa'")
+
+	for lim := 10; lim >= 0; lim-- {
+		var e []*parse.Message
+		e, next, err = d.Messages(nil, "essa", next, 2)
+		if !assert.NoError(t, err) {
+			break
+		}
+
+		msgs = append(msgs, e...)
+
+		if next == nil {
+			break
+		}
+	}
+
+	if assert.Len(t, msgs, N) {
+		assert.Equal(t, []*parse.Message{
+			{
+				Time: 1,
+				Text: "message: 0.1",
+			}, {
+				Time: 2,
+				Text: "message: 1.1",
+			}, {
+				Time: 3,
+				Text: "message: 2.1",
+			},
+		}, msgs)
+	}
+
+	msgs = msgs[:0]
+
+	tl.Printf("scan with query '1.1'")
+
+	for lim := 10; lim >= 0; lim-- {
+		var e []*parse.Message
+		e, next, err = d.Messages(nil, "1.1", next, 2)
+		if !assert.NoError(t, err) {
+			break
+		}
+
+		msgs = append(msgs, e...)
+
+		if next == nil {
+			break
+		}
+	}
+
+	if assert.Len(t, msgs, 1) {
+		assert.Equal(t, []*parse.Message{
+			{
+				Time: 2,
+				Text: "message: 1.1",
+			},
+		}, msgs)
 	}
 }
