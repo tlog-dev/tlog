@@ -27,6 +27,8 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.Labels(tlog.Labels{"a", "b=c"}, ID{1, 2, 3, 4})
 
+	_ = w.Metric(tlog.Metric{Name: "op_metric", Labels: tlog.Labels{"mode=debug"}, Help: "help message", Type: "type", Meta: true}, ID{})
+
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     now(),
@@ -45,7 +47,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.SpanStarted(ID{2}, ID{1}, now(), tlog.Caller(0))
 
-	_ = w.Metric(tlog.Metric{Name: "op_metric", Value: 123.456789, Labels: tlog.Labels{"acc=1234", "algo=fast"}}, ID{2})
+	_ = w.Metric(tlog.Metric{Name: "op_metric", Value: 123.456789, Labels: tlog.Labels{"path=/url/path", "algo=fast"}}, ID{2})
 
 	_ = w.SpanFinished(ID{2}, time.Second.Nanoseconds())
 
@@ -71,7 +73,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			break
 		}
 		if err != nil {
-			t.Errorf("Read: %v", err)
+			t.Errorf("Read: %+v (%T)", err, err)
 			break
 		}
 
@@ -89,6 +91,9 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		case Message:
 			t.Location = locs[t.Location]
 			o = t
+		case Metric:
+			t.Hash = 0
+			o = t
 		case SpanStart:
 			t.Location = locs[t.Location]
 			o = t
@@ -105,12 +110,18 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	assert.Equal(t, []interface{}{
 		Labels{Labels: tlog.Labels{"a", "b=c"}, Span: ID{1, 2, 3, 4}},
+		Metric{
+			Name:   "op_metric",
+			Labels: tlog.Labels{"mode=debug"},
+			Help:   "help message",
+			Type:   "type",
+		},
 		Location{
 			PC:    1,
 			Entry: 0x101,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  31,
+			Line:  33,
 		},
 		Message{
 			Span:     ID{},
@@ -123,7 +134,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x102,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  37,
+			Line:  39,
 		},
 		SpanStart{
 			ID:       ID{1},
@@ -136,7 +147,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x103,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  40,
+			Line:  42,
 		},
 		Message{
 			Span:     ID{1},
@@ -149,7 +160,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x104,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  46,
+			Line:  48,
 		},
 		SpanStart{
 			ID:       ID{2},
@@ -159,7 +170,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		},
 		Metric{
 			Span:   ID{2},
-			Labels: tlog.Labels{"acc=1234", "algo=fast"},
+			Labels: tlog.Labels{"path=/url/path", "algo=fast"},
 			Name:   "op_metric",
 			Value:  123.456789,
 		},

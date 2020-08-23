@@ -20,6 +20,8 @@ type JSONReader struct {
 	err    error
 
 	l *tlog.Logger
+
+	SkipUnknown bool
 }
 
 func NewJSONReader(r io.Reader) *JSONReader {
@@ -44,7 +46,13 @@ func (r *JSONReader) Type() (Type, error) {
 			return 0, r.wraperr(fmt.Errorf("expected end of object, got %v", r.r.Type()))
 		}
 	}
+
+next:
 	if !r.r.HasNext() {
+		if err := r.r.Err(); err != nil {
+			return 0, r.wraperr(err)
+		}
+
 		return 0, r.wraperr(io.EOF)
 	}
 	r.finish = true
@@ -63,8 +71,12 @@ func (r *JSONReader) Type() (Type, error) {
 		r.tp = Type(tp[0])
 		return r.tp, nil
 	default:
-		r.tp = 0
-		return 0, r.wraperr(fmt.Errorf("unexpected object %q", tp))
+		if err := r.unknownField(tp); err != nil {
+			r.tp = 0
+			return 0, err
+		}
+
+		goto next
 	}
 }
 
@@ -87,7 +99,7 @@ func (r *JSONReader) Any() (interface{}, error) {
 	case 'f':
 		return r.SpanFinish()
 	default:
-		return nil, r.r.ErrorHere(fmt.Errorf("unexpected object %q", r.tp))
+		return nil, r.r.ErrorHere(fmt.Errorf("unexpected record %q", r.tp))
 	}
 }
 
@@ -120,6 +132,10 @@ func (r *JSONReader) Labels() (ls Labels, err error) {
 			for r.r.HasNext() {
 				l := string(r.r.NextString())
 				ls.Labels = append(ls.Labels, l)
+			}
+		default:
+			if err := r.unknownField(k); err != nil {
+				return Labels{}, err
 			}
 		}
 	}
@@ -155,6 +171,13 @@ func (r *JSONReader) Location() (l Location, err error) {
 				return Location{}, r.r.ErrorHere(err)
 			}
 			l.PC = uintptr(v)
+		case 'e':
+			n := string(r.r.NextNumber())
+			v, err := strconv.ParseUint(n, 10, 64)
+			if err != nil {
+				return Location{}, r.r.ErrorHere(err)
+			}
+			l.Entry = uintptr(v)
 		case 'l':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseUint(n, 10, 64)
@@ -163,10 +186,9 @@ func (r *JSONReader) Location() (l Location, err error) {
 			}
 			l.Line = int(v)
 		default:
-			if r.l.V("skip") != nil {
-				r.l.Printf("skip key %q", k)
+			if err := r.unknownField(k); err != nil {
+				return Location{}, err
 			}
-			r.r.Skip()
 		}
 	}
 
@@ -211,10 +233,9 @@ func (r *JSONReader) Message() (m Message, err error) {
 				return Message{}, r.r.ErrorHere(err)
 			}
 		default:
-			if r.l.V("skip") != nil {
-				r.l.Printf("skip key %q", k)
+			if err := r.unknownField(k); err != nil {
+				return Message{}, err
 			}
-			r.r.Skip()
 		}
 	}
 
@@ -251,6 +272,12 @@ func (r *JSONReader) Metric() (m Metric, err error) {
 			if err != nil {
 				return Metric{}, r.r.ErrorHere(err)
 			}
+		case 'h':
+			n := string(r.r.NextString())
+			m.Hash, err = strconv.ParseUint(n, 16, 64)
+			if err != nil {
+				return Metric{}, r.r.ErrorHere(err)
+			}
 		case 'L':
 			if r.r.Type() != json.Array {
 				return Metric{}, r.r.ErrorHere(fmt.Errorf("array expected, got %v %v", r.r.Type(), r.tp))
@@ -260,11 +287,14 @@ func (r *JSONReader) Metric() (m Metric, err error) {
 				l := string(r.r.NextString())
 				m.Labels = append(m.Labels, l)
 			}
+		case 'H':
+			m.Help = string(r.r.NextString())
+		case 't':
+			m.Type = string(r.r.NextString())
 		default:
-			if r.l.V("skip") != nil {
-				r.l.Printf("skip key %q", k)
+			if err := r.unknownField(k); err != nil {
+				return Metric{}, err
 			}
-			r.r.Skip()
 		}
 	}
 
@@ -312,10 +342,9 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
 		default:
-			if r.l.V("skip") != nil {
-				r.l.Printf("skip key %q", k)
+			if err := r.unknownField(k); err != nil {
+				return SpanStart{}, err
 			}
-			r.r.Skip()
 		}
 	}
 
@@ -351,10 +380,9 @@ func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 				return SpanFinish{}, r.r.ErrorHere(err)
 			}
 		default:
-			if r.l.V("skip") != nil {
-				r.l.Printf("skip key %q", k)
+			if err := r.unknownField(k); err != nil {
+				return SpanFinish{}, err
 			}
-			r.r.Skip()
 		}
 	}
 
@@ -365,6 +393,18 @@ func (r *JSONReader) SpanFinish() (f SpanFinish, err error) {
 	r.tp = 0
 
 	return f, nil
+}
+
+func (r *JSONReader) unknownField(k []byte) error {
+	if r.SkipUnknown {
+		if r.l.If("skip") {
+			r.l.PrintfDepth(1, "skip key %q", k)
+		}
+
+		r.r.Skip()
+	}
+
+	return r.wraperr(fmt.Errorf("unexpected field %q", k))
 }
 
 func (r *JSONReader) id() (id ID, err error) {
@@ -383,8 +423,8 @@ func (r *JSONReader) wraperr(err error) error {
 	if r.err != nil {
 		return r.err
 	}
-	if err == io.EOF {
-		r.err = err
+	if errors.Is(err, io.EOF) {
+		r.err = errors.Unwrap(err)
 		return err
 	}
 	r.err = r.r.ErrorHere(err)

@@ -37,6 +37,7 @@ type (
 	JSONWriter struct {
 		w   io.Writer
 		ls  map[Location]struct{}
+		ms  map[uintptr]struct{}
 		buf []byte
 	}
 
@@ -48,6 +49,7 @@ type (
 	ProtoWriter struct {
 		w   io.Writer
 		ls  map[Location]struct{}
+		ms  map[uintptr]struct{}
 		buf bufWriter
 	}
 
@@ -85,6 +87,8 @@ var (
 
 	Discard Writer = DiscardWriter{}
 )
+
+var hasher func(p *string, s uintptr) uintptr = strhash
 
 var spaces = []byte("                                                                                                                                                ")
 
@@ -405,15 +409,20 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	loc := w.caller()
 
-	return w.Message(
-		Message{
-			Location: loc,
-			Time:     now(),
-			Format:   "%v %15.5f %v",
-			Args:     []interface{}{m.Name, m.Value, m.Labels},
-		},
-		sid,
-	)
+	msg := Message{
+		Location: loc,
+		Time:     now(),
+	}
+
+	if m.Meta {
+		msg.Format = "metric %v  type %v  labels %v\n# %v"
+		msg.Args = []interface{}{m.Name, m.Type, m.Labels, m.Help}
+	} else {
+		msg.Format = "%v %15.5f %v"
+		msg.Args = []interface{}{m.Name, m.Value, m.Labels}
+	}
+
+	return w.Message(msg, sid)
 }
 
 func (w *ConsoleWriter) caller() Location {
@@ -438,6 +447,7 @@ func NewJSONWriter(w io.Writer) *JSONWriter {
 	return &JSONWriter{
 		w:  w,
 		ls: make(map[Location]struct{}),
+		ms: make(map[uintptr]struct{}),
 	}
 }
 
@@ -522,6 +532,21 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 	b := w.buf
 
+	var hash uintptr
+	var had bool
+	if !m.Meta {
+		hash = hasher(&m.Name, hash)
+		for _, l := range m.Labels {
+			hash = hasher(&l, hash)
+		}
+
+		_, had = w.ms[hash]
+
+		if !had {
+			w.ms[hash] = struct{}{}
+		}
+	}
+
 	b = append(b, `{"v":{`...)
 
 	if sid != (ID{}) {
@@ -531,23 +556,57 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 		sid.FormatTo(b[i:], 'x')
 	}
 
-	b = append(b, `"n":"`...)
-	b = appendSafe(b, m.Name)
+	if !m.Meta {
+		b = append(b, `"h":"`...)
+		b = appendHex(b, hash)
 
-	b = append(b, `","v":`...)
-	b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
+		b = append(b, `","v":`...)
+		b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
+	}
 
-	if len(m.Labels) != 0 {
-		b = append(b, `,"L":[`...)
-		for i, l := range m.Labels {
-			if i != 0 {
-				b = append(b, ',')
-			}
-			b = append(b, '"')
-			b = appendSafe(b, l)
-			b = append(b, '"')
+	if m.Meta || !had {
+		w.ms[hash] = struct{}{}
+
+		if !m.Meta {
+			b = append(b, ',')
 		}
-		b = append(b, ']')
+
+		b = append(b, `"n":"`...)
+		b = appendSafe(b, m.Name)
+		b = append(b, '"')
+
+		if len(m.Labels) != 0 {
+			b = append(b, `,"L":[`...)
+			for i, l := range m.Labels {
+				if i != 0 {
+					b = append(b, ',')
+				}
+				b = append(b, '"')
+				b = appendSafe(b, l)
+				b = append(b, '"')
+			}
+			b = append(b, ']')
+		}
+	}
+
+	if m.Meta {
+		if !had {
+			b = append(b, ',')
+		}
+
+		if m.Help != "" {
+			b = append(b, `"H":"`...)
+			b = appendSafe(b, m.Help)
+			b = append(b, '"', ',')
+		}
+
+		if m.Type != "" {
+			b = append(b, `"t":"`...)
+			b = appendSafe(b, m.Type)
+			b = append(b, '"')
+		} else {
+			b = append(b, `"t":"__"`...)
+		}
 	}
 
 	b = append(b, `}}`+"\n"...)
@@ -651,6 +710,7 @@ func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
 		w:  w,
 		ls: make(map[Location]struct{}),
+		ms: make(map[uintptr]struct{}),
 	}
 }
 
@@ -759,15 +819,45 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
+	var hash uintptr
+	var had bool
+	if !m.Meta {
+		hash = hasher(&m.Name, hash)
+		for _, l := range m.Labels {
+			hash = hasher(&l, hash)
+		}
+
+		_, had = w.ms[hash]
+
+		if !had {
+			w.ms[hash] = struct{}{}
+		}
+	}
+
 	sz := 0
 	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
-	sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
-	sz += 1 + 8 // value
-	for _, l := range m.Labels {
-		q := len(l)
-		sz += 1 + varintSize(uint64(q)) + q
+
+	if !m.Meta {
+		sz += 1 + 8 // hash
+		sz += 1 + 8 // value
+	} else {
+		if m.Help != "" {
+			sz += 1 + varintSize(uint64(len(m.Help))) + len(m.Help)
+		}
+		if m.Type != "" {
+			sz += 1 + varintSize(uint64(len(m.Type))) + len(m.Type)
+		}
+	}
+
+	if !had {
+		sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
+
+		for _, l := range m.Labels {
+			q := len(l)
+			sz += 1 + varintSize(uint64(q)) + q
+		}
 	}
 
 	b := w.buf
@@ -781,15 +871,34 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	b = appendTagVarint(b, 2<<3|2, uint64(len(m.Name)))
-	b = append(b, m.Name...)
+	if !m.Meta {
+		b = append(b, 2<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(hash))
 
-	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
+		b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+		binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
+	}
 
-	for _, l := range m.Labels {
-		b = appendTagVarint(b, 4<<3|2, uint64(len(l)))
-		b = append(b, l...)
+	if m.Meta || !had {
+		b = appendTagVarint(b, 4<<3|2, uint64(len(m.Name)))
+		b = append(b, m.Name...)
+
+		for _, l := range m.Labels {
+			b = appendTagVarint(b, 5<<3|2, uint64(len(l)))
+			b = append(b, l...)
+		}
+	}
+
+	if m.Meta {
+		if m.Help != "" {
+			b = appendTagVarint(b, 6<<3|2, uint64(len(m.Help)))
+			b = append(b, m.Help...)
+		}
+
+		if m.Type != "" {
+			b = appendTagVarint(b, 7<<3|2, uint64(len(m.Type)))
+			b = append(b, m.Type...)
+		}
 	}
 
 	w.buf = b[:0]
@@ -901,6 +1010,30 @@ func (w *ProtoWriter) location(l Location) {
 
 	w.ls[l] = struct{}{}
 	w.buf = b
+}
+
+func appendHex(b []byte, h uintptr) []byte {
+	const digitsx = "0123456789abcdef"
+
+	j := len(b)
+	b = append(b,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+	)
+
+	for i := 0; i < 8; i++ {
+		b[j] = digitsx[(h>>4)&0xf]
+		b[j+1] = digitsx[h&0xf]
+
+		j += 2
+		h >>= 8
+
+		if h == 0 {
+			break
+		}
+	}
+
+	return b[:j]
 }
 
 func appendVarint(b []byte, v uint64) []byte {

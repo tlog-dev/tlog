@@ -298,20 +298,74 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf = pbuf[:0]
 
+	// metric info
 	_ = w.Metric(
 		Metric{
-			Name:  "op_name_metric",
-			Value: 123.456,
+			Name:   "op_name_metric",
+			Labels: []string{"const=1", "cc=2"},
+			Help:   "help message",
+			Type:   "type",
+			Meta:   true,
+		},
+		ID{},
+	)
+	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
+		Name:   "op_name_metric",
+		Labels: []string{"const=1", "cc=2"},
+		Help:   "help message",
+		Type:   "type",
+	}})
+	if !assert.Equal(t, pbuf, buf.Bytes()) {
+		t.Logf("Metric:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+	}
+
+	buf.Reset()
+	pbuf = pbuf[:0]
+
+	// metric itself
+	var h uintptr
+	for _, s := range []string{"op_name_metric", "m=1", "mm=2"} {
+		h = strhash(&s, h)
+	}
+
+	_ = w.Metric(
+		Metric{
+			Name:   "op_name_metric",
+			Value:  123.456,
+			Labels: []string{"m=1", "mm=2"},
+		},
+		id,
+	)
+	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
+		Span:   id[:],
+		Hash:   uint64(h),
+		Name:   "op_name_metric",
+		Value:  123.456,
+		Labels: []string{"m=1", "mm=2"},
+	}})
+	if !assert.Equal(t, pbuf, buf.Bytes()) {
+		t.Logf("Metric:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+	}
+
+	buf.Reset()
+	pbuf = pbuf[:0]
+
+	// second time is encoded more compact
+	_ = w.Metric(
+		Metric{
+			Name:   "op_name_metric",
+			Value:  111.222,
+			Labels: []string{"m=1", "mm=2"},
 		},
 		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
 		Span:  id[:],
-		Name:  "op_name_metric",
-		Value: 123.456,
+		Hash:  uint64(h),
+		Value: 111.222,
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
-		t.Logf("Metric:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+		t.Logf("Metric2:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
 	}
 }
 

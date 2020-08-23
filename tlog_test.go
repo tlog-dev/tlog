@@ -436,6 +436,8 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	l.SetLabels(Labels{"a=b", "f"})
 
+	l.RegisterMetric("metric_name", "help description", "type", Labels{"const=labels"})
+
 	tr := l.Start()
 
 	tr.SetLabels(Labels{"a=d", "g"})
@@ -445,19 +447,22 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr1.Printf("message %d", 2)
 
 	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
+	tr1.Observe("metric_name", 456.123, Labels{"q=w", "e=1"})
 
 	tr1.Finish()
 
 	tr.Finish()
 
 	re := `{"L":{"L":\["a=b","f"\]}}
+{"v":{"n":"metric_name","L":\["const=labels"\],"H":"help description","t":"type"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":1562517071000000000,"l":\d+}}
 {"L":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","L":\["a=d","g"\]}}
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":1562517072000000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
-{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":123.456789,"L":\["q=w","e=1"\]}}
+{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":"[0-9a-f]{8,16}","v":123.456789,"n":"metric_name","L":\["q=w","e=1"\]}}
+{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":"[0-9a-f]{8,16}","v":456.123}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":2000000000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":4000000000}}
 `
@@ -632,7 +637,7 @@ func BenchmarkTlogTracesProto(b *testing.B) {
 	b.ReportMetric(float64(w.N/b.N), "B/cycle")
 }
 
-func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
+func BenchmarkTlogTracesProtoStartPrintRawFinish(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewProtoWriter(ioutil.Discard))
@@ -652,11 +657,54 @@ func BenchmarkTlogTracesProtoWrite(b *testing.B) {
 
 	l := New(NewProtoWriter(ioutil.Discard))
 
+	tr := l.Start()
+
+	for i := 0; i < b.N; i++ {
+		fmt.Fprintf(tr, "message %d", i)
+	}
+
+	tr.Finish()
+}
+
+func BenchmarkTlogTracesProtoStartFinish(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
 	for i := 0; i < b.N; i++ {
 		tr := l.Start()
-		fmt.Fprintf(tr, "message %d", i)
 		tr.Finish()
 	}
+}
+
+func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
+	buf := []byte("raw message") // reusable buffer
+	tr := l.Start()
+
+	for i := 0; i < b.N; i++ {
+		// fill in buffer...
+		tr.PrintRaw(0, buf)
+	}
+
+	tr.Finish()
+}
+
+func BenchmarkTlogTracesProtoPrintf(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
+	tr := l.Start()
+
+	for i := 0; i < b.N; i++ {
+		tr.Printf("message %v", i)
+	}
+
+	tr.Finish()
 }
 
 func BenchmarkIDFormat(b *testing.B) {

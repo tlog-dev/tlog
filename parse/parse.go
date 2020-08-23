@@ -46,6 +46,9 @@ type (
 		Labels tlog.Labels `json:"L"`
 		Name   string      `json:"n"`
 		Value  float64     `json:"v"`
+		Hash   uint64      `json:"h"`
+		Help   string      `json:"h"`
+		Type   string      `json:"t"`
 	}
 
 	Type rune

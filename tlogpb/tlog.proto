@@ -35,10 +35,14 @@ message Message {
 
 message Metric {
     bytes span   = 1;
-    string name  = 2;
+    fixed64 hash = 2;
     double value = 3;
+    string name  = 4;
 
-    repeated string labels = 4;
+    repeated string labels = 5;
+
+    string help = 6;
+    string type = 7;
 }
 
 message SpanStart {

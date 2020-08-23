@@ -20,6 +20,8 @@ type ProtoReader struct {
 	err          error
 
 	l *tlog.Logger
+
+	SkipUnknown bool
 }
 
 func NewProtoReader(r io.Reader) *ProtoReader {
@@ -91,7 +93,11 @@ again:
 	case 6:
 		r.tp = 'v'
 	default:
-		return 0, r.newerr("unexpected object %x", tag)
+		if err := r.skipField(tag, "record"); err != nil {
+			return 0, err
+		}
+
+		goto again
 	}
 
 	return r.tp, nil
@@ -145,7 +151,7 @@ func (r *ProtoReader) Labels() (ls Labels, err error) {
 			}
 			ls.Labels = append(ls.Labels, l)
 		default:
-			if err = r.skip(); err != nil { //nolint:gocritic
+			if err = r.skipField(tag, "labels"); err != nil { //nolint:gocritic
 				return Labels{}, err
 			}
 		}
@@ -235,7 +241,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 				return m, err
 			}
 		default:
-			if err = r.skip(); err != nil { //nolint:gocritic
+			if err = r.skipField(tag, "message"); err != nil { //nolint:gocritic
 				return m, err
 			}
 		}
@@ -261,15 +267,18 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			r.i++ // len
 			copy(m.Span[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 2<<3 | 2:
-			m.Name, err = r.string()
-			if err != nil {
-				return m, err
-			}
+		case 2<<3 | 1:
+			v := r.time()
+			m.Hash = uint64(v)
 		case 3<<3 | 1:
 			v := r.time()
 			m.Value = math.Float64frombits(uint64(v))
 		case 4<<3 | 2:
+			m.Name, err = r.string()
+			if err != nil {
+				return m, err
+			}
+		case 5<<3 | 2:
 			var l string
 			l, err = r.string()
 			if err != nil {
@@ -277,8 +286,18 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			}
 
 			m.Labels = append(m.Labels, l)
+		case 6<<3 | 2:
+			m.Help, err = r.string()
+			if err != nil {
+				return m, err
+			}
+		case 7<<3 | 2:
+			m.Type, err = r.string()
+			if err != nil {
+				return m, err
+			}
 		default:
-			if err = r.skip(); err != nil { //nolint:gocritic
+			if err = r.skipField(tag, "metrics"); err != nil { //nolint:gocritic
 				return m, err
 			}
 		}
@@ -318,7 +337,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 		case 4<<3 | 1:
 			s.Started = r.time()
 		default:
-			if err = r.skip(); err != nil { //nolint:gocritic
+			if err = r.skipField(tag, "span start"); err != nil { //nolint:gocritic
 				return s, err
 			}
 		}
@@ -350,7 +369,7 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 				return f, err
 			}
 		default:
-			if err = r.skip(); err != nil { //nolint:gocritic
+			if err = r.skipField(tag, "span finish"); err != nil { //nolint:gocritic
 				return f, err
 			}
 		}
@@ -363,10 +382,18 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 	return f, nil
 }
 
+func (r *ProtoReader) skipField(tag byte, ctx string) error {
+	if !r.SkipUnknown {
+		return r.newerr("unexpected field 0x%x parsing %v", tag, ctx)
+	}
+
+	return r.skip()
+}
+
 func (r *ProtoReader) skip() error {
 	tag := r.buf[r.i-1]
 	if r.l.V("skip") != nil {
-		r.l.Printf("tag: %x type %x unknown tag, skip it", tag>>3, tag&7)
+		r.l.PrintfDepth(2, "tag: %x type %x unknown tag, skip it", tag>>3, tag&7)
 	}
 
 	switch tag & 7 {
@@ -375,6 +402,8 @@ func (r *ProtoReader) skip() error {
 		if err != nil {
 			return err
 		}
+		//	case 1:
+		//		r.i += 8
 	case 2:
 		x, err := r.varint()
 		if err != nil {

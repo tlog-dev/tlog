@@ -61,14 +61,19 @@ type (
 	}
 
 	Metric struct {
-		Labels Labels
 		Name   string
+		Labels Labels
 		Value  float64
+
+		Help string
+		Type string
+
+		Meta bool
 	}
 
 	// Span is an tracing primitive. Span usually represents some function call.
 	Span struct {
-		*Logger
+		Logger *Logger
 
 		ID ID
 
@@ -102,6 +107,12 @@ const ( // console writer flags
 	LstdFlags    = Ldate | Ltime
 	LdetFlags    = Ldate | Ltime | Lmicroseconds | Lshortfile
 	Lnone        = 0
+)
+
+const (
+	Mgauge   = "gauge"
+	Mcounter = "counter"
+	Msummary = "summary"
 )
 
 var now = func() int64 { return time.Now().UnixNano() }
@@ -318,21 +329,6 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 	l.Unlock()
 }
 
-func newmetric(l *Logger, sid ID, n string, v float64, ls Labels) {
-	l.Lock()
-
-	_ = l.Writer.Metric(
-		Metric{
-			Labels: ls,
-			Name:   n,
-			Value:  v,
-		},
-		sid,
-	)
-
-	l.Unlock()
-}
-
 func NewSpan(l *Logger, par ID, d int) Span {
 	if l == nil {
 		return Span{}
@@ -378,8 +374,22 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
-func Observe(n string, f float64, ls Labels) {
-	newmetric(DefaultLogger, ID{}, n, f, ls)
+func RegisterMetric(name, help, typ string, ls Labels) {
+	_ = DefaultLogger.Metric(Metric{
+		Name:   name,
+		Labels: ls,
+		Help:   help,
+		Type:   typ,
+		Meta:   true,
+	}, ID{})
+}
+
+func Observe(n string, v float64, ls Labels) {
+	_ = DefaultLogger.Metric(Metric{
+		Name:   n,
+		Labels: ls,
+		Value:  v,
+	}, ID{})
 }
 
 func (l *Logger) SetLabels(ls Labels) {
@@ -438,8 +448,22 @@ func (l *Logger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+func (l *Logger) RegisterMetric(name, help, typ string, ls Labels) {
+	_ = l.Metric(Metric{
+		Name:   name,
+		Labels: ls,
+		Help:   help,
+		Type:   typ,
+		Meta:   true,
+	}, ID{})
+}
+
 func (l *Logger) Observe(n string, v float64, ls Labels) {
-	newmetric(l, ID{}, n, v, ls)
+	_ = l.Metric(Metric{
+		Name:   n,
+		Value:  v,
+		Labels: ls,
+	}, ID{})
 }
 
 // Start creates new root trace.
@@ -507,7 +531,7 @@ func (l *Logger) V(tp string) *Logger {
 }
 
 // Valid checks if Logger is not nil and was not disabled by filter.
-// Valid returns true if you created Logger with no Writers by hand. In other cases it is correct.
+// It's safe to call any method from not Valid Logger.
 func (l *Logger) Valid() bool { return l != nil }
 
 // SetFilter sets filter to use in V.
@@ -547,37 +571,62 @@ func (l *Logger) noLocations() *Logger {
 // writer interface
 
 func (l *Logger) Labels(ls Labels, sid ID) (err error) {
+	if l == nil {
+		return
+	}
+
 	l.Lock()
 	err = l.Writer.Labels(ls, sid)
 	l.Unlock()
+
 	return
 }
 
 func (l *Logger) SpanStarted(id, par ID, st int64, loc Location) (err error) {
+	if l == nil {
+		return
+	}
+
 	l.Lock()
 	err = l.Writer.SpanStarted(id, par, st, loc)
 	l.Unlock()
+
 	return
 }
 
 func (l *Logger) SpanFinished(id ID, el int64) (err error) {
+	if l == nil {
+		return
+	}
+
 	l.Lock()
 	err = l.Writer.SpanFinished(id, el)
 	l.Unlock()
+
 	return
 }
 
 func (l *Logger) Message(m Message, sid ID) (err error) {
+	if l == nil {
+		return
+	}
+
 	l.Lock()
 	err = l.Writer.Message(m, sid)
 	l.Unlock()
+
 	return
 }
 
 func (l *Logger) Metric(m Metric, sid ID) (err error) {
+	if l == nil {
+		return
+	}
+
 	l.Lock()
 	err = l.Writer.Metric(m, sid)
 	l.Unlock()
+
 	return
 }
 
@@ -594,8 +643,21 @@ func (s Span) V(tp string) Span {
 	return s
 }
 
+func (s Span) If(tp string) bool {
+	return s.Logger.ifv(tp)
+}
+
 func (s Span) SetLabels(ls Labels) {
 	newlabels(s.Logger, ls, s.ID)
+}
+
+// Spawn spawns new child Span
+func (s Span) Spawn() Span {
+	if s.Logger == nil {
+		return Span{}
+	}
+
+	return newspan(s.Logger, 0, s.ID)
 }
 
 // Printf writes logging Message annotated with trace id.
@@ -637,7 +699,11 @@ func (s Span) Write(b []byte) (int, error) {
 }
 
 func (s Span) Observe(n string, v float64, ls Labels) {
-	newmetric(s.Logger, s.ID, n, v, ls)
+	_ = s.Logger.Metric(Metric{
+		Name:   n,
+		Labels: ls,
+		Value:  v,
+	}, s.ID)
 }
 
 // Finish writes Span finish event to Writer.
@@ -658,7 +724,8 @@ func (s Span) Finish() {
 // Valid checks if Span was initialized.
 // Span was initialized if it was created by tlog.Start or tlog.Spawn* functions.
 // Span could be empty (not initialized) if verbosity filter was false at the moment of Span creation, eg tlog.V("ignored_topic").Start().
-func (s Span) Valid() bool { return s.Logger != nil && s.ID != ID{} }
+// It's safe to call any method on not Valid Span.
+func (s Span) Valid() bool { return s.Logger != nil }
 
 // String returns short string representation.
 func (i ID) String() string {
@@ -781,8 +848,8 @@ func (i ID) FormatTo(b []byte, f rune) {
 		return
 	}
 
-	digitsx := "0123456789abcdef"
-	digitsX := "0123456789ABCDEF"
+	const digitsx = "0123456789abcdef"
+	const digitsX = "0123456789ABCDEF"
 
 	dg := digitsx
 	if f == 'X' || f == 'V' {
