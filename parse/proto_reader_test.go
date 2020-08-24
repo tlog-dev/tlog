@@ -27,7 +27,16 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.Labels(tlog.Labels{"a", "b=c"}, ID{1, 2, 3, 4})
 
-	_ = w.Metric(tlog.Metric{Name: "op_metric", Labels: tlog.Labels{"mode=debug"}, Help: "help message", Type: "type", Meta: true}, ID{})
+	_ = w.Meta(tlog.Meta{
+		Type: "metric_desc",
+		Data: tlog.Labels{
+			"name=op_metric",
+			"type=type",
+			"help=help message",
+			"labels",
+			"mode=debug",
+		},
+	})
 
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
@@ -110,18 +119,22 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	assert.Equal(t, []interface{}{
 		Labels{Labels: tlog.Labels{"a", "b=c"}, Span: ID{1, 2, 3, 4}},
-		Metric{
-			Name:   "op_metric",
-			Labels: tlog.Labels{"mode=debug"},
-			Help:   "help message",
-			Type:   "type",
+		Meta{
+			Type: "metric_desc",
+			Data: tlog.Labels{
+				"name=op_metric",
+				"type=type",
+				"help=help message",
+				"labels",
+				"mode=debug",
+			},
 		},
 		Location{
 			PC:    1,
 			Entry: 0x101,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  33,
+			Line:  42,
 		},
 		Message{
 			Span:     ID{},
@@ -134,7 +147,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x102,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  39,
+			Line:  48,
 		},
 		SpanStart{
 			ID:       ID{1},
@@ -147,7 +160,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x103,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  42,
+			Line:  51,
 		},
 		Message{
 			Span:     ID{1},
@@ -160,7 +173,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x104,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  48,
+			Line:  57,
 		},
 		SpanStart{
 			ID:       ID{2},

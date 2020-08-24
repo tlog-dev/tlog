@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -454,7 +455,7 @@ func TestJSONWriterSpans(t *testing.T) {
 	tr.Finish()
 
 	re := `{"L":{"L":\["a=b","f"\]}}
-{"v":{"n":"metric_name","L":\["const=labels"\],"H":"help description","t":"type"}}
+{"M":{"t":"metric_desc","d":\["name=metric_name","type=type","help=help description","labels","const=labels"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":1562517071000000000,"l":\d+}}
 {"L":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","L":\["a=d","g"\]}}
@@ -467,9 +468,13 @@ func TestJSONWriterSpans(t *testing.T) {
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":4000000000}}
 `
 
-	ok, err := regexp.Match(re, buf.Bytes())
-	assert.NoError(t, err)
-	assert.True(t, ok, "expected:\n%vactual:\n%v", re, buf.String())
+	bl := strings.Split(buf.String(), "\n")
+
+	for i, rel := range strings.Split(re, "\n") {
+		ok, err := regexp.Match(rel, []byte(bl[i]))
+		assert.NoError(t, err)
+		assert.True(t, ok, "expected:\n%v\nactual:\n%v\n", rel, bl[i])
+	}
 }
 
 func TestAppendWriter(t *testing.T) {

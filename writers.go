@@ -406,23 +406,32 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	)
 }
 
+func (w *ConsoleWriter) Meta(m Meta) error {
+	loc := w.caller()
+
+	return w.Message(
+		Message{
+			Location: loc,
+			Time:     now(),
+			Format:   "Meta: %v %q",
+			Args:     []interface{}{m.Type, m.Data},
+		},
+		ID{},
+	)
+}
+
 func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	loc := w.caller()
 
-	msg := Message{
-		Location: loc,
-		Time:     now(),
-	}
-
-	if m.Meta {
-		msg.Format = "metric %v  type %v  labels %v\n# %v"
-		msg.Args = []interface{}{m.Name, m.Type, m.Labels, m.Help}
-	} else {
-		msg.Format = "%v %15.5f %v"
-		msg.Args = []interface{}{m.Name, m.Value, m.Labels}
-	}
-
-	return w.Message(msg, sid)
+	return w.Message(
+		Message{
+			Location: loc,
+			Time:     now(),
+			Format:   "%v  %15.5f  %v",
+			Args:     []interface{}{m.Name, m.Value, m.Labels},
+		},
+		sid,
+	)
 }
 
 func (w *ConsoleWriter) caller() Location {
@@ -485,6 +494,38 @@ func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
 	return
 }
 
+func (w *JSONWriter) Meta(m Meta) (err error) {
+	b := w.buf
+
+	b = append(b, `{"M":{"t":"`...)
+	b = appendSafe(b, m.Type)
+	b = append(b, '"')
+
+	if len(m.Data) != 0 {
+		b = append(b, `,"d":[`...)
+
+		for i, l := range m.Data {
+			if i != 0 {
+				b = append(b, ',')
+			}
+
+			b = append(b, '"')
+			b = appendSafe(b, l)
+			b = append(b, '"')
+		}
+
+		b = append(b, ']')
+	}
+
+	b = append(b, "}}\n"...)
+
+	w.buf = b[:0]
+
+	_, err = w.w.Write(b)
+
+	return
+}
+
 // Message writes event to the stream.
 func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	if _, ok := w.ls[m.Location]; !ok {
@@ -530,22 +571,17 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
-	b := w.buf
-
-	var hash uintptr
-	var had bool
-	if !m.Meta {
-		hash = hasher(&m.Name, hash)
-		for i := range m.Labels {
-			hash = hasher(&m.Labels[i], hash)
-		}
-
-		_, had = w.ms[hash]
-
-		if !had {
-			w.ms[hash] = struct{}{}
-		}
+	h := hasher(&m.Name, 0)
+	for i := range m.Labels {
+		h = hasher(&m.Labels[i], h)
 	}
+
+	_, had := w.ms[h]
+	if !had {
+		w.ms[h] = struct{}{}
+	}
+
+	b := w.buf
 
 	b = append(b, `{"v":{`...)
 
@@ -556,22 +592,14 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 		sid.FormatTo(b[i:], 'x')
 	}
 
-	if !m.Meta {
-		b = append(b, `"h":"`...)
-		b = appendHex(b, hash)
+	b = append(b, `"h":"`...)
+	b = appendHex(b, h)
 
-		b = append(b, `","v":`...)
-		b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
-	}
+	b = append(b, `","v":`...)
+	b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
 
-	if m.Meta || !had {
-		w.ms[hash] = struct{}{}
-
-		if !m.Meta {
-			b = append(b, ',')
-		}
-
-		b = append(b, `"n":"`...)
+	if !had {
+		b = append(b, `,"n":"`...)
 		b = appendSafe(b, m.Name)
 		b = append(b, '"')
 
@@ -586,26 +614,6 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 				b = append(b, '"')
 			}
 			b = append(b, ']')
-		}
-	}
-
-	if m.Meta {
-		if !had {
-			b = append(b, ',')
-		}
-
-		if m.Help != "" {
-			b = append(b, `"H":"`...)
-			b = appendSafe(b, m.Help)
-			b = append(b, '"', ',')
-		}
-
-		if m.Type != "" {
-			b = append(b, `"t":"`...)
-			b = appendSafe(b, m.Type)
-			b = append(b, '"')
-		} else {
-			b = append(b, `"t":"__"`...)
 		}
 	}
 
@@ -751,6 +759,35 @@ func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 	return
 }
 
+func (w *ProtoWriter) Meta(m Meta) (err error) {
+	sz := 0
+	sz += 1 + varintSize(uint64(len(m.Type))) + len(m.Type)
+	for _, l := range m.Data {
+		q := len(l)
+		sz += 1 + varintSize(uint64(q)) + q
+	}
+
+	b := w.buf
+	szs := varintSize(uint64(sz))
+	b = appendVarint(b, uint64(1+szs+sz))
+
+	b = appendTagVarint(b, 7<<3|2, uint64(sz))
+
+	b = appendTagVarint(b, 1<<3|2, uint64(len(m.Type)))
+	b = append(b, m.Type...)
+
+	for _, l := range m.Data {
+		b = appendTagVarint(b, 2<<3|2, uint64(len(l)))
+		b = append(b, l...)
+	}
+
+	w.buf = b[:0]
+
+	_, err = w.w.Write(b)
+
+	return
+}
+
 // Message writes enent to the stream.
 func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	if _, ok := w.ls[m.Location]; !ok {
@@ -819,41 +856,24 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
-	var hash uintptr
-	var had bool
-	if !m.Meta {
-		hash = hasher(&m.Name, hash)
-		for i := range m.Labels {
-			hash = hasher(&m.Labels[i], hash)
-		}
+	h := hasher(&m.Name, 0)
+	for i := range m.Labels {
+		h = hasher(&m.Labels[i], h)
+	}
 
-		_, had = w.ms[hash]
-
-		if !had {
-			w.ms[hash] = struct{}{}
-		}
+	_, had := w.ms[h]
+	if !had {
+		w.ms[h] = struct{}{}
 	}
 
 	sz := 0
 	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
-
-	if !m.Meta {
-		sz += 1 + 8 // hash
-		sz += 1 + 8 // value
-	} else {
-		if m.Help != "" {
-			sz += 1 + varintSize(uint64(len(m.Help))) + len(m.Help)
-		}
-		if m.Type != "" {
-			sz += 1 + varintSize(uint64(len(m.Type))) + len(m.Type)
-		}
-	}
-
+	sz += 1 + 8 // hash
+	sz += 1 + 8 // value
 	if !had {
 		sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
-
 		for _, l := range m.Labels {
 			q := len(l)
 			sz += 1 + varintSize(uint64(q)) + q
@@ -871,33 +891,19 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	if !m.Meta {
-		b = append(b, 2<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(hash))
+	b = append(b, 2<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(h))
 
-		b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-		binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
-	}
+	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
 
-	if m.Meta || !had {
+	if !had {
 		b = appendTagVarint(b, 4<<3|2, uint64(len(m.Name)))
 		b = append(b, m.Name...)
 
 		for _, l := range m.Labels {
 			b = appendTagVarint(b, 5<<3|2, uint64(len(l)))
 			b = append(b, l...)
-		}
-	}
-
-	if m.Meta {
-		if m.Help != "" {
-			b = appendTagVarint(b, 6<<3|2, uint64(len(m.Help)))
-			b = append(b, m.Help...)
-		}
-
-		if m.Type != "" {
-			b = appendTagVarint(b, 7<<3|2, uint64(len(m.Type)))
-			b = append(b, m.Type...)
 		}
 	}
 
@@ -1145,6 +1151,17 @@ func (w TeeWriter) Labels(ls Labels, sid ID) (err error) {
 	return
 }
 
+func (w TeeWriter) Meta(m Meta) (err error) {
+	for _, w := range w {
+		e := w.Meta(m)
+		if err == nil {
+			err = e
+		}
+	}
+
+	return
+}
+
 func (w TeeWriter) Message(m Message, sid ID) (err error) {
 	for _, w := range w {
 		e := w.Message(m, sid)
@@ -1189,49 +1206,57 @@ func (w TeeWriter) SpanFinished(sid ID, el int64) (err error) {
 	return
 }
 
-func (w DiscardWriter) Labels(Labels, ID) (err error)                   { return nil }
-func (w DiscardWriter) Message(Message, ID) (err error)                 { return nil }
-func (w DiscardWriter) Metric(Metric, ID) (err error)                   { return nil }
-func (w DiscardWriter) SpanStarted(ID, ID, int64, Location) (err error) { return nil }
-func (w DiscardWriter) SpanFinished(ID, int64) (err error)              { return nil }
+func (w DiscardWriter) Labels(Labels, ID) error                   { return nil }
+func (w DiscardWriter) Meta(Meta) error                           { return nil }
+func (w DiscardWriter) Message(Message, ID) error                 { return nil }
+func (w DiscardWriter) Metric(Metric, ID) error                   { return nil }
+func (w DiscardWriter) SpanStarted(ID, ID, int64, Location) error { return nil }
+func (w DiscardWriter) SpanFinished(ID, int64) error              { return nil }
 
 func NewLockedWriter(w Writer) *LockedWriter {
 	return &LockedWriter{w: w}
 }
 
-func (w *LockedWriter) Labels(ls Labels, sid ID) (err error) {
+func (w *LockedWriter) Labels(ls Labels, sid ID) error {
+	defer w.mu.Unlock()
 	w.mu.Lock()
-	err = w.w.Labels(ls, sid)
-	w.mu.Unlock()
-	return
+
+	return w.w.Labels(ls, sid)
 }
 
-func (w *LockedWriter) Message(m Message, sid ID) (err error) {
+func (w *LockedWriter) Meta(m Meta) error {
+	defer w.mu.Unlock()
 	w.mu.Lock()
-	err = w.w.Message(m, sid)
-	w.mu.Unlock()
-	return
+
+	return w.w.Meta(m)
 }
 
-func (w *LockedWriter) Metric(m Metric, sid ID) (err error) {
+func (w *LockedWriter) Message(m Message, sid ID) error {
+	defer w.mu.Unlock()
 	w.mu.Lock()
-	err = w.w.Metric(m, sid)
-	w.mu.Unlock()
-	return
+
+	return w.w.Message(m, sid)
 }
 
-func (w *LockedWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
+func (w *LockedWriter) Metric(m Metric, sid ID) error {
+	defer w.mu.Unlock()
 	w.mu.Lock()
-	err = w.w.SpanStarted(sid, par, st, loc)
-	w.mu.Unlock()
-	return
+
+	return w.w.Metric(m, sid)
 }
 
-func (w *LockedWriter) SpanFinished(sid ID, el int64) (err error) {
+func (w *LockedWriter) SpanStarted(sid, par ID, st int64, loc Location) error {
+	defer w.mu.Unlock()
 	w.mu.Lock()
-	err = w.w.SpanFinished(sid, el)
-	w.mu.Unlock()
-	return
+
+	return w.w.SpanStarted(sid, par, st, loc)
+}
+
+func (w *LockedWriter) SpanFinished(sid ID, el int64) error {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	return w.w.SpanFinished(sid, el)
 }
 
 func NewFallbackWriter(w, fb Writer) FallbackWriter {
@@ -1245,6 +1270,14 @@ func (w FallbackWriter) Labels(ls Labels, sid ID) (err error) {
 	err = w.Writer.Labels(ls, sid)
 	if err != nil {
 		_ = w.Fallback.Labels(ls, sid)
+	}
+	return
+}
+
+func (w FallbackWriter) Meta(m Meta) (err error) {
+	err = w.Writer.Meta(m)
+	if err != nil {
+		_ = w.Fallback.Meta(m)
 	}
 	return
 }

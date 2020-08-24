@@ -50,6 +50,7 @@ type (
 		SpanFinished(sid ID, el int64) error
 		Message(m Message, sid ID) error
 		Metric(m Metric, sid ID) error
+		Meta(m Meta) error
 	}
 
 	// Message is an Log event.
@@ -64,11 +65,6 @@ type (
 		Name   string
 		Labels Labels
 		Value  float64
-
-		Help string
-		Type string
-
-		Meta bool
 	}
 
 	// Span is an tracing primitive. Span usually represents some function call.
@@ -78,6 +74,12 @@ type (
 		ID ID
 
 		Started int64
+	}
+
+	Meta struct {
+		Type string
+
+		Data Labels
 	}
 
 	TooShortIDError struct {
@@ -374,13 +376,7 @@ func SpawnOrStart(id ID) Span {
 }
 
 func RegisterMetric(name, help, typ string, ls Labels) {
-	_ = DefaultLogger.Metric(Metric{
-		Name:   name,
-		Labels: ls,
-		Help:   help,
-		Type:   typ,
-		Meta:   true,
-	}, ID{})
+	DefaultLogger.RegisterMetric(name, help, typ, ls)
 }
 
 func Observe(n string, v float64, ls Labels) {
@@ -448,13 +444,17 @@ func (l *Logger) Write(b []byte) (int, error) {
 }
 
 func (l *Logger) RegisterMetric(name, help, typ string, ls Labels) {
-	_ = l.Metric(Metric{
-		Name:   name,
-		Labels: ls,
-		Help:   help,
-		Type:   typ,
-		Meta:   true,
-	}, ID{})
+	_ = l.Meta(Meta{
+		Type: "metric_desc",
+		Data: append(
+			Labels{
+				"name=" + name,
+				"type=" + typ,
+				"help=" + help,
+				"labels",
+			},
+			ls...),
+	})
 }
 
 func (l *Logger) Observe(n string, v float64, ls Labels) {

@@ -93,6 +93,8 @@ again:
 		r.tp = 'f'
 	case 6:
 		r.tp = 'v'
+	case 7:
+		r.tp = 'M'
 	default:
 		if err := r.skipField(tag, "record"); err != nil {
 			return 0, err
@@ -118,6 +120,8 @@ func (r *ProtoReader) Any() (interface{}, error) {
 		return r.Message()
 	case 'v':
 		return r.Metric()
+	case 'M':
+		return r.Meta()
 	case 's':
 		return r.SpanStart()
 	case 'f':
@@ -287,16 +291,6 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			}
 
 			m.Labels = append(m.Labels, l)
-		case 6<<3 | 2:
-			m.Help, err = r.string()
-			if err != nil {
-				return m, err
-			}
-		case 7<<3 | 2:
-			m.Type, err = r.string()
-			if err != nil {
-				return m, err
-			}
 		default:
 			if err = r.skipField(tag, "metrics"); err != nil { //nolint:gocritic
 				return m, err
@@ -306,6 +300,41 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 
 	if r.l.V("record") != nil {
 		r.l.Printf("metric: %v", m)
+	}
+
+	return m, nil
+}
+
+func (r *ProtoReader) Meta() (m Meta, err error) {
+	for r.pos+r.i < r.lim {
+		tag := r.buf[r.i]
+		r.i++
+		if r.l.V("tag") != nil {
+			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+		}
+		switch tag {
+		case 1<<3 | 2:
+			m.Type, err = r.string()
+			if err != nil {
+				return m, err
+			}
+		case 2<<3 | 2:
+			var l string
+			l, err = r.string()
+			if err != nil {
+				return m, err
+			}
+
+			m.Data = append(m.Data, l)
+		default:
+			if err = r.skipField(tag, "meta"); err != nil { //nolint:gocritic
+				return Meta{}, err
+			}
+		}
+	}
+
+	if r.l.V("record") != nil {
+		r.l.Printf("meta: %v", m)
 	}
 
 	return m, nil

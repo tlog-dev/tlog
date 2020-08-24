@@ -299,21 +299,27 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = pbuf[:0]
 
 	// metric info
-	_ = w.Metric(
-		Metric{
-			Name:   "op_name_metric",
-			Labels: []string{"const=1", "cc=2"},
-			Help:   "help message",
-			Type:   "type",
-			Meta:   true,
+	_ = w.Meta(
+		Meta{
+			Type: "metric_desc",
+			Data: Labels{
+				"name=" + "op_name_metric",
+				"type=" + "type",
+				"help=" + "help message",
+				"labels",
+				"const=1", "cc=2",
+			},
 		},
-		ID{},
 	)
-	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
-		Name:   "op_name_metric",
-		Labels: []string{"const=1", "cc=2"},
-		Help:   "help message",
-		Type:   "type",
+	pbuf = encode(pbuf, &tlogpb.Record{Meta: &tlogpb.Meta{
+		Type: "metric_desc",
+		Data: []string{
+			"name=op_name_metric",
+			"type=type",
+			"help=help message",
+			"labels",
+			"const=1", "cc=2",
+		},
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Metric:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))

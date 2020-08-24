@@ -67,7 +67,7 @@ next:
 	}
 
 	switch tp[0] {
-	case 'L', 'l', 'm', 'v', 's', 'f':
+	case 'L', 'l', 'm', 'v', 'M', 's', 'f':
 		r.tp = Type(tp[0])
 		return r.tp, nil
 	default:
@@ -94,6 +94,8 @@ func (r *JSONReader) Any() (interface{}, error) {
 		return r.Message()
 	case 'v':
 		return r.Metric()
+	case 'M':
+		return r.Meta()
 	case 's':
 		return r.SpanStart()
 	case 'f':
@@ -287,10 +289,6 @@ func (r *JSONReader) Metric() (m Metric, err error) {
 				l := string(r.r.NextString())
 				m.Labels = append(m.Labels, l)
 			}
-		case 'H':
-			m.Help = string(r.r.NextString())
-		case 't':
-			m.Type = string(r.r.NextString())
 		default:
 			if err := r.unknownField(k); err != nil {
 				return Metric{}, err
@@ -300,6 +298,44 @@ func (r *JSONReader) Metric() (m Metric, err error) {
 
 	if r.l.V("record") != nil {
 		r.l.Printf("metric: %v", m)
+	}
+
+	r.tp = 0
+
+	return m, nil
+}
+
+func (r *JSONReader) Meta() (m Meta, err error) {
+	if r.r.Type() != json.Object {
+		return Meta{}, r.r.ErrorHere(errors.New("object expected"))
+	}
+
+	for r.r.HasNext() {
+		k := r.r.NextString()
+		if len(k) == 0 {
+			return Meta{}, r.r.ErrorHere(errors.New("empty key"))
+		}
+		switch k[0] {
+		case 't':
+			m.Type = string(r.r.NextString())
+		case 'd':
+			if r.r.Type() != json.Array {
+				return Meta{}, r.r.ErrorHere(fmt.Errorf("array expected, got %v %v", r.r.Type(), r.tp))
+			}
+
+			for r.r.HasNext() {
+				l := string(r.r.NextString())
+				m.Data = append(m.Data, l)
+			}
+		default:
+			if err := r.unknownField(k); err != nil {
+				return Meta{}, err
+			}
+		}
+	}
+
+	if r.l.V("record") != nil {
+		r.l.Printf("meta: %v", m)
 	}
 
 	r.tp = 0

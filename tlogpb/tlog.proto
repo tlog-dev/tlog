@@ -11,6 +11,7 @@ message Record {
     SpanStart span_start   = 4;
     SpanFinish span_finish = 5;
     Metric metric          = 6;
+    Meta meta              = 7;
 }
 
 message Labels {
@@ -40,9 +41,11 @@ message Metric {
     string name  = 4;
 
     repeated string labels = 5;
+}
 
-    string help = 6;
-    string type = 7;
+message Meta {
+    string type          = 1;
+    repeated string data = 2;
 }
 
 message SpanStart {

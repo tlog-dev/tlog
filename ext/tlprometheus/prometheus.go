@@ -63,14 +63,38 @@ func New() *Writer {
 	}
 }
 
-func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
+func (w *Writer) Meta(m tlog.Meta) error {
+	if m.Type != "metric_desc" {
+		return nil
+	}
+
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	if m.Meta {
+	d := &desc{}
+
+	i := 0
+loop:
+	for ; i < len(m.Data); i++ {
+		l := m.Data[i]
+
+		switch {
+		case strings.HasPrefix(l, "name="):
+			d.Name = l[5:]
+		case strings.HasPrefix(l, "type="):
+			d.Type = l[5:]
+		case strings.HasPrefix(l, "help="):
+			d.Help = l[5:]
+		case l == "labels":
+			i++
+			break loop
+		}
+	}
+
+	if i < len(m.Data) {
 		ls := map[string]string{}
-		for _, l := range m.Labels {
-			kv := strings.SplitN(l, "=", 2)
+		for ; i < len(m.Data); i++ {
+			kv := strings.SplitN(m.Data[i], "=", 2)
 
 			if len(kv) == 1 {
 				ls[kv[0]] = ""
@@ -79,24 +103,29 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 			}
 		}
 
-		d := &desc{
-			Name:        m.Name,
-			ConstLabels: ls,
-			Help:        m.Help,
-			Type:        m.Type,
-			m:           make(map[uintptr]*metric),
-			p:           prometheus.NewDesc(m.Name, m.Help, nil, ls),
-		}
-
-		switch m.Type {
-		case "", tlog.MSummary:
-			d.qtargets = []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1}
-		}
-
-		w.n[m.Name] = d
-
-		return nil
+		d.ConstLabels = ls
 	}
+
+	w.initDesc(d)
+
+	return nil
+}
+
+func (w *Writer) initDesc(d *desc) {
+	switch d.Type {
+	case "", tlog.MSummary:
+		d.qtargets = []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1}
+	}
+
+	d.p = prometheus.NewDesc(d.Name, d.Help, nil, d.ConstLabels)
+
+	d.m = make(map[uintptr]*metric)
+	w.n[d.Name] = d
+}
+
+func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
+	defer w.mu.Unlock()
+	w.mu.Lock()
 
 	var h uintptr
 	h = tlog.StrHash(m.Name, h)
@@ -111,18 +140,9 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 		if d == nil {
 			d = &desc{
 				Name: m.Name,
-				Help: m.Help,
-				Type: m.Type,
-				m:    make(map[uintptr]*metric),
-				p:    prometheus.NewDesc(m.Name, m.Help, nil, nil),
 			}
 
-			switch m.Type {
-			case "", tlog.MSummary:
-				d.qtargets = []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1}
-			}
-
-			w.n[m.Name] = d
+			w.initDesc(d)
 		}
 
 		mt = &metric{
