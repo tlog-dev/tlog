@@ -273,11 +273,10 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
 
 	_ = l.Writer.Labels(ls, sid)
-
-	l.Unlock()
 }
 
 func newspan(l *Logger, d int, par ID) Span {
@@ -291,13 +290,12 @@ func newspan(l *Logger, d int, par ID) Span {
 		Started: now(),
 	}
 
+	defer l.Unlock()
 	l.Lock()
 
 	s.ID = l.randID()
 
 	_ = l.Writer.SpanStarted(s.ID, par, s.Started, loc)
-
-	l.Unlock()
 
 	return s
 }
@@ -314,6 +312,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 		loc = Caller(d + 2)
 	}
 
+	defer l.Unlock()
 	l.Lock()
 
 	_ = l.Writer.Message(
@@ -325,8 +324,6 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 		},
 		sid,
 	)
-
-	l.Unlock()
 }
 
 func NewSpan(l *Logger, par ID, d int) Span {
@@ -508,11 +505,10 @@ func (l *Logger) ifv(tp string) (ok bool) {
 		return false
 	}
 
+	defer l.Unlock()
 	l.Lock()
 
 	ok = l.filter.match(tp)
-
-	l.Unlock()
 
 	return ok
 }
@@ -542,11 +538,10 @@ func (l *Logger) SetFilter(filters string) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
 
 	l.filter = newFilter(filters)
-
-	l.Unlock()
 }
 
 // Filter returns current verbosity filter value for default filter.
@@ -575,9 +570,10 @@ func (l *Logger) Labels(ls Labels, sid ID) (err error) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
+
 	err = l.Writer.Labels(ls, sid)
-	l.Unlock()
 
 	return
 }
@@ -587,9 +583,10 @@ func (l *Logger) SpanStarted(id, par ID, st int64, loc Location) (err error) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
+
 	err = l.Writer.SpanStarted(id, par, st, loc)
-	l.Unlock()
 
 	return
 }
@@ -599,9 +596,10 @@ func (l *Logger) SpanFinished(id ID, el int64) (err error) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
+
 	err = l.Writer.SpanFinished(id, el)
-	l.Unlock()
 
 	return
 }
@@ -611,9 +609,10 @@ func (l *Logger) Message(m Message, sid ID) (err error) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
+
 	err = l.Writer.Message(m, sid)
-	l.Unlock()
 
 	return
 }
@@ -623,9 +622,10 @@ func (l *Logger) Metric(m Metric, sid ID) (err error) {
 		return
 	}
 
+	defer l.Unlock()
 	l.Lock()
+
 	err = l.Writer.Metric(m, sid)
-	l.Unlock()
 
 	return
 }
@@ -714,11 +714,10 @@ func (s Span) Finish() {
 
 	el := now() - s.Started
 
+	defer s.Logger.Unlock()
 	s.Logger.Lock()
 
 	_ = s.Logger.Writer.SpanFinished(s.ID, el)
-
-	s.Logger.Unlock()
 }
 
 // Valid checks if Span was initialized.
