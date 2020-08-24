@@ -150,3 +150,7 @@ func byteshash(p *[]byte, h uintptr) uintptr
 
 //go:linkname strhash0 runtime.strhash
 func strhash0(p unsafe.Pointer, h uintptr) uintptr
+
+func StrHash(s string, h uintptr) uintptr {
+	return strhash(&s, h)
+}
