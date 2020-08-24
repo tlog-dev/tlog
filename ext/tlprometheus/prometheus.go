@@ -89,7 +89,7 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 		}
 
 		switch m.Type {
-		case "", "summary":
+		case "", tlog.MSummary:
 			d.qtargets = []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1}
 		}
 
@@ -118,7 +118,7 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 			}
 
 			switch m.Type {
-			case "", "summary":
+			case "", tlog.MSummary:
 				d.qtargets = []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1}
 			}
 
@@ -132,7 +132,7 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 		}
 
 		switch d.Type {
-		case "", "summary":
+		case "", tlog.MSummary:
 			mt.Quantile = quantile.New(0.1)
 		}
 
@@ -185,7 +185,7 @@ func (w *Writer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(rw, "# TYPE %v %v\n", d.Name, d.Type)
 
 		switch d.Type {
-		case "", "summary":
+		case "", tlog.MSummary:
 			for _, mt := range d.m {
 				//	w.Logger.Printf("qq: %+v", mt.Quantile)
 
@@ -295,7 +295,7 @@ func (m *metric) Write(pb *dto.Metric) error {
 	pb.Label = m.ls
 
 	switch m.d.Type {
-	case "", "summary":
+	case "", tlog.MSummary:
 		return m.writeQuantile(pb)
 	}
 

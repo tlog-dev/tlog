@@ -47,7 +47,7 @@ type (
 		Name   string      `json:"n"`
 		Value  float64     `json:"v"`
 		Hash   uint64      `json:"h"`
-		Help   string      `json:"h"`
+		Help   string      `json:"H"`
 		Type   string      `json:"t"`
 	}
 

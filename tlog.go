@@ -110,9 +110,11 @@ const ( // console writer flags
 )
 
 const (
-	Mgauge   = "gauge"
-	Mcounter = "counter"
-	Msummary = "summary"
+	MCounter   = "counter"
+	MGauge     = "gauge"
+	MSummary   = "summary"
+	MUntyped   = "untyped"
+	MHistogram = "histogram"
 )
 
 var now = func() int64 { return time.Now().UnixNano() }
@@ -651,7 +653,7 @@ func (s Span) SetLabels(ls Labels) {
 	newlabels(s.Logger, ls, s.ID)
 }
 
-// Spawn spawns new child Span
+// Spawn spawns new child Span.
 func (s Span) Spawn() Span {
 	if s.Logger == nil {
 		return Span{}

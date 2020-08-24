@@ -15,13 +15,13 @@ import (
 
 type JSONReader struct {
 	r      *json.Reader
+	err    error
 	tp     Type
 	finish bool
-	err    error
-
-	l *tlog.Logger
 
 	SkipUnknown bool
+
+	l *tlog.Logger
 }
 
 func NewJSONReader(r io.Reader) *JSONReader {

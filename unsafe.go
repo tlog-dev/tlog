@@ -1,3 +1,4 @@
+//nolint:deadcode
 package tlog
 
 import (

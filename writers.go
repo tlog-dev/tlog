@@ -536,8 +536,8 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 	var had bool
 	if !m.Meta {
 		hash = hasher(&m.Name, hash)
-		for _, l := range m.Labels {
-			hash = hasher(&l, hash)
+		for i := range m.Labels {
+			hash = hasher(&m.Labels[i], hash)
 		}
 
 		_, had = w.ms[hash]
@@ -823,8 +823,8 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 	var had bool
 	if !m.Meta {
 		hash = hasher(&m.Name, hash)
-		for _, l := range m.Labels {
-			hash = hasher(&l, hash)
+		for i := range m.Labels {
+			hash = hasher(&m.Labels[i], hash)
 		}
 
 		_, had = w.ms[hash]

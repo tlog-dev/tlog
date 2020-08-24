@@ -325,6 +325,7 @@ func TestProtoWriter(t *testing.T) {
 	// metric itself
 	var h uintptr
 	for _, s := range []string{"op_name_metric", "m=1", "mm=2"} {
+		s := s
 		h = strhash(&s, h)
 	}
 

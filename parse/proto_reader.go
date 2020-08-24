@@ -15,11 +15,12 @@ type ProtoReader struct {
 	i            int
 	pos          int
 	lim          int
-	tp           Type
 	MaxRecordLen int
 	err          error
 
 	l *tlog.Logger
+
+	tp Type
 
 	SkipUnknown bool
 }
