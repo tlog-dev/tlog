@@ -143,12 +143,15 @@ func UnsafeBytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
+//go:noescape
 //go:linkname strhash runtime.strhash
 func strhash(p *string, h uintptr) uintptr
 
+//go:noescape
 //go:linkname byteshash runtime.strhash
 func byteshash(p *[]byte, h uintptr) uintptr
 
+//go:noescape
 //go:linkname strhash0 runtime.strhash
 func strhash0(p unsafe.Pointer, h uintptr) uintptr
 

@@ -101,8 +101,6 @@ var (
 	Discard Writer = DiscardWriter{}
 )
 
-var hasher func(p *string, s uintptr) uintptr = strhash
-
 var spaces = []byte("                                                                                                                                                ")
 
 // NewConsoleWriter creates writer with similar output as log.Logger.
@@ -632,9 +630,11 @@ func (w *commonWriter) metricCached(m Metric) (cnum int, had bool) {
 		return 0, false
 	}
 
-	h := hasher(&m.Name, 0)
-	for i := range m.Labels {
-		h = hasher(&m.Labels[i], h)
+	n := m.Name
+	h := strhash(&n, 0)
+	for _, l := range m.Labels {
+		n = l
+		h = strhash(&n, h)
 	}
 
 	cnum = -1

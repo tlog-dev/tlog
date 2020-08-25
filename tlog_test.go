@@ -594,7 +594,7 @@ func BenchmarkTlogConsoleDetailed(b *testing.B) {
 		l.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
 	}
 
-	b.ReportMetric(float64(w.N/b.N), "B/cycle")
+	b.ReportMetric(float64(w.N/b.N), "disk_B/op")
 }
 
 func BenchmarkTlogTracesConsoleDetailed(b *testing.B) {
@@ -609,7 +609,7 @@ func BenchmarkTlogTracesConsoleDetailed(b *testing.B) {
 		tr.Finish()
 	}
 
-	b.ReportMetric(float64(w.N/b.N), "B/cycle")
+	b.ReportMetric(float64(w.N/b.N), "disk_B/op")
 }
 
 func BenchmarkTlogTracesJSON(b *testing.B) {
@@ -624,7 +624,7 @@ func BenchmarkTlogTracesJSON(b *testing.B) {
 		tr.Finish()
 	}
 
-	b.ReportMetric(float64(w.N/b.N), "B/cycle")
+	b.ReportMetric(float64(w.N/b.N), "disk_B/op")
 }
 
 func BenchmarkTlogTracesProto(b *testing.B) {
@@ -639,7 +639,7 @@ func BenchmarkTlogTracesProto(b *testing.B) {
 		tr.Finish()
 	}
 
-	b.ReportMetric(float64(w.N/b.N), "B/cycle")
+	b.ReportMetric(float64(w.N/b.N), "disk_B/op")
 }
 
 func BenchmarkTlogTracesProtoStartPrintRawFinish(b *testing.B) {
@@ -710,6 +710,42 @@ func BenchmarkTlogTracesProtoPrintf(b *testing.B) {
 	}
 
 	tr.Finish()
+}
+
+func BenchmarkTlogMetricJSON(b *testing.B) {
+	b.ReportAllocs()
+
+	var w CountableDiscard
+	l := New(NewJSONWriter(&w))
+
+	ls := Labels{"const=label", "couple=of_them"}
+	tr := l.Start()
+
+	for i := 0; i < b.N; i++ {
+		tr.Observe("metric_full_qualified_name_unit", 123.456, ls)
+	}
+
+	tr.Finish()
+
+	b.ReportMetric(float64(w.N/b.N), "disk_B/op")
+}
+
+func BenchmarkTlogMetricProto(b *testing.B) {
+	b.ReportAllocs()
+
+	var w CountableDiscard
+	l := New(NewProtoWriter(&w))
+
+	ls := Labels{"const=label", "couple=of_them"}
+	tr := l.Start()
+
+	for i := 0; i < b.N; i++ {
+		tr.Observe("metric_full_qualified_name_unit", 123.456, ls)
+	}
+
+	tr.Finish()
+
+	b.ReportMetric(float64(w.N/b.N), "disk_B/op")
 }
 
 func BenchmarkIDFormat(b *testing.B) {
