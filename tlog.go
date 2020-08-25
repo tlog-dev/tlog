@@ -489,6 +489,14 @@ func (l *Logger) Spawn(id ID) Span {
 	return newspan(l, 0, id)
 }
 
+func (l *Logger) SpawnOrStart(id ID) Span {
+	if l == nil {
+		return Span{}
+	}
+
+	return newspan(l, 0, id)
+}
+
 func (l *Logger) Migrate(s Span) Span {
 	return Span{
 		Logger:  l,

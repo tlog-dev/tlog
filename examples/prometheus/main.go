@@ -38,6 +38,8 @@ func main() {
 	pw := tlprometheus.New()
 	l.AppendWriter(pw)
 
+	l.SetLabels(tlog.FillLabelsWithDefaults("_hostname", "_pid"))
+
 	tlog.SetFilter(*v)
 
 	pw.Logger = tlog.DefaultLogger
@@ -66,7 +68,7 @@ func main() {
 		c.String(http.StatusOK, "ok\n")
 	})
 
-	r.Use(tlgin.Logger)
+	r.Use(tlgin.CustomLogger(l))
 
 	v1 := r.Group("v1")
 
@@ -76,9 +78,11 @@ func main() {
 
 		pth := c.Request.URL.Path
 
+		tr.SetLabels(tlog.Labels{"span=label", "path=" + pth})
+
 		v := time.Duration(time.Now().UnixNano()) % time.Second / time.Millisecond
 
-		tr.Observe("example_metric1_ms", float64(v), tlog.Labels{"path=" + pth})
+		tr.Observe("example_metric1_ms", float64(v), tlog.Labels{"metric=label"})
 
 		pm.WithLabelValues(pth).Observe(float64(v))
 	})

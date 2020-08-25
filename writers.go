@@ -36,7 +36,7 @@ type (
 	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
 		w io.Writer
-		commonWriter
+		writerCache
 		buf []byte
 	}
 
@@ -47,11 +47,11 @@ type (
 	// It's unsafe to write event simultaneously.
 	ProtoWriter struct {
 		w io.Writer
-		commonWriter
+		writerCache
 		buf []byte
 	}
 
-	commonWriter struct {
+	writerCache struct {
 		ls   map[Location]struct{}
 		cc   map[uintptr][]mh
 		skip map[string]int
@@ -462,15 +462,19 @@ func (w *ConsoleWriter) caller() Location {
 	return buf[i]
 }
 
+func makeWriteCache() writerCache {
+	return writerCache{
+		ls:   make(map[Location]struct{}),
+		cc:   make(map[uintptr][]mh),
+		skip: make(map[string]int),
+	}
+}
+
 // NewConsoleWriter creates JSON writer.
 func NewJSONWriter(w io.Writer) *JSONWriter {
 	return &JSONWriter{
-		w: w,
-		commonWriter: commonWriter{
-			ls:   make(map[Location]struct{}),
-			cc:   make(map[uintptr][]mh),
-			skip: make(map[string]int),
-		},
+		w:           w,
+		writerCache: makeWriteCache(),
 	}
 }
 
@@ -584,7 +588,7 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *commonWriter) killMetric(n string) {
+func (w *writerCache) killMetric(n string) {
 	w.skip[n] = -1
 
 	for h, list := range w.cc {
@@ -618,7 +622,7 @@ func (w *commonWriter) killMetric(n string) {
 	}
 }
 
-func (w *commonWriter) metricCached(m Metric) (cnum int, had bool) {
+func (w *writerCache) metricCached(m Metric) (cnum int, had bool) {
 	skip := w.skip[m.Name]
 	if skip == -1 {
 		return 0, false
@@ -816,12 +820,8 @@ func (w *JSONWriter) location(l Location) {
 // NewConsoleWriter creates protobuf writer.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
-		w: w,
-		commonWriter: commonWriter{
-			ls:   make(map[Location]struct{}),
-			cc:   make(map[uintptr][]mh),
-			skip: make(map[string]int),
-		},
+		w:           w,
+		writerCache: makeWriteCache(),
 	}
 }
 

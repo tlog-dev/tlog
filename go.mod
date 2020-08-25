@@ -10,7 +10,7 @@ require (
 	github.com/nikandfor/cli v0.0.0-20200325075312-052d5b29bac6
 	github.com/nikandfor/errors v0.1.0
 	github.com/nikandfor/json v0.2.0
-	github.com/nikandfor/quantile v0.0.0-20200822232524-ae4c6ba60378
+	github.com/nikandfor/quantile v0.0.0-20200824213034-5a47c65eb02b
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.6.1

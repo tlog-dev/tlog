@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nikandfor/quantile"
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,6 +23,10 @@ type (
 		mu sync.RWMutex
 		n  map[string]*desc
 		m  map[uintptr]*metric // hash -> metric
+		s  map[tlog.ID]span    // span id -> started
+
+		labels tlog.Labels
+		dtols  []*dto.LabelPair
 
 		Logger *tlog.Logger
 	}
@@ -52,6 +57,11 @@ type (
 
 		ls []*dto.LabelPair
 	}
+
+	span struct {
+		Location tlog.Location
+		Labels   tlog.Labels
+	}
 )
 
 var _ tlog.Writer = &Writer{}
@@ -60,7 +70,41 @@ func New() *Writer {
 	return &Writer{
 		n: make(map[string]*desc),
 		m: make(map[uintptr]*metric),
+		s: make(map[tlog.ID]span),
 	}
+}
+
+func (w *Writer) Labels(ls tlog.Labels, sid tlog.ID) error {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	if sid == (tlog.ID{}) {
+		w.labels = append(w.labels[:0], ls...)
+
+		w.dtols = w.dtols[:0]
+
+		for _, l := range ls {
+			kv := strings.SplitN(l, "=", 2)
+
+			ll := &dto.LabelPair{
+				Name: proto.String(kv[0]),
+			}
+			if len(kv) != 1 {
+				ll.Value = proto.String(kv[1])
+				// TODO: do we need else?
+			}
+
+			w.dtols = append(w.dtols, ll)
+		}
+
+		return nil
+	}
+
+	sp := w.s[sid]
+	sp.Labels = ls
+	w.s[sid] = sp
+
+	return nil
 }
 
 func (w *Writer) Meta(m tlog.Meta) error {
@@ -123,68 +167,100 @@ func (w *Writer) initDesc(d *desc) {
 	w.n[d.Name] = d
 }
 
-func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
-	defer w.mu.Unlock()
-	w.mu.Lock()
+func (w *Writer) metric(n string, sid tlog.ID, ls tlog.Labels) *metric {
+	d := w.n[n]
+
+	var sp span
+	if sid != (tlog.ID{}) {
+		sp = w.s[sid]
+	}
 
 	var h uintptr
-	h = tlog.StrHash(m.Name, h)
-	for _, l := range m.Labels {
+	h = tlog.StrHash(n, h)
+	for _, l := range w.labels {
+		h = tlog.StrHash(l, h)
+	}
+	for _, l := range sp.Labels {
+		h = tlog.StrHash(l, h)
+	}
+	for _, l := range d.ConstLabels {
+		h = tlog.StrHash(l, h)
+	}
+	for _, l := range ls {
 		h = tlog.StrHash(l, h)
 	}
 
 	mt, ok := w.m[h]
-	if !ok {
-		d := w.n[m.Name]
+	if ok {
+		return mt
+	}
 
-		if d == nil {
-			d = &desc{
-				Name: m.Name,
-			}
+	dtols := make([]*dto.LabelPair, len(w.dtols), len(w.dtols)+len(sp.Labels)+len(ls))
 
-			w.initDesc(d)
+	copy(dtols, w.dtols)
+
+	for _, l := range sp.Labels {
+		p := strings.IndexRune(l, '=')
+
+		if p == -1 {
+			dtols = append(dtols, &dto.LabelPair{
+				Name: proto.String(l),
+			})
+		} else {
+			dtols = append(dtols, &dto.LabelPair{
+				Name:  proto.String(l[:p]),
+				Value: proto.String(l[p+1:]),
+			})
 		}
+	}
 
-		mt = &metric{
-			Labels: m.Labels,
-			d:      d,
-			w:      w,
-		}
-
-		switch d.Type {
-		case "", tlog.MSummary:
-			mt.Quantile = quantile.New(0.1)
-		}
-
-		d.m[h] = mt
-		w.m[h] = mt
-
-		for k, v := range d.ConstLabels {
-			mt.ls = append(mt.ls, &dto.LabelPair{
+	for k, v := range d.ConstLabels {
+		if v == "" {
+			dtols = append(dtols, &dto.LabelPair{
+				Name: proto.String(k),
+			})
+		} else {
+			dtols = append(dtols, &dto.LabelPair{
 				Name:  proto.String(k),
 				Value: proto.String(v),
 			})
 		}
-
-		for _, l := range m.Labels {
-			kv := strings.SplitN(l, "=", 2)
-
-			ll := &dto.LabelPair{
-				Name: proto.String(kv[0]),
-			}
-			if len(kv) != 1 {
-				ll.Value = proto.String(kv[1])
-				// TODO: do we need else?
-			}
-
-			mt.ls = append(mt.ls, ll)
-		}
-
-		//	w.Logger.Printf("desc: %+v", d)
-		//	w.Logger.Printf("metric: %+v", mt)
-		//	w.Logger.Printf("mm: %+v", m)
-		//	w.Logger.Printf("writer: %+v", w)
 	}
+
+	for _, l := range ls {
+		p := strings.IndexRune(l, '=')
+
+		if p == -1 {
+			dtols = append(dtols, &dto.LabelPair{
+				Name: proto.String(l),
+			})
+		} else {
+			dtols = append(dtols, &dto.LabelPair{
+				Name:  proto.String(l[:p]),
+				Value: proto.String(l[p+1:]),
+			})
+		}
+	}
+
+	mt = &metric{
+		Labels:   ls,
+		Quantile: quantile.New(0.1),
+		d:        d,
+		w:        w,
+		ls:       dtols,
+	}
+
+	d.m[h] = mt
+	w.m[h] = mt
+
+	return mt
+}
+
+func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	mt := w.metric(m.Name, sid, m.Labels)
 
 	mt.Count++
 	mt.Last = m.Value
@@ -192,6 +268,54 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 	if mt.Quantile != nil {
 		mt.Quantile.Insert(m.Value)
 	}
+
+	return nil
+}
+
+func (w *Writer) SpanStarted(id, par tlog.ID, st int64, l tlog.Location) error {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	w.s[id] = span{Location: l}
+
+	return nil
+}
+
+func (w *Writer) SpanFinished(id tlog.ID, el int64) error {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	sp := w.s[id]
+	defer delete(w.s, id)
+
+	if sp.Location == 0 {
+		return nil
+	}
+
+	dur := float64(el) / float64(time.Millisecond)
+
+	name, _, _ := sp.Location.NameFileLine()
+	//	name = path.Base(name)
+
+	ls := tlog.Labels{"func=" + name}
+
+	_, ok := w.n["span_duration_ms"]
+	if !ok {
+		d := &desc{
+			Name: "span_duration_ms",
+			Type: tlog.MSummary,
+			Help: "span context duration in milliseconds",
+		}
+
+		w.initDesc(d)
+	}
+
+	mt := w.metric("span_duration_ms", id, ls)
+
+	mt.Count++
+	mt.Last = dur
+	mt.Sum += dur
+	mt.Quantile.Insert(dur)
 
 	return nil
 }
@@ -276,8 +400,6 @@ func DtoLabelsToString(ls []*dto.LabelPair, q float64) string {
 }
 
 func (w *Writer) Describe(c chan<- *prometheus.Desc) {
-	w.Logger.Printf("describe called")
-
 	defer w.mu.RUnlock()
 	w.mu.RLock()
 
@@ -287,8 +409,6 @@ func (w *Writer) Describe(c chan<- *prometheus.Desc) {
 }
 
 func (w *Writer) Collect(c chan<- prometheus.Metric) {
-	w.Logger.Printf("collect called")
-
 	defer w.mu.RUnlock()
 	w.mu.RLock()
 
@@ -298,8 +418,6 @@ func (w *Writer) Collect(c chan<- prometheus.Metric) {
 }
 
 func (m *metric) Desc() *prometheus.Desc {
-	m.w.Logger.Printf("Metric.Desc called")
-
 	defer m.w.mu.RUnlock()
 	m.w.mu.RLock()
 
@@ -307,8 +425,6 @@ func (m *metric) Desc() *prometheus.Desc {
 }
 
 func (m *metric) Write(pb *dto.Metric) error {
-	m.w.Logger.Printf("Metric.Write called")
-
 	defer m.w.mu.RUnlock()
 	m.w.mu.RLock()
 

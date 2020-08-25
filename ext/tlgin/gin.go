@@ -14,27 +14,43 @@ import (
 )
 
 func Tracer(c *gin.Context) {
-	traces(c, true)
+	traces(tlog.DefaultLogger, c, true)
 }
 
 func Logger(c *gin.Context) {
-	traces(c, false)
+	traces(tlog.DefaultLogger, c, false)
 }
 
-func traces(c *gin.Context, ptid bool) {
-	var trid tlog.ID
+func CustomTracer(l *tlog.Logger) func(*gin.Context) {
+	return func(c *gin.Context) {
+		traces(l, c, true)
+	}
+}
 
-	if xtr := c.GetHeader("X-Traceid"); xtr != "" {
-		var err error
+func CustomLogger(l *tlog.Logger) func(*gin.Context) {
+	return func(c *gin.Context) {
+		traces(l, c, false)
+	}
+}
+
+func traces(l *tlog.Logger, c *gin.Context, ptid bool) {
+	var trid tlog.ID
+	var err error
+
+	xtr := c.GetHeader("X-Traceid")
+	if xtr != "" {
 		trid, err = tlog.IDFromString(xtr)
 		if err != nil {
-			tlog.Printf("bad trace id %v: %v", xtr, err)
 			trid = tlog.ID{}
 		}
 	}
 
-	tr := tlog.SpawnOrStart(trid)
+	tr := l.SpawnOrStart(trid)
 	defer tr.Finish()
+
+	if err != nil {
+		tr.Printf("bad parent trace id %v: %v", xtr, err)
+	}
 
 	defer func() {
 		if p := recover(); p != nil {
