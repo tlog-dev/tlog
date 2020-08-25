@@ -72,7 +72,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	var res []interface{}
 	var err error
-	locs := map[uintptr]uintptr{}
+	locs := map[uint64]uint64{}
 
 	for {
 		var o interface{}
@@ -90,7 +90,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		case Location:
 			ex, ok := locs[t.PC]
 			if !ok {
-				ex = uintptr(len(locs) + 1)
+				ex = uint64(len(locs) + 1)
 				locs[t.PC] = ex
 			}
 			t.PC = ex

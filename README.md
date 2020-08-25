@@ -257,7 +257,12 @@ tlog.Printf("but logs don't appear in traces")
 tr := tlog.Start()
 defer tr.Finish()
 
-tr.Observe("metric_name", 123.456, tlog.Labels{"worker=3", "acc=593934"})
+// attach labels with many different values to trace, not to metric.
+// metric will be available by that label, but metrics compaction will work better.
+tr.SetLabels(tlog.Labels{"accid=593946"})
+
+// repeated labels are compacted
+tr.Observe("metric_name", 123.456, tlog.Labels{"way=fast"})
 ```
 
 Check out prometheus naming convention https://prometheus.io/docs/practices/naming/.

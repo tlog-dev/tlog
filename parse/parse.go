@@ -13,18 +13,18 @@ type (
 	}
 
 	Location struct {
-		PC    uintptr `json:"p"`
-		Entry uintptr `json:"e"`
-		Name  string  `json:"n"`
-		File  string  `json:"f"`
-		Line  int     `json:"l"`
+		PC    uint64 `json:"p"`
+		Entry uint64 `json:"e"`
+		Name  string `json:"n"`
+		File  string `json:"f"`
+		Line  int    `json:"l"`
 	}
 
 	SpanStart struct {
 		ID     ID `json:"i"`
 		Parent ID `json:"p"`
 
-		Location uintptr `json:"l"`
+		Location uint64 `json:"l"`
 
 		Started int64 `json:"s"`
 	}
@@ -35,10 +35,10 @@ type (
 	}
 
 	Message struct {
-		Span     ID      `json:"s"`
-		Location uintptr `json:"l"`
-		Time     int64   `json:"t"`
-		Text     string  `json:"m"`
+		Span     ID     `json:"s"`
+		Location uint64 `json:"l"`
+		Time     int64  `json:"t"`
+		Text     string `json:"m"`
 	}
 
 	Metric struct {
@@ -46,7 +46,7 @@ type (
 		Labels tlog.Labels `json:"L"`
 		Name   string      `json:"n"`
 		Value  float64     `json:"v"`
-		Hash   uint64      `json:"h"`
+		Hash   int64       `json:"h"`
 	}
 
 	Meta struct {

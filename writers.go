@@ -35,10 +35,7 @@ type (
 	//
 	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
-		w   io.Writer
-		ls  map[Location]struct{}
-		ms  map[uintptr]struct{}
-		buf []byte
+		commonWriter
 	}
 
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
@@ -47,10 +44,22 @@ type (
 	//
 	// It's unsafe to write event simultaneously.
 	ProtoWriter struct {
-		w   io.Writer
-		ls  map[Location]struct{}
-		ms  map[uintptr]struct{}
-		buf bufWriter
+		commonWriter
+	}
+
+	commonWriter struct {
+		w    io.Writer
+		ls   map[Location]struct{}
+		cc   map[uintptr][]mh
+		skip map[string]int
+		ccn  int
+		buf  []byte
+	}
+
+	mh struct {
+		N      int
+		Name   string
+		Labels Labels
 	}
 
 	// TeeWriter writes the same events in the same order to all Writers one after another.
@@ -76,6 +85,8 @@ type (
 
 	bufWriter []byte
 )
+
+const metricsSkipAt = 1000
 
 var (
 	_ Writer = &ConsoleWriter{}
@@ -454,9 +465,12 @@ func (w *ConsoleWriter) caller() Location {
 // NewConsoleWriter creates JSON writer.
 func NewJSONWriter(w io.Writer) *JSONWriter {
 	return &JSONWriter{
-		w:  w,
-		ls: make(map[Location]struct{}),
-		ms: make(map[uintptr]struct{}),
+		commonWriter: commonWriter{
+			w:    w,
+			ls:   make(map[Location]struct{}),
+			cc:   make(map[uintptr][]mh),
+			skip: make(map[string]int),
+		},
 	}
 }
 
@@ -570,16 +584,93 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
+func (w *commonWriter) metricCached(m Metric) (cnum int, had bool) {
+	if v := w.skip[m.Name]; v == -1 {
+		return 0, false
+	} else if v > metricsSkipAt {
+		w.skip[m.Name] = -1
+
+		for h, list := range w.cc {
+			eq := 0
+			for _, el := range list {
+				if el.Name == m.Name {
+					eq++
+				}
+			}
+
+			if eq == 0 {
+				continue
+			}
+
+			if eq == len(list) {
+				delete(w.cc, h)
+
+				continue
+			}
+
+			var cp []mh
+			for _, el := range list {
+				if el.Name == m.Name {
+					continue
+				}
+
+				cp = append(cp, el)
+			}
+
+			w.cc[h] = cp
+		}
+
+		return 0, false
+	}
+
 	h := hasher(&m.Name, 0)
 	for i := range m.Labels {
 		h = hasher(&m.Labels[i], h)
 	}
 
-	_, had := w.ms[h]
-	if !had {
-		w.ms[h] = struct{}{}
+	cnum = -1
+	had = true
+outer:
+	for _, c := range w.cc[h] {
+		if len(c.Labels) != len(m.Labels) {
+			continue
+		}
+
+		if c.Name != m.Name {
+			continue
+		}
+
+		for i, l := range c.Labels {
+			if l != m.Labels[i] {
+				continue outer
+			}
+		}
+
+		cnum = c.N
 	}
+
+	if cnum == -1 {
+		w.ccn++
+		cnum = w.ccn
+		had = false
+
+		w.skip[m.Name]++
+
+		ls := make(Labels, len(m.Labels))
+		copy(ls, m.Labels)
+
+		w.cc[h] = append(w.cc[h], mh{
+			N:      cnum,
+			Name:   m.Name,
+			Labels: ls,
+		})
+	}
+
+	return
+}
+
+func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
+	cnum, had := w.metricCached(m)
 
 	b := w.buf
 
@@ -592,10 +683,10 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 		sid.FormatTo(b[i:], 'x')
 	}
 
-	b = append(b, `"h":"`...)
-	b = appendHex(b, h)
+	b = append(b, `"h":`...)
+	b = strconv.AppendInt(b, int64(cnum), 10)
 
-	b = append(b, `","v":`...)
+	b = append(b, `,"v":`...)
 	b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
 
 	if !had {
@@ -716,9 +807,12 @@ func (w *JSONWriter) location(l Location) {
 // NewConsoleWriter creates protobuf writer.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
-		w:  w,
-		ls: make(map[Location]struct{}),
-		ms: make(map[uintptr]struct{}),
+		commonWriter: commonWriter{
+			w:    w,
+			ls:   make(map[Location]struct{}),
+			cc:   make(map[uintptr][]mh),
+			skip: make(map[string]int),
+		},
 	}
 }
 
@@ -856,22 +950,14 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
-	h := hasher(&m.Name, 0)
-	for i := range m.Labels {
-		h = hasher(&m.Labels[i], h)
-	}
-
-	_, had := w.ms[h]
-	if !had {
-		w.ms[h] = struct{}{}
-	}
+	cnum, had := w.metricCached(m)
 
 	sz := 0
 	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
-	sz += 1 + 8 // hash
-	sz += 1 + 8 // value
+	sz += 1 + varintSize(uint64(cnum)) // hash
+	sz += 1 + 8                        // value
 	if !had {
 		sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
 		for _, l := range m.Labels {
@@ -891,8 +977,7 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	b = append(b, 2<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(h))
+	b = appendTagVarint(b, 2<<3|0, uint64(cnum))
 
 	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))

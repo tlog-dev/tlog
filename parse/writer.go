@@ -160,7 +160,7 @@ func (w *ConvertWriter) Message(m tlog.Message, s tlog.Span) error {
 
 	return w.w.Message(Message{
 		Span:     s.ID,
-		Location: uintptr(m.Location),
+		Location: uint64(m.Location),
 		Time:     m.Time,
 		Text:     fmt.Sprintf(m.Format, m.Args...),
 	})
@@ -175,7 +175,7 @@ func (w *ConvertWriter) SpanStarted(s tlog.Span, p ID, l tlog.Location) error {
 	return w.w.SpanStart(SpanStart{
 		ID:       s.ID,
 		Parent:   p,
-		Location: uintptr(l),
+		Location: uint64(l),
 		Started:  s.Started,
 	})
 }
@@ -195,7 +195,7 @@ func (w *ConvertWriter) location(l tlog.Location) error {
 	name, file, line := l.NameFileLine()
 
 	err := w.w.Location(Location{
-		PC:   uintptr(l),
+		PC:   uint64(l),
 		Name: name,
 		File: file,
 		Line: line,

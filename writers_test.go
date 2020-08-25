@@ -329,12 +329,6 @@ func TestProtoWriter(t *testing.T) {
 	pbuf = pbuf[:0]
 
 	// metric itself
-	var h uintptr
-	for _, s := range []string{"op_name_metric", "m=1", "mm=2"} {
-		s := s
-		h = strhash(&s, h)
-	}
-
 	_ = w.Metric(
 		Metric{
 			Name:   "op_name_metric",
@@ -345,7 +339,7 @@ func TestProtoWriter(t *testing.T) {
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
 		Span:   id[:],
-		Hash:   uint64(h),
+		Hash:   1,
 		Name:   "op_name_metric",
 		Value:  123.456,
 		Labels: []string{"m=1", "mm=2"},
@@ -368,7 +362,7 @@ func TestProtoWriter(t *testing.T) {
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
 		Span:  id[:],
-		Hash:  uint64(h),
+		Hash:  1,
 		Value: 111.222,
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {

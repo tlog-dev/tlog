@@ -182,13 +182,13 @@ func (r *ProtoReader) Location() (l Location, err error) {
 			if err != nil {
 				return l, err
 			}
-			l.PC = uintptr(x)
+			l.PC = uint64(x)
 		case 2<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
 			if err != nil {
 				return l, err
 			}
-			l.Entry = uintptr(x)
+			l.Entry = uint64(x)
 		case 3<<3 | 2:
 			l.Name, err = r.string()
 			if err != nil {
@@ -237,7 +237,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			if err != nil {
 				return m, err
 			}
-			m.Location = uintptr(x)
+			m.Location = uint64(x)
 		case 3<<3 | 1:
 			m.Time = r.time()
 		case 4<<3 | 2:
@@ -272,9 +272,11 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			r.i++ // len
 			copy(m.Span[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 2<<3 | 1:
-			v := r.time()
-			m.Hash = uint64(v)
+		case 2<<3 | 0:
+			m.Hash, err = r.varint64()
+			if err != nil {
+				return m, err
+			}
 		case 3<<3 | 1:
 			v := r.time()
 			m.Value = math.Float64frombits(uint64(v))
@@ -363,7 +365,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			if err != nil {
 				return s, err
 			}
-			s.Location = uintptr(x)
+			s.Location = uint64(x)
 		case 4<<3 | 1:
 			s.Started = r.time()
 		default:

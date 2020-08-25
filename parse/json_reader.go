@@ -168,18 +168,16 @@ func (r *JSONReader) Location() (l Location, err error) {
 			l.Name = string(r.r.NextString())
 		case 'p':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseUint(n, 10, 64)
+			l.PC, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return Location{}, r.r.ErrorHere(err)
 			}
-			l.PC = uintptr(v)
 		case 'e':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseUint(n, 10, 64)
+			l.Entry, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return Location{}, r.r.ErrorHere(err)
 			}
-			l.Entry = uintptr(v)
 		case 'l':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseUint(n, 10, 64)
@@ -218,11 +216,10 @@ func (r *JSONReader) Message() (m Message, err error) {
 			m.Text = string(r.r.NextString())
 		case 'l':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseUint(n, 10, 64)
+			m.Location, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
-			m.Location = uintptr(v)
 		case 't':
 			n := string(r.r.NextNumber())
 			m.Time, err = strconv.ParseInt(n, 10, 64)
@@ -275,8 +272,8 @@ func (r *JSONReader) Metric() (m Metric, err error) {
 				return Metric{}, r.r.ErrorHere(err)
 			}
 		case 'h':
-			n := string(r.r.NextString())
-			m.Hash, err = strconv.ParseUint(n, 16, 64)
+			n := string(r.r.NextNumber())
+			m.Hash, err = strconv.ParseInt(n, 10, 64)
 			if err != nil {
 				return Metric{}, r.r.ErrorHere(err)
 			}
@@ -356,11 +353,10 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 		switch k[0] {
 		case 'l':
 			n := string(r.r.NextNumber())
-			v, err := strconv.ParseUint(n, 10, 64)
+			s.Location, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}
-			s.Location = uintptr(v)
 		case 's':
 			n := string(r.r.NextNumber())
 			s.Started, err = strconv.ParseInt(n, 10, 64)
