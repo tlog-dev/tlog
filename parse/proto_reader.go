@@ -272,7 +272,7 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			r.i++ // len
 			copy(m.Span[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 2<<3 | 0:
+		case 2<<3 | 0: //nolint:staticcheck
 			m.Hash, err = r.varint64()
 			if err != nil {
 				return m, err

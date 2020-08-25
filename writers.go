@@ -35,7 +35,9 @@ type (
 	//
 	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
+		w io.Writer
 		commonWriter
+		buf []byte
 	}
 
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
@@ -44,16 +46,16 @@ type (
 	//
 	// It's unsafe to write event simultaneously.
 	ProtoWriter struct {
+		w io.Writer
 		commonWriter
+		buf []byte
 	}
 
 	commonWriter struct {
-		w    io.Writer
 		ls   map[Location]struct{}
 		cc   map[uintptr][]mh
 		skip map[string]int
 		ccn  int
-		buf  []byte
 	}
 
 	mh struct {
@@ -465,8 +467,8 @@ func (w *ConsoleWriter) caller() Location {
 // NewConsoleWriter creates JSON writer.
 func NewJSONWriter(w io.Writer) *JSONWriter {
 	return &JSONWriter{
+		w: w,
 		commonWriter: commonWriter{
-			w:    w,
 			ls:   make(map[Location]struct{}),
 			cc:   make(map[uintptr][]mh),
 			skip: make(map[string]int),
@@ -584,41 +586,48 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *commonWriter) metricCached(m Metric) (cnum int, had bool) {
-	if v := w.skip[m.Name]; v == -1 {
-		return 0, false
-	} else if v > metricsSkipAt {
-		w.skip[m.Name] = -1
+func (w *commonWriter) killMetric(n string) {
+	w.skip[n] = -1
 
-		for h, list := range w.cc {
-			eq := 0
-			for _, el := range list {
-				if el.Name == m.Name {
-					eq++
-				}
+	for h, list := range w.cc {
+		eq := 0
+		for _, el := range list {
+			if el.Name == n {
+				eq++
 			}
-
-			if eq == 0 {
-				continue
-			}
-
-			if eq == len(list) {
-				delete(w.cc, h)
-
-				continue
-			}
-
-			var cp []mh
-			for _, el := range list {
-				if el.Name == m.Name {
-					continue
-				}
-
-				cp = append(cp, el)
-			}
-
-			w.cc[h] = cp
 		}
+
+		if eq == 0 {
+			continue
+		}
+
+		if eq == len(list) {
+			delete(w.cc, h)
+
+			continue
+		}
+
+		var cp []mh
+		for _, el := range list {
+			if el.Name == n {
+				continue
+			}
+
+			cp = append(cp, el)
+		}
+
+		w.cc[h] = cp
+	}
+}
+
+func (w *commonWriter) metricCached(m Metric) (cnum int, had bool) {
+	skip := w.skip[m.Name]
+	if skip == -1 {
+		return 0, false
+	}
+
+	if skip > metricsSkipAt {
+		w.killMetric(m.Name)
 
 		return 0, false
 	}
@@ -807,8 +816,8 @@ func (w *JSONWriter) location(l Location) {
 // NewConsoleWriter creates protobuf writer.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
+		w: w,
 		commonWriter: commonWriter{
-			w:    w,
 			ls:   make(map[Location]struct{}),
 			cc:   make(map[uintptr][]mh),
 			skip: make(map[string]int),
@@ -977,7 +986,7 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	b = appendTagVarint(b, 2<<3|0, uint64(cnum))
+	b = appendTagVarint(b, 2<<3|0, uint64(cnum)) //nolint:staticcheck
 
 	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
@@ -1101,30 +1110,6 @@ func (w *ProtoWriter) location(l Location) {
 
 	w.ls[l] = struct{}{}
 	w.buf = b
-}
-
-func appendHex(b []byte, h uintptr) []byte {
-	const digitsx = "0123456789abcdef"
-
-	j := len(b)
-	b = append(b,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-	)
-
-	for i := 0; i < 8; i++ {
-		b[j] = digitsx[(h>>4)&0xf]
-		b[j+1] = digitsx[h&0xf]
-
-		j += 2
-		h >>= 8
-
-		if h == 0 {
-			break
-		}
-	}
-
-	return b[:j]
 }
 
 func appendVarint(b []byte, v uint64) []byte {
