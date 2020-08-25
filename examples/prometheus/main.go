@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nikandfor/cli/flag"
@@ -38,20 +37,21 @@ func main() {
 	pw := tlprometheus.New()
 	l.AppendWriter(pw)
 
-	l.SetLabels(tlog.FillLabelsWithDefaults("_hostname", "_pid"))
+	//	l.SetLabels(tlog.FillLabelsWithDefaults("_hostname", "_pid"))
+	l.SetLabels(tlog.Labels{"global=label"})
 
 	tlog.SetFilter(*v)
 
 	pw.Logger = tlog.DefaultLogger
 
-	pm := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name:        "example_metric2_ms",
-		Help:        "request milliseconds from mm:ss:000",
+	pm := prometheus.NewSummary(prometheus.SummaryOpts{
+		Name:        "fully_qualified_metric_name_2_with_units",
+		Help:        "help message that describes metric",
 		Objectives:  map[float64]float64{0.1: 0.1, 0.5: 0.1, 0.9: 0.1, 0.95: 0.01, 0.99: 0.01, 1: 0.01},
-		ConstLabels: prometheus.Labels{"const": "label"},
-	}, []string{"path"})
+		ConstLabels: prometheus.Labels{"metric": "const_label"},
+	})
 
-	l.RegisterMetric("example_metric1_ms", "request milliseconds from mm:ss:000", "summary", tlog.Labels{"const=label"})
+	l.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MSummary, "help message that describes metric", tlog.Labels{"metric=const_label"})
 
 	prometheus.MustRegister(pm)
 	prometheus.MustRegister(pw)
@@ -78,13 +78,13 @@ func main() {
 
 		pth := c.Request.URL.Path
 
-		tr.SetLabels(tlog.Labels{"span=label", "path=" + pth})
+		tr.Printf("path: %v", pth)
 
-		v := time.Duration(time.Now().UnixNano()) % time.Second / time.Millisecond
+		tr.SetLabels(tlog.Labels{"span=label"})
 
-		tr.Observe("example_metric1_ms", float64(v), tlog.Labels{"metric=label"})
+		tr.Observe("fully_qualified_metric_name_with_units", 123.456, tlog.Labels{"observation=label"})
 
-		pm.WithLabelValues(pth).Observe(float64(v))
+		pm.Observe(float64(123.456))
 	})
 
 	v1.Any("*path", func(c *gin.Context) {

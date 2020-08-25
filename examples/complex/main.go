@@ -39,11 +39,11 @@ func main() {
 	cl := initComplexLogger()
 	defer cl()
 
-	lab := tlog.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "myflag")
+	lab := tlog.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "label_from_flags")
 	ll.SetLabels(lab)
 	ll.Printf("os.Args: %v", os.Args)
 
-	ll.RegisterMetric("op_metric_units", "help message for metric that describes it", "gauge", tlog.Labels{"const=labels"})
+	ll.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MGauge, "help message for metric that describes it", tlog.Labels{"const=labels"})
 
 	ll.Printf("main: %d", *f)
 
@@ -64,7 +64,7 @@ func work() {
 }
 
 func measures_something(tr tlog.Span) {
-	tr.Observe("op_metric_units", 123.456, tlog.Labels{"algo=fast"})
+	tr.Observe("fully_qualified_metric_name_with_units", 123.456, tlog.Labels{"algo=fast"})
 }
 
 type A struct{}

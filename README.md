@@ -165,14 +165,16 @@ l = tlog.New(cw, jw) // the same result as before
 
 ### The best writer ever
 
-You can implement your own `tlog.Writer`.
+You can implement your own [tlog.Writer](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc#Writer).
+
 ```golang
 Writer interface {
-    Labels(Labels, ID)
-    SpanStarted(id, parent Span, started int64, loc Location)
-    SpanFinished(sid ID, elapsed int64)
-    Message(m Message, sid ID)
-    Metric(m Metric, sid ID)
+    Labels(Labels, ID) error
+    SpanStarted(id, parent Span, started int64, loc Location) error
+    SpanFinished(sid ID, elapsed int64) error
+    Message(m Message, sid ID) error
+    Metric(m Metric, sid ID) error
+    Meta(m Meta) error
 }
 ```
 
@@ -254,15 +256,46 @@ tlog.Printf("but logs don't appear in traces")
 # Metrics
 
 ```golang
+tlog.SetLabels(tlog.Labels{"global=label"})
+
+tlog.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MSummary, "help message that describes metric", tlog.Labels{"metric=const_label"})
+
+// This is metric either. It records span duration as Metric.
 tr := tlog.Start()
 defer tr.Finish()
 
-// attach labels with many different values to trace, not to metric.
-// metric will be available by that label, but metrics compaction will work better.
-tr.SetLabels(tlog.Labels{"accid=593946"})
+// write highly volatile values to messages, not to labels.
+tr.Printf("account_id %x", accid)
 
-// repeated labels are compacted
-tr.Observe("metric_name", 123.456, tlog.Labels{"way=fast"})
+// labels should not exceed 1000 unique key-values pairs.
+tr.SetLabels(tlog.Labels{"span=label"})
+
+tr.Observe("fully_qualified_metric_name_with_units", 123.456, tlog.Labels{"observation=label"})
+```
+
+This result in the following prometheus-like output
+
+```
+# HELP fully_qualified_metric_name_with_units help message that describes metric
+# TYPE fully_qualified_metric_name_with_units summary
+fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.1"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.5"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.9"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.95"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.99"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="1"} 123.456
+fully_qualified_metric_name_with_units_sum{global="label",span="label",metric="const_label",observation="label"} 123.456
+fully_qualified_metric_name_with_units_count{global="label",span="label",metric="const_label",observation="label"} 1
+# HELP span_duration_ms span context duration in milliseconds
+# TYPE span_duration_ms summary
+span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.1"} 0.094489
+span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.5"} 0.094489
+span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.9"} 0.094489
+span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.95"} 0.094489
+span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.99"} 0.094489
+span_duration_ms{global="label",span="label",func="main.main.func2",quantile="1"} 0.094489
+span_duration_ms_sum{global="label",span="label",func="main.main.func2"} 0.094489
+span_duration_ms_count{global="label",span="label",func="main.main.func2"} 1
 ```
 
 Check out prometheus naming convention https://prometheus.io/docs/practices/naming/.
@@ -289,9 +322,10 @@ tlog.SetLabels(ls)
 ## Span.ID
 
 In a local code you may pass `Span.ID` in a `context.Context` as `tlog.ContextWithID` and derive from it as `tlog.SpawnFromContext`.
-But additional actions are required in case of remote procedure call. You need to send `Span.ID` with arguments as a `string` of `[]byte`.
+But additional actions are required in case of remote procedure call. You need to send `Span.ID` with arguments as a `string` or `[]byte`.
 There are helper functions for that: `ID.FullString`, `tlog.IDFromString`, `ID[:]`, `tlog.IDFromBytes`.
-Example for gin is here: [ext/tlgin/gin.goo](ext/tlgin/gin.go)
+
+Example for gin is here: [ext/tlgin/gin.go](ext/tlgin/gin.go)
 
 ```golang
 func server(w http.ResponseWriter, req *http.Request) {

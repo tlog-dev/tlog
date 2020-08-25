@@ -437,7 +437,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	l.SetLabels(Labels{"a=b", "f"})
 
-	l.RegisterMetric("metric_name", "help description", "type", Labels{"const=labels"})
+	l.RegisterMetric("metric_name", "type", "help description", Labels{"const=labels"})
 
 	tr := l.Start()
 

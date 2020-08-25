@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"sync"
 	"time"
 	"unsafe"
@@ -117,11 +118,20 @@ const (
 	MSummary   = "summary"
 	MUntyped   = "untyped"
 	MHistogram = "histogram"
+	Mempty     = ""
 )
 
 var now = func() int64 { return time.Now().UnixNano() }
 
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
+
+var ( // regexp
+	mtName  = "[_a-zA-Z][_a-zA-Z0-9]*"
+	mtLabel = mtName + "(=[_=a-zA-Z0-9]*)?"
+
+	mtNameRe  = regexp.MustCompile(mtName)
+	mtLabelRe = regexp.MustCompile(mtLabel)
+)
 
 // New creates new Logger with given writers.
 func New(ws ...Writer) *Logger {
@@ -277,6 +287,12 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 		return
 	}
 
+	for _, l := range ls {
+		if !mtLabelRe.MatchString(l) {
+			panic("bad label: " + l + ", expected: " + mtLabel)
+		}
+	}
+
 	defer l.Unlock()
 	l.Lock()
 
@@ -375,8 +391,8 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
-func RegisterMetric(name, help, typ string, ls Labels) {
-	DefaultLogger.RegisterMetric(name, help, typ, ls)
+func RegisterMetric(name, typ, help string, ls Labels) {
+	DefaultLogger.RegisterMetric(name, typ, help, ls)
 }
 
 func Observe(n string, v float64, ls Labels) {
@@ -443,7 +459,16 @@ func (l *Logger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (l *Logger) RegisterMetric(name, help, typ string, ls Labels) {
+func (l *Logger) RegisterMetric(name, typ, help string, ls Labels) {
+	if !mtNameRe.MatchString(name) {
+		panic("bad metric name: " + name + ", expected: " + mtName)
+	}
+	for _, l := range ls {
+		if !mtLabelRe.MatchString(l) {
+			panic("bad label: " + l + ", expected: " + mtLabel)
+		}
+	}
+
 	_ = l.Meta(Meta{
 		Type: "metric_desc",
 		Data: append(
