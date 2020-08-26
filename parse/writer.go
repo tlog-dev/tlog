@@ -13,6 +13,7 @@ type (
 		Location(Location) error
 		Message(Message) error
 		Metric(Metric) error
+		Meta(Meta) error
 		SpanStart(SpanStart) error
 		SpanFinish(SpanFinish) error
 	}
@@ -43,6 +44,15 @@ func (w AnyWriter) Location(l Location) error {
 	tlog.Location(l.PC).SetCache(l.Name, l.File, l.Line)
 
 	return nil
+}
+
+func (w AnyWriter) Meta(m Meta) error {
+	return w.w.Meta(
+		tlog.Meta{
+			Type: m.Type,
+			Data: m.Data,
+		},
+	)
 }
 
 func (w AnyWriter) Message(m Message) error {
@@ -104,6 +114,15 @@ func (w *ConsoleWriter) Location(l Location) error {
 	return nil
 }
 
+func (w *ConsoleWriter) Meta(m Meta) error {
+	return w.w.Meta(
+		tlog.Meta{
+			Type: m.Type,
+			Data: m.Data,
+		},
+	)
+}
+
 func (w *ConsoleWriter) Message(m Message) (err error) {
 	return w.w.Message(
 		tlog.Message{
@@ -150,6 +169,15 @@ func NewConvertWriter(w Writer) *ConvertWriter {
 
 func (w *ConvertWriter) Labels(ls tlog.Labels, sid ID) error {
 	return w.w.Labels(Labels{Labels: ls, Span: sid})
+}
+
+func (w *ConvertWriter) Meta(m tlog.Meta) error {
+	return w.w.Meta(
+		Meta{
+			Type: m.Type,
+			Data: m.Data,
+		},
+	)
 }
 
 func (w *ConvertWriter) Message(m tlog.Message, s tlog.Span) error {

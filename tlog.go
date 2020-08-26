@@ -781,24 +781,11 @@ func (i ID) FullString() string {
 // You may use result if you expected short ID prefix.
 func IDFromBytes(b []byte) (id ID, err error) {
 	n := copy(id[:], b)
-	if n < len(id) {
-		return id, TooShortIDError{N: n}
-	}
-	return id, nil
-}
 
-// ShouldIDFromBytes copies slice value to id without checks.
-func ShouldIDFromBytes(b []byte) (id ID) {
-	copy(id[:], b)
-	return
-}
-
-// MustIDFromBytes copies slice value into id and panics if something is not ok.
-func MustIDFromBytes(b []byte) (id ID) {
-	n := copy(id[:], b)
 	if n < len(id) {
-		panic(id)
+		err = TooShortIDError{N: n}
 	}
+
 	return
 }
 
@@ -807,46 +794,68 @@ func MustIDFromBytes(b []byte) (id ID) {
 // If parsed string is shorter than type length result is returned as is and TooShortIDError as error value.
 // You may use result if you expected short ID prefix (profuced by ID.String, for example).
 func IDFromString(s string) (id ID, err error) {
-	a := []byte(s)
-	for i, c := range a {
-		if c == '_' {
-			a[i] = '0'
-		}
+	if "________________________________"[:len(s)] == s {
+		return
 	}
-	n, err := hex.Decode(id[:], a)
+
+	var i int
+	var c byte
+	for ; i < len(s); i++ {
+		switch {
+		case s[i] == '_':
+			continue
+		case '0' <= s[i] && s[i] <= '9':
+			c = s[i] - '0'
+		case 'a' <= s[i] && s[i] <= 'f':
+			c = s[i] - 'a' + 10
+		default:
+			err = hex.InvalidByteError(s[i])
+			return
+		}
+
+		if i&1 == 0 {
+			c <<= 4
+		}
+
+		id[i>>1] |= c
+	}
+
+	if i < 2*len(id) {
+		err = TooShortIDError{N: i / 2}
+	}
+
+	return
+}
+
+func IDFromStringAsBytes(s []byte) (id ID, err error) {
+	if bytes.Equal([]byte("________________________________")[:len(s)], s) {
+		return
+	}
+
+	n, err := hex.Decode(id[:], s)
 	if err != nil {
 		return
 	}
+
 	if n < len(id) {
 		return id, TooShortIDError{N: n}
 	}
+
 	return id, nil
 }
 
-// ShouldIDFromString parses ID from string. It skips all errors.
-func ShouldIDFromString(s string) (id ID) {
-	a := []byte(s)
-	if bytes.Equal(a, []byte("________________________________")[:len(a)]) {
-		return
-	}
-	_, _ = hex.Decode(id[:], a)
-	return
+// ShouldID wraps IDFrom* call and skips error if any.
+func ShouldID(id ID, err error) ID {
+	return id
 }
 
-// MustIDFromString parses ID from string. It panics if something is not ok.
-func MustIDFromString(s string) (id ID) {
-	if len(s) != 2*len(id) {
-		panic(s)
-	}
-	a := []byte(s)
-	if bytes.Equal(a, []byte("________________________________")[:len(a)]) {
-		return
-	}
-	_, err := hex.Decode(id[:], a)
+// MustID wraps IDFrom* call and panics if error occurred.
+func MustID(id ID, err error) ID {
 	if err != nil {
 		panic(err)
 	}
-	return
+
+	return id
 }
 
 // Error is an error interface implementation.

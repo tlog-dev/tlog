@@ -350,11 +350,19 @@ func TestIDFrom(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, id, res)
 
+	res, err = IDFromStringAsBytes([]byte(id.FullString()))
+	assert.NoError(t, err)
+	assert.Equal(t, id, res)
+
 	res, err = IDFromBytes(id[:])
 	assert.NoError(t, err)
 	assert.Equal(t, id, res)
 
 	res, err = IDFromString(fmt.Sprintf("%8x", id))
+	assert.Equal(t, TooShortIDError{N: 4}, err)
+	assert.Equal(t, ID{1, 2, 3, 4}, res)
+
+	res, err = IDFromStringAsBytes([]byte(fmt.Sprintf("%8x", id)))
 	assert.Equal(t, TooShortIDError{N: 4}, err)
 	assert.Equal(t, ID{1, 2, 3, 4}, res)
 
@@ -364,7 +372,7 @@ func TestIDFrom(t *testing.T) {
 
 	res, err = IDFromString("010203046q")
 	assert.EqualError(t, err, "encoding/hex: invalid byte: U+0071 'q'")
-	assert.Equal(t, ID{1, 2, 3, 4}, res)
+	assert.Equal(t, ID{1, 2, 3, 4, 0x60}, res)
 
 	res, err = IDFromString(ID{}.FullString())
 	assert.NoError(t, err)
@@ -376,47 +384,47 @@ func TestIDFromMustShould(t *testing.T) {
 
 	// strings
 	// should
-	res := ShouldIDFromString(id.FullString())
+	res := ShouldID(IDFromString(id.FullString()))
 	assert.Equal(t, id, res)
 
-	res = ShouldIDFromString(id.String())
+	res = ShouldID(IDFromString(id.String()))
 	assert.Equal(t, ID{1, 2, 3, 4, 5, 6, 7, 8}, res)
 
-	res = ShouldIDFromString(ID{}.FullString())
+	res = ShouldID(IDFromString(ID{}.FullString()))
 	assert.Equal(t, ID{}, res)
 
-	res = ShouldIDFromString(ID{}.String())
+	res = ShouldID(IDFromString(ID{}.String()))
 	assert.Equal(t, ID{}, res)
 
 	// must
-	res = MustIDFromString(id.FullString())
+	res = MustID(IDFromString(id.FullString()))
 	assert.Equal(t, id, res)
 
-	assert.Panics(t, func() { MustIDFromString(id.String()) })
+	assert.Panics(t, func() { MustID(IDFromString(id.String())) })
 
-	assert.Panics(t, func() { MustIDFromString("1234567") })
+	assert.Panics(t, func() { MustID(IDFromString("1234567")) })
 
 	b := make([]byte, len(id)*2)
 	id.FormatTo(b, 'x')
 	b[10] = 'g'
 
-	assert.Panics(t, func() { MustIDFromString(string(b)) })
+	assert.Panics(t, func() { MustID(IDFromString(string(b))) })
 
-	res = MustIDFromString(ID{}.FullString())
+	res = MustID(IDFromString(ID{}.FullString()))
 	assert.Equal(t, ID{}, res)
 
-	assert.Panics(t, func() { MustIDFromString(ID{}.String()) })
+	assert.NotPanics(t, func() { MustID(IDFromString(ID{}.String())) })
 
 	// bytes
-	res = ShouldIDFromBytes(nil)
+	res = ShouldID(IDFromBytes(nil))
 	assert.Equal(t, ID{}, res)
 
-	res = ShouldIDFromBytes(id[:])
+	res = ShouldID(IDFromBytes(id[:]))
 	assert.Equal(t, id, res)
 
-	assert.Panics(t, func() { MustIDFromBytes([]byte{1, 2, 3, 4, 5}) })
+	assert.Panics(t, func() { MustID(IDFromBytes([]byte{1, 2, 3, 4, 5})) })
 
-	res = MustIDFromBytes(id[:])
+	res = MustID(IDFromBytes(id[:]))
 	assert.Equal(t, id, res)
 }
 
