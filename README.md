@@ -11,6 +11,8 @@ TraceLog - distributed tracing, logging and metrics.
 
 Explore [examples](examples).
 
+Idea and most of the concepts were designated while working on distributed systems in [Yuri Korzhenevsky R&D Center](https://www.rnd.center).
+
 # Status
 It evolves as I use it. I still can change anything, but for now I'm quiet satisfied with most of details.
 
