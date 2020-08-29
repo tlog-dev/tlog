@@ -299,10 +299,10 @@ func (w *Writer) SpanFinished(id tlog.ID, el int64) error {
 
 	ls := tlog.Labels{"func=" + name}
 
-	_, ok := w.n["span_duration_ms"]
+	_, ok := w.n["tlog_span_duration_ms"]
 	if !ok {
 		d := &desc{
-			Name: "span_duration_ms",
+			Name: "tlog_span_duration_ms",
 			Type: tlog.MSummary,
 			Help: "span context duration in milliseconds",
 		}
@@ -310,7 +310,7 @@ func (w *Writer) SpanFinished(id tlog.ID, el int64) error {
 		w.initDesc(d)
 	}
 
-	mt := w.metric("span_duration_ms", id, ls)
+	mt := w.metric("tlog_span_duration_ms", id, ls)
 
 	mt.Count++
 	mt.Last = dur

@@ -14,26 +14,26 @@ import (
 )
 
 func Tracer(c *gin.Context) {
-	traces(tlog.DefaultLogger, c, true)
+	tracer(tlog.DefaultLogger, c, true)
 }
 
 func Logger(c *gin.Context) {
-	traces(tlog.DefaultLogger, c, false)
+	tracer(tlog.DefaultLogger, c, false)
 }
 
 func CustomTracer(l *tlog.Logger) func(*gin.Context) {
 	return func(c *gin.Context) {
-		traces(l, c, true)
+		tracer(l, c, true)
 	}
 }
 
 func CustomLogger(l *tlog.Logger) func(*gin.Context) {
 	return func(c *gin.Context) {
-		traces(l, c, false)
+		tracer(l, c, false)
 	}
 }
 
-func traces(l *tlog.Logger, c *gin.Context, ptid bool) {
+func tracer(l *tlog.Logger, c *gin.Context, ptid bool) {
 	var trid tlog.ID
 	var err error
 

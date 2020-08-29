@@ -112,7 +112,7 @@ const ( // console writer flags
 	Lnone        = 0
 )
 
-const (
+const ( // metric types
 	MCounter   = "counter"
 	MGauge     = "gauge"
 	MSummary   = "summary"
@@ -127,7 +127,7 @@ var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
 
 var ( // regexp
 	mtName  = "[_a-zA-Z][_a-zA-Z0-9]*"
-	mtLabel = mtName + "(=[_=a-zA-Z0-9]*)?"
+	mtLabel = mtName + "(=[_=/a-zA-Z0-9]*)?"
 
 	mtNameRe  = regexp.MustCompile(mtName)
 	mtLabelRe = regexp.MustCompile(mtLabel)

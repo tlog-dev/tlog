@@ -288,16 +288,16 @@ fully_qualified_metric_name_with_units{global="label",span="label",metric="const
 fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="1"} 123.456
 fully_qualified_metric_name_with_units_sum{global="label",span="label",metric="const_label",observation="label"} 123.456
 fully_qualified_metric_name_with_units_count{global="label",span="label",metric="const_label",observation="label"} 1
-# HELP span_duration_ms span context duration in milliseconds
-# TYPE span_duration_ms summary
-span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.1"} 0.094489
-span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.5"} 0.094489
-span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.9"} 0.094489
-span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.95"} 0.094489
-span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.99"} 0.094489
-span_duration_ms{global="label",span="label",func="main.main.func2",quantile="1"} 0.094489
-span_duration_ms_sum{global="label",span="label",func="main.main.func2"} 0.094489
-span_duration_ms_count{global="label",span="label",func="main.main.func2"} 1
+# HELP tlog_span_duration_ms span context duration in milliseconds
+# TYPE tlog_span_duration_ms summary
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.1"} 0.094489
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.5"} 0.094489
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.9"} 0.094489
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.95"} 0.094489
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.99"} 0.094489
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="1"} 0.094489
+tlog_span_duration_ms_sum{global="label",span="label",func="main.main.func2"} 0.094489
+tlog_span_duration_ms_count{global="label",span="label",func="main.main.func2"} 1
 ```
 
 Check out prometheus naming convention https://prometheus.io/docs/practices/naming/.
