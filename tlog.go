@@ -898,16 +898,21 @@ func (i ID) FormatTo(b []byte, f rune) {
 	if f == 'X' || f == 'V' {
 		dg = digitsX
 	}
+
 	m := len(b)
 	if 2*len(i) < m {
 		m = 2 * len(i)
 	}
 
-	for j := 0; j < m; j += 2 {
-		b[j] = dg[i[j>>1]>>4]
-		if m&1 == 0 {
-			b[j+1] = dg[i[j>>1]&0xf]
-		}
+	ji := 0
+	for j := 0; j+1 < m; j += 2 {
+		b[j] = dg[i[ji]>>4]
+		b[j+1] = dg[i[ji]&0xf]
+		ji++
+	}
+
+	if m&1 == 1 {
+		b[m-1] = dg[i[m>>1]>>4]
 	}
 }
 
