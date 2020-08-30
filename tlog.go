@@ -27,9 +27,9 @@ type (
 	// Logger is an logging handler that creates logging events and passes them to the Writer.
 	// A Logger methods can be called simultaneously.
 	Logger struct {
-		sync.Mutex
-
 		Writer
+
+		mu     sync.Mutex
 		filter filter
 
 		// NoLocations disables locations capturing.
@@ -153,9 +153,6 @@ func New(ws ...Writer) *Logger {
 }
 
 func (l *Logger) AppendWriter(ws ...Writer) {
-	defer l.Unlock()
-	l.Lock()
-
 	switch w := l.Writer.(type) {
 	case DiscardWriter:
 		if len(ws) == 1 {
@@ -171,13 +168,6 @@ func (l *Logger) AppendWriter(ws ...Writer) {
 		tw := NewTeeWriter(w)
 		l.Writer = append(tw, ws...)
 	}
-}
-
-func (l *Logger) SetWriter(w Writer) {
-	defer l.Unlock()
-	l.Lock()
-
-	l.Writer = w
 }
 
 // SetLabels sets labels for default logger.
@@ -293,9 +283,6 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 		}
 	}
 
-	defer l.Unlock()
-	l.Lock()
-
 	_ = l.Writer.Labels(ls, sid)
 }
 
@@ -310,10 +297,11 @@ func newspan(l *Logger, d int, par ID) Span {
 		Started: now(),
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	l.mu.Lock()
 
 	s.ID = l.randID()
+
+	l.mu.Unlock()
 
 	_ = l.Writer.SpanStarted(s.ID, par, s.Started, loc)
 
@@ -331,9 +319,6 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 	if !l.NoLocations {
 		loc = Caller(d + 2)
 	}
-
-	defer l.Unlock()
-	l.Lock()
 
 	_ = l.Writer.Message(
 		Message{
@@ -540,10 +525,11 @@ func (l *Logger) ifv(tp string) (ok bool) {
 		return false
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	l.mu.Lock()
 
 	ok = l.filter.match(tp)
+
+	l.mu.Unlock()
 
 	return ok
 }
@@ -573,10 +559,11 @@ func (l *Logger) SetFilter(filters string) {
 		return
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	l.mu.Lock()
 
 	l.filter = newFilter(filters)
+
+	l.mu.Unlock()
 }
 
 // Filter returns current verbosity filter value for default filter.
@@ -587,8 +574,8 @@ func (l *Logger) Filter() string {
 		return ""
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	defer l.mu.Unlock()
+	l.mu.Lock()
 
 	return l.filter.f
 }
@@ -596,73 +583,6 @@ func (l *Logger) Filter() string {
 func (l *Logger) noLocations() *Logger {
 	l.NoLocations = true
 	return l
-}
-
-// writer interface
-
-func (l *Logger) Labels(ls Labels, sid ID) (err error) {
-	if l == nil {
-		return
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	err = l.Writer.Labels(ls, sid)
-
-	return
-}
-
-func (l *Logger) SpanStarted(id, par ID, st int64, loc Location) (err error) {
-	if l == nil {
-		return
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	err = l.Writer.SpanStarted(id, par, st, loc)
-
-	return
-}
-
-func (l *Logger) SpanFinished(id ID, el int64) (err error) {
-	if l == nil {
-		return
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	err = l.Writer.SpanFinished(id, el)
-
-	return
-}
-
-func (l *Logger) Message(m Message, sid ID) (err error) {
-	if l == nil {
-		return
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	err = l.Writer.Message(m, sid)
-
-	return
-}
-
-func (l *Logger) Metric(m Metric, sid ID) (err error) {
-	if l == nil {
-		return
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	err = l.Writer.Metric(m, sid)
-
-	return
 }
 
 // V checks if one of topics in tp is enabled and returns the same Span or empty.
@@ -748,9 +668,6 @@ func (s Span) Finish() {
 	}
 
 	el := now() - s.Started
-
-	defer s.Logger.Unlock()
-	s.Logger.Lock()
 
 	_ = s.Logger.Writer.SpanFinished(s.ID, el)
 }

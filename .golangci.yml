@@ -33,6 +33,7 @@ linters-settings:
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
       - google.golang.org/protobuf
+      - go.uber.org/zap
   misspell:
   lll:
     line-length: 170

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func TestTlogParallel(t *testing.T) {
 	}(DefaultLogger)
 
 	var buf bytes.Buffer
-	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
+	DefaultLogger = New(NewConsoleWriter(LockWriter(&buf), LstdFlags))
 	DefaultLogger.randID = testRandID()
 
 	var wg sync.WaitGroup
@@ -592,7 +593,7 @@ func BenchmarkLogLoggerDetailed(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogConsoleDetailed(b *testing.B) {
+func BenchmarkTlogConsoleDetailedPrintf(b *testing.B) {
 	b.ReportAllocs()
 
 	var w CountableDiscard
@@ -602,10 +603,10 @@ func BenchmarkTlogConsoleDetailed(b *testing.B) {
 		l.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
 	}
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
-func BenchmarkTlogTracesConsoleDetailed(b *testing.B) {
+func BenchmarkTlogTracesConsoleDetailedPrintf(b *testing.B) {
 	b.ReportAllocs()
 
 	var w CountableDiscard
@@ -617,10 +618,10 @@ func BenchmarkTlogTracesConsoleDetailed(b *testing.B) {
 		tr.Finish()
 	}
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
-func BenchmarkTlogTracesJSON(b *testing.B) {
+func BenchmarkTlogTracesJSONPrintf(b *testing.B) {
 	b.ReportAllocs()
 
 	var w CountableDiscard
@@ -632,10 +633,10 @@ func BenchmarkTlogTracesJSON(b *testing.B) {
 		tr.Finish()
 	}
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
-func BenchmarkTlogTracesProto(b *testing.B) {
+func BenchmarkTlogTracesProtoPrintf(b *testing.B) {
 	b.ReportAllocs()
 
 	var w CountableDiscard
@@ -647,7 +648,7 @@ func BenchmarkTlogTracesProto(b *testing.B) {
 		tr.Finish()
 	}
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkTlogTracesProtoStartPrintRawFinish(b *testing.B) {
@@ -665,7 +666,24 @@ func BenchmarkTlogTracesProtoStartPrintRawFinish(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesProtoWrite(b *testing.B) {
+func BenchmarkTlogTracesProtoStartPrintRawFinishParallel(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(NewProtoWriter(ioutil.Discard))
+
+	buf := []byte("raw message") // reusable buffer
+
+	b.RunParallel(func(b *testing.PB) {
+		for b.Next() {
+			tr := l.Start()
+			// fill in buffer...
+			tr.PrintRaw(0, buf)
+			tr.Finish()
+		}
+	})
+}
+
+func BenchmarkTlogProtoWrite(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewProtoWriter(ioutil.Discard))
@@ -690,7 +708,7 @@ func BenchmarkTlogTracesProtoStartFinish(b *testing.B) {
 	}
 }
 
-func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
+func BenchmarkTlogProtoPrintRaw(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewProtoWriter(ioutil.Discard))
@@ -706,7 +724,7 @@ func BenchmarkTlogTracesProtoPrintRaw(b *testing.B) {
 	tr.Finish()
 }
 
-func BenchmarkTlogTracesProtoPrintf(b *testing.B) {
+func BenchmarkTlogProtoPrintf(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewProtoWriter(ioutil.Discard))
@@ -735,7 +753,7 @@ func BenchmarkTlogJSONPrintf(b *testing.B) {
 
 	tr.Finish()
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkTlogJSONPrintfParallel(b *testing.B) {
@@ -757,7 +775,7 @@ func BenchmarkTlogJSONPrintfParallel(b *testing.B) {
 
 	tr.Finish()
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkTlogJSONPrintRaw(b *testing.B) {
@@ -777,20 +795,21 @@ func BenchmarkTlogJSONPrintRaw(b *testing.B) {
 
 	tr.Finish()
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkTlogJSONPrintRawParallel(b *testing.B) {
 	b.ReportAllocs()
 
 	var w CountableDiscard
-	var buf []byte
 
 	l := New(NewJSONWriter(&w))
 
 	tr := l.Start()
 
 	b.RunParallel(func(b *testing.PB) {
+		var buf []byte
+
 		i := 0
 		for b.Next() {
 			i++
@@ -801,7 +820,7 @@ func BenchmarkTlogJSONPrintRawParallel(b *testing.B) {
 
 	tr.Finish()
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkTlogMetricJSON(b *testing.B) {
@@ -819,7 +838,7 @@ func BenchmarkTlogMetricJSON(b *testing.B) {
 
 	tr.Finish()
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkTlogMetricProto(b *testing.B) {
@@ -837,7 +856,7 @@ func BenchmarkTlogMetricProto(b *testing.B) {
 
 	tr.Finish()
 
-	b.ReportMetric(float64(w.B/b.N), "disk_B/op")
+	w.ReportDisk(b)
 }
 
 func BenchmarkIDFormat(b *testing.B) {
@@ -896,7 +915,7 @@ func TestTlogGrandParallel(t *testing.T) {
 	now = func() int64 { return time.Now().UnixNano() }
 	var buf0, buf1, buf2 bytes.Buffer
 
-	DefaultLogger = New(NewConsoleWriter(&buf0, LdetFlags), NewJSONWriter(&buf1), NewProtoWriter(&buf2))
+	DefaultLogger = New(NewConsoleWriter(LockWriter(&buf0), LdetFlags), NewJSONWriter(LockWriter(&buf1)), NewProtoWriter(LockWriter(&buf2)))
 
 	var wg sync.WaitGroup
 
@@ -989,18 +1008,27 @@ func TestTlogGrandParallel(t *testing.T) {
 }
 
 type CountableDiscard struct {
-	B, N int
+	B, N int64
+}
+
+func (w *CountableDiscard) ReportDisk(b *testing.B) {
+	b.ReportMetric(float64(w.B)/float64(b.N), "disk_B/op")
 }
 
 func (w *CountableDiscard) Write(p []byte) (int, error) {
-	w.N++
-	w.B += len(p)
+	atomic.AddInt64(&w.N, 1)
+	atomic.AddInt64(&w.B, int64(len(p)))
 
 	return len(p), nil
 }
 
 func testNow(tm *time.Time) func() int64 {
+	var mu sync.Mutex
+
 	return func() int64 {
+		defer mu.Unlock()
+		mu.Lock()
+
 		*tm = tm.Add(time.Second)
 		return tm.UnixNano()
 	}

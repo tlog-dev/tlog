@@ -26,7 +26,6 @@ type (
 		Shortfile int
 		Funcname  int
 		IDWidth   int
-		buf       bufWriter
 	}
 
 	// JSONWriter produces output readable by both machines and humans.
@@ -37,7 +36,6 @@ type (
 	JSONWriter struct {
 		w io.Writer
 		writerCache
-		buf []byte
 	}
 
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
@@ -48,10 +46,10 @@ type (
 	ProtoWriter struct {
 		w io.Writer
 		writerCache
-		buf []byte
 	}
 
 	writerCache struct {
+		mu   sync.Mutex //nolint:structcheck
 		ls   map[Location]struct{}
 		cc   map[uintptr][]mh
 		skip map[string]int
@@ -86,11 +84,20 @@ type (
 	}
 
 	bufWriter []byte
+
+	bwr struct {
+		b bufWriter
+	}
+
+	LockedIOWriter struct {
+		mu sync.Mutex
+		w  io.Writer
+	}
 )
 
 const metricsSkipAt = 1000
 
-var (
+var ( // type checks
 	_ Writer = &ConsoleWriter{}
 	_ Writer = &JSONWriter{}
 	_ Writer = &ProtoWriter{}
@@ -102,6 +109,18 @@ var (
 )
 
 var spaces = []byte("                                                                                                                                                ")
+
+var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 1000)} }}
+
+func getbuf() (bufWriter, *bwr) {
+	w := bufPool.Get().(*bwr)
+	return w.b[:0], w
+}
+
+func retbuf(b bufWriter, w *bwr) {
+	w.b = b
+	bufPool.Put(w)
+}
 
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
@@ -137,9 +156,7 @@ func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) [
 }
 
 //nolint:gocognit,nestif
-func (w *ConsoleWriter) buildHeader(loc Location, ts int64) {
-	b := w.buf[:0]
-
+func (w *ConsoleWriter) buildHeader(b []byte, loc Location, ts int64) []byte {
 	var fname, file string
 	line := -1
 
@@ -316,45 +333,48 @@ func (w *ConsoleWriter) buildHeader(loc Location, ts int64) {
 		b = append(b, ' ', ' ')
 	}
 
-	w.buf = b
+	return b
 }
 
 // Message writes Message event by single Write.
 func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
-	w.buildHeader(m.Location, m.Time)
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	b = w.buildHeader(b, m.Location, m.Time)
 
 	if w.f&Lmessagespan != 0 {
-		i := len(w.buf)
-		b := append(w.buf, "123456789_123456789_123456789_12"[:w.IDWidth]...)
+		i := len(b)
+		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 		sid.FormatTo(b[i:i+w.IDWidth], 'v')
 
-		w.buf = append(b, ' ', ' ')
+		b = append(b, ' ', ' ')
 	}
 
 	switch {
 	case m.Args == nil:
-		w.buf = append(w.buf, m.Format...)
+		b = append(b, m.Format...)
 	case m.Format == "":
-		w.buf = AppendPrintln(w.buf, m.Args...)
+		b = AppendPrintln(b, m.Args...)
 	default:
-		w.buf = AppendPrintf(w.buf, m.Format, m.Args...)
+		b = AppendPrintf(b, m.Format, m.Args...)
 	}
 
-	w.buf.NewLine()
+	b.NewLine()
 
-	_, err = w.w.Write(w.buf)
+	_, err = w.w.Write(b)
 
 	return
 }
 
-func (w *ConsoleWriter) spanHeader(sid, par ID, loc Location, tm int64) {
-	w.buildHeader(loc, tm)
+func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, loc Location, tm int64) []byte {
+	b = w.buildHeader(b, loc, tm)
 
-	i := len(w.buf)
-	b := append(w.buf, "123456789_123456789_123456789_12"[:w.IDWidth]...)
+	i := len(b)
+	b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 	sid.FormatTo(b[i:i+w.IDWidth], 'v')
 
-	w.buf = append(b, ' ', ' ')
+	return append(b, ' ', ' ')
 }
 
 // SpanStarted writes SpanStarted event by single Write.
@@ -363,21 +383,24 @@ func (w *ConsoleWriter) SpanStarted(sid, par ID, st int64, l Location) (err erro
 		return
 	}
 
-	w.spanHeader(sid, par, l, st)
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	b = w.spanHeader(b, sid, par, l, st)
 
 	if par == (ID{}) {
-		w.buf = append(w.buf, "Span started\n"...)
+		b = append(b, "Span started\n"...)
 	} else {
-		b := append(w.buf, "Span spawned from "...)
+		b = append(b, "Span spawned from "...)
 
 		i := len(b)
 		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 		par.FormatTo(b[i:i+w.IDWidth], 'v')
 
-		w.buf = append(b, '\n')
+		b = append(b, '\n')
 	}
 
-	_, err = w.w.Write(w.buf)
+	_, err = w.w.Write(b)
 
 	return
 }
@@ -388,16 +411,19 @@ func (w *ConsoleWriter) SpanFinished(sid ID, el int64) (err error) {
 		return
 	}
 
-	w.spanHeader(sid, ID{}, 0, now())
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
-	b := append(w.buf, "Span finished - elapsed "...)
+	b = w.spanHeader(b, sid, ID{}, 0, now())
+
+	b = append(b, "Span finished - elapsed "...)
 
 	e := time.Duration(el).Seconds() * 1000
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
 
-	w.buf = append(b, "ms\n"...)
+	b = append(b, "ms\n"...)
 
-	_, err = w.w.Write(w.buf)
+	_, err = w.w.Write(b)
 
 	return
 }
@@ -480,7 +506,8 @@ func NewJSONWriter(w io.Writer) *JSONWriter {
 
 // Labels writes Labels to the stream.
 func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
 	b = append(b, `{"L":{`...)
 
@@ -505,15 +532,14 @@ func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
 
 	b = append(b, "]}}\n"...)
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
 }
 
 func (w *JSONWriter) Meta(m Meta) (err error) {
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
 	b = append(b, `{"M":{"t":"`...)
 	b = appendSafe(b, m.Type)
@@ -537,8 +563,6 @@ func (w *JSONWriter) Meta(m Meta) (err error) {
 
 	b = append(b, "}}\n"...)
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -546,11 +570,20 @@ func (w *JSONWriter) Meta(m Meta) (err error) {
 
 // Message writes event to the stream.
 func (w *JSONWriter) Message(m Message, sid ID) (err error) {
-	if _, ok := w.ls[m.Location]; !ok {
-		w.location(m.Location)
-	}
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
-	b := w.buf
+	if m.Location != 0 {
+		w.mu.Lock()
+
+		if _, ok := w.ls[m.Location]; !ok {
+			defer w.mu.Unlock()
+
+			b = w.location(b, m.Location)
+		} else {
+			w.mu.Unlock()
+		}
+	}
 
 	b = append(b, `{"m":{`...)
 
@@ -580,8 +613,6 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	}
 
 	b = append(b, "\"}}\n"...)
-
-	w.buf = b[:0]
 
 	_, err = w.w.Write(b)
 
@@ -683,9 +714,12 @@ outer:
 }
 
 func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
+	w.mu.Lock()
 	cnum, had := w.metricCached(m)
+	w.mu.Unlock()
 
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
 	b = append(b, `{"v":{`...)
 
@@ -723,8 +757,6 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 
 	b = append(b, `}}`+"\n"...)
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -732,11 +764,20 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 
 // SpanStarted writes event to the stream.
 func (w *JSONWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
-	if _, ok := w.ls[loc]; !ok {
-		w.location(loc)
-	}
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
-	b := w.buf
+	if loc != 0 {
+		w.mu.Lock()
+
+		if _, ok := w.ls[loc]; !ok {
+			defer w.mu.Unlock()
+
+			b = w.location(b, loc)
+		} else {
+			w.mu.Unlock()
+		}
+	}
 
 	b = append(b, `{"s":{"i":"`...)
 	i := len(b)
@@ -758,8 +799,6 @@ func (w *JSONWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error
 
 	b = append(b, "}}\n"...)
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -767,7 +806,8 @@ func (w *JSONWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error
 
 // SpanFinished writes event to the stream.
 func (w *JSONWriter) SpanFinished(sid ID, el int64) (err error) {
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
 
 	b = append(b, `{"f":{"i":"`...)
 	i := len(b)
@@ -779,22 +819,14 @@ func (w *JSONWriter) SpanFinished(sid ID, el int64) (err error) {
 
 	b = append(b, "}}\n"...)
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
 }
 
-func (w *JSONWriter) location(l Location) {
-	if l == 0 {
-		return
-	}
-
+func (w *JSONWriter) location(b []byte, l Location) []byte {
 	name, file, line := l.NameFileLine()
 	//	name = path.Base(name)
-
-	b := w.buf
 
 	b = append(b, `{"l":{"p":`...)
 	b = strconv.AppendInt(b, int64(l), 10)
@@ -814,7 +846,8 @@ func (w *JSONWriter) location(l Location) {
 	b = append(b, "\"}}\n"...)
 
 	w.ls[l] = struct{}{}
-	w.buf = b
+
+	return b
 }
 
 // NewConsoleWriter creates protobuf writer.
@@ -840,7 +873,9 @@ func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 
 	szs := varintSize(uint64(sz))
 
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
 	b = appendVarint(b, uint64(1+szs+sz))
 
 	b = appendTagVarint(b, 1<<3|2, uint64(sz))
@@ -855,8 +890,6 @@ func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 		b = append(b, l...)
 	}
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -870,7 +903,9 @@ func (w *ProtoWriter) Meta(m Meta) (err error) {
 		sz += 1 + varintSize(uint64(q)) + q
 	}
 
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -884,8 +919,6 @@ func (w *ProtoWriter) Meta(m Meta) (err error) {
 		b = append(b, l...)
 	}
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -893,11 +926,21 @@ func (w *ProtoWriter) Meta(m Meta) (err error) {
 
 // Message writes enent to the stream.
 func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
-	if _, ok := w.ls[m.Location]; !ok {
-		w.location(m.Location)
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	if m.Location != 0 {
+		w.mu.Lock()
+
+		if _, ok := w.ls[m.Location]; !ok {
+			defer w.mu.Unlock()
+
+			b = w.location(b, m.Location)
+		} else {
+			w.mu.Unlock()
+		}
 	}
 
-	b := w.buf
 	st := len(b)
 	switch {
 	case m.Args == nil:
@@ -951,8 +994,6 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	// text is already in place
 	b = b[:st+total]
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -975,7 +1016,9 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		}
 	}
 
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -1001,8 +1044,6 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		}
 	}
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -1010,10 +1051,6 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 
 // SpanStarted writes event to the stream.
 func (w *ProtoWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
-	if _, ok := w.ls[loc]; !ok {
-		w.location(loc)
-	}
-
 	sz := 0
 	sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	if par != (ID{}) {
@@ -1024,7 +1061,21 @@ func (w *ProtoWriter) SpanStarted(sid, par ID, st int64, loc Location) (err erro
 	}
 	sz += 1 + 8 // s.Started
 
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	if loc != 0 {
+		w.mu.Lock()
+
+		if _, ok := w.ls[loc]; !ok {
+			defer w.mu.Unlock()
+
+			b = w.location(b, loc)
+		} else {
+			w.mu.Unlock()
+		}
+	}
+
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -1045,8 +1096,6 @@ func (w *ProtoWriter) SpanStarted(sid, par ID, st int64, loc Location) (err erro
 	b = append(b, 4<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(st))
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
@@ -1058,7 +1107,9 @@ func (w *ProtoWriter) SpanFinished(sid ID, el int64) (err error) {
 	sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	sz += 1 + varintSize(uint64(el))
 
-	b := w.buf
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -1069,21 +1120,13 @@ func (w *ProtoWriter) SpanFinished(sid ID, el int64) (err error) {
 
 	b = appendTagVarint(b, 2<<3|0, uint64(el)) //nolint:staticcheck
 
-	w.buf = b[:0]
-
 	_, err = w.w.Write(b)
 
 	return
 }
 
-func (w *ProtoWriter) location(l Location) {
-	if l == 0 {
-		return
-	}
-
+func (w *ProtoWriter) location(b []byte, l Location) []byte {
 	name, file, line := l.NameFileLine()
-
-	b := w.buf[:0]
 
 	sz := 0
 	sz += 1 + varintSize(uint64(l))
@@ -1109,7 +1152,8 @@ func (w *ProtoWriter) location(l Location) {
 	b = appendTagVarint(b, 5<<3|0, uint64(line)) //nolint:staticcheck
 
 	w.ls[l] = struct{}{}
-	w.buf = b
+
+	return b
 }
 
 func appendVarint(b []byte, v uint64) []byte {
@@ -1384,16 +1428,25 @@ func (w FallbackWriter) SpanFinished(sid ID, el int64) (err error) {
 	return
 }
 
-/*
 func (w *bufWriter) Write(p []byte) (int, error) {
 	*w = append(*w, p...)
 	return len(p), nil
 }
-*/
 
 func (w *bufWriter) NewLine() {
 	l := len(*w)
 	if l == 0 || (*w)[l-1] != '\n' {
 		*w = append(*w, '\n')
 	}
+}
+
+func LockWriter(w io.Writer) *LockedIOWriter {
+	return &LockedIOWriter{w: w}
+}
+
+func (w *LockedIOWriter) Write(p []byte) (int, error) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	return w.w.Write(p)
 }

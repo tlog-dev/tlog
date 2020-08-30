@@ -23,9 +23,9 @@ func ContextWithRandomID(ctx context.Context) context.Context {
 		return ctx
 	}
 
-	DefaultLogger.Lock()
+	DefaultLogger.mu.Lock()
 	id := DefaultLogger.randID()
-	DefaultLogger.Unlock()
+	DefaultLogger.mu.Unlock()
 
 	return context.WithValue(ctx, key{}, id)
 }

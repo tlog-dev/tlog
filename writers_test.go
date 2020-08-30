@@ -38,101 +38,118 @@ func TestConsoleWriterAppendSegment(t *testing.T) {
 
 func TestConsoleWriterBuildHeader(t *testing.T) {
 	var w ConsoleWriter
+	var b bufWriter
 
 	tm := time.Date(2019, 7, 7, 8, 19, 30, 100200300, time.UTC)
 	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(b))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(b))
 
 	w.f = Llongfile
-	w.buildHeader(loc, tm.UnixNano())
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", w.buf)
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", b)
 	assert.NoError(t, err)
-	assert.True(t, ok, string(w.buf))
+	assert.True(t, ok, string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "location.go:25        ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "location.go:25        ", string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "locatio:25  ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "locatio:25  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 10
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "Caller      ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "Caller      ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 4
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "Call  ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "Call  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 15
-	w.buildHeader((&testt{}).testloc2(), tm.UnixNano())
-	assert.Equal(t, "testloc2.func1   ", string(w.buf))
+	b = w.buildHeader(b[:0], (&testt{}).testloc2(), tm.UnixNano())
+	assert.Equal(t, "testloc2.func1   ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 12
-	w.buildHeader((&testt{}).testloc2(), tm.UnixNano())
-	assert.Equal(t, "testloc2.fu1  ", string(w.buf))
+	b = w.buildHeader(b[:0], (&testt{}).testloc2(), tm.UnixNano())
+	assert.Equal(t, "testloc2.fu1  ", string(b))
 
 	w.f = Ltypefunc
-	w.buildHeader(loc, tm.UnixNano())
-	assert.Equal(t, "tlog.Caller  ", string(w.buf))
+	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	assert.Equal(t, "tlog.Caller  ", string(b))
 
-	w.buildHeader((&testt{}).testloc2(), tm.UnixNano())
-	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(w.buf))
+	b = w.buildHeader(b[:0], (&testt{}).testloc2(), tm.UnixNano())
+	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(b))
 }
 
 func TestConsoleWriterSpans(t *testing.T) {
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.Local)
 	now = testNow(&tm)
 
-	w := NewConsoleWriter(ioutil.Discard, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
+	var b bufWriter
+
+	w := NewConsoleWriter(&b, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
 	l.randID = testRandID()
 
 	l.SetLabels(Labels{"a=b", "f"})
 
-	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: ["a=b" "f"]`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: ["a=b" "f"]`+"\n", string(b))
+
+	b = b[:0]
 
 	tr := l.Start()
 
-	assert.Equal(t, "2019/07/07_16:31:12.000  0194fdc2fa2ffcc0  Span started\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:12.000  0194fdc2fa2ffcc0  Span started\n", string(b))
+
+	b = b[:0]
 
 	tr.SetLabels(Labels{"a=c", "c=d", "g"})
 
-	assert.Equal(t, `2019/07/07_16:31:13.000  0194fdc2fa2ffcc0  Labels: ["a=c" "c=d" "g"]`+"\n", string(w.buf))
+	assert.Equal(t, `2019/07/07_16:31:13.000  0194fdc2fa2ffcc0  Labels: ["a=c" "c=d" "g"]`+"\n", string(b))
+
+	b = b[:0]
 
 	tr1 := l.Spawn(tr.ID)
 
-	assert.Equal(t, "2019/07/07_16:31:14.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:14.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(b))
+
+	b = b[:0]
 
 	tr1.Printf("message")
 
-	assert.Equal(t, "2019/07/07_16:31:15.000  6e4ff95ff662a5ee  message\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:15.000  6e4ff95ff662a5ee  message\n", string(b))
+
+	b = b[:0]
 
 	tr1.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:17.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:17.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(b))
+
+	b = b[:0]
 
 	tr.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:19.000  0194fdc2fa2ffcc0  Span finished - elapsed 6000.00ms\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:19.000  0194fdc2fa2ffcc0  Span finished - elapsed 6000.00ms\n", string(b))
+
+	b = b[:0]
 
 	l.Printf("not traced message")
 
-	assert.Equal(t, "2019/07/07_16:31:20.000  ________________  not traced message\n", string(w.buf))
+	assert.Equal(t, "2019/07/07_16:31:20.000  ________________  not traced message\n", string(b))
 }
 
 func TestProtoAppendVarint(t *testing.T) {
