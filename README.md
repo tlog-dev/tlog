@@ -367,31 +367,53 @@ goos: linux
 goarch: amd64
 pkg: github.com/nikandfor/tlog
 
-# LstdFlags
-BenchmarkLogLoggerStd-8                   	 2869803	       406 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogConsoleLoggerStd-8           	 4258173	       286 ns/op	      24 B/op	       2 allocs/op
+# logging
+BenchmarkLogLogger/Std/SingleThread-8         	 3347139	       351 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLogger/Std/Parallel-8             	 2244493	       515 ns/op	      24 B/op	       2 allocs/op
+BenchmarkLogLogger/Det/SingleThread-8         	  935287	      1239 ns/op	     240 B/op	       4 allocs/op
+BenchmarkLogLogger/Det/Parallel-8             	 1000000	      1288 ns/op	     240 B/op	       4 allocs/op
 
-# LdetFlags
-BenchmarkLogLoggerDetailed-8              	  833001	      1425 ns/op	     240 B/op	       4 allocs/op
-BenchmarkTlogConsoleDetailed-8            	 1000000	      1081 ns/op	      24 B/op	       2 allocs/op
+BenchmarkTlogLogger/Std/SingleThread-8        	 4033232	       288 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Std/Parallel-8            	 7586926	       157 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Det/SingleThread-8        	 1240795	       920 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Det/Parallel-8            	 4203811	       296 ns/op	       8 B/op	       1 allocs/op
 
-# trace with one message
-BenchmarkTlogTracesConsoleDetailed-8      	  429392	      2729 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesJSON-8                 	  523032	      2293 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProto-8                	  494980	      2107 ns/op	      24 B/op	       2 allocs/op
-BenchmarkTlogTracesProtoPrintRaw-8        	  584179	      1835 ns/op	       0 B/op	       0 allocs/op
+BenchmarkZapLogger/SingleThread-8             	  576332	      1875 ns/op	     344 B/op	       4 allocs/op
+BenchmarkZapLogger/Parallel-8                 	 2139580	       574 ns/op	     344 B/op	       4 allocs/op
+
+BenchmarkGlogLogger/SingleThread-8         	  912760	      1325 ns/op	     224 B/op	       3 allocs/op
+BenchmarkGlogLogger/Parallel-8             	 1943516	       629 ns/op	     224 B/op	       3 allocs/op
+
+# trace with one message (must actually be one alloc on 8 bytes per op)
+BenchmarkTlogTraces/ConsoleStd/SingleThread/StartPrintfFinish-8   	  697705	      1542 ns/op	        36.8 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/ConsoleStd/Parallel/StartPrintfFinish-8       	 1956374	       643 ns/op	        36.5 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/JSON/SingleThread/StartPrintfFinish-8         	  520746	      1963 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/JSON/Parallel/StartPrintfFinish-8             	 1484274	       800 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/Proto/SingleThread/StartPrintfFinish-8        	  602307	      1778 ns/op	       114 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/Proto/Parallel/StartPrintfFinish-8            	 1597158	       721 ns/op	       113 disk_B/op	       0 B/op	       0 allocs/op
 
 # writers
-BenchmarkWriterConsoleDetailedMessage-8   	 6566017	       185 ns/op	       0 B/op	       0 allocs/op
-BenchmarkWriterJSONMessage-8              	16451940	        71.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkWriterProtoMessage-8             	18216289	        65.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/ConsoleDet/SingleThread/TracedMessage-8         	 5658282	       208 ns/op	        63.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/ConsoleDet/SingleThread/TracedMetric-8          	  626032	      1893 ns/op	       104 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/ConsoleDet/Parallel/TracedMessage-8             	 8096242	       148 ns/op	        63.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/ConsoleDet/Parallel/TracedMetric-8              	 1942116	       623 ns/op	       104 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/JSON/SingleThread/TracedMessage-8               	 9556735	       121 ns/op	        84.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/JSON/SingleThread/TracedMetric-8                	 4357563	       276 ns/op	        65.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/JSON/Parallel/TracedMessage-8                   	 6290318	       190 ns/op	        84.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/JSON/Parallel/TracedMetric-8                    	 4307060	       280 ns/op	        65.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/Proto/SingleThread/TracedMessage-8              	13024131	        85.1 ns/op	        49.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/Proto/SingleThread/TracedMetric-8               	 9758936	       128 ns/op	        32.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/Proto/Parallel/TracedMessage-8                  	 6444532	       187 ns/op	        49.0 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkWriter/Proto/Parallel/TracedMetric-8                   	24649119	        44.0 ns/op	        32.0 disk_B/op	       0 B/op	       0 allocs/op
 
 # Caller
-BenchmarkLocation-8               	 2987563	       396 ns/op	      32 B/op	       1 allocs/op
+BenchmarkLocationCaller-8         	 4326907	       265 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLocationNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	       0 allocs/op
 ```
-2 allocs in each line is `Printf` arguments: `int` to `interface{}` conversion and `[]interface{}` allocation.
+1 alloc in each line with `Printf` is `int` to `interface{}` conversion.
 
-2 more allocs in `LogLoggerDetailed` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
+1 more alloc in lines with `Printf` is []interface{} allocation for variadic args. tlog is not the case because of compiler optimizations.
+2 more allocs in `LogLogger/Det` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
 
 # Roadmap
 * Create swiss knife tool to analyse system performance through traces.
