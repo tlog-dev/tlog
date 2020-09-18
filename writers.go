@@ -428,7 +428,11 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	b = AppendPrintf(b, "Labels: %q", ls)
+	b = append(b, "Labels:"...)
+	for _, l := range ls {
+		b = append(b, ' ')
+		b = append(b, l...)
+	}
 
 	return w.Message(
 		Message{
@@ -464,7 +468,11 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	b = AppendPrintf(b, "%v  %15.5f  %v", m.Name, m.Value, m.Labels)
+	b = AppendPrintf(b, "%v  %15.5f ", m.Name, m.Value)
+	for _, l := range m.Labels {
+		b = append(b, ' ')
+		b = append(b, l...)
+	}
 
 	return w.Message(
 		Message{
