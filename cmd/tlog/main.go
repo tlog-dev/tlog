@@ -27,8 +27,8 @@ func main() {
 			Name:   "convert,c",
 			Action: convert,
 			Flags: []*cli.Flag{
-				cli.NewFlag("file,f", "", "file to read from (- for stdin)"),
-				cli.NewFlag("output,o", "", "file to write to (- for stdout)"),
+				cli.NewFlag("input,in,i", "", "file to read from (- for stdin)"),
+				cli.NewFlag("output,out,o", "", "file to write to (- for stdout)"),
 				cli.NewFlag("infmt,if", "", "input file format (json, protobuf)"),
 				cli.NewFlag("outfmt,of", "", "output file format (json, protobuf, console)"),
 			},
@@ -48,7 +48,7 @@ func convert(c *cli.Command) error {
 	var inext, outext string
 
 	var fr io.Reader = os.Stdin
-	if q := c.String("file"); q != "" && q != "-" {
+	if q := c.String("input"); q != "" && q != "-" {
 		f, err := os.Open(q)
 		if err != nil {
 			return errors.Wrap(err, "input file")

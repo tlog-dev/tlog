@@ -134,7 +134,9 @@ const ( // metric types
 
 var now = func() int64 { return time.Now().UnixNano() }
 
-var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags)).noLocations()
+var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoLocations = true; return l }()
+
+var ErrorLabel = Labels{"error"}
 
 var ( // regexp
 	mtName  = "[_a-zA-Z][_a-zA-Z0-9]*"
@@ -614,11 +616,6 @@ func (l *Logger) Filter() string {
 	return l.filter.f
 }
 
-func (l *Logger) noLocations() *Logger {
-	l.NoLocations = true
-	return l
-}
-
 // V checks if one of topics in tp is enabled and returns the same Span or empty.
 //
 // It return empty Span if you call V on empty Span.
@@ -638,6 +635,10 @@ func (s Span) If(tp string) bool {
 
 func (s Span) SetLabels(ls Labels) {
 	newlabels(s.Logger, ls, s.ID)
+}
+
+func (s Span) SetError() {
+	newlabels(s.Logger, ErrorLabel, s.ID)
 }
 
 // Spawn spawns new child Span.
