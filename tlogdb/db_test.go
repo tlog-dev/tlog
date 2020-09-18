@@ -1,5 +1,3 @@
-// +build ignore
-
 package tlogdb
 
 import (
@@ -23,11 +21,9 @@ func TestDBSmoke(t *testing.T) {
 	tl = tlog.NewTestLogger(t, *tlogV, false)
 	tlog.DefaultLogger = tl
 
-	t.Skip()
-
 	const N = 3
 
-	b, err := xrain.Mmap("/tmp/tlogdb.xrain", os.O_CREATE|os.O_RDWR)
+	b, err := xrain.Mmap("/tmp/tlogdb.xrain", os.O_CREATE|os.O_RDWR|os.O_TRUNC)
 	require.NoError(t, err)
 
 	l := xrain.NewKVLayout2(nil)
@@ -68,11 +64,11 @@ func TestDBSmoke(t *testing.T) {
 	var msgs []*parse.Message
 	var next []byte
 
-	tl.Printf("scan with no query")
+	tl.Printf("=== scan with no query ===")
 
 	for lim := 10; lim >= 0; lim-- {
 		var e []*parse.Message
-		e, next, err = d.Messages(nil, "", next, 2)
+		e, next, err = d.Messages(nil, ID{}, "", next, 2)
 		if !assert.NoError(t, err) {
 			break
 		}
@@ -101,11 +97,11 @@ func TestDBSmoke(t *testing.T) {
 
 	msgs = msgs[:0]
 
-	tl.Printf("scan with query 'essa'")
+	tl.Printf("=== scan with query 'essa' ===")
 
 	for lim := 10; lim >= 0; lim-- {
 		var e []*parse.Message
-		e, next, err = d.Messages(nil, "essa", next, 2)
+		e, next, err = d.Messages(nil, ID{}, "essa", next, 2)
 		if !assert.NoError(t, err) {
 			break
 		}
@@ -134,11 +130,11 @@ func TestDBSmoke(t *testing.T) {
 
 	msgs = msgs[:0]
 
-	tl.Printf("scan with query '1.1'")
+	tl.Printf("=== scan with query '1.1' ===")
 
 	for lim := 10; lim >= 0; lim-- {
 		var e []*parse.Message
-		e, next, err = d.Messages(nil, "1.1", next, 2)
+		e, next, err = d.Messages(nil, ID{}, "1.1", next, 2)
 		if !assert.NoError(t, err) {
 			break
 		}

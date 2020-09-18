@@ -475,8 +475,9 @@ func BenchmarkWriterJSONMetric(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_ = w.Metric(Metric{
-			Name:  "some_metric",
-			Value: 123.456,
+			Name:   "some_metric",
+			Value:  123.456,
+			Labels: Labels{"a=b", "c=d"},
 		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 	}
 }

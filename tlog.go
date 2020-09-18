@@ -64,8 +64,8 @@ type (
 
 	Metric struct {
 		Name   string
-		Labels Labels
 		Value  float64
+		Labels Labels
 	}
 
 	// Span is an tracing primitive. Span usually represents some function call.

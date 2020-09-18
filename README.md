@@ -30,9 +30,9 @@ There is some kind of verbosity levels.
 ```golang
 tlog.V("debug").Printf("DEBUG: conditional message")
 
-if l := tlog.V("trace"); l != nil {
+if tlog.If("trace") {
     p := 1 + 2 // complex calculations here that will not be executed if log level is not high enough
-    l.Printf("result: %v", p)
+    tlog.Printf("result: %v", p)
 }
 
 tlog.Printf("unconditional message") // prints anyway
@@ -337,7 +337,7 @@ func server(w http.ResponseWriter, req *http.Request) {
         trid = tlog.ID{}	    
     }
     
-    tr := tlog.StartOrSpawn(trid)
+    tr := tlog.SpawnOrStart(trid)
     defer tr.Finish()
 
     if err != nil && xtr != "" {

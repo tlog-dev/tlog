@@ -1,13 +1,13 @@
-// +build ignore
-
 //nolint
 package tlogdb
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/nikandfor/xrain"
 
@@ -31,6 +31,8 @@ import (
 	Ls -> <k=v> -> <span_ts> => <span_id>
 	Lm -> <k=v> -> <message_ts> => <message_ctx>
 
+	sL -> <span_id> => <labels>
+
 	m -> <ts> => <message_ctx> | <message>
 	s -> <ts> => <span_start>
 	f -> <ts> => <span_finish>
@@ -45,6 +47,9 @@ import (
 */
 
 type (
+	ID     = tlog.ID
+	Labels = tlog.Labels
+
 	DB struct {
 		d *xrain.DB
 	}
@@ -85,20 +90,22 @@ type (
 
 	intersector []stream
 
-	union []stream
+	merge []stream
 )
 
-const qstep = 4
-
-var _ parse.Writer = &Writer{}
+const qstep, qMaxPrefix = 4, 16
 
 var tl *tlog.Logger
+
+var (
+	ErrTooShortQuery = errors.New("too short query")
+)
 
 func NewDB(db *xrain.DB) *DB {
 	return &DB{d: db}
 }
 
-func (d *DB) Messages(ls tlog.Labels, q string, it []byte, n int) (res []*parse.Message, next []byte, err error) {
+func (d *DB) Messages(ls []Labels, sid ID, q string, it []byte, n int) (res []*parse.Message, next []byte, err error) {
 	var b []byte
 
 	err = d.d.View(func(tx *xrain.Tx) (err error) {
@@ -106,58 +113,21 @@ func (d *DB) Messages(ls tlog.Labels, q string, it []byte, n int) (res []*parse.
 
 		var ll []stream
 
-		if llen := len(ls); llen != 0 {
-			ll = make([]stream, len(ls))
-
-			Lm := tx.Bucket([]byte("Lm"))
-
-			for i, l := range ls {
-				lb := Lm.Bucket([]byte(l))
-				if lb == nil {
-					return nil
-				}
-
-				ll[i] = d.seek([]byte(l), lb, it)
-			}
+		if sid != (ID{}) {
+			b := tx.Bucket([]byte("sm"))
+			ll = append(ll, d.seek([]byte("sm"), b, it))
 		}
 
-		if q != "" {
-			qb := tx.Bucket([]byte("q"))
-			qq := []byte(q)
-			for j := 0; j < len(qq); j += qstep {
-				if e := j + qstep; e <= len(qq) {
-					sub := qb.Bucket(qq[j:e])
-					if sub == nil {
-						return
-					}
+		if f, err := d.labels(tx, []byte("Lm"), ls, it); err != nil {
+			return err
+		} else if f != nil {
+			ll = append(ll, f)
+		}
 
-					ll = append(ll, d.seek(qq[j:e], sub, it))
-
-					tl.Printf("add %q query filter", qq[j:j+qstep])
-				} else {
-					t := qb.Tree()
-
-					var u []stream
-					for st, _ := t.Seek(qq[j:], nil, nil); st != nil; st = t.Next(st) {
-						key, ff := t.Key(st, nil)
-						if ff != 1 {
-							panic("expected bucket")
-						}
-
-						if !bytes.HasPrefix(key, qq[j:]) {
-							break
-						}
-
-						sub := qb.Bucket(key)
-
-						u = append(u, d.seek(key, sub, it))
-
-						tl.Printf("add %q query filter from prefix %q", key, qq[j:])
-					}
-
-					ll = append(ll, union(u))
-				}
-			}
+		if f, err := d.query(tx, []byte(q), it); err != nil {
+			return err
+		} else if f != nil {
+			ll = append(ll, f)
 		}
 
 		var filter stream
@@ -171,7 +141,7 @@ func (d *DB) Messages(ls tlog.Labels, q string, it []byte, n int) (res []*parse.
 			filter = d.picker([]byte("m"), mb, filter)
 		}
 
-		tl.Printf("range over filters: %v", filter)
+		tl.Printf("range over filter: %v  it %q", filter, it)
 		for filter.Next() {
 			if len(res) == n {
 				next = filter.Key(b[:0])
@@ -186,6 +156,11 @@ func (d *DB) Messages(ls tlog.Labels, q string, it []byte, n int) (res []*parse.
 				return err
 			}
 
+			if len(q) != 0 && !strings.Contains(m.Text, q) {
+				tl.Printf("skip message by query %q: %q", q, m.Text)
+				continue
+			}
+
 			res = append(res, &m)
 		}
 
@@ -193,6 +168,113 @@ func (d *DB) Messages(ls tlog.Labels, q string, it []byte, n int) (res []*parse.
 	})
 
 	return
+}
+
+func (d *DB) labels(tx *xrain.Tx, bn []byte, ls []tlog.Labels, it []byte) (f stream, err error) {
+	if len(ls) == 0 {
+		return
+	}
+
+	L := tx.Bucket(bn)
+	if L == nil {
+		return
+	}
+
+	or := make([]stream, 0, len(ls))
+
+	for _, ls := range ls {
+		if len(ls) == 0 {
+			continue
+		}
+
+		and := make([]stream, 0, len(ls))
+
+		for _, l := range ls {
+			lb := L.Bucket([]byte(l))
+			if lb == nil {
+				return
+			}
+
+			and = append(and, d.seek([]byte(l), lb, it))
+		}
+
+		switch len(and) {
+		case 0:
+		case 1:
+			or = append(or, and[0])
+		default:
+			or = append(or, intersector(and))
+		}
+	}
+
+	switch len(or) {
+	case 0:
+	case 1:
+		f = or[0]
+	default:
+		f = merge(or)
+	}
+
+	return
+}
+
+func (d *DB) query(tx *xrain.Tx, q, it []byte) (_ stream, err error) {
+	if len(q) == 0 {
+		return
+	}
+	if len(q) < qstep {
+		return d.queryShort(tx, q, it)
+	}
+
+	qb := tx.Bucket([]byte("q"))
+	i := 0
+
+	for i+qstep <= len(q) {
+		sub := qb.Bucket(q[i : i+qstep])
+		if sub == nil {
+			return
+		}
+
+		qb = sub
+		i += qstep
+	}
+
+	return d.seek(q[:i], qb, it), nil
+}
+
+func (d *DB) queryShort(tx *xrain.Tx, q, it []byte) (_ stream, err error) {
+	var buf, key []byte
+	qb := tx.Bucket([]byte("q"))
+	t := qb.Tree()
+
+	var ll []stream
+
+	for st, _ := t.Seek(q, nil, nil); st != nil; st = t.Next(st) {
+		k, ff := t.Key(st, buf)
+		if ff != 1 {
+			panic(ff)
+		}
+		key, buf = k[len(buf):], k
+
+		if !bytes.HasPrefix(key, q) {
+			break
+		}
+
+		tl.Printf("query merge: bucket %q <- q %q  st %v", key, q, st)
+
+		sub := qb.Bucket(key)
+
+		ll = append(ll, d.seek(key, sub, it))
+	}
+
+	switch len(ll) {
+	case 0:
+		return
+	case 1:
+		return ll[0], nil
+	}
+
+	return merge(ll), nil
 }
 
 func (d *DB) seek(name []byte, b *xrain.SimpleBucket, it []byte) (s *reader) {
@@ -208,17 +290,23 @@ func (s *reader) Next() bool {
 		return false
 	}
 
-	tl.Printf("reader next of %v last %q  from %v", s.st, s.last, tlog.Caller(1))
+	tl.Printf("reader %6q  next %-6v last %q  from %v", s.name, s.st, s.last, tlog.Caller(1))
 
+next:
 	if len(s.st) == 0 {
 		s.st, _ = s.t.Seek(s.last, nil, s.st)
 	} else {
 		s.st = s.t.Next(s.st)
 	}
+
 	if s.st == nil {
 		s.done = true
 
 		return false
+	}
+
+	if ff := s.t.Flags(s.st); ff != 0 {
+		goto next
 	}
 
 	return true
@@ -229,13 +317,13 @@ func (s *reader) Key(b []byte) []byte {
 		return nil
 	}
 	if len(s.st) == 0 {
-		tl.Printf("reader key   %-6v -> nil  from %v", s.st, tlog.Caller(1))
+		tl.Printf("reader %6q  key  %-6v -> nil  from %v", s.name, s.st, tlog.Caller(1))
 		return nil
 	}
 
 	b, _ = s.t.Key(s.st, b)
 
-	tl.Printf("reader key   %-6v -> %q", s.st, b)
+	tl.Printf("reader %6q  key  %-6v -> %q", s.name, s.st, b)
 
 	return b
 }
@@ -270,19 +358,19 @@ func (s *picker) Next() bool {
 	}
 
 	key := s.s.Key(nil)
-	val := s.s.Value(key)
+	val := s.s.Value(key)[len(key):]
 
-	tl.Printf("picker next: %q %q", key, val)
+	tl.Printf("picker next. at %q pick: [%q => %q]", s.name, key, val)
 
-	if len(val) == 0 {
+	if len(key) == 0 {
 		tl.Fatalf("empty key-value of %T %+v", s.s, s.s)
 	}
 
 	var eq bool
-	s.st, eq = s.t.Seek(key, val[len(key):], s.st)
+	s.st, eq = s.t.Seek(key, val, s.st)
 
 	if !eq {
-		tl.Fatalf("no pick for key %q  sub: %T %v", key, s.s, s.s)
+		tl.Fatalf("FATAL: no pick for key %q  sub: %T %v", key, s.s, s.s)
 	}
 
 	return true
@@ -381,11 +469,11 @@ func (s intersector) String() string {
 	return fmt.Sprintf("intersector%v", []stream(s))
 }
 
-func (s union) Next() (r bool) {
+func (s merge) Next() (r bool) {
 	s.sort()
 
 	defer func() {
-		tl.Printf("union next: %v", r)
+		tl.Printf("merge next: %v", r)
 	}()
 
 	var zk []byte
@@ -409,27 +497,27 @@ func (s union) Next() (r bool) {
 	return len(s) != 0
 }
 
-func (s union) Key([]byte) (k []byte) {
+func (s merge) Key([]byte) (k []byte) {
 	s.sort()
 
 	k = s[0].Key(nil)
 
-	tl.Printf("union key: %q", k)
+	tl.Printf("merge key: %q", k)
 
 	return
 }
 
-func (s union) Value([]byte) (v []byte) {
+func (s merge) Value([]byte) (v []byte) {
 	s.sort()
 
 	v = s[0].Value(nil)
 
-	tl.Printf("union val: %q", v)
+	tl.Printf("merge val: %q", v)
 
 	return
 }
 
-func (s union) sort() {
+func (s merge) sort() {
 	sort.Slice(s, func(i, j int) bool {
 		ik := s[i].Key(nil)
 		jk := s[j].Key(nil)
@@ -438,8 +526,8 @@ func (s union) sort() {
 	})
 }
 
-func (s union) String() string {
-	return fmt.Sprintf("union%v", []stream(s))
+func (s merge) String() string {
+	return fmt.Sprintf("merge%v", []stream(s))
 }
 
 func decodeMessage(b []byte, m *parse.Message) error {

@@ -89,7 +89,9 @@ func TraceFromContext(c *gin.Context) (tr tlog.Span) {
 	if !ok {
 		return
 	}
+
 	tr, _ = i.(tlog.Span)
+
 	return
 }
 
@@ -98,7 +100,9 @@ func TraceIDFromContext(c *gin.Context) (id tlog.ID) {
 	if !ok {
 		return
 	}
+
 	id, _ = i.(tlog.ID)
+
 	return
 }
 
