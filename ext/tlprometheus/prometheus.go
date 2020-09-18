@@ -272,27 +272,27 @@ func (w *Writer) Metric(m tlog.Metric, sid tlog.ID) error {
 	return nil
 }
 
-func (w *Writer) SpanStarted(id, par tlog.ID, st int64, l tlog.Location) error {
+func (w *Writer) SpanStarted(s tlog.SpanStart) error {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	w.s[id] = span{Location: l}
+	w.s[s.ID] = span{Location: s.Location}
 
 	return nil
 }
 
-func (w *Writer) SpanFinished(id tlog.ID, el int64) error {
+func (w *Writer) SpanFinished(f tlog.SpanFinish) error {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	sp := w.s[id]
-	defer delete(w.s, id)
+	sp := w.s[f.ID]
+	defer delete(w.s, f.ID)
 
 	if sp.Location == 0 {
 		return nil
 	}
 
-	dur := float64(el) / float64(time.Millisecond)
+	dur := float64(f.Elapsed) / float64(time.Millisecond)
 
 	name, _, _ := sp.Location.NameFileLine()
 	//	name = path.Base(name)
@@ -310,7 +310,7 @@ func (w *Writer) SpanFinished(id tlog.ID, el int64) error {
 		w.initDesc(d)
 	}
 
-	mt := w.metric("tlog_span_duration_ms", id, ls)
+	mt := w.metric("tlog_span_duration_ms", f.ID, ls)
 
 	mt.Count++
 	mt.Last = dur

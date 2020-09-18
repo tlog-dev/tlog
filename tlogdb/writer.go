@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
-	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/xrain"
 
+	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/parse"
 )
 
@@ -257,7 +257,7 @@ func (w *Writer) SpanStart(s parse.SpanStart) (err error) {
 		return nil
 	})
 
-	return nil
+	return
 }
 
 func (w *Writer) SpanFinish(f parse.SpanFinish) error {

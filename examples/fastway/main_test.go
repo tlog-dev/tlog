@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"testing"
 
 	"github.com/nikandfor/tlog"
@@ -49,21 +48,5 @@ func BenchmarkFire(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		buf = fire(tr, 7, 8.9, buf)
-	}
-}
-
-func BenchmarkMadness(b *testing.B) {
-	b.ReportAllocs()
-
-	tlog.DefaultLogger = tlog.New(tlog.Discard)
-	w := tlog.NewProtoWriter(ioutil.Discard)
-
-	tr := tlog.Start()
-	defer tr.Finish()
-
-	var buf []byte
-
-	for i := 0; i < b.N; i++ {
-		buf = madness(w, tr.ID, 11, 22.33, buf)
 	}
 }

@@ -1,7 +1,6 @@
 package parse
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/nikandfor/tlog"
@@ -60,7 +59,7 @@ func (w AnyWriter) Message(m Message) error {
 		tlog.Message{
 			Location: tlog.Location(m.Location),
 			Time:     m.Time,
-			Format:   m.Text,
+			Text:     []byte(m.Text),
 		},
 		m.Span,
 	)
@@ -77,19 +76,19 @@ func (w AnyWriter) Metric(m Metric) error {
 }
 
 func (w AnyWriter) SpanStart(s SpanStart) error {
-	return w.w.SpanStarted(
-		s.ID,
-		s.Parent,
-		s.Started,
-		tlog.Location(s.Location),
-	)
+	return w.w.SpanStarted(tlog.SpanStart{
+		ID:       s.ID,
+		Parent:   s.Parent,
+		Started:  s.Started,
+		Location: tlog.Location(s.Location),
+	})
 }
 
 func (w AnyWriter) SpanFinish(f SpanFinish) error {
-	return w.w.SpanFinished(
-		f.ID,
-		f.Elapsed,
-	)
+	return w.w.SpanFinished(tlog.SpanFinish{
+		ID:      f.ID,
+		Elapsed: f.Elapsed,
+	})
 }
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
@@ -99,10 +98,10 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) error {
+	b := tlog.AppendPrintf(nil, "Labels: %q", ls)
 	return w.w.Message(
 		tlog.Message{
-			Format: "Labels: %q",
-			Args:   []interface{}{ls},
+			Text: b,
 		},
 		ls.Span,
 	)
@@ -128,7 +127,7 @@ func (w *ConsoleWriter) Message(m Message) (err error) {
 		tlog.Message{
 			Location: tlog.Location(m.Location),
 			Time:     m.Time,
-			Format:   m.Text,
+			Text:     []byte(m.Text),
 		},
 		m.Span,
 	)
@@ -145,19 +144,19 @@ func (w *ConsoleWriter) Metric(m Metric) (err error) {
 }
 
 func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
-	return w.w.SpanStarted(
-		s.ID,
-		s.Parent,
-		s.Started,
-		tlog.Location(s.Location),
-	)
+	return w.w.SpanStarted(tlog.SpanStart{
+		ID:       s.ID,
+		Parent:   s.Parent,
+		Started:  s.Started,
+		Location: tlog.Location(s.Location),
+	})
 }
 
 func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
-	return w.w.SpanFinished(
-		f.ID,
-		f.Elapsed,
-	)
+	return w.w.SpanFinished(tlog.SpanFinish{
+		ID:      f.ID,
+		Elapsed: f.Elapsed,
+	})
 }
 
 func NewConvertWriter(w Writer) *ConvertWriter {
@@ -190,7 +189,7 @@ func (w *ConvertWriter) Message(m tlog.Message, s tlog.Span) error {
 		Span:     s.ID,
 		Location: uint64(m.Location),
 		Time:     m.Time,
-		Text:     fmt.Sprintf(m.Format, m.Args...),
+		Text:     string(m.Text),
 	})
 }
 

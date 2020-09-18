@@ -41,26 +41,47 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     now(),
-		Format:   "%v",
-		Args:     []interface{}{3},
+		Text:     []byte("3"),
 	}, tlog.ID{})
 
-	_ = w.SpanStarted(ID{1}, ID{}, now(), tlog.Caller(0))
+	_ = w.SpanStarted(tlog.SpanStart{
+		ID:       ID{1},
+		Parent:   ID{},
+		Started:  now(),
+		Location: tlog.Caller(0),
+	})
 
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     now(),
-		Format:   "%v",
-		Args:     []interface{}{5},
+		Text:     []byte("5"),
 	}, ID{1})
 
-	_ = w.SpanStarted(ID{2}, ID{1}, now(), tlog.Caller(0))
+	_ = w.SpanStarted(tlog.SpanStart{
+		ID:       ID{2},
+		Parent:   ID{1},
+		Started:  now(),
+		Location: tlog.Caller(0),
+	})
 
-	_ = w.Metric(tlog.Metric{Name: "op_metric", Value: 123.456789, Labels: tlog.Labels{"path=/url/path", "algo=fast"}}, ID{2})
+	_ = w.Metric(
+		tlog.Metric{
+			Name:   "op_metric",
+			Value:  123.456789,
+			Labels: tlog.Labels{"path=/url/path", "algo=fast"},
+		},
+		ID{2},
+	)
 
-	_ = w.SpanFinished(ID{2}, time.Second.Nanoseconds())
+	_ = w.SpanFinished(tlog.SpanFinish{
+		ID:      ID{2},
+		Elapsed: time.Second.Nanoseconds(),
+	})
 
-	_ = w.SpanFinished(ID{1}, 2*time.Second.Nanoseconds())
+	_ = w.SpanFinished(tlog.SpanFinish{
+		ID:      ID{1},
+		Elapsed: 2 * time.Second.Nanoseconds(),
+	})
 
 	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 
@@ -147,7 +168,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x102,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  48,
+			Line:  51,
 		},
 		SpanStart{
 			ID:       ID{1},
@@ -160,7 +181,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x103,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  51,
+			Line:  55,
 		},
 		Message{
 			Span:     ID{1},
@@ -173,7 +194,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x104,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  57,
+			Line:  64,
 		},
 		SpanStart{
 			ID:       ID{2},
