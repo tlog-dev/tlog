@@ -70,8 +70,7 @@ type (
 	Message struct {
 		Location Location
 		Time     int64
-		Format   string
-		Args     []interface{}
+		Text     []byte
 	}
 
 	Metric struct {
@@ -337,12 +336,30 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}) {
 		loc = Caller(d + 2)
 	}
 
+	var txt []byte
+
+	if args == nil {
+		if f != "" {
+			txt = stringToBytes(f)
+		}
+	} else {
+		b, wr := getbuf()
+		defer retbuf(b, wr)
+
+		if f == "" {
+			b = AppendPrintln(b, args...)
+		} else {
+			b = AppendPrintf(b, f, args...)
+		}
+
+		txt = b
+	}
+
 	_ = l.Writer.Message(
 		Message{
 			Location: loc,
 			Time:     t,
-			Format:   f,
-			Args:     args,
+			Text:     txt,
 		},
 		sid,
 	)

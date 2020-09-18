@@ -199,8 +199,7 @@ func TestProtoWriter(t *testing.T) {
 		Message{
 			Location: loc,
 			Time:     2,
-			Format:   "%v",
-			Args:     []interface{}{4},
+			Text:     []byte("4"),
 		},
 		id,
 	)
@@ -298,7 +297,7 @@ func TestProtoWriter(t *testing.T) {
 		Message{
 			Location: loc,
 			Time:     2,
-			Format:   string(make([]byte, 1000)),
+			Text:     make([]byte, 1000),
 		},
 		id,
 	)
@@ -408,7 +407,7 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, ID{})
-	_ = w.Message(Message{Location: loc, Format: "msg", Time: 1}, ID{})
+	_ = w.Message(Message{Location: loc, Text: []byte("msg"), Time: 1}, ID{})
 	_ = w.SpanStarted(SpanStart{ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe})
 	_ = w.SpanFinished(SpanFinish{ID{100}, time.Second.Nanoseconds()})
 
@@ -447,7 +446,7 @@ func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
 		_ = w.Message(Message{
 			Location: l,
 			Time:     1,
-			Format:   "some message",
+			Text:     []byte("some message"),
 		}, ID{})
 	}
 }
@@ -463,7 +462,7 @@ func BenchmarkWriterJSONMessage(b *testing.B) {
 		_ = w.Message(Message{
 			Location: l,
 			Time:     1,
-			Format:   "some message",
+			Text:     []byte("some message"),
 		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 	}
 }
@@ -473,11 +472,13 @@ func BenchmarkWriterJSONMetric(b *testing.B) {
 
 	w := NewJSONWriter(ioutil.Discard)
 
+	ls := Labels{"a=b", "c=d"}
+
 	for i := 0; i < b.N; i++ {
 		_ = w.Metric(Metric{
 			Name:   "some_metric",
 			Value:  123.456,
-			Labels: Labels{"a=b", "c=d"},
+			Labels: ls,
 		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 	}
 }
@@ -493,7 +494,7 @@ func BenchmarkWriterProtoMessage(b *testing.B) {
 		_ = w.Message(Message{
 			Location: l,
 			Time:     1,
-			Format:   "some message",
+			Text:     []byte("some message"),
 		}, ID{})
 	}
 }

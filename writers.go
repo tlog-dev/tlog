@@ -351,14 +351,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 		b = append(b, ' ', ' ')
 	}
 
-	switch {
-	case m.Args == nil:
-		b = append(b, m.Format...)
-	case m.Format == "":
-		b = AppendPrintln(b, m.Args...)
-	default:
-		b = AppendPrintf(b, m.Format, m.Args...)
-	}
+	b = append(b, m.Text...)
 
 	b.NewLine()
 
@@ -432,12 +425,16 @@ func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	loc := w.caller()
 
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	b = AppendPrintf(b, "Labels: %q", ls)
+
 	return w.Message(
 		Message{
 			Location: loc,
 			Time:     now(),
-			Format:   "Labels: %q",
-			Args:     []interface{}{ls},
+			Text:     b,
 		},
 		sid,
 	)
@@ -446,12 +443,16 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 func (w *ConsoleWriter) Meta(m Meta) error {
 	loc := w.caller()
 
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	b = AppendPrintf(b, "Meta: %v %q", m.Type, m.Data)
+
 	return w.Message(
 		Message{
 			Location: loc,
 			Time:     now(),
-			Format:   "Meta: %v %q",
-			Args:     []interface{}{m.Type, m.Data},
+			Text:     b,
 		},
 		ID{},
 	)
@@ -460,12 +461,16 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	loc := w.caller()
 
+	b, wr := getbuf()
+	defer retbuf(b, wr)
+
+	b = AppendPrintf(b, "%v  %15.5f  %v", m.Name, m.Value, m.Labels)
+
 	return w.Message(
 		Message{
 			Location: loc,
 			Time:     now(),
-			Format:   "%v  %15.5f  %v",
-			Args:     []interface{}{m.Name, m.Value, m.Labels},
+			Text:     b,
 		},
 		sid,
 	)
@@ -603,14 +608,7 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	}
 
 	b = append(b, `,"m":"`...)
-	switch {
-	case m.Args == nil:
-		b = append(b, m.Format...)
-	case m.Format == "":
-		b = AppendPrintln(b, m.Args...)
-	default:
-		b = AppendPrintf(b, m.Format, m.Args...)
-	}
+	b = append(b, m.Text...)
 
 	b = append(b, "\"}}\n"...)
 
@@ -942,15 +940,7 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	}
 
 	st := len(b)
-	switch {
-	case m.Args == nil:
-		b = append(b, m.Format...)
-	case m.Format == "":
-		b = AppendPrintln(b, m.Args...)
-	default:
-		b = AppendPrintf(b, m.Format, m.Args...)
-	}
-	l := len(b) - st
+	l := len(m.Text)
 
 	sz := 0
 	if sid != (ID{}) {
@@ -960,18 +950,11 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 		sz += 1 + varintSize(uint64(m.Location))
 	}
 	sz += 1 + 8 // m.Time
-	sz += 1 + varintSize(uint64(l)) + l
+	if l != 0 {
+		sz += 1 + varintSize(uint64(l)) + l
+	}
 
 	szs := varintSize(uint64(sz))
-	szss := varintSize(uint64(1 + szs + sz))
-
-	total := szss + 1 + szs + sz
-	for cap(b) < st+total {
-		b = append(b, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-	}
-	b = b[:st+total]
-
-	copy(b[st+total-l:], b[st:st+l])
 
 	b = appendVarint(b[:st], uint64(1+szs+sz))
 
@@ -989,10 +972,10 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time))
 
-	b = appendTagVarint(b, 4<<3|2, uint64(l))
-
-	// text is already in place
-	b = b[:st+total]
+	if l != 0 {
+		b = appendTagVarint(b, 4<<3|2, uint64(l))
+		b = append(b, m.Text...)
+	}
 
 	_, err = w.w.Write(b)
 

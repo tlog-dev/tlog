@@ -543,7 +543,7 @@ func TestPrintfVsPrintln(t *testing.T) {
 	a := buf.String()
 	buf.Reset()
 
-	l.Printf("", "message", 1, 2, 3)
+	l.Println("message", 1, 2, 3)
 
 	b := buf.String()
 
@@ -558,7 +558,7 @@ func BenchmarkPrintfVsPrintln(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message %d %d %d", i, i+1, i+2)
-		l.Printf("", "message", i, i+1, i+2)
+		l.Println("message", i, i+1, i+2)
 	}
 }
 
@@ -690,8 +690,11 @@ func BenchmarkTlogProtoWrite(b *testing.B) {
 
 	tr := l.Start()
 
+	var buf []byte
 	for i := 0; i < b.N; i++ {
-		fmt.Fprintf(tr, "message %d", i)
+		buf = AppendPrintf(buf[:0], "message %d", i)
+
+		_, _ = tr.Write(buf)
 	}
 
 	tr.Finish()
