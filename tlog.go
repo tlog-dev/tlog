@@ -47,11 +47,23 @@ type (
 	// Writer is an general encoder and writer of events.
 	Writer interface {
 		Labels(ls Labels, sid ID) error
-		SpanStarted(sid, parent ID, st int64, l Location) error
-		SpanFinished(sid ID, el int64) error
+		SpanStarted(s SpanStart) error
+		SpanFinished(f SpanFinish) error
 		Message(m Message, sid ID) error
 		Metric(m Metric, sid ID) error
 		Meta(m Meta) error
+	}
+
+	SpanStart struct {
+		ID       ID
+		Parent   ID
+		Started  int64
+		Location Location
+	}
+
+	SpanFinish struct {
+		ID      ID
+		Elapsed int64
 	}
 
 	// Message is an Log event.
@@ -303,7 +315,12 @@ func newspan(l *Logger, d int, par ID) Span {
 
 	l.mu.Unlock()
 
-	_ = l.Writer.SpanStarted(s.ID, par, s.Started, loc)
+	_ = l.Writer.SpanStarted(SpanStart{
+		ID:       s.ID,
+		Parent:   par,
+		Started:  s.Started,
+		Location: loc,
+	})
 
 	return s
 }
@@ -669,7 +686,10 @@ func (s Span) Finish() {
 
 	el := now() - s.Started
 
-	_ = s.Logger.Writer.SpanFinished(s.ID, el)
+	_ = s.Logger.Writer.SpanFinished(SpanFinish{
+		ID:      s.ID,
+		Elapsed: el,
+	})
 }
 
 // Valid checks if Span was initialized.

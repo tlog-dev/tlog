@@ -156,7 +156,7 @@ func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) [
 }
 
 //nolint:gocognit,nestif
-func (w *ConsoleWriter) buildHeader(b []byte, loc Location, ts int64) []byte {
+func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc Location) []byte {
 	var fname, file string
 	line := -1
 
@@ -341,7 +341,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	b = w.buildHeader(b, m.Location, m.Time)
+	b = w.buildHeader(b, m.Time, m.Location)
 
 	if w.f&Lmessagespan != 0 {
 		i := len(b)
@@ -367,8 +367,8 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, loc Location, tm int64) []byte {
-	b = w.buildHeader(b, loc, tm)
+func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, tm int64, loc Location) []byte {
+	b = w.buildHeader(b, tm, loc)
 
 	i := len(b)
 	b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
@@ -378,7 +378,7 @@ func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, loc Location, tm int64
 }
 
 // SpanStarted writes SpanStarted event by single Write.
-func (w *ConsoleWriter) SpanStarted(sid, par ID, st int64, l Location) (err error) {
+func (w *ConsoleWriter) SpanStarted(s SpanStart) (err error) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -386,16 +386,16 @@ func (w *ConsoleWriter) SpanStarted(sid, par ID, st int64, l Location) (err erro
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	b = w.spanHeader(b, sid, par, l, st)
+	b = w.spanHeader(b, s.ID, s.Parent, s.Started, s.Location)
 
-	if par == (ID{}) {
+	if s.Parent == (ID{}) {
 		b = append(b, "Span started\n"...)
 	} else {
 		b = append(b, "Span spawned from "...)
 
 		i := len(b)
 		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
-		par.FormatTo(b[i:i+w.IDWidth], 'v')
+		s.Parent.FormatTo(b[i:i+w.IDWidth], 'v')
 
 		b = append(b, '\n')
 	}
@@ -406,7 +406,7 @@ func (w *ConsoleWriter) SpanStarted(sid, par ID, st int64, l Location) (err erro
 }
 
 // SpanFinished writes SpanFinished event by single Write.
-func (w *ConsoleWriter) SpanFinished(sid ID, el int64) (err error) {
+func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 	if w.f&Lspans == 0 {
 		return
 	}
@@ -414,11 +414,11 @@ func (w *ConsoleWriter) SpanFinished(sid ID, el int64) (err error) {
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	b = w.spanHeader(b, sid, ID{}, 0, now())
+	b = w.spanHeader(b, f.ID, ID{}, now(), 0)
 
 	b = append(b, "Span finished - elapsed "...)
 
-	e := time.Duration(el).Seconds() * 1000
+	e := time.Duration(f.Elapsed).Seconds() * 1000
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
 
 	b = append(b, "ms\n"...)
@@ -763,17 +763,17 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 }
 
 // SpanStarted writes event to the stream.
-func (w *JSONWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
+func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	if loc != 0 {
+	if s.Location != 0 {
 		w.mu.Lock()
 
-		if _, ok := w.ls[loc]; !ok {
+		if _, ok := w.ls[s.Location]; !ok {
 			defer w.mu.Unlock()
 
-			b = w.location(b, loc)
+			b = w.location(b, s.Location)
 		} else {
 			w.mu.Unlock()
 		}
@@ -782,19 +782,19 @@ func (w *JSONWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error
 	b = append(b, `{"s":{"i":"`...)
 	i := len(b)
 	b = append(b, `123456789_123456789_123456789_12"`...)
-	sid.FormatTo(b[i:], 'x')
+	s.ID.FormatTo(b[i:], 'x')
 
 	b = append(b, `,"s":`...)
-	b = strconv.AppendInt(b, st, 10)
+	b = strconv.AppendInt(b, s.Started, 10)
 
 	b = append(b, `,"l":`...)
-	b = strconv.AppendInt(b, int64(loc), 10)
+	b = strconv.AppendInt(b, int64(s.Location), 10)
 
-	if par != (ID{}) {
+	if s.Parent != (ID{}) {
 		b = append(b, `,"p":"`...)
 		i = len(b)
 		b = append(b, `123456789_123456789_123456789_12"`...)
-		par.FormatTo(b[i:], 'x')
+		s.Parent.FormatTo(b[i:], 'x')
 	}
 
 	b = append(b, "}}\n"...)
@@ -805,17 +805,17 @@ func (w *JSONWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error
 }
 
 // SpanFinished writes event to the stream.
-func (w *JSONWriter) SpanFinished(sid ID, el int64) (err error) {
+func (w *JSONWriter) SpanFinished(f SpanFinish) (err error) {
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
 	b = append(b, `{"f":{"i":"`...)
 	i := len(b)
 	b = append(b, `123456789_123456789_123456789_12"`...)
-	sid.FormatTo(b[i:], 'x')
+	f.ID.FormatTo(b[i:], 'x')
 
 	b = append(b, `,"e":`...)
-	b = strconv.AppendInt(b, el, 10)
+	b = strconv.AppendInt(b, f.Elapsed, 10)
 
 	b = append(b, "}}\n"...)
 
@@ -1050,27 +1050,27 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 }
 
 // SpanStarted writes event to the stream.
-func (w *ProtoWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
+func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 	sz := 0
-	sz += 1 + varintSize(uint64(len(sid))) + len(sid)
-	if par != (ID{}) {
-		sz += 1 + varintSize(uint64(len(par))) + len(par)
+	sz += 1 + varintSize(uint64(len(s.ID))) + len(s.ID)
+	if s.Parent != (ID{}) {
+		sz += 1 + varintSize(uint64(len(s.Parent))) + len(s.Parent)
 	}
-	if loc != 0 {
-		sz += 1 + varintSize(uint64(loc))
+	if s.Location != 0 {
+		sz += 1 + varintSize(uint64(s.Location))
 	}
 	sz += 1 + 8 // s.Started
 
 	b, wr := getbuf()
 	defer retbuf(b, wr)
 
-	if loc != 0 {
+	if s.Location != 0 {
 		w.mu.Lock()
 
-		if _, ok := w.ls[loc]; !ok {
+		if _, ok := w.ls[s.Location]; !ok {
 			defer w.mu.Unlock()
 
-			b = w.location(b, loc)
+			b = w.location(b, s.Location)
 		} else {
 			w.mu.Unlock()
 		}
@@ -1081,20 +1081,20 @@ func (w *ProtoWriter) SpanStarted(sid, par ID, st int64, loc Location) (err erro
 
 	b = appendTagVarint(b, 4<<3|2, uint64(sz))
 
-	b = appendTagVarint(b, 1<<3|2, uint64(len(sid)))
-	b = append(b, sid[:]...)
+	b = appendTagVarint(b, 1<<3|2, uint64(len(s.ID)))
+	b = append(b, s.ID[:]...)
 
-	if par != (ID{}) {
-		b = appendTagVarint(b, 2<<3|2, uint64(len(par)))
-		b = append(b, par[:]...)
+	if s.Parent != (ID{}) {
+		b = appendTagVarint(b, 2<<3|2, uint64(len(s.Parent)))
+		b = append(b, s.Parent[:]...)
 	}
 
-	if loc != 0 {
-		b = appendTagVarint(b, 3<<3|0, uint64(loc)) //nolint:staticcheck
+	if s.Location != 0 {
+		b = appendTagVarint(b, 3<<3|0, uint64(s.Location)) //nolint:staticcheck
 	}
 
 	b = append(b, 4<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(st))
+	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(s.Started))
 
 	_, err = w.w.Write(b)
 
@@ -1102,10 +1102,10 @@ func (w *ProtoWriter) SpanStarted(sid, par ID, st int64, loc Location) (err erro
 }
 
 // SpanFinished writes event to the stream.
-func (w *ProtoWriter) SpanFinished(sid ID, el int64) (err error) {
+func (w *ProtoWriter) SpanFinished(f SpanFinish) (err error) {
 	sz := 0
-	sz += 1 + varintSize(uint64(len(sid))) + len(sid)
-	sz += 1 + varintSize(uint64(el))
+	sz += 1 + varintSize(uint64(len(f.ID))) + len(f.ID)
+	sz += 1 + varintSize(uint64(f.Elapsed))
 
 	b, wr := getbuf()
 	defer retbuf(b, wr)
@@ -1115,10 +1115,10 @@ func (w *ProtoWriter) SpanFinished(sid ID, el int64) (err error) {
 
 	b = appendTagVarint(b, 5<<3|2, uint64(sz))
 
-	b = appendTagVarint(b, 1<<3|2, uint64(len(sid)))
-	b = append(b, sid[:]...)
+	b = appendTagVarint(b, 1<<3|2, uint64(len(f.ID)))
+	b = append(b, f.ID[:]...)
 
-	b = appendTagVarint(b, 2<<3|0, uint64(el)) //nolint:staticcheck
+	b = appendTagVarint(b, 2<<3|0, uint64(f.Elapsed)) //nolint:staticcheck
 
 	_, err = w.w.Write(b)
 
@@ -1298,9 +1298,9 @@ func (w TeeWriter) Metric(m Metric, sid ID) (err error) {
 	return
 }
 
-func (w TeeWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
+func (w TeeWriter) SpanStarted(s SpanStart) (err error) {
 	for _, w := range w {
-		e := w.SpanStarted(sid, par, st, loc)
+		e := w.SpanStarted(s)
 		if err == nil {
 			err = e
 		}
@@ -1309,9 +1309,9 @@ func (w TeeWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) 
 	return
 }
 
-func (w TeeWriter) SpanFinished(sid ID, el int64) (err error) {
+func (w TeeWriter) SpanFinished(f SpanFinish) (err error) {
 	for _, w := range w {
-		e := w.SpanFinished(sid, el)
+		e := w.SpanFinished(f)
 		if err == nil {
 			err = e
 		}
@@ -1320,12 +1320,12 @@ func (w TeeWriter) SpanFinished(sid ID, el int64) (err error) {
 	return
 }
 
-func (w DiscardWriter) Labels(Labels, ID) error                   { return nil }
-func (w DiscardWriter) Meta(Meta) error                           { return nil }
-func (w DiscardWriter) Message(Message, ID) error                 { return nil }
-func (w DiscardWriter) Metric(Metric, ID) error                   { return nil }
-func (w DiscardWriter) SpanStarted(ID, ID, int64, Location) error { return nil }
-func (w DiscardWriter) SpanFinished(ID, int64) error              { return nil }
+func (w DiscardWriter) Labels(Labels, ID) error         { return nil }
+func (w DiscardWriter) Meta(Meta) error                 { return nil }
+func (w DiscardWriter) Message(Message, ID) error       { return nil }
+func (w DiscardWriter) Metric(Metric, ID) error         { return nil }
+func (w DiscardWriter) SpanStarted(s SpanStart) error   { return nil }
+func (w DiscardWriter) SpanFinished(f SpanFinish) error { return nil }
 
 func NewLockedWriter(w Writer) *LockedWriter {
 	return &LockedWriter{w: w}
@@ -1359,18 +1359,18 @@ func (w *LockedWriter) Metric(m Metric, sid ID) error {
 	return w.w.Metric(m, sid)
 }
 
-func (w *LockedWriter) SpanStarted(sid, par ID, st int64, loc Location) error {
+func (w *LockedWriter) SpanStarted(s SpanStart) error {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	return w.w.SpanStarted(sid, par, st, loc)
+	return w.w.SpanStarted(s)
 }
 
-func (w *LockedWriter) SpanFinished(sid ID, el int64) error {
+func (w *LockedWriter) SpanFinished(f SpanFinish) error {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	return w.w.SpanFinished(sid, el)
+	return w.w.SpanFinished(f)
 }
 
 func NewFallbackWriter(w, fb Writer) FallbackWriter {
@@ -1412,18 +1412,18 @@ func (w FallbackWriter) Metric(m Metric, sid ID) (err error) {
 	return
 }
 
-func (w FallbackWriter) SpanStarted(sid, par ID, st int64, loc Location) (err error) {
-	err = w.Writer.SpanStarted(sid, par, st, loc)
+func (w FallbackWriter) SpanStarted(s SpanStart) (err error) {
+	err = w.Writer.SpanStarted(s)
 	if err != nil {
-		_ = w.Fallback.SpanStarted(sid, par, st, loc)
+		_ = w.Fallback.SpanStarted(s)
 	}
 	return
 }
 
-func (w FallbackWriter) SpanFinished(sid ID, el int64) (err error) {
-	err = w.Writer.SpanFinished(sid, el)
+func (w FallbackWriter) SpanFinished(f SpanFinish) (err error) {
+	err = w.Writer.SpanFinished(f)
 	if err != nil {
-		_ = w.Fallback.SpanFinished(sid, el)
+		_ = w.Fallback.SpanFinished(f)
 	}
 	return
 }

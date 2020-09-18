@@ -44,54 +44,54 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(b))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(b))
 
 	w.f = Llongfile
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", b)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "location.go:25        ", string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "locatio:25  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 10
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "Caller      ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 4
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "Call  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 15
-	b = w.buildHeader(b[:0], (&testt{}).testloc2(), tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), (&testt{}).testloc2())
 	assert.Equal(t, "testloc2.func1   ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 12
-	b = w.buildHeader(b[:0], (&testt{}).testloc2(), tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), (&testt{}).testloc2())
 	assert.Equal(t, "testloc2.fu1  ", string(b))
 
 	w.f = Ltypefunc
-	b = w.buildHeader(b[:0], loc, tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
 	assert.Equal(t, "tlog.Caller  ", string(b))
 
-	b = w.buildHeader(b[:0], (&testt{}).testloc2(), tm.UnixNano())
+	b = w.buildHeader(b[:0], tm.UnixNano(), (&testt{}).testloc2())
 	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(b))
 }
 
@@ -236,12 +236,12 @@ func TestProtoWriter(t *testing.T) {
 	id = ID{5, 15, 25, 35}
 	par := ID{4, 14, 24, 34}
 
-	_ = w.SpanStarted(
-		id,
-		par,
-		2,
-		loc,
-	)
+	_ = w.SpanStarted(SpanStart{
+		ID:       id,
+		Parent:   par,
+		Started:  2,
+		Location: loc,
+	})
 	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
 		Pc:    int64(loc),
 		Entry: int64(loc.Entry()),
@@ -280,10 +280,10 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf = pbuf[:0]
 
-	_ = w.SpanFinished(
-		id,
-		time.Second.Nanoseconds(),
-	)
+	_ = w.SpanFinished(SpanFinish{
+		ID:      id,
+		Elapsed: time.Second.Nanoseconds(),
+	})
 	pbuf = encode(pbuf, &tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      id[:],
 		Elapsed: time.Second.Nanoseconds(),
@@ -409,8 +409,8 @@ func TestTeeWriter(t *testing.T) {
 
 	_ = w.Labels(Labels{"a=b", "f"}, ID{})
 	_ = w.Message(Message{Location: loc, Format: "msg", Time: 1}, ID{})
-	_ = w.SpanStarted(ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe)
-	_ = w.SpanFinished(ID{100}, time.Second.Nanoseconds())
+	_ = w.SpanStarted(SpanStart{ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe})
+	_ = w.SpanFinished(SpanFinish{ID{100}, time.Second.Nanoseconds()})
 
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
