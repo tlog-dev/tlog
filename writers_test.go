@@ -435,6 +435,7 @@ func TestNewTeeWriter(t *testing.T) {
 	assert.Len(t, d, 5)
 }
 
+//nolint:gocognit
 func BenchmarkWriter(b *testing.B) {
 	loc := Caller(0)
 
@@ -455,8 +456,12 @@ func BenchmarkWriter(b *testing.B) {
 			return NewProtoWriter(w)
 		}},
 	} {
+		ws := ws
+
 		b.Run(ws.name, func(b *testing.B) {
 			for _, par := range []bool{false, true} {
+				par := par
+
 				n := "SingleThread"
 				if par {
 					n = "Parallel"
@@ -488,6 +493,8 @@ func BenchmarkWriter(b *testing.B) {
 							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 						}},
 					} {
+						tc := tc
+
 						b.Run(tc.name, func(b *testing.B) {
 							b.ReportAllocs()
 							cw.N, cw.B = 0, 0

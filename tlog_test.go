@@ -571,6 +571,8 @@ func BenchmarkLogLogger(b *testing.B) {
 		{"Std", log.LstdFlags},
 		{"Det", log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile},
 	} {
+		tc := tc
+
 		b.Run(tc.name, func(b *testing.B) {
 			l := log.New(ioutil.Discard, "", tc.ff)
 
@@ -605,6 +607,8 @@ func BenchmarkTlogLogger(b *testing.B) {
 		{"Std", LstdFlags},
 		{"Det", LdetFlags},
 	} {
+		tc := tc
+
 		b.Run(tc.name, func(b *testing.B) {
 			l := New(NewConsoleWriter(ioutil.Discard, tc.ff))
 			if tc.ff == LstdFlags {
@@ -634,6 +638,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 	}
 }
 
+//nolint:gocognit
 func BenchmarkTlogTraces(b *testing.B) {
 	for _, ws := range []struct {
 		name string
@@ -657,8 +662,12 @@ func BenchmarkTlogTraces(b *testing.B) {
 			return Discard
 		}},
 	} {
+		ws := ws
+
 		b.Run(ws.name, func(b *testing.B) {
 			for _, par := range []bool{false, true} {
+				par := par
+
 				n := "SingleThread"
 				if par {
 					n = "Parallel"
@@ -689,13 +698,15 @@ func BenchmarkTlogTraces(b *testing.B) {
 						}},
 						{"StartPrintfFinish", func(i int) {
 							tr := l.Start()
-							tr.Printf("message: %d", 1000+i, 2000+i, 3000+i) // 1 alloc here: int to interface{} conversion
+							tr.Printf("message: %d", 1000+i) // 1 alloc here: int to interface{} conversion
 							tr.Finish()
 						}},
 						{"Metric", func(i int) {
 							gtr.Observe("metric_full_qualified_name_unit", 123.456, ls)
 						}},
 					} {
+						tc := tc
+
 						b.Run(tc.name, func(b *testing.B) {
 							b.ReportAllocs()
 							w.N, w.B = 0, 0
