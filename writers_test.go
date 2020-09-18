@@ -3,7 +3,7 @@ package tlog
 import (
 	"bytes"
 	"encoding/hex"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"testing"
 	"time"
@@ -107,7 +107,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	l.SetLabels(Labels{"a=b", "f"})
 
-	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: ["a=b" "f"]`+"\n", string(b))
+	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: a=b f`+"\n", string(b))
 
 	b = b[:0]
 
@@ -119,7 +119,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	tr.SetLabels(Labels{"a=c", "c=d", "g"})
 
-	assert.Equal(t, `2019/07/07_16:31:13.000  0194fdc2fa2ffcc0  Labels: ["a=c" "c=d" "g"]`+"\n", string(b))
+	assert.Equal(t, `2019/07/07_16:31:13.000  0194fdc2fa2ffcc0  Labels: a=c c=d g`+"\n", string(b))
 
 	b = b[:0]
 
@@ -435,67 +435,83 @@ func TestNewTeeWriter(t *testing.T) {
 	assert.Len(t, d, 5)
 }
 
-func BenchmarkWriterConsoleDetailedMessage(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkWriter(b *testing.B) {
+	loc := Caller(0)
 
-	w := NewConsoleWriter(ioutil.Discard, LdetFlags)
+	for _, ws := range []struct {
+		name string
+		nw   func(w io.Writer) Writer
+	}{
+		{"ConsoleStd", func(w io.Writer) Writer {
+			return NewConsoleWriter(w, LstdFlags)
+		}},
+		{"ConsoleDet", func(w io.Writer) Writer {
+			return NewConsoleWriter(w, LdetFlags)
+		}},
+		{"JSON", func(w io.Writer) Writer {
+			return NewJSONWriter(w)
+		}},
+		{"Proto", func(w io.Writer) Writer {
+			return NewProtoWriter(w)
+		}},
+	} {
+		b.Run(ws.name, func(b *testing.B) {
+			for _, par := range []bool{false, true} {
+				n := "SingleThread"
+				if par {
+					n = "Parallel"
+				}
 
-	l := Caller(0)
+				b.Run(n, func(b *testing.B) {
+					ls := Labels{"a=b", "c=d"}
+					msg := []byte("some message")
 
-	for i := 0; i < b.N; i++ {
-		_ = w.Message(Message{
-			Location: l,
-			Time:     1,
-			Text:     []byte("some message"),
-		}, ID{})
-	}
-}
+					var cw CountableDiscard
+					w := ws.nw(&cw)
 
-func BenchmarkWriterJSONMessage(b *testing.B) {
-	b.ReportAllocs()
+					for _, tc := range []struct {
+						name string
+						act  func(i int)
+					}{
+						{"TracedMessage", func(i int) {
+							_ = w.Message(Message{
+								Location: loc,
+								Time:     1,
+								Text:     msg,
+							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
+						}},
+						{"TracedMetric", func(i int) {
+							_ = w.Metric(Metric{
+								Name:   "some_fully_qualified_metric",
+								Value:  123.456,
+								Labels: ls,
+							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
+						}},
+					} {
+						b.Run(tc.name, func(b *testing.B) {
+							b.ReportAllocs()
+							cw.N, cw.B = 0, 0
 
-	w := NewJSONWriter(ioutil.Discard)
+							if par {
+								b.RunParallel(func(b *testing.PB) {
+									i := 0
+									for b.Next() {
+										i++
+										tc.act(i)
+									}
+								})
+							} else {
+								for i := 0; i < b.N; i++ {
+									tc.act(i)
+								}
+							}
 
-	l := Caller(0)
-
-	for i := 0; i < b.N; i++ {
-		_ = w.Message(Message{
-			Location: l,
-			Time:     1,
-			Text:     []byte("some message"),
-		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
-	}
-}
-
-func BenchmarkWriterJSONMetric(b *testing.B) {
-	b.ReportAllocs()
-
-	w := NewJSONWriter(ioutil.Discard)
-
-	ls := Labels{"a=b", "c=d"}
-
-	for i := 0; i < b.N; i++ {
-		_ = w.Metric(Metric{
-			Name:   "some_metric",
-			Value:  123.456,
-			Labels: ls,
-		}, ID{1, 2, 3, 4, 5, 6, 7, 8})
-	}
-}
-
-func BenchmarkWriterProtoMessage(b *testing.B) {
-	b.ReportAllocs()
-
-	w := NewProtoWriter(ioutil.Discard)
-
-	l := Caller(0)
-
-	for i := 0; i < b.N; i++ {
-		_ = w.Message(Message{
-			Location: l,
-			Time:     1,
-			Text:     []byte("some message"),
-		}, ID{})
+							cw.ReportDisk(b)
+						})
+					}
+				})
+			}
+		})
 	}
 }
 

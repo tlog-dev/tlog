@@ -7,9 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func BenchmarkZapJSONInfo(b *testing.B) {
-	b.ReportAllocs()
-
+func BenchmarkZapLogger(b *testing.B) {
 	var w CountableDiscard
 
 	enc := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
@@ -28,41 +26,29 @@ func BenchmarkZapJSONInfo(b *testing.B) {
 
 	l := zap.New(c, zap.AddCaller())
 
-	for i := 0; i < b.N; i++ {
-		l.Info("message", zap.Int("iter", i))
-	}
+	b.Run("SingleThread", func(b *testing.B) {
+		b.ReportAllocs()
+		w.N, w.B = 0, 0
 
-	w.ReportDisk(b)
-}
-
-func BenchmarkZapJSONInfoParallel(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-
-	enc := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
-		MessageKey:     "m",
-		LevelKey:       "lv",
-		TimeKey:        "t",
-		CallerKey:      "l",
-		NameKey:        "n",
-		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.EpochNanosTimeEncoder,
-		EncodeDuration: zapcore.NanosDurationEncoder,
-		EncodeCaller:   zapcore.FullCallerEncoder,
-	})
-
-	c := zapcore.NewCore(enc, zapcore.Lock(zapcore.AddSync(&w)), zapcore.DebugLevel)
-
-	l := zap.New(c, zap.AddCaller())
-
-	b.RunParallel(func(b *testing.PB) {
-		i := 0
-		for b.Next() {
-			i++
-			l.Info("message", zap.Int("iter", i))
+		for i := 0; i < b.N; i++ {
+			l.Info("message", zap.Int("i", 1000+i))
 		}
+
+		//	w.ReportDisk(b)
 	})
 
-	w.ReportDisk(b)
+	b.Run("Parallel", func(b *testing.B) {
+		b.ReportAllocs()
+		w.N, w.B = 0, 0
+
+		b.RunParallel(func(b *testing.PB) {
+			i := 0
+			for b.Next() {
+				i++
+				l.Info("message", zap.Int("i", 1000+i))
+			}
+		})
+
+		//	w.ReportDisk(b)
+	})
 }

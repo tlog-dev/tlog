@@ -4,6 +4,7 @@ package tlog
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -562,125 +563,164 @@ func BenchmarkPrintfVsPrintln(b *testing.B) {
 	}
 }
 
-func BenchmarkLogLoggerStd(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkLogLogger(b *testing.B) {
+	for _, tc := range []struct {
+		name string
+		ff   int
+	}{
+		{"Std", log.LstdFlags},
+		{"Det", log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			l := log.New(ioutil.Discard, "", tc.ff)
 
-	l := log.New(ioutil.Discard, "", log.LstdFlags)
+			b.Run("SingleThread", func(b *testing.B) {
+				b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		l.Printf("message: %d", i)
+				for i := 0; i < b.N; i++ {
+					l.Printf("message: %d", 1000+i)
+				}
+			})
+
+			b.Run("Parallel", func(b *testing.B) {
+				b.ReportAllocs()
+
+				b.RunParallel(func(b *testing.PB) {
+					i := 0
+					for b.Next() {
+						i++
+						l.Printf("message: %d", 1000+i)
+					}
+				})
+			})
+		})
 	}
 }
 
-func BenchmarkTlogConsoleLoggerStd(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkTlogLogger(b *testing.B) {
+	for _, tc := range []struct {
+		name string
+		ff   int
+	}{
+		{"Std", LstdFlags},
+		{"Det", LdetFlags},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			l := New(NewConsoleWriter(ioutil.Discard, tc.ff))
+			if tc.ff == LstdFlags {
+				l.NoLocations = true
+			}
 
-	l := New(NewConsoleWriter(ioutil.Discard, LstdFlags))
-	l.NoLocations = true
+			b.Run("SingleThread", func(b *testing.B) {
+				b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		l.Printf("message: %d", i)
+				for i := 0; i < b.N; i++ {
+					l.Printf("message: %d", 1000+i)
+				}
+			})
+
+			b.Run("Parallel", func(b *testing.B) {
+				b.ReportAllocs()
+
+				b.RunParallel(func(b *testing.PB) {
+					i := 0
+					for b.Next() {
+						i++
+						l.Printf("message: %d", 1000+i)
+					}
+				})
+			})
+		})
 	}
 }
 
-func BenchmarkLogLoggerDetailed(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkTlogTraces(b *testing.B) {
+	for _, ws := range []struct {
+		name string
+		nw   func(w io.Writer) Writer
+	}{
+		{"ConsoleStd", func(w io.Writer) Writer {
+			return NewConsoleWriter(w, LstdFlags)
+		}},
+		/*
+			{"ConsoleDet", func(w io.Writer) Writer {
+				return NewConsoleWriter(w, LdetFlags)
+			}},
+		*/
+		{"JSON", func(w io.Writer) Writer {
+			return NewJSONWriter(w)
+		}},
+		{"Proto", func(w io.Writer) Writer {
+			return NewProtoWriter(w)
+		}},
+		{"Discard", func(w io.Writer) Writer {
+			return Discard
+		}},
+	} {
+		b.Run(ws.name, func(b *testing.B) {
+			for _, par := range []bool{false, true} {
+				n := "SingleThread"
+				if par {
+					n = "Parallel"
+				}
 
-	l := log.New(ioutil.Discard, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+				b.Run(n, func(b *testing.B) {
+					buf := []byte("raw message") // reusable buffer
+					ls := Labels{"const=label", "couple=of_them"}
 
-	for i := 0; i < b.N; i++ {
-		l.Printf("message: %d", i)
+					var w CountableDiscard
+					l := New(ws.nw(&w))
+
+					gtr := l.Start()
+
+					for _, tc := range []struct {
+						name string
+						act  func(i int)
+					}{
+						{"StartFinish", func(i int) {
+							tr := l.Start()
+							tr.Finish()
+						}},
+						{"Printf", func(i int) {
+							gtr.Printf("message: %d", 1000+i) // 1 alloc here: int to interface{} conversion
+						}},
+						{"PrintRaw", func(i int) {
+							gtr.PrintRaw(0, buf)
+						}},
+						{"StartPrintfFinish", func(i int) {
+							tr := l.Start()
+							tr.Printf("message: %d", 1000+i, 2000+i, 3000+i) // 1 alloc here: int to interface{} conversion
+							tr.Finish()
+						}},
+						{"Metric", func(i int) {
+							gtr.Observe("metric_full_qualified_name_unit", 123.456, ls)
+						}},
+					} {
+						b.Run(tc.name, func(b *testing.B) {
+							b.ReportAllocs()
+							w.N, w.B = 0, 0
+
+							if par {
+								b.RunParallel(func(b *testing.PB) {
+									i := 0
+									for b.Next() {
+										i++
+										tc.act(i)
+									}
+								})
+							} else {
+								for i := 0; i < b.N; i++ {
+									tc.act(i)
+								}
+							}
+
+							w.ReportDisk(b)
+						})
+					}
+				})
+			}
+		})
 	}
-}
-
-func BenchmarkTlogConsoleDetailedPrintf(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	l := New(NewConsoleWriter(&w, LdetFlags))
-
-	for i := 0; i < b.N; i++ {
-		l.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
-	}
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogTracesConsoleDetailedPrintf(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	l := New(NewConsoleWriter(&w, LdetFlags|Lspans))
-
-	for i := 0; i < b.N; i++ {
-		tr := l.Start()
-		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
-		tr.Finish()
-	}
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogTracesJSONPrintf(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	l := New(NewJSONWriter(&w))
-
-	for i := 0; i < b.N; i++ {
-		tr := l.Start()
-		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
-		tr.Finish()
-	}
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogTracesProtoPrintf(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	l := New(NewProtoWriter(&w))
-
-	for i := 0; i < b.N; i++ {
-		tr := l.Start()
-		tr.Printf("message: %d", i) // 2 allocs here: new(int) and make([]interface{}, 1)
-		tr.Finish()
-	}
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogTracesProtoStartPrintRawFinish(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(NewProtoWriter(ioutil.Discard))
-
-	buf := []byte("raw message") // reusable buffer
-
-	for i := 0; i < b.N; i++ {
-		tr := l.Start()
-		// fill in buffer...
-		tr.PrintRaw(0, buf)
-		tr.Finish()
-	}
-}
-
-func BenchmarkTlogTracesProtoStartPrintRawFinishParallel(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(NewProtoWriter(ioutil.Discard))
-
-	buf := []byte("raw message") // reusable buffer
-
-	b.RunParallel(func(b *testing.PB) {
-		for b.Next() {
-			tr := l.Start()
-			// fill in buffer...
-			tr.PrintRaw(0, buf)
-			tr.Finish()
-		}
-	})
 }
 
 func BenchmarkTlogProtoWrite(b *testing.B) {
@@ -690,176 +730,13 @@ func BenchmarkTlogProtoWrite(b *testing.B) {
 
 	tr := l.Start()
 
-	var buf []byte
-	for i := 0; i < b.N; i++ {
-		buf = AppendPrintf(buf[:0], "message %d", i)
+	buf := AppendPrintf(nil, "message %d", 1000)
 
+	for i := 0; i < b.N; i++ {
 		_, _ = tr.Write(buf)
 	}
 
 	tr.Finish()
-}
-
-func BenchmarkTlogTracesProtoStartFinish(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(NewProtoWriter(ioutil.Discard))
-
-	for i := 0; i < b.N; i++ {
-		tr := l.Start()
-		tr.Finish()
-	}
-}
-
-func BenchmarkTlogProtoPrintRaw(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(NewProtoWriter(ioutil.Discard))
-
-	buf := []byte("raw message") // reusable buffer
-	tr := l.Start()
-
-	for i := 0; i < b.N; i++ {
-		// fill in buffer...
-		tr.PrintRaw(0, buf)
-	}
-
-	tr.Finish()
-}
-
-func BenchmarkTlogProtoPrintf(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(NewProtoWriter(ioutil.Discard))
-
-	tr := l.Start()
-
-	for i := 0; i < b.N; i++ {
-		tr.Printf("message %v", i)
-	}
-
-	tr.Finish()
-}
-
-func BenchmarkTlogJSONPrintf(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-
-	l := New(NewJSONWriter(&w))
-
-	tr := l.Start()
-
-	for i := 0; i < b.N; i++ {
-		tr.Printf("message %v", i)
-	}
-
-	tr.Finish()
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogJSONPrintfParallel(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-
-	l := New(NewJSONWriter(&w))
-
-	tr := l.Start()
-
-	b.RunParallel(func(b *testing.PB) {
-		i := 0
-		for b.Next() {
-			i++
-			tr.Printf("message %v", i)
-		}
-	})
-
-	tr.Finish()
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogJSONPrintRaw(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	var buf []byte
-
-	l := New(NewJSONWriter(&w))
-
-	tr := l.Start()
-
-	for i := 0; i < b.N; i++ {
-		buf = AppendPrintf(buf[:0], "message %v", i)
-		tr.PrintRaw(0, buf)
-	}
-
-	tr.Finish()
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogJSONPrintRawParallel(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-
-	l := New(NewJSONWriter(&w))
-
-	tr := l.Start()
-
-	b.RunParallel(func(b *testing.PB) {
-		var buf []byte
-
-		i := 0
-		for b.Next() {
-			i++
-			buf = AppendPrintf(buf[:0], "message %v", i)
-			tr.PrintRaw(0, buf)
-		}
-	})
-
-	tr.Finish()
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogMetricJSON(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	l := New(NewJSONWriter(&w))
-
-	ls := Labels{"const=label", "couple=of_them"}
-	tr := l.Start()
-
-	for i := 0; i < b.N; i++ {
-		tr.Observe("metric_full_qualified_name_unit", 123.456, ls)
-	}
-
-	tr.Finish()
-
-	w.ReportDisk(b)
-}
-
-func BenchmarkTlogMetricProto(b *testing.B) {
-	b.ReportAllocs()
-
-	var w CountableDiscard
-	l := New(NewProtoWriter(&w))
-
-	ls := Labels{"const=label", "couple=of_them"}
-	tr := l.Start()
-
-	for i := 0; i < b.N; i++ {
-		tr.Observe("metric_full_qualified_name_unit", 123.456, ls)
-	}
-
-	tr.Finish()
-
-	w.ReportDisk(b)
 }
 
 func BenchmarkIDFormat(b *testing.B) {
@@ -884,30 +761,6 @@ func BenchmarkIDFormatTo(b *testing.B) {
 		} else {
 			id.FormatTo(buf[:], 'v')
 		}
-	}
-}
-
-func BenchmarkTlogTracesDiscard(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(Discard)
-	l.NoLocations = true
-
-	t := time.Now()
-
-	now = func() int64 {
-		t.Add(time.Second)
-		return t.UnixNano()
-	}
-
-	msg := []byte("message")
-
-	for i := 0; i < b.N; i++ {
-		tr := l.Start()
-		tr.PrintRaw(0, msg)
-		tr.PrintRaw(0, msg)
-		tr.PrintRaw(0, msg)
-		tr.Finish()
 	}
 }
 
