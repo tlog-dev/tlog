@@ -56,7 +56,7 @@ func (t *Conn) Send(/*...*/) {
     // ...
     tlog.V("telemetry,debug").Printf("telemetry ...")
     // ...
-    if l := tlog.V("read,error"); l != nil {
+    if tlog.If("read,error") {
         // prepare and log message
     }
 }
@@ -171,9 +171,9 @@ You can implement your own [tlog.Writer](https://pkg.go.dev/github.com/nikandfor
 
 ```golang
 Writer interface {
-    Labels(Labels, ID) error
-    SpanStarted(id, parent Span, started int64, loc Location) error
-    SpanFinished(sid ID, elapsed int64) error
+    Labels(ls Labels, sid ID) error
+    SpanStarted(s SpanStart) error
+    SpanFinished(f SpanFinish) error
     Message(m Message, sid ID) error
     Metric(m Metric, sid ID) error
     Meta(m Meta) error
