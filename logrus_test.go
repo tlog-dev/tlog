@@ -7,7 +7,7 @@ import (
 )
 
 func BenchmarkLogrusLogger(b *testing.B) {
-	var w CountableDiscard
+	var w CountableIODiscard
 
 	l := logrus.New()
 	l.Out = &w

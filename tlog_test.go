@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -754,7 +753,7 @@ func BenchmarkTlogTraces(b *testing.B) {
 					buf := []byte("raw message") // reusable buffer
 					ls := Labels{"const=label", "couple=of_them"}
 
-					var w CountableDiscard
+					var w CountableIODiscard
 					l := New(ws.nw(&w))
 
 					gtr := l.Start()
@@ -949,21 +948,6 @@ func TestTlogGrandParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-}
-
-type CountableDiscard struct {
-	B, N int64
-}
-
-func (w *CountableDiscard) ReportDisk(b *testing.B) {
-	b.ReportMetric(float64(w.B)/float64(b.N), "disk_B/op")
-}
-
-func (w *CountableDiscard) Write(p []byte) (int, error) {
-	atomic.AddInt64(&w.N, 1)
-	atomic.AddInt64(&w.B, int64(len(p)))
-
-	return len(p), nil
 }
 
 func testNow(tm *time.Time) func() int64 {

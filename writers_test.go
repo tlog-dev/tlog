@@ -471,7 +471,7 @@ func BenchmarkWriter(b *testing.B) {
 					ls := Labels{"a=b", "c=d"}
 					msg := []byte("some message")
 
-					var cw CountableDiscard
+					var cw CountableIODiscard
 					w := ws.nw(&cw)
 
 					for _, tc := range []struct {

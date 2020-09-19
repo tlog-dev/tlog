@@ -8,7 +8,7 @@ import (
 )
 
 func BenchmarkZapLogger(b *testing.B) {
-	var w CountableDiscard
+	var w CountableIODiscard
 
 	enc := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		MessageKey:     "m",
