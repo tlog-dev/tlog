@@ -178,6 +178,56 @@ raw message 3
 	assert.Equal(t, 3, n)
 }
 
+func TestPrintw(t *testing.T) {
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+	DefaultLogger.randID = testRandID()
+
+	cfg := DefaultStructuredConfig
+	cfg.MessageWidth = 20
+	DefaultLogger.StructuredConfig = &cfg
+
+	Printw("message", "i", 1, "receiver", "pkg")
+	PrintwDepth(0, "message", "i", 2, "receiver", "pkg")
+
+	DefaultLogger.Printw("message", "i", 3, "receiver", "logger")
+	DefaultLogger.PrintwDepth(0, "message", "i", 4, "receiver", "logger")
+
+	tr := Start()
+	tr.Printw("message", "i", 5, "receiver", "trace")
+	tr.PrintwDepth(0, "message", "i", 6, "receiver", "trace")
+	tr.Finish()
+
+	tr = Span{}
+	tr.Printw("message", "i", 7)
+
+	Printw("msg", "quoted", `a=b`)
+	Printw("msg", "quoted", `q"w"e`)
+
+	Printw("msg", "empty", ``)
+	cfg.QuoteEmptyValue = true
+	Printw("msg", "empty", ``)
+
+	Printw("msg", "difflen", `a`, "next", "val")
+	Printw("msg", "difflen", `abcde`, "next", "val")
+	Printw("msg", "difflen", `ab`, "next", "val")
+
+	assert.Equal(t, `message             i=1  receiver=pkg
+message             i=2  receiver=pkg
+message             i=3  receiver=logger
+message             i=4  receiver=logger
+message             span=0194fdc2  i=5  receiver=trace
+message             span=0194fdc2  i=6  receiver=trace
+msg                 quoted="a=b"
+msg                 quoted="q\"w\"e"
+msg                 empty=
+msg                 empty=""
+msg                 difflen=a  next=val
+msg                 difflen=abcde  next=val
+msg                 difflen=ab     next=val
+`, buf.String())
+}
+
 //nolint:wsl
 func TestVerbosity(t *testing.T) {
 	defer func(old func() int64) {
@@ -563,7 +613,7 @@ func BenchmarkPrintfVsPrintln(b *testing.B) {
 	}
 }
 
-func BenchmarkLogLogger(b *testing.B) {
+func BenchmarkStdLogLogger(b *testing.B) {
 	for _, tc := range []struct {
 		name string
 		ff   int
@@ -599,6 +649,7 @@ func BenchmarkLogLogger(b *testing.B) {
 	}
 }
 
+//nolint:gocognit
 func BenchmarkTlogLogger(b *testing.B) {
 	for _, tc := range []struct {
 		name string
@@ -615,25 +666,51 @@ func BenchmarkTlogLogger(b *testing.B) {
 				l.NoLocations = true
 			}
 
-			b.Run("SingleThread", func(b *testing.B) {
-				b.ReportAllocs()
+			cases := []struct {
+				name string
+				act  func(i int)
+			}{
+				{"Printf", func(i int) { l.Printf("message: %d", 1000+i) }},
+				{"Printw", func(i int) { l.Printw("message", "i", 1000+i) }},
+			}
 
-				for i := 0; i < b.N; i++ {
-					l.Printf("message: %d", 1000+i)
+			for _, par := range []bool{false, true} {
+				par := par
+
+				if !par {
+					b.Run("SingleThread", func(b *testing.B) {
+						for _, tc := range cases {
+							tc := tc
+
+							b.Run(tc.name, func(b *testing.B) {
+								b.ReportAllocs()
+
+								for i := 0; i < b.N; i++ {
+									tc.act(i)
+								}
+							})
+						}
+					})
+				} else {
+					b.Run("Parallel", func(b *testing.B) {
+						for _, tc := range cases {
+							tc := tc
+
+							b.Run(tc.name, func(b *testing.B) {
+								b.ReportAllocs()
+
+								b.RunParallel(func(b *testing.PB) {
+									i := 0
+									for b.Next() {
+										i++
+										tc.act(i)
+									}
+								})
+							})
+						}
+					})
 				}
-			})
-
-			b.Run("Parallel", func(b *testing.B) {
-				b.ReportAllocs()
-
-				b.RunParallel(func(b *testing.PB) {
-					i := 0
-					for b.Next() {
-						i++
-						l.Printf("message: %d", 1000+i)
-					}
-				})
-			})
+			}
 		})
 	}
 }
