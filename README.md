@@ -368,10 +368,10 @@ goarch: amd64
 pkg: github.com/nikandfor/tlog
 
 # logging
-BenchmarkLogLogger/Std/SingleThread-8         	 3347139	       351 ns/op	      24 B/op	       2 allocs/op
-BenchmarkLogLogger/Std/Parallel-8             	 2244493	       515 ns/op	      24 B/op	       2 allocs/op
-BenchmarkLogLogger/Det/SingleThread-8         	  935287	      1239 ns/op	     240 B/op	       4 allocs/op
-BenchmarkLogLogger/Det/Parallel-8             	 1000000	      1288 ns/op	     240 B/op	       4 allocs/op
+BenchmarkStdLogLogger/Std/SingleThread-8       	 3347139	       351 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStdLogLogger/Std/Parallel-8           	 2244493	       515 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStdLogLogger/Det/SingleThread-8       	  935287	      1239 ns/op	     240 B/op	       4 allocs/op
+BenchmarkStdLogLogger/Det/Parallel-8           	 1000000	      1288 ns/op	     240 B/op	       4 allocs/op
 
 BenchmarkTlogLogger/Std/SingleThread-8        	 4033232	       288 ns/op	       8 B/op	       1 allocs/op
 BenchmarkTlogLogger/Std/Parallel-8            	 7586926	       157 ns/op	       8 B/op	       1 allocs/op
@@ -381,8 +381,11 @@ BenchmarkTlogLogger/Det/Parallel-8            	 4203811	       296 ns/op	       
 BenchmarkZapLogger/SingleThread-8             	  576332	      1875 ns/op	     344 B/op	       4 allocs/op
 BenchmarkZapLogger/Parallel-8                 	 2139580	       574 ns/op	     344 B/op	       4 allocs/op
 
-BenchmarkGlogLogger/SingleThread-8         	  912760	      1325 ns/op	     224 B/op	       3 allocs/op
-BenchmarkGlogLogger/Parallel-8             	 1943516	       629 ns/op	     224 B/op	       3 allocs/op
+BenchmarkGlogLogger/SingleThread-8          	  912760	      1325 ns/op	     224 B/op	       3 allocs/op
+BenchmarkGlogLogger/Parallel-8              	 1943516	       629 ns/op	     224 B/op	       3 allocs/op
+
+BenchmarkLogrusLogger/SingleThread-8         	  386980	      2786 ns/op	     896 B/op	      19 allocs/op
+BenchmarkLogrusLogger/Parallel-8             	  263313	      5347 ns/op	     897 B/op	      19 allocs/op
 
 # trace with one message (must actually be one alloc on 8 bytes per op)
 BenchmarkTlogTraces/ConsoleStd/SingleThread/StartPrintfFinish-8   	  697705	      1542 ns/op	        36.8 disk_B/op	       0 B/op	       0 allocs/op

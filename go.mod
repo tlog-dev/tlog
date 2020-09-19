@@ -13,6 +13,7 @@ require (
 	github.com/nikandfor/xrain v0.0.0-20200918135248-f1d704dd29ca
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
+	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.15.0
 	google.golang.org/protobuf v1.25.0
