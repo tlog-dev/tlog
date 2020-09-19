@@ -9,7 +9,7 @@
 # tlog
 TraceLog - distributed tracing, logging and metrics.
 
-Explore [examples](examples).
+Explore [examples](examples) and [extensions](ext).
 
 Idea and most of the concepts were designated while working on distributed systems in [Yuri Korzhenevsky R&D Center](https://www.rnd.center).
 
