@@ -73,7 +73,7 @@ func fire(tr tlog.Span, a1 int, a2 float64, buf []byte) []byte {
 	tr.Logger.Message(tlog.Message{
 		Location: fireLocation,
 		// Time: time.Now().UnixNano(),
-		Text: buf,
+		Text: tlog.UnsafeBytesToString(buf),
 	}, tr.ID)
 
 	return buf // reuse buffer

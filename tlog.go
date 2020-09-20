@@ -70,7 +70,7 @@ type (
 	Message struct {
 		Location Location
 		Time     int64
-		Text     []byte
+		Text     string
 		Attrs    Attrs
 	}
 
@@ -387,7 +387,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 		Message{
 			Location: loc,
 			Time:     t,
-			Text:     txt,
+			Text:     bytesToString(txt),
 			Attrs:    attrs,
 		},
 		sid,

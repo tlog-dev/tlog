@@ -41,7 +41,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     now(),
-		Text:     []byte("3"),
+		Text:     "3",
 	}, tlog.ID{})
 
 	_ = w.SpanStarted(tlog.SpanStart{
@@ -54,7 +54,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	_ = w.Message(tlog.Message{
 		Location: tlog.Caller(0),
 		Time:     now(),
-		Text:     []byte("5"),
+		Text:     "5",
 	}, ID{1})
 
 	_ = w.SpanStarted(tlog.SpanStart{

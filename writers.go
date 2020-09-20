@@ -473,7 +473,7 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 		Message{
 			Location: loc,
 			Time:     now(),
-			Text:     b,
+			Text:     bytesToString(b),
 		},
 		sid,
 	)
@@ -491,7 +491,7 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 		Message{
 			Location: loc,
 			Time:     now(),
-			Text:     b,
+			Text:     bytesToString(b),
 		},
 		ID{},
 	)
@@ -513,7 +513,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 		Message{
 			Location: loc,
 			Time:     now(),
-			Text:     b,
+			Text:     bytesToString(b),
 		},
 		sid,
 	)

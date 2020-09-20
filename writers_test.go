@@ -199,7 +199,7 @@ func TestProtoWriter(t *testing.T) {
 		Message{
 			Location: loc,
 			Time:     2,
-			Text:     []byte("4"),
+			Text:     "4",
 		},
 		id,
 	)
@@ -300,7 +300,7 @@ func TestProtoWriter(t *testing.T) {
 		Message{
 			Location: loc,
 			Time:     2,
-			Text:     make([]byte, 1000),
+			Text:     string(make([]byte, 1000)),
 		},
 		id,
 	)
@@ -320,7 +320,7 @@ func TestProtoWriter(t *testing.T) {
 	// Metric with Attributes
 	_ = w.Message(
 		Message{
-			Text: []byte("text"),
+			Text: "text",
 			Attrs: Attrs{
 				{"id", id},
 				{"int", 8},
@@ -443,7 +443,7 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, ID{})
-	_ = w.Message(Message{Location: loc, Text: []byte("msg"), Time: 1}, ID{})
+	_ = w.Message(Message{Location: loc, Text: "msg", Time: 1}, ID{})
 	_ = w.SpanStarted(SpanStart{ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe})
 	_ = w.SpanFinished(SpanFinish{ID{100}, time.Second.Nanoseconds()})
 
@@ -505,7 +505,7 @@ func BenchmarkWriter(b *testing.B) {
 
 				b.Run(n, func(b *testing.B) {
 					ls := Labels{"a=b", "c=d"}
-					msg := []byte("some message")
+					msg := "some message"
 
 					var cw CountableIODiscard
 					w := ws.nw(&cw)

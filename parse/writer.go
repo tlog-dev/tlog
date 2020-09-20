@@ -59,7 +59,7 @@ func (w AnyWriter) Message(m Message) error {
 		tlog.Message{
 			Location: tlog.Location(m.Location),
 			Time:     m.Time,
-			Text:     []byte(m.Text),
+			Text:     m.Text,
 		},
 		m.Span,
 	)
@@ -98,13 +98,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 }
 
 func (w *ConsoleWriter) Labels(ls Labels) error {
-	b := tlog.AppendPrintf(nil, "Labels: %q", ls)
-	return w.w.Message(
-		tlog.Message{
-			Text: b,
-		},
-		ls.Span,
-	)
+	return w.w.Labels(ls.Labels, ls.Span)
 }
 
 func (w *ConsoleWriter) Location(l Location) error {
@@ -127,7 +121,7 @@ func (w *ConsoleWriter) Message(m Message) (err error) {
 		tlog.Message{
 			Location: tlog.Location(m.Location),
 			Time:     m.Time,
-			Text:     []byte(m.Text),
+			Text:     m.Text,
 		},
 		m.Span,
 	)
@@ -136,8 +130,9 @@ func (w *ConsoleWriter) Message(m Message) (err error) {
 func (w *ConsoleWriter) Metric(m Metric) (err error) {
 	return w.w.Metric(
 		tlog.Metric{
-			Name:  m.Name,
-			Value: m.Value,
+			Name:   m.Name,
+			Value:  m.Value,
+			Labels: m.Labels,
 		},
 		m.Span,
 	)
