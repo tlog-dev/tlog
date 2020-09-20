@@ -114,14 +114,14 @@ Location in source code is recorded for each message you log (if you not disable
 ```golang
 l := tlog.Caller(0) // 0 means current line
 l = tlog.Caller(2) // 2 frames higher
-s := tlog.StackTrace(2, 4) // skip 2 frames and record next 4
+s := tlog.Callers(2, 4) // skip 2 frames and record next 4
 ```
 Then you may get function name, file name and file line for each frame.
 ```golang
 funcName, fileName, fileLine := l.NameFileLine()
 funcName, fileName, fileLine = s[2].NameFileLine()
 tlog.Printf("called from here: %v", l.String())
-tlog.Printf("crashed\n%v", tlog.StackTrace(0, 10))
+tlog.Printf("crashed\n%v", tlog.Callers(0, 10))
 ```
 
 ## Writer
@@ -373,10 +373,14 @@ BenchmarkStdLogLogger/Std/Parallel-8           	 2244493	       515 ns/op	      
 BenchmarkStdLogLogger/Det/SingleThread-8       	  935287	      1239 ns/op	     240 B/op	       4 allocs/op
 BenchmarkStdLogLogger/Det/Parallel-8           	 1000000	      1288 ns/op	     240 B/op	       4 allocs/op
 
-BenchmarkTlogLogger/Std/SingleThread-8        	 4033232	       288 ns/op	       8 B/op	       1 allocs/op
-BenchmarkTlogLogger/Std/Parallel-8            	 7586926	       157 ns/op	       8 B/op	       1 allocs/op
-BenchmarkTlogLogger/Det/SingleThread-8        	 1240795	       920 ns/op	       8 B/op	       1 allocs/op
-BenchmarkTlogLogger/Det/Parallel-8            	 4203811	       296 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Std/SingleThread/Printf-8         	 4355400	       280 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTlogLogger/Std/SingleThread/Printw-8         	 4105479	       294 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Std/Parallel/Printf-8             	 7600929	       155 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTlogLogger/Std/Parallel/Printw-8             	 7674375	       156 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Det/SingleThread/Printf-8         	 1000000	      1029 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTlogLogger/Det/SingleThread/Printw-8         	  953114	      1129 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTlogLogger/Det/Parallel/Printf-8             	 3991116	       315 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTlogLogger/Det/Parallel/Printw-8             	 3677959	       335 ns/op	       8 B/op	       1 allocs/op
 
 BenchmarkZapLogger/SingleThread-8             	  576332	      1875 ns/op	     344 B/op	       4 allocs/op
 BenchmarkZapLogger/Parallel-8                 	 2139580	       574 ns/op	     344 B/op	       4 allocs/op
@@ -388,12 +392,12 @@ BenchmarkLogrusLogger/SingleThread-8         	  386980	      2786 ns/op	     896
 BenchmarkLogrusLogger/Parallel-8             	  263313	      5347 ns/op	     897 B/op	      19 allocs/op
 
 # trace with one message (must actually be one alloc on 8 bytes per op)
-BenchmarkTlogTraces/ConsoleStd/SingleThread/StartPrintfFinish-8   	  697705	      1542 ns/op	        36.8 disk_B/op	       0 B/op	       0 allocs/op
-BenchmarkTlogTraces/ConsoleStd/Parallel/StartPrintfFinish-8       	 1956374	       643 ns/op	        36.5 disk_B/op	       0 B/op	       0 allocs/op
-BenchmarkTlogTraces/JSON/SingleThread/StartPrintfFinish-8         	  520746	      1963 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
-BenchmarkTlogTraces/JSON/Parallel/StartPrintfFinish-8             	 1484274	       800 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
-BenchmarkTlogTraces/Proto/SingleThread/StartPrintfFinish-8        	  602307	      1778 ns/op	       114 disk_B/op	       0 B/op	       0 allocs/op
-BenchmarkTlogTraces/Proto/Parallel/StartPrintfFinish-8            	 1597158	       721 ns/op	       113 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/ConsoleStd/SingleThread/StartPrintfFinish-8   	  648499	      1837 ns/op	        36.8 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/ConsoleStd/Parallel/StartPrintfFinish-8       	 1615582	       718 ns/op	        36.5 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/JSON/SingleThread/StartPrintfFinish-8         	  444662	      2440 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/JSON/Parallel/StartPrintfFinish-8             	 1486056	       821 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/Proto/SingleThread/StartPrintfFinish-8        	  469704	      2306 ns/op	       114 disk_B/op	       0 B/op	       0 allocs/op
+BenchmarkTlogTraces/Proto/Parallel/StartPrintfFinish-8            	 1578048	       763 ns/op	       113 disk_B/op	       0 B/op	       0 allocs/op
 
 # writers
 BenchmarkWriter/ConsoleDet/SingleThread/TracedMessage-8         	 5658282	       208 ns/op	        63.0 disk_B/op	       0 B/op	       0 allocs/op
@@ -421,3 +425,4 @@ BenchmarkLocationNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	     
 # Roadmap
 * Create swiss knife tool to analyse system performance through traces.
 * Create interactive dashboard for traces with web interface.
+* Integrate with existing tools

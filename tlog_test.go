@@ -716,7 +716,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 }
 
 //nolint:gocognit
-func BenchmarkTlogTraces(b *testing.B) {
+func BenchmarkTlogTracer(b *testing.B) {
 	for _, ws := range []struct {
 		name string
 		nw   func(w io.Writer) Writer

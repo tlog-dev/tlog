@@ -12,10 +12,13 @@ require (
 	github.com/nikandfor/json v0.2.0
 	github.com/nikandfor/quantile v0.0.0-20200824213034-5a47c65eb02b
 	github.com/nikandfor/xrain v0.0.0-20200920181451-7477483fd7ca
+	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.6.1
+	github.com/uber/jaeger-client-go v2.25.0+incompatible
+	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	go.opentelemetry.io/otel v0.11.0
 	go.uber.org/zap v1.15.0
 	google.golang.org/grpc v1.27.0
