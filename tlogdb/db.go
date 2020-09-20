@@ -29,11 +29,12 @@ import (
 	lm -> <hash> => <message_ts> => <message_ctx>
 
 	Ls -> <k=v> -> <span_ts> => <span_id>
-	Lm -> <k=v> -> <message_ts> => <message_ctx>
+//	Lm -> <k=v> -> <message_ts> => <message_ctx>
+	Lh -> <labels_hash> => <kv_list>
 
-	sL -> <span_id> => <labels>
+	sL -> <span_id> => <labels_hash>
 
-	m -> <ts> => <message_ctx> | <message>
+	m -> <ts> | <message_ctx> => <message>
 	s -> <ts> => <span_start>
 	f -> <ts> => <span_finish>
 
@@ -41,9 +42,14 @@ import (
 	p -> <span_id> => <parent_span_id>
 	c -> <span_id> -> <child_span_ts> => <child_span_id>
 
-	sm -> <span_id> -> <message_ts> => <message_ctx>
+	sm -> <span_id> -> <message_ts> | <message_ctx>
 
-	q -> <pref> -> <message_ts> => <message_ctx>
+	q -> <pref> -> <message_ts> | <message_ctx>
+*/
+
+/*
+	labels_is() chan span_ts
+
 */
 
 type (
@@ -93,7 +99,7 @@ type (
 	merge []stream
 )
 
-const qstep, qMaxPrefix = 4, 16
+const qStep, qMaxPrefix = 4, 16
 
 var tl *tlog.Logger
 
@@ -222,21 +228,21 @@ func (d *DB) query(tx *xrain.Tx, q, it []byte) (_ stream, err error) {
 	if len(q) == 0 {
 		return
 	}
-	if len(q) < qstep {
+	if len(q) < qStep {
 		return d.queryShort(tx, q, it)
 	}
 
 	qb := tx.Bucket([]byte("q"))
 	i := 0
 
-	for i+qstep <= len(q) {
-		sub := qb.Bucket(q[i : i+qstep])
+	for i+qStep <= len(q) {
+		sub := qb.Bucket(q[i : i+qStep])
 		if sub == nil {
 			return
 		}
 
 		qb = sub
-		i += qstep
+		i += qStep
 	}
 
 	return d.seek(q[:i], qb, it), nil

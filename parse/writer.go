@@ -31,6 +31,8 @@ type (
 	}
 )
 
+var _ tlog.Writer = &ConvertWriter{}
+
 func NewAnyWiter(w tlog.Writer) AnyWriter {
 	return AnyWriter{w: w}
 }
@@ -174,38 +176,47 @@ func (w *ConvertWriter) Meta(m tlog.Meta) error {
 	)
 }
 
-func (w *ConvertWriter) Message(m tlog.Message, s tlog.Span) error {
+func (w *ConvertWriter) Message(m tlog.Message, sid tlog.ID) error {
 	err := w.location(m.Location)
 	if err != nil {
 		return err
 	}
 
 	return w.w.Message(Message{
-		Span:     s.ID,
+		Span:     sid,
 		Location: uint64(m.Location),
 		Time:     m.Time,
-		Text:     string(m.Text),
+		Text:     m.Text,
 	})
 }
 
-func (w *ConvertWriter) SpanStarted(s tlog.Span, p ID, l tlog.Location) error {
-	err := w.location(l)
+func (w *ConvertWriter) Metric(m tlog.Metric, sid tlog.ID) error {
+	return w.w.Metric(Metric{
+		Span:   sid,
+		Name:   m.Name,
+		Value:  m.Value,
+		Labels: m.Labels,
+	})
+}
+
+func (w *ConvertWriter) SpanStarted(s tlog.SpanStart) error {
+	err := w.location(s.Location)
 	if err != nil {
 		return err
 	}
 
 	return w.w.SpanStart(SpanStart{
 		ID:       s.ID,
-		Parent:   p,
-		Location: uint64(l),
+		Parent:   s.Parent,
+		Location: uint64(s.Location),
 		Started:  s.Started,
 	})
 }
 
-func (w *ConvertWriter) SpanFinished(s tlog.Span, el int64) error {
+func (w *ConvertWriter) SpanFinished(f tlog.SpanFinish) error {
 	return w.w.SpanFinish(SpanFinish{
-		ID:      s.ID,
-		Elapsed: el,
+		ID:      f.ID,
+		Elapsed: f.Elapsed,
 	})
 }
 

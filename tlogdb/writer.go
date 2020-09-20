@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/xrain"
 
 	"github.com/nikandfor/tlog"
@@ -97,8 +98,12 @@ func (w *Writer) Message(m parse.Message) (err error) {
 	err = w.d.d.Update(func(tx *xrain.Tx) (err error) {
 		b := tx.Bucket([]byte("m"))
 
-		if v := b.Get(tsbuf[:]); bytes.Equal(v, data) {
+		oldv := b.Get(tsbuf[:])
+		if oldv != nil && bytes.Equal(oldv, data) {
 			return nil
+		}
+		if oldv != nil {
+			return errors.New("duplicated timestamp: %+v", m)
 		}
 
 		err = b.Put(tsbuf[:], data)
@@ -181,8 +186,8 @@ func (w *Writer) insertQuery(tx *xrain.Tx, q, key, val []byte) (err error) {
 	for i := 0; i < len(q); i++ {
 		b := qb
 
-		for j := 0; i+j+qstep <= len(q) && i+j+qstep <= qMaxPrefix; j += qstep {
-			pref := q[i+j : i+j+qstep]
+		for j := 0; i+j+qStep <= len(q) && i+j+qStep <= qMaxPrefix; j += qStep {
+			pref := q[i+j : i+j+qStep]
 
 			b, err = b.PutBucket(pref)
 			if err != nil {

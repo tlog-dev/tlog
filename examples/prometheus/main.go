@@ -68,7 +68,7 @@ func main() {
 		c.String(http.StatusOK, "ok\n")
 	})
 
-	r.Use(tlgin.CustomLogger(l))
+	r.Use(tlgin.CustomTracer(l))
 
 	v1 := r.Group("v1")
 

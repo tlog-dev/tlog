@@ -2,9 +2,7 @@ package tlgin
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
-	"net/http"
 	"runtime/debug"
 	"time"
 
@@ -14,26 +12,20 @@ import (
 )
 
 func Tracer(c *gin.Context) {
-	tracer(tlog.DefaultLogger, c, true)
-}
-
-func Logger(c *gin.Context) {
-	tracer(tlog.DefaultLogger, c, false)
+	tracer(tlog.DefaultLogger, c)
 }
 
 func CustomTracer(l *tlog.Logger) func(*gin.Context) {
 	return func(c *gin.Context) {
-		tracer(l, c, true)
+		tracer(l, c)
 	}
 }
 
-func CustomLogger(l *tlog.Logger) func(*gin.Context) {
-	return func(c *gin.Context) {
-		tracer(l, c, false)
-	}
+func Logger(c *gin.Context) {
+	logger(c, true)
 }
 
-func tracer(l *tlog.Logger, c *gin.Context, ptid bool) {
+func tracer(l *tlog.Logger, c *gin.Context) {
 	var trid tlog.ID
 	var err error
 
@@ -52,40 +44,51 @@ func tracer(l *tlog.Logger, c *gin.Context, ptid bool) {
 		tr.Printf("bad parent trace id %v: %v", xtr, err)
 	}
 
-	defer func() {
-		if p := recover(); p != nil {
-			s := debug.Stack()
-			tr.Printf("panic: %v\n%s", p, s)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("%v", p)})
-		}
+	c.Set("tlog.par", trid)
 
-		if ptid {
-			tr.Printf("%-15v | %v | %3v | %13.3fs | %-8v %v",
-				c.ClientIP(), trid, c.Writer.Status(), time.Since(time.Unix(0, tr.Started)).Seconds(), c.Request.Method, c.Request.URL.Path)
-		} else {
-			tr.Printf("%-15v | %3v | %13.3fs | %-8v %v",
-				c.ClientIP(), c.Writer.Status(), time.Since(time.Unix(0, tr.Started)).Seconds(), c.Request.Method, c.Request.URL.Path)
-		}
-	}()
-
-	if tr := tr.V("begin"); tr.Valid() {
-		if ptid {
-			tr.Printf("%-15v | %v | %-8v %v", c.ClientIP(), trid, c.Request.Method, c.Request.URL.Path)
-		} else {
-			tr.Printf("%-15v | %-8v %v", c.ClientIP(), c.Request.Method, c.Request.URL.Path)
-		}
-	}
-
-	c.Set("trace", tr)
-	c.Set("traceid", tr.ID)
+	c.Set("tlog.span", tr)
+	c.Set("tlog.id", tr.ID)
 
 	c.Header("X-Traceid", tr.ID.FullString())
 
 	c.Next()
 }
 
-func TraceFromContext(c *gin.Context) (tr tlog.Span) {
-	i, ok := c.Get("trace")
+func logger(c *gin.Context, ptid bool) {
+	tr := SpanFromContext(c)
+
+	par, _ := c.Value("tlog.par").(tlog.ID)
+
+	if tr := tr.V("begin"); tr.Valid() {
+		if ptid {
+			tr.Printf("%-15v | %v | %-8v %v", c.ClientIP(), par, c.Request.Method, c.Request.URL.Path)
+		} else {
+			tr.Printf("%-15v | %-8v %v", c.ClientIP(), c.Request.Method, c.Request.URL.Path)
+		}
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			s := debug.Stack()
+
+			tr.Printf("panic: %v\n%s", p, s)
+			//	c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("%v", p)})
+		}
+
+		if ptid {
+			tr.Printf("%-15v | %v | %3v | %13.3fs | %-8v %v",
+				c.ClientIP(), par, c.Writer.Status(), time.Since(tr.Started).Seconds(), c.Request.Method, c.Request.URL.Path)
+		} else {
+			tr.Printf("%-15v | %3v | %13.3fs | %-8v %v",
+				c.ClientIP(), c.Writer.Status(), time.Since(tr.Started).Seconds(), c.Request.Method, c.Request.URL.Path)
+		}
+	}()
+
+	c.Next()
+}
+
+func SpanFromContext(c *gin.Context) (tr tlog.Span) {
+	i, ok := c.Get("tlog.span")
 	if !ok {
 		return
 	}
@@ -95,8 +98,8 @@ func TraceFromContext(c *gin.Context) (tr tlog.Span) {
 	return
 }
 
-func TraceIDFromContext(c *gin.Context) (id tlog.ID) {
-	i, ok := c.Get("traceid")
+func IDFromContext(c *gin.Context) (id tlog.ID) {
+	i, ok := c.Get("tlog.id")
 	if !ok {
 		return
 	}
@@ -107,7 +110,7 @@ func TraceIDFromContext(c *gin.Context) (id tlog.ID) {
 }
 
 func Dumper(c *gin.Context) {
-	tr := TraceFromContext(c)
+	tr := SpanFromContext(c)
 
 	if tr := tr.V("rawbody,rawrequest"); tr.Valid() {
 		data, err := ioutil.ReadAll(c.Request.Body)
