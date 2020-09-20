@@ -380,7 +380,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 		}
 	} else {
 		b, wr := Getbuf()
-		defer wr.Ret(b)
+		defer wr.Ret(&b)
 
 		if f != "" {
 			b = AppendPrintf(b, f, args...)
@@ -391,12 +391,21 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 		txt = b
 	}
 
+	var lattrs Attrs
+
+	if len(attrs) != 0 {
+		b, wr := GetAttrsbuf()
+		defer wr.Ret(&b)
+
+		lattrs = append(b[:0], attrs...)
+	}
+
 	_ = l.Writer.Message(
 		Message{
 			Location: loc,
 			Time:     t.UnixNano(),
 			Text:     bytesToString(txt),
-			Attrs:    attrs,
+			Attrs:    lattrs,
 		},
 		sid,
 	)

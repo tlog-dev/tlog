@@ -120,6 +120,10 @@ type (
 		b bufWriter
 	}
 
+	awr struct {
+		b Attrs
+	}
+
 	LockedIOWriter struct {
 		mu sync.Mutex
 		w  io.Writer
@@ -141,16 +145,28 @@ var ( // type checks
 
 var spaces = []byte("                                                                                                                                                ")
 
-var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 1000)} }}
+var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 128)} }}
 
 func Getbuf() (_ bufWriter, w *bwr) {
 	w = bufPool.Get().(*bwr)
 	return w.b[:0], w
 }
 
-func (w *bwr) Ret(b bufWriter) {
-	w.b = b
+func (w *bwr) Ret(b *bufWriter) {
+	w.b = *b
 	bufPool.Put(w)
+}
+
+var attrsPool = sync.Pool{New: func() interface{} { return &awr{b: make(Attrs, 4)} }}
+
+func GetAttrsbuf() (_ Attrs, w *awr) {
+	w = attrsPool.Get().(*awr)
+	return w.b[:0], w
+}
+
+func (w *awr) Ret(b *Attrs) {
+	w.b = *b
+	attrsPool.Put(w)
 }
 
 // NewConsoleWriter creates writer with similar output as log.Logger.
@@ -370,7 +386,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc Location) []byte {
 // Message writes Message event by single Write.
 func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = w.buildHeader(b, m.Time, m.Location)
 
@@ -412,7 +428,7 @@ func (w *ConsoleWriter) SpanStarted(s SpanStart) (err error) {
 	}
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = w.spanHeader(b, s.ID, s.Parent, s.Started, s.Location)
 
@@ -440,7 +456,7 @@ func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 	}
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = w.spanHeader(b, f.ID, ID{}, now().UnixNano(), 0)
 
@@ -461,7 +477,7 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	loc := w.caller()
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = append(b, "Labels:"...)
 	for _, l := range ls {
@@ -483,7 +499,7 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 	loc := w.caller()
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = AppendPrintf(b, "Meta: %v %q", m.Type, m.Data)
 
@@ -501,7 +517,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	loc := w.caller()
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = AppendPrintf(b, "%v  %15.5f ", m.Name, m.Value)
 	for _, l := range m.Labels {
@@ -555,7 +571,7 @@ func NewJSONWriter(w io.Writer) *JSONWriter {
 // Labels writes Labels to the stream.
 func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = append(b, `{"L":{`...)
 
@@ -587,7 +603,7 @@ func (w *JSONWriter) Labels(ls Labels, sid ID) (err error) {
 
 func (w *JSONWriter) Meta(m Meta) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = append(b, `{"M":{"t":"`...)
 	b = appendSafe(b, m.Type)
@@ -619,7 +635,7 @@ func (w *JSONWriter) Meta(m Meta) (err error) {
 // Message writes event to the stream.
 func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	if m.Location != 0 {
 		w.mu.Lock()
@@ -821,7 +837,7 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 	w.mu.Unlock()
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = append(b, `{"v":{`...)
 
@@ -867,7 +883,7 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 // SpanStarted writes event to the stream.
 func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	if s.Location != 0 {
 		w.mu.Lock()
@@ -909,7 +925,7 @@ func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 // SpanFinished writes event to the stream.
 func (w *JSONWriter) SpanFinished(f SpanFinish) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = append(b, `{"f":{"i":"`...)
 	i := len(b)
@@ -976,7 +992,7 @@ func (w *ProtoWriter) Labels(ls Labels, sid ID) (err error) {
 	szs := varintSize(uint64(sz))
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	b = appendVarint(b, uint64(1+szs+sz))
 
@@ -1006,7 +1022,7 @@ func (w *ProtoWriter) Meta(m Meta) (err error) {
 	}
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
@@ -1029,7 +1045,7 @@ func (w *ProtoWriter) Meta(m Meta) (err error) {
 // Message writes enent to the stream.
 func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	if m.Location != 0 {
 		w.mu.Lock()
@@ -1236,7 +1252,7 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 	}
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
@@ -1281,7 +1297,7 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 	sz += 1 + 8 // s.Started
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	if s.Location != 0 {
 		w.mu.Lock()
@@ -1327,7 +1343,7 @@ func (w *ProtoWriter) SpanFinished(f SpanFinish) (err error) {
 	sz += 1 + varintSize(uint64(f.Elapsed))
 
 	b, wr := Getbuf()
-	defer wr.Ret(b)
+	defer wr.Ret(&b)
 
 	szs := varintSize(uint64(sz))
 	b = appendVarint(b, uint64(1+szs+sz))
