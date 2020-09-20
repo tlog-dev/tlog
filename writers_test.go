@@ -235,6 +235,7 @@ func TestProtoWriter(t *testing.T) {
 	id = ID{5, 15, 25, 35}
 	par := ID{4, 14, 24, 34}
 
+	// SpanStarted
 	_ = w.SpanStarted(SpanStart{
 		ID:       id,
 		Parent:   par,
@@ -279,6 +280,7 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf = pbuf[:0]
 
+	// SpanFinished
 	_ = w.SpanFinished(SpanFinish{
 		ID:      id,
 		Elapsed: time.Second.Nanoseconds(),
@@ -293,6 +295,7 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf = pbuf[:0]
 
+	// Message
 	_ = w.Message(
 		Message{
 			Location: loc,
@@ -306,6 +309,39 @@ func TestProtoWriter(t *testing.T) {
 		Location: int64(loc),
 		Time:     2,
 		Text:     string(make([]byte, 1000)),
+	}})
+	if !assert.Equal(t, pbuf, buf.Bytes()) {
+		t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
+	}
+
+	buf.Reset()
+	pbuf = pbuf[:0]
+
+	// Metric with Attributes
+	_ = w.Message(
+		Message{
+			Text: []byte("text"),
+			Attrs: Attrs{
+				{"id", id},
+				{"int", 8},
+				{"uint", uint(10)},
+				{"float", 3.3},
+				{"str", "string"},
+				{"undef", Message{}},
+			},
+		},
+		ID{},
+	)
+	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
+		Text: "text",
+		Attrs: []*tlogpb.Attr{
+			{Name: "id", Type: 'd', Bytes: id[:]},
+			{Name: "int", Type: 'i', Int: 8},
+			{Name: "uint", Type: 'u', Uint: 10},
+			{Name: "float", Type: 'f', Float: 3.3},
+			{Name: "str", Type: 's', Str: "string"},
+			{Name: "undef", Type: '?', Str: "tlog.Message"},
+		},
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))

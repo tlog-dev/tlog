@@ -179,37 +179,40 @@ raw message 3
 
 func TestPrintw(t *testing.T) {
 	var buf bytes.Buffer
-	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+
+	cw := NewConsoleWriter(&buf, 0)
+
+	DefaultLogger = New(cw)
 	DefaultLogger.randID = testRandID()
 
 	cfg := DefaultStructuredConfig
 	cfg.MessageWidth = 20
-	DefaultLogger.StructuredConfig = &cfg
+	cw.StructuredConfig = &cfg
 
-	Printw("message", "i", 1, "receiver", "pkg")
-	PrintwDepth(0, "message", "i", 2, "receiver", "pkg")
+	Printw("message", Attrs{{"i", 1}, {"receiver", "pkg"}})
+	PrintwDepth(0, "message", Attrs{{"i", 2}, {"receiver", "pkg"}})
 
-	DefaultLogger.Printw("message", "i", 3, "receiver", "logger")
-	DefaultLogger.PrintwDepth(0, "message", "i", 4, "receiver", "logger")
+	DefaultLogger.Printw("message", Attrs{{"i", 3}, {"receiver", "logger"}})
+	DefaultLogger.PrintwDepth(0, "message", Attrs{{"i", 4}, {"receiver", "logger"}})
 
 	tr := Start()
-	tr.Printw("message", "i", 5, "receiver", "trace")
-	tr.PrintwDepth(0, "message", "i", 6, "receiver", "trace")
+	tr.Printw("message", Attrs{{"i", 5}, {"receiver", "trace"}})
+	tr.PrintwDepth(0, "message", Attrs{{"i", 6}, {"receiver", "trace"}})
 	tr.Finish()
 
 	tr = Span{}
-	tr.Printw("message", "i", 7)
+	tr.Printw("message", Attrs{{"i", 7}})
 
-	Printw("msg", "quoted", `a=b`)
-	Printw("msg", "quoted", `q"w"e`)
+	Printw("msg", Attrs{{"quoted", `a=b`}})
+	Printw("msg", Attrs{{"quoted", `q"w"e`}})
 
-	Printw("msg", "empty", ``)
+	Printw("msg", Attrs{{"empty", ``}})
 	cfg.QuoteEmptyValue = true
-	Printw("msg", "empty", ``)
+	Printw("msg", Attrs{{"empty", ``}})
 
-	Printw("msg", "difflen", `a`, "next", "val")
-	Printw("msg", "difflen", `abcde`, "next", "val")
-	Printw("msg", "difflen", `ab`, "next", "val")
+	Printw("msg", Attrs{{"difflen", `a`}, {"next", "val"}})
+	Printw("msg", Attrs{{"difflen", `abcde`}, {"next", "val"}})
+	Printw("msg", Attrs{{"difflen", `ab`}, {"next", "val"}})
 
 	assert.Equal(t, `message             i=1  receiver=pkg
 message             i=2  receiver=pkg
@@ -506,6 +509,8 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Printf("message %d", 2)
 
+	tr1.PrintfwDepth(0, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
+
 	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
 	tr1.Observe("metric_name", 456.123, Labels{"q=w", "e=1"})
 
@@ -521,10 +526,12 @@ func TestJSONWriterSpans(t *testing.T) {
 {"s":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","s":1562517072000000000,"l":\d+,"p":"0194fdc2fa2ffcc041d3ff12045b73c8"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
+{"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
+{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517074000000000,"l":\d+,"m":"link to ID","a":\[{"n":"id","t":"d","v":"0194fdc2fa2ffcc041d3ff12045b73c8"},{"n":"str","t":"s","v":"str_value"}\]}}
 {"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":\d+,"v":123.456789,"n":"metric_name","L":\["q=w","e=1"\]}}
 {"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":\d+,"v":456.123}}
-{"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":2000000000}}
-{"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":4000000000}}
+{"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":3000000000}}
+{"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":5000000000}}
 `
 
 	bl := strings.Split(buf.String(), "\n")
@@ -670,7 +677,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 				act  func(i int)
 			}{
 				{"Printf", func(i int) { l.Printf("message: %d", 1000+i) }},
-				{"Printw", func(i int) { l.Printw("message", "i", 1000+i) }},
+				{"Printw", func(i int) { l.Printw("message", Attrs{{"i", 1000 + i}}) }},
 			}
 
 			for _, par := range []bool{false, true} {
@@ -768,6 +775,9 @@ func BenchmarkTlogTraces(b *testing.B) {
 						}},
 						{"Printf", func(i int) {
 							gtr.Printf("message: %d", 1000+i) // 1 alloc here: int to interface{} conversion
+						}},
+						{"Printw", func(i int) {
+							gtr.Printw("message", Attrs{{"i", 1000 + i}}) // 1 alloc here: int to interface{} conversion
 						}},
 						{"PrintRaw", func(i int) {
 							gtr.PrintRaw(0, buf)

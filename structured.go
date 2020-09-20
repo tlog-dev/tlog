@@ -33,19 +33,16 @@ var DefaultStructuredConfig = StructuredConfig{
 var structValWidth sync.Map // string -> int
 
 //nolint:gocognit
-func structuredFormatter(l *Logger, b []byte, sid ID, msg string, kv []interface{}) []byte {
+func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs Attrs) []byte {
 	const escape = `"'`
 
-	c := l.StructuredConfig
 	if c == nil {
 		c = &DefaultStructuredConfig
 	}
 
-	if len(kv)&1 == 1 {
-		panic("bad kv: pairs expected")
+	if msgw < c.MessageWidth {
+		b = append(b, spaces[:c.MessageWidth-msgw]...)
 	}
-
-	b = AppendPrintf(b, "%-*s", c.MessageWidth, msg)
 
 	pad := false
 	if sid != (ID{}) {
@@ -59,31 +56,20 @@ func structuredFormatter(l *Logger, b []byte, sid ID, msg string, kv []interface
 		pad = true
 	}
 
-	for i := 0; i < len(kv); i += 2 {
+	for i, kv := range kvs {
 		if pad {
 			b = append(b, c.PairSeparator...)
 		} else {
 			pad = true
 		}
 
-		kst := len(b)
-
-		switch k := kv[i].(type) {
-		case string:
-			b = append(b, k...)
-		case []byte:
-			b = append(b, k...)
-		default:
-			panic("bad kv: expected key")
-		}
-
-		kend := len(b)
+		b = append(b, kv.Name...)
 
 		b = append(b, c.KVSeparator...)
 
 		vst := len(b)
 
-		switch v := kv[i+1].(type) {
+		switch v := kv.Value.(type) {
 		case string:
 			if c.QuoteAnyValue || c.QuoteEmptyValue && v == "" || strings.Contains(v, c.KVSeparator) || strings.ContainsAny(v, escape) {
 				b = strconv.AppendQuote(b, v)
@@ -97,26 +83,21 @@ func structuredFormatter(l *Logger, b []byte, sid ID, msg string, kv []interface
 				b = append(b, v...)
 			}
 		default:
-			b = AppendPrintf(b, "%v", kv[i+1])
+			b = AppendPrintf(b, "%v", kv.Value)
 		}
 
 		vend := len(b)
 
-		var kh uintptr
-
 		vw := vend - vst
-		if vw < c.ValueMaxPadWidth && i+2 < len(kv) {
-			k := b[kst:kend]
-			kh = byteshash(&k, 0)
-
+		if vw < c.ValueMaxPadWidth && i+1 < len(kvs) {
 			var w int
-			iw, ok := structValWidth.Load(kh)
+			iw, ok := structValWidth.Load(kv.Name)
 			if ok {
 				w = iw.(int)
 			}
 
 			if !ok || vw > w {
-				structValWidth.Store(kh, vw)
+				structValWidth.Store(kv.Name, vw)
 			} else if vw < w {
 				b = append(b, spaces[:w-vw]...)
 			}

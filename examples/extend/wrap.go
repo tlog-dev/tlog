@@ -1,55 +1,56 @@
 package extend
 
 import (
-	"sort"
-
 	"github.com/nikandfor/tlog"
 )
 
 const MaxDepth = 4
 
+// Although it is not recommended to dumlicate the same attributes multiple times in the same Span it is possible.
+// This is example of how to extend tlog in a such way.
+
 type (
+	Attrs = tlog.Attrs
+
 	Wrapper struct {
 		*tlog.Logger
-		Fields [MaxDepth]Fields // avoid allocations
+		Attrs [MaxDepth]Attrs // avoid allocations
 	}
 
 	SpanWrapper struct {
 		tlog.Span
-		Fields [MaxDepth]Fields // avoid allocations
+		Attrs [MaxDepth]Attrs // avoid allocations
 	}
-
-	Fields map[string]interface{}
 
 	byKey []interface{}
 )
 
-func With(fs Fields) Wrapper {
+func With(fs Attrs) Wrapper {
 	return Wrapper{
 		Logger: tlog.DefaultLogger,
-		Fields: [MaxDepth]Fields{fs},
+		Attrs:  [MaxDepth]Attrs{fs},
 	}
 }
 
-func LoggerWith(l *tlog.Logger, fs Fields) Wrapper {
+func LoggerWith(l *tlog.Logger, fs Attrs) Wrapper {
 	return Wrapper{
 		Logger: l,
-		Fields: [MaxDepth]Fields{fs},
+		Attrs:  [MaxDepth]Attrs{fs},
 	}
 }
 
-func SpanWith(s tlog.Span, fs Fields) SpanWrapper {
+func SpanWith(s tlog.Span, fs Attrs) SpanWrapper {
 	return SpanWrapper{
-		Span:   s,
-		Fields: [MaxDepth]Fields{fs},
+		Span:  s,
+		Attrs: [MaxDepth]Attrs{fs},
 	}
 }
 
-func Printw(msg string, fs Fields) {
-	printw(tlog.DefaultLogger, tlog.ID{}, msg, [MaxDepth]Fields{}, fs)
+func Printw(msg string, fs Attrs) {
+	printw(tlog.DefaultLogger, tlog.ID{}, msg, [MaxDepth]Attrs{}, fs)
 }
 
-func (w Wrapper) With(fs Fields) Wrapper {
+func (w Wrapper) With(fs Attrs) Wrapper {
 	if len(fs) == 0 {
 		return w
 	}
@@ -59,22 +60,22 @@ func (w Wrapper) With(fs Fields) Wrapper {
 	}
 
 	par := 0
-	for w.Fields[par] != nil {
+	for w.Attrs[par] != nil {
 		par++
 	}
 
-	copy(n.Fields[:], w.Fields[:par])
+	copy(n.Attrs[:], w.Attrs[:par])
 
-	n.Fields[par] = fs
+	n.Attrs[par] = fs
 
 	return n
 }
 
-func (w Wrapper) Printw(msg string, fs Fields) {
-	printw(w.Logger, tlog.ID{}, msg, w.Fields, fs)
+func (w Wrapper) Printw(msg string, fs Attrs) {
+	printw(w.Logger, tlog.ID{}, msg, w.Attrs, fs)
 }
 
-func (w SpanWrapper) With(fs Fields) SpanWrapper {
+func (w SpanWrapper) With(fs Attrs) SpanWrapper {
 	if len(fs) == 0 {
 		return w
 	}
@@ -84,22 +85,22 @@ func (w SpanWrapper) With(fs Fields) SpanWrapper {
 	}
 
 	par := 0
-	for w.Fields[par] != nil {
+	for w.Attrs[par] != nil {
 		par++
 	}
 
-	copy(n.Fields[:], w.Fields[:par])
+	copy(n.Attrs[:], w.Attrs[:par])
 
-	n.Fields[par] = fs
+	n.Attrs[par] = fs
 
 	return n
 }
 
-func (w SpanWrapper) Printw(msg string, fs Fields) {
-	printw(w.Logger, w.ID, msg, w.Fields, fs)
+func (w SpanWrapper) Printw(msg string, fs Attrs) {
+	printw(w.Logger, w.ID, msg, w.Attrs, fs)
 }
 
-func printw(l *tlog.Logger, sid tlog.ID, msg string, pfs [MaxDepth]Fields, fs Fields) {
+func printw(l *tlog.Logger, sid tlog.ID, msg string, pfs [MaxDepth]Attrs, fs Attrs) {
 	if l == nil {
 		return
 	}
@@ -115,41 +116,17 @@ func printw(l *tlog.Logger, sid tlog.ID, msg string, pfs [MaxDepth]Fields, fs Fi
 
 	n += len(fs)
 
-	var kv []interface{}
+	var kv Attrs
 
 	if n != 0 {
-		kv = make([]interface{}, 2*n)
+		kv = make(Attrs, 0, n)
 
-		i := 0
 		for _, fs := range pfs[:par] {
-			st := i
-
-			for k, v := range fs {
-				kv[i] = k
-				kv[i+1] = v
-				i += 2
-			}
-
-			sort.Sort(byKey(kv[st:i]))
+			kv = append(kv, fs...)
 		}
 
-		st := i
-
-		for k, v := range fs {
-			kv[i] = k
-			kv[i+1] = v
-			i += 2
-		}
-
-		sort.Sort(byKey(kv[st:i]))
+		kv = append(kv, fs...)
 	}
 
-	tlog.Span{Logger: l, ID: sid}.Printw(msg, kv...)
-}
-
-func (s byKey) Len() int           { return len(s) / 2 }
-func (s byKey) Less(i, j int) bool { return s[2*i].(string) < s[2*j].(string) }
-func (s byKey) Swap(i, j int) {
-	s[2*i], s[2*j] = s[2*j], s[2*i]
-	s[2*i+1], s[2*j+1] = s[2*j+1], s[2*i+1]
+	tlog.Span{Logger: l, ID: sid}.Printw(msg, kv)
 }

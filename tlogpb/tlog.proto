@@ -32,6 +32,18 @@ message Message {
     int64 location = 2;
     sfixed64 time  = 3;
     string text    = 4;
+
+    repeated Attr attrs = 5;
+}
+
+message Attr {
+    string name  = 1;
+    int32 type   = 2;  // char
+    string str   = 3;
+    int64 int    = 4;
+    uint64 uint  = 5;
+    double float = 6;
+    bytes bytes  = 7;
 }
 
 message Metric {

@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 	"path"
@@ -16,6 +17,32 @@ import (
 
 //go:generate protoc --go_out=. tlogpb/tlog.proto
 
+/*
+	Wire format
+
+	File (stream, etc) is a series of Records.
+	Each Record is one of:
+
+	* Labels - Span Labels or Global if no span id is set (or zero).
+	Span Labels take effect for all span messages. If the same label key is set with different value it is undefined which will have effect on messages.
+	Global Labels take effect on all the following events until next Labels be set. If key is not reset in next Labels it is forgotten.
+
+	* Meta - Any metadata. There are few defined by tlog and any can be defined by app. Defined by tlog are:
+		* Metric - metric description (name, help message, metric type and metric static labels).
+
+	* Location - Location in code: PC (program counter), file name, line and function name. Other events are attached to previously logged locations by PC.
+	PC may be reused for another location if it was recompiled. So PC life time is limited by file (or stream) it is logged to.
+
+	* Message - Event with timestamp, Location, text and attributes. May be attached to Span or not by its ID.
+	Attributes encoded as a list of tuples with name, type and value.
+
+	* Metric - Metric data. Contains Hash, name, value and Labels. Hash is calculated somehow from other fields so that they are omitted if was logged earlier it the file (stream).
+
+	* SpanStart - Span started event. Contains ID, Parent ID, timestamp and Location.
+
+	* SpanFinish - Span finished event. Contains ID and time elapsed.
+*/
+
 type (
 	// ConsoleWriter produces similar output as stdlib log.Logger.
 	//
@@ -28,6 +55,8 @@ type (
 		Shortfile int
 		Funcname  int
 		IDWidth   int
+
+		StructuredConfig *StructuredConfig
 	}
 
 	// JSONWriter produces output readable by both machines and humans.
@@ -355,6 +384,10 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 
 	b = append(b, m.Text...)
 
+	if len(m.Attrs) != 0 {
+		b = structuredFormatter(w.StructuredConfig, b, sid, len(m.Text), m.Attrs)
+	}
+
 	b.NewLine()
 
 	_, err = w.w.Write(b)
@@ -609,18 +642,79 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 		sid.FormatTo(b[i:], 'x')
 	}
 
-	b = append(b, `"t":`...)
-	b = strconv.AppendInt(b, m.Time, 10)
-
-	if m.Location != 0 {
-		b = append(b, `,"l":`...)
-		b = strconv.AppendInt(b, int64(m.Location), 10)
+	if m.Time != 0 {
+		b = append(b, `"t":`...)
+		b = strconv.AppendInt(b, m.Time, 10)
+		b = append(b, ',')
 	}
 
-	b = append(b, `,"m":"`...)
-	b = append(b, m.Text...)
+	if m.Location != 0 {
+		b = append(b, `"l":`...)
+		b = strconv.AppendInt(b, int64(m.Location), 10)
+		b = append(b, ',')
+	}
 
-	b = append(b, "\"}}\n"...)
+	b = append(b, `"m":"`...)
+	b = append(b, m.Text...)
+	b = append(b, '"')
+
+	if len(m.Attrs) != 0 {
+		b = append(b, `,"a":[`...)
+		for i, a := range m.Attrs {
+			if i != 0 {
+				b = append(b, ',')
+			}
+
+			b = append(b, `{"n":"`...)
+			b = appendSafe(b, a.Name)
+			b = append(b, `","t":`...)
+
+			switch v := a.Value.(type) {
+			case ID:
+				b = append(b, `"d","v":"________________________________"`...)
+				v.FormatTo(b[len(b)-1-2*len(v):], 'x')
+			case string:
+				b = append(b, `"s","v":"`...)
+				b = appendSafe(b, v)
+				b = append(b, '"')
+			case int:
+				b = append(b, `"i","v":"`...)
+				b = strconv.AppendInt(b, int64(v), 10)
+				b = append(b, '"')
+			case int64:
+				b = append(b, `"i","v":"`...)
+				b = strconv.AppendInt(b, v, 10)
+				b = append(b, '"')
+			case uint:
+				b = append(b, `"u","v":"`...)
+				b = strconv.AppendUint(b, uint64(v), 10)
+				b = append(b, '"')
+			case uint64:
+				b = append(b, `"u","v":"`...)
+				b = strconv.AppendUint(b, v, 10)
+				b = append(b, '"')
+			case float64:
+				b = append(b, `"f","v":"`...)
+				b = strconv.AppendFloat(b, v, 'f', -1, 64)
+				b = append(b, '"')
+			case float32:
+				b = append(b, `"f","v":"`...)
+				b = strconv.AppendFloat(b, float64(v), 'f', -1, 32)
+				b = append(b, '"')
+			case int32, int16, int8:
+				b = AppendPrintf(b, `"i","v":"%v"`, v)
+			case uint32, uint16, uint8:
+				b = AppendPrintf(b, `"u","v":"%v"`, v)
+			default:
+				b = AppendPrintf(b, `"?","ut":"%T"`, v)
+			}
+
+			b = append(b, '}')
+		}
+		b = append(b, ']')
+	}
+
+	b = append(b, "}}\n"...)
 
 	_, err = w.w.Write(b)
 
@@ -959,9 +1053,17 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	if m.Location != 0 {
 		sz += 1 + varintSize(uint64(m.Location))
 	}
-	sz += 1 + 8 // m.Time
+	if m.Time != 0 {
+		sz += 1 + 8 // m.Time
+	}
 	if l != 0 {
 		sz += 1 + varintSize(uint64(l)) + l
+	}
+	if len(m.Attrs) != 0 {
+		for _, a := range m.Attrs {
+			as := w.attrSize(a)
+			sz += 1 + varintSize(uint64(as)) + as
+		}
 	}
 
 	szs := varintSize(uint64(sz))
@@ -979,15 +1081,139 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 		b = appendTagVarint(b, 2<<3|0, uint64(m.Location)) //nolint:staticcheck
 	}
 
-	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time))
+	if m.Time != 0 {
+		b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time))
+	}
 
 	if l != 0 {
 		b = appendTagVarint(b, 4<<3|2, uint64(l))
 		b = append(b, m.Text...)
 	}
 
+	if len(m.Attrs) != 0 {
+		for _, a := range m.Attrs {
+			as := w.attrSize(a)
+
+			b = appendTagVarint(b, 5<<3|2, uint64(as))
+
+			b = appendTagVarint(b, 1<<3|2, uint64(len(a.Name)))
+			b = append(b, a.Name...)
+
+			switch v := a.Value.(type) {
+			case ID:
+				b = appendTagVarint(b, 2<<3|0, uint64('d'))
+
+				b = appendTagVarint(b, 7<<3|2, uint64(len(v)))
+				b = append(b, v[:]...)
+			case string:
+				b = appendTagVarint(b, 2<<3|0, uint64('s'))
+
+				b = appendTagVarint(b, 3<<3|2, uint64(len(v)))
+				b = append(b, v...)
+			case int, int64, int32, int16, int8:
+				b = appendTagVarint(b, 2<<3|0, uint64('i'))
+
+				switch v := v.(type) {
+				case int:
+					b = appendTagVarint(b, 4<<3|0, uint64(v))
+				case int64:
+					b = appendTagVarint(b, 4<<3|0, uint64(v))
+				case int32:
+					b = appendTagVarint(b, 4<<3|0, uint64(v))
+				case int16:
+					b = appendTagVarint(b, 4<<3|0, uint64(v))
+				case int8:
+					b = appendTagVarint(b, 4<<3|0, uint64(v))
+				}
+			case uint, uint64, uint32, uint16, uint8:
+				b = appendTagVarint(b, 2<<3|0, uint64('u'))
+
+				switch v := v.(type) {
+				case uint:
+					b = appendTagVarint(b, 5<<3|0, uint64(v))
+				case uint64:
+					b = appendTagVarint(b, 5<<3|0, uint64(v))
+				case uint32:
+					b = appendTagVarint(b, 5<<3|0, uint64(v))
+				case uint16:
+					b = appendTagVarint(b, 5<<3|0, uint64(v))
+				case uint8:
+					b = appendTagVarint(b, 5<<3|0, uint64(v))
+				}
+			case float64:
+				b = appendTagVarint(b, 2<<3|0, uint64('f'))
+
+				b = append(b, 6<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+				binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(v))
+			case float32:
+				b = appendTagVarint(b, 2<<3|0, uint64('f'))
+
+				b = append(b, 6<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
+				binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(float64(v)))
+			default:
+				tp := fmt.Sprintf("%T", v)
+
+				b = appendTagVarint(b, 2<<3|0, uint64('?'))
+
+				b = appendTagVarint(b, 3<<3|2, uint64(len(tp)))
+				b = append(b, tp...)
+			}
+		}
+	}
+
 	_, err = w.w.Write(b)
+
+	return
+}
+
+func (w *ProtoWriter) attrSize(a Attr) (s int) {
+	s = 1 + varintSize(uint64(len(a.Name))) + len(a.Name)
+
+	switch v := a.Value.(type) {
+	case ID:
+		s += 1 + 1
+		s += 1 + 1 + len(v)
+	case string:
+		s += 1 + 1
+		s += 1 + varintSize(uint64(len(v))) + len(v)
+	case int, int64, int32, int16, int8:
+		s += 1 + 1
+		switch v := v.(type) {
+		case int:
+			s += 1 + varintSize(uint64(v))
+		case int64:
+			s += 1 + varintSize(uint64(v))
+		case int32:
+			s += 1 + varintSize(uint64(v))
+		case int16:
+			s += 1 + varintSize(uint64(v))
+		case int8:
+			s += 1 + varintSize(uint64(v))
+		}
+	case uint, uint64, uint32, uint16, uint8:
+		s += 1 + 1
+		switch v := v.(type) {
+		case uint:
+			s += 1 + varintSize(uint64(v))
+		case uint64:
+			s += 1 + varintSize(uint64(v))
+		case uint32:
+			s += 1 + varintSize(uint64(v))
+		case uint16:
+			s += 1 + varintSize(uint64(v))
+		case uint8:
+			s += 1 + varintSize(uint64(v))
+		}
+	case float64, float32:
+		s += 1 + 1
+		s += 1 + 8
+	default:
+		tp := fmt.Sprintf("%T", v)
+
+		s += 1 + 1
+		s += 1 + varintSize(uint64(len(tp))) + len(tp)
+	}
 
 	return
 }
