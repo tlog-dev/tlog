@@ -359,8 +359,8 @@ func newmessage(l *Logger, d int, sid ID, tp byte, f string, args []interface{})
 			txt = stringToBytes(f)
 		}
 	} else {
-		b, wr := getbuf()
-		defer retbuf(b, wr)
+		b, wr := Getbuf()
+		defer wr.Ret(b)
 
 		switch tp {
 		case 'f':
@@ -854,7 +854,7 @@ func MustID(id ID, err error) ID {
 
 // Error is an error interface implementation.
 func (e TooShortIDError) Error() string {
-	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{})*2)
+	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{}))
 }
 
 // Format is fmt.Formatter interface implementation.

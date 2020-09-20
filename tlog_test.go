@@ -568,7 +568,7 @@ func TestCoverUncovered(t *testing.T) {
 
 	(*Logger)(nil).SetLabels(Labels{"a"})
 
-	assert.Equal(t, "too short id: 7, wanted 32", TooShortIDError{N: 7}.Error())
+	assert.Equal(t, "too short id: 7, wanted 16", TooShortIDError{N: 7}.Error())
 
 	assert.Equal(t, "1", fmt.Sprintf("%01v", ID{0x12, 0x34, 0x56}))
 
