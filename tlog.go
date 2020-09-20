@@ -95,7 +95,7 @@ type (
 
 		ID ID
 
-		Started int64
+		Started time.Time
 	}
 
 	Meta struct {
@@ -142,7 +142,7 @@ const ( // metric types
 	Mempty     = ""
 )
 
-var now = func() int64 { return time.Now().UnixNano() }
+var now = time.Now
 
 var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoLocations = true; return l }()
 
@@ -191,6 +191,14 @@ func (l *Logger) AppendWriter(ws ...Writer) {
 		tw := NewTeeWriter(w)
 		l.Writer = append(tw, ws...)
 	}
+}
+
+func (l *Logger) RandID() (id ID) {
+	l.mu.Lock()
+	id = l.randID()
+	l.mu.Unlock()
+
+	return
 }
 
 // SetLabels sets labels for default logger.
@@ -345,7 +353,7 @@ func newspan(l *Logger, d int, par ID) Span {
 	_ = l.Writer.SpanStarted(SpanStart{
 		ID:       s.ID,
 		Parent:   par,
-		Started:  s.Started,
+		Started:  s.Started.UnixNano(),
 		Location: loc,
 	})
 
@@ -386,7 +394,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 	_ = l.Writer.Message(
 		Message{
 			Location: loc,
-			Time:     t,
+			Time:     t.UnixNano(),
 			Text:     bytesToString(txt),
 			Attrs:    attrs,
 		},
@@ -753,11 +761,11 @@ func (s Span) Finish() {
 		return
 	}
 
-	el := now() - s.Started
+	el := now().Sub(s.Started)
 
 	_ = s.Logger.Writer.SpanFinished(SpanFinish{
 		ID:      s.ID,
-		Elapsed: el,
+		Elapsed: el.Nanoseconds(),
 	})
 }
 

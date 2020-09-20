@@ -442,7 +442,7 @@ func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(b)
 
-	b = w.spanHeader(b, f.ID, ID{}, now(), 0)
+	b = w.spanHeader(b, f.ID, ID{}, now().UnixNano(), 0)
 
 	b = append(b, "Span finished - elapsed "...)
 
@@ -472,7 +472,7 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	return w.Message(
 		Message{
 			Location: loc,
-			Time:     now(),
+			Time:     now().UnixNano(),
 			Text:     bytesToString(b),
 		},
 		sid,
@@ -490,7 +490,7 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 	return w.Message(
 		Message{
 			Location: loc,
-			Time:     now(),
+			Time:     now().UnixNano(),
 			Text:     bytesToString(b),
 		},
 		ID{},
@@ -512,7 +512,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	return w.Message(
 		Message{
 			Location: loc,
-			Time:     now(),
+			Time:     now().UnixNano(),
 			Text:     bytesToString(b),
 		},
 		sid,
@@ -521,7 +521,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 
 func (w *ConsoleWriter) caller() Location {
 	var buf [6]Location
-	FillStackTrace(2, buf[:])
+	FillCallers(2, buf[:])
 	i := 0
 	for i+1 < len(buf) {
 		name, _, _ := buf[i].NameFileLine()

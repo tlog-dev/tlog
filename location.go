@@ -13,9 +13,9 @@ import (
 // Function name, file name and line can be obtained from it but only in the same binary where Caller of Funcentry was called.
 type Location uintptr
 
-// Trace is a stack trace.
+// StackTrace is a stack trace.
 // It's quiet the same as runtime.CallerFrames but more efficient.
-type Trace []Location
+type StackTrace []Location
 
 // Caller returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
@@ -38,15 +38,15 @@ func Funcentry(s int) Location {
 // StackTrace returns callers stack trace.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with only one alloc (resulting slice).
-func StackTrace(skip, n int) Trace {
+func Callers(skip, n int) StackTrace {
 	tr := make([]Location, n)
-	return FillStackTrace(1+skip, tr)
+	return FillCallers(1+skip, tr)
 }
 
 // FillStackTrace returns callers stack trace into provided array.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
-func FillStackTrace(skip int, tr Trace) Trace {
+func FillCallers(skip int, tr StackTrace) StackTrace {
 	n := runtime.Callers(2+skip, *(*[]uintptr)(unsafe.Pointer(&tr)))
 	return tr[:n]
 }
@@ -129,10 +129,10 @@ func (l Location) Format(s fmt.State, c rune) {
 	s.Write(b[:n])
 }
 
-// String formats Trace as list of type_name (file.go:line)
+// String formats StackTrace as list of type_name (file.go:line)
 //
 // Works only in the same binary where Caller of Funcentry was called.
-func (t Trace) String() string {
+func (t StackTrace) String() string {
 	var b []byte
 	for _, l := range t {
 		n, f, l := l.NameFileLine()
@@ -142,7 +142,7 @@ func (t Trace) String() string {
 	return string(b)
 }
 
-func (t Trace) Format(s fmt.State, c rune) {
+func (t StackTrace) Format(s fmt.State, c rune) {
 	switch {
 	case s.Flag('+'):
 		for _, l := range t {

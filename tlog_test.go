@@ -75,9 +75,9 @@ func TestPanicf(t *testing.T) {
 	}(DefaultLogger)
 	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
 
-	now = func() int64 {
+	now = func() time.Time {
 		tm = tm.Add(time.Second)
-		return tm.UnixNano()
+		return tm
 	}
 
 	var buf bytes.Buffer
@@ -232,13 +232,10 @@ msg                 difflen=ab     next=val
 
 //nolint:wsl
 func TestVerbosity(t *testing.T) {
-	defer func(old func() int64) {
-		now = old
-	}(now)
 	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
-	now = func() int64 {
+	now = func() time.Time {
 		tm = tm.Add(time.Second)
-		return tm.UnixNano()
+		return tm
 	}
 
 	assert.Equal(t, "", (*Logger)(nil).Filter())
@@ -483,13 +480,10 @@ func TestIDFromMustShould(t *testing.T) {
 }
 
 func TestJSONWriterSpans(t *testing.T) {
-	defer func(f func() int64) {
-		now = f
-	}(now)
 	tm := time.Date(2019, time.July, 7, 16, 31, 10, 0, time.UTC)
-	now = func() int64 {
+	now = func() time.Time {
 		tm = tm.Add(time.Second)
-		return tm.UnixNano()
+		return tm
 	}
 
 	var buf bytes.Buffer
@@ -865,7 +859,8 @@ func BenchmarkIDFormatTo(b *testing.B) {
 func TestTlogGrandParallel(t *testing.T) {
 	const N = 10000
 
-	now = func() int64 { return time.Now().UnixNano() }
+	now = time.Now
+
 	var buf0, buf1, buf2 bytes.Buffer
 
 	DefaultLogger = New(NewConsoleWriter(LockWriter(&buf0), LdetFlags), NewJSONWriter(LockWriter(&buf1)), NewProtoWriter(LockWriter(&buf2)))
@@ -960,14 +955,15 @@ func TestTlogGrandParallel(t *testing.T) {
 	wg.Wait()
 }
 
-func testNow(tm *time.Time) func() int64 {
+func testNow(tm *time.Time) func() time.Time {
 	var mu sync.Mutex
 
-	return func() int64 {
+	return func() time.Time {
 		defer mu.Unlock()
 		mu.Lock()
 
 		*tm = tm.Add(time.Second)
-		return tm.UnixNano()
+
+		return *tm
 	}
 }

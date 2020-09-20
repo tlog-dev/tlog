@@ -9,25 +9,25 @@ import (
 )
 
 func TestLocationStackTraceFill(t *testing.T) {
-	st := make(Trace, 1)
+	st := make(StackTrace, 1)
 
-	st = FillStackTrace(0, st)
+	st = FillCallers(0, st)
 
 	assert.Len(t, st, 1)
 	assert.Equal(t, "location_stacktrace_test.go:14", st[0].String())
 }
 
-func testStackTraceInside() (st Trace) {
+func testStackTraceInside() (st StackTrace) {
 	func() {
 		func() {
-			st = StackTrace(1, 3)
+			st = Callers(1, 3)
 		}()
 	}()
 	return
 }
 
 func TestLocationStackTraceString(t *testing.T) {
-	var st Trace
+	var st StackTrace
 	func() {
 		func() {
 			st = testStackTraceInside()
@@ -49,7 +49,7 @@ tlog.TestLocationStackTraceString.func1.1                     at [\w.-/]*locatio
 }
 
 func TestLocationStackTraceFormat(t *testing.T) {
-	var st Trace
+	var st StackTrace
 	func() {
 		func() {
 			st = testStackTraceInside()
