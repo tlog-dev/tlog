@@ -241,7 +241,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc Location) []byte {
 
 		if w.f&Ldate != 0 {
 			i := len(b)
-			b = append(b, "0000/00/00"...)
+			b = append(b, "0000-00-00"...)
 
 			for j := 0; j < 4; j++ {
 				b[i+3-j] = byte(Y%10) + '0'

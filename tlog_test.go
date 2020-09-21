@@ -93,8 +93,8 @@ func TestPanicf(t *testing.T) {
 		DefaultLogger.Panicf("panic! %v", 2)
 	})
 
-	assert.Equal(t, `2019/07/06_19:45:26  panic! 1
-2019/07/06_19:45:27  panic! 2
+	assert.Equal(t, `2019-07-06_19:45:26  panic! 1
+2019-07-06_19:45:27  panic! 2
 `, buf.String())
 }
 
@@ -672,8 +672,13 @@ func TestAppendWriter(t *testing.T) {
 func TestRandID(t *testing.T) {
 	l := New()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
 		l.Printf("msg")
+
+		wg.Done()
 	}()
 
 	id := l.RandID()
@@ -681,6 +686,8 @@ func TestRandID(t *testing.T) {
 
 	id = (*Logger)(nil).RandID()
 	assert.Zero(t, id)
+
+	wg.Wait()
 }
 
 func TestCoverUncovered(t *testing.T) {

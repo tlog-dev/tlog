@@ -24,6 +24,7 @@ func (t testingWriter) Write(p []byte) (int, error) {
 	if len(file) < 20 {
 		pad = 20 - len(file)
 	}
+
 	for line < 1000 {
 		pad++
 		line *= 10

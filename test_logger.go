@@ -5,10 +5,6 @@ import (
 	"testing"
 )
 
-func NewTestWriter(t testing.TB) io.Writer {
-	return newTestingWriter(t)
-}
-
 func NewTestLogger(t testing.TB, v string, tostderr io.Writer) *Logger {
 	w := tostderr
 	ff := LdetFlags

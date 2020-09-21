@@ -9,18 +9,21 @@ import (
 )
 
 func TestTestLogger(t *testing.T) {
+	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
+	now = func() time.Time {
+		return tm
+	}
+
 	var buf bytes.Buffer
 
-	tl := NewTestLogger(t, "", &buf)
-	now = func() time.Time {
-		return time.Unix(9, 0)
-	}
+	tl := NewTestLogger(t, "topic", &buf)
 
 	tl.Printf("message")
 
-	assert.Equal(t, "1970/01/01_03:00:09.000000  test_logger_test.:19  message\n", buf.String())
+	assert.Equal(t, tm.Format("2006-01-02_15:04:05.000000")+"  test_logger_test.:21  message\n", buf.String())
 
 	tl = NewTestLogger(t, "", nil)
 
+	t.Logf("there must be 2 log lines after that")
 	tl.Printf("it must appear in test out")
 }

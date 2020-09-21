@@ -47,11 +47,11 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
 	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
-	assert.Equal(t, "2019/07/07_08:19:30.100  ", string(b))
+	assert.Equal(t, "2019-07-07_08:19:30.100  ", string(b))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
 	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
-	assert.Equal(t, "2019/07/07_08:19:30.100200  ", string(b))
+	assert.Equal(t, "2019-07-07_08:19:30.100200  ", string(b))
 
 	w.f = Llongfile
 	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
@@ -109,49 +109,49 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	l.SetLabels(Labels{"a=b", "f"})
 
-	assert.Equal(t, `2019/07/07_16:31:11.000  ________________  Labels: a=b f`+"\n", string(b))
+	assert.Equal(t, `2019-07-07_16:31:11.000  ________________  Labels: a=b f`+"\n", string(b))
 
 	b = b[:0]
 
 	tr := l.Start()
 
-	assert.Equal(t, "2019/07/07_16:31:12.000  0194fdc2fa2ffcc0  Span started\n", string(b))
+	assert.Equal(t, "2019-07-07_16:31:12.000  0194fdc2fa2ffcc0  Span started\n", string(b))
 
 	b = b[:0]
 
 	tr.SetLabels(Labels{"a=c", "c=d", "g"})
 
-	assert.Equal(t, `2019/07/07_16:31:13.000  0194fdc2fa2ffcc0  Labels: a=c c=d g`+"\n", string(b))
+	assert.Equal(t, `2019-07-07_16:31:13.000  0194fdc2fa2ffcc0  Labels: a=c c=d g`+"\n", string(b))
 
 	b = b[:0]
 
 	tr1 := l.Spawn(tr.ID)
 
-	assert.Equal(t, "2019/07/07_16:31:14.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(b))
+	assert.Equal(t, "2019-07-07_16:31:14.000  6e4ff95ff662a5ee  Span spawned from 0194fdc2fa2ffcc0\n", string(b))
 
 	b = b[:0]
 
 	tr1.Printf("message")
 
-	assert.Equal(t, "2019/07/07_16:31:15.000  6e4ff95ff662a5ee  message\n", string(b))
+	assert.Equal(t, "2019-07-07_16:31:15.000  6e4ff95ff662a5ee  message\n", string(b))
 
 	b = b[:0]
 
 	tr1.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:17.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(b))
+	assert.Equal(t, "2019-07-07_16:31:17.000  6e4ff95ff662a5ee  Span finished - elapsed 2000.00ms\n", string(b))
 
 	b = b[:0]
 
 	tr.Finish()
 
-	assert.Equal(t, "2019/07/07_16:31:19.000  0194fdc2fa2ffcc0  Span finished - elapsed 6000.00ms\n", string(b))
+	assert.Equal(t, "2019-07-07_16:31:19.000  0194fdc2fa2ffcc0  Span finished - elapsed 6000.00ms\n", string(b))
 
 	b = b[:0]
 
 	l.Printf("not traced message")
 
-	assert.Equal(t, "2019/07/07_16:31:20.000  ________________  not traced message\n", string(b))
+	assert.Equal(t, "2019-07-07_16:31:20.000  ________________  not traced message\n", string(b))
 }
 
 func TestProtoAppendVarint(t *testing.T) {
