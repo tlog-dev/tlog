@@ -2,7 +2,6 @@ package tlog
 
 import (
 	"io"
-	"os"
 	"testing"
 )
 
@@ -10,11 +9,11 @@ func NewTestWriter(t testing.TB) io.Writer {
 	return newTestingWriter(t)
 }
 
-func NewTestLogger(t testing.TB, v string, tostderr bool) *Logger {
-	var w io.Writer = os.Stderr
+func NewTestLogger(t testing.TB, v string, tostderr io.Writer) *Logger {
+	w := tostderr
 	ff := LdetFlags
 
-	if t != nil && !tostderr {
+	if t != nil && w == nil {
 		w = newTestingWriter(t)
 		ff = 0
 	}
