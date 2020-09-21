@@ -128,5 +128,5 @@ func printw(l *tlog.Logger, sid tlog.ID, msg string, pfs [MaxDepth]Attrs, fs Att
 		kv = append(kv, fs...)
 	}
 
-	tlog.Span{Logger: l, ID: sid}.Printw(msg, kv)
+	tlog.Span{Logger: l, ID: sid}.Printw(msg, kv...)
 }

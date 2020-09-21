@@ -67,23 +67,23 @@ func (p *Provider) Meter(n string, opts ...metric.MeterOption) metric.Meter {
 func (m Meter) RecordBatch(ctx context.Context, kv []label.KeyValue, ms ...metric.Measurement) {
 }
 
-func (m Meter) NewSyncInstrument(d metric.Descriptor) (metric.SyncImpl, error) {
-	return Sync{Logger: m.Logger, Desc: d, name: d.Name()}, nil
+func (m Meter) NewSyncInstrument(d metric.Descriptor) (metric.SyncImpl, error) { //nolint:gocritic
+	return &Sync{Logger: m.Logger, Desc: d, name: d.Name()}, nil
 }
 
-func (m Meter) NewAsyncInstrument(d metric.Descriptor, r metric.AsyncRunner) (metric.AsyncImpl, error) {
+func (m Meter) NewAsyncInstrument(d metric.Descriptor, r metric.AsyncRunner) (metric.AsyncImpl, error) { //nolint:gocritic
 	panic("wtf it is?")
 }
 
-func (m Sync) Implementation() interface{} { panic("wtf it is?") }
+func (m *Sync) Implementation() interface{} { panic("wtf it is?") }
 
-func (m Sync) Descriptor() metric.Descriptor { return m.Desc }
+func (m *Sync) Descriptor() metric.Descriptor { return m.Desc }
 
-func (m Sync) Bind(ls []label.KeyValue) metric.BoundSyncImpl {
+func (m *Sync) Bind(ls []label.KeyValue) metric.BoundSyncImpl {
 	panic("wtf it is?")
 }
 
-func (m Sync) RecordOne(ctx context.Context, n metric.Number, kvs []label.KeyValue) {
+func (m *Sync) RecordOne(ctx context.Context, n metric.Number, kvs []label.KeyValue) {
 	var v float64
 
 	switch m.Desc.NumberKind() {
@@ -144,14 +144,14 @@ func (t Tracer) Start(ctx context.Context, spanName string, opts ...trace.StartO
 		se.Location = tlog.Funcentry(1)
 	}
 
-	t.Logger.SpanStarted(se)
+	_ = t.Logger.SpanStarted(se)
 
 	var as tlog.Attrs
 
 	if cfg.Attributes != nil {
 		as = attrs(as[:0], cfg.Attributes)
 
-		s.PrintwDepth(1, "attrs", as)
+		s.PrintwDepth(1, "attrs", as...)
 	}
 
 	for i, l := range cfg.Links {
@@ -159,15 +159,15 @@ func (t Tracer) Start(ctx context.Context, spanName string, opts ...trace.StartO
 			continue
 		}
 
-		as = append(as[:0], tlog.Attr{"_span", tlog.ID(l.SpanContext.TraceID)})
+		as = append(as[:0], tlog.Attr{Name: "_span", Value: tlog.ID(l.SpanContext.TraceID)})
 
 		as = attrs(as, l.Attributes)
 
-		s.PrintwDepth(1, "link", as)
+		s.PrintwDepth(1, "link", as...)
 	}
 
 	if cfg.SpanKind != 0 {
-		s.PrintwDepth(1, "span_kind", tlog.Attrs{{"span_kind", cfg.SpanKind}})
+		s.PrintwDepth(1, "span_kind", tlog.AInt("span_kind", int(cfg.SpanKind)))
 	}
 
 	ctx = tlog.ContextWithSpan(ctx, s)
@@ -200,7 +200,7 @@ func (s Span) End(opts ...trace.EndOption) {
 		e.Elapsed = time.Since(s.Span.Started).Nanoseconds()
 	}
 
-	s.Span.Logger.SpanFinished(e)
+	_ = s.Span.Logger.SpanFinished(e)
 }
 
 func (s Span) AddEventWithTimestamp(ctx context.Context, tm time.Time, name string, kvs ...label.KeyValue) {
@@ -221,7 +221,7 @@ func (s Span) AddEventWithTimestamp(ctx context.Context, tm time.Time, name stri
 
 	m.Attrs = attrs(nil, kvs)
 
-	s.Span.Logger.Message(m, s.Span.ID)
+	_ = s.Span.Logger.Message(m, s.Span.ID)
 }
 
 func (s Span) AddEvent(ctx context.Context, name string, attrs ...label.KeyValue) {
@@ -242,7 +242,7 @@ func (s Span) RecordError(ctx context.Context, err error, opts ...trace.ErrorOpt
 	m := tlog.Message{
 		Text:     "error",
 		Location: tlog.Caller(1),
-		Attrs:    tlog.Attrs{{"error", err}},
+		Attrs:    tlog.Attrs{{Name: "error", Value: err}},
 	}
 
 	if cfg.Timestamp != (time.Time{}) {
@@ -252,10 +252,10 @@ func (s Span) RecordError(ctx context.Context, err error, opts ...trace.ErrorOpt
 	}
 
 	if cfg.StatusCode != 0 {
-		m.Attrs = append(m.Attrs, tlog.Attr{"code", cfg.StatusCode})
+		m.Attrs = append(m.Attrs, tlog.AInt("code", int(cfg.StatusCode)))
 	}
 
-	s.Span.Logger.Message(m, s.Span.ID)
+	_ = s.Span.Logger.Message(m, s.Span.ID)
 }
 
 func (s Span) SpanContext() (r trace.SpanContext) {
@@ -266,19 +266,22 @@ func (s Span) SpanContext() (r trace.SpanContext) {
 }
 
 func (s Span) SetStatus(c codes.Code, msg string) {
-	s.Span.PrintwDepth(1, "status", tlog.Attrs{{"code", c}, {"message", msg}})
+	s.Span.PrintwDepth(1, "status", tlog.Attrs{
+		{Name: "code", Value: c},
+		{Name: "message", Value: msg},
+	}...)
 }
 
 func (s Span) SetName(n string) {
-	s.Span.PrintwDepth(1, "name", tlog.Attrs{{"name", n}})
+	s.Span.PrintwDepth(1, "name", tlog.AString("name", n))
 }
 
 func (s Span) SetAttributes(kv ...label.KeyValue) {
-	s.Span.PrintwDepth(1, "attributes", attrs(nil, kv))
+	s.Span.PrintwDepth(1, "attributes", attrs(nil, kv)...)
 }
 
 func (s Span) SetAttribute(k string, v interface{}) {
-	s.Span.PrintwDepth(1, "attributes", tlog.Attrs{{k, v}})
+	s.Span.PrintwDepth(1, "attributes", tlog.Attr{Name: k, Value: v})
 }
 
 func attrs(b tlog.Attrs, as []label.KeyValue) tlog.Attrs {

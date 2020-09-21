@@ -244,11 +244,11 @@ func Println(args ...interface{}) {
 	newmessage(DefaultLogger, 0, ID{}, "", args, nil)
 }
 
-func Printw(msg string, kv Attrs) {
+func Printw(msg string, kv ...Attr) {
 	newmessage(DefaultLogger, 0, ID{}, msg, nil, kv)
 }
 
-func PrintwDepth(d int, msg string, kv Attrs) {
+func PrintwDepth(d int, msg string, kv ...Attr) {
 	newmessage(DefaultLogger, d, ID{}, msg, nil, kv)
 }
 
@@ -511,11 +511,11 @@ func (l *Logger) Println(args ...interface{}) {
 	newmessage(l, 0, ID{}, "", args, nil)
 }
 
-func (l *Logger) Printw(msg string, kv Attrs) {
+func (l *Logger) Printw(msg string, kv ...Attr) {
 	newmessage(l, 0, ID{}, msg, nil, kv)
 }
 
-func (l *Logger) PrintwDepth(d int, msg string, kv Attrs) {
+func (l *Logger) PrintwDepth(d int, msg string, kv ...Attr) {
 	newmessage(l, d, ID{}, msg, nil, kv)
 }
 
@@ -731,11 +731,11 @@ func (s Span) Println(args ...interface{}) {
 	newmessage(s.Logger, 0, s.ID, "", args, nil)
 }
 
-func (s Span) Printw(msg string, kv Attrs) {
+func (s Span) Printw(msg string, kv ...Attr) {
 	newmessage(s.Logger, 0, s.ID, msg, nil, kv)
 }
 
-func (s Span) PrintwDepth(d int, msg string, kv Attrs) {
+func (s Span) PrintwDepth(d int, msg string, kv ...Attr) {
 	newmessage(s.Logger, d, s.ID, msg, nil, kv)
 }
 
@@ -976,3 +976,9 @@ func (l *Logger) stdRandID() (id ID) {
 
 	return
 }
+
+func AInt(n string, v int) Attr      { return Attr{Name: n, Value: v} }
+func AInt64(n string, v int64) Attr  { return Attr{Name: n, Value: v} }
+func AUnt64(n string, v uint64) Attr { return Attr{Name: n, Value: v} }
+func AString(n, v string) Attr       { return Attr{Name: n, Value: v} }
+func AID(n string, v ID) Attr        { return Attr{Name: n, Value: v} }

@@ -28,12 +28,15 @@ linters-settings:
       - github.com/nikandfor/quantile
       - github.com/nikandfor/tlog
       - github.com/nikandfor/xrain
+      - github.com/opentracing/opentracing-go
       - github.com/prometheus/client_golang
       - github.com/prometheus/client_model
       - github.com/sirupsen/logrus
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
+      - github.com/uber/jaeger-client-go
       - google.golang.org/protobuf
+      - go.opentelemetry.io/otel
       - go.uber.org/zap
   misspell:
   lll:

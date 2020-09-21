@@ -13,6 +13,30 @@ Explore [examples](examples) and [extensions](ext).
 
 Idea and most of the concepts were designated while working on distributed systems in [Yuri Korzhenevsky R&D Center](https://www.rnd.center).
 
+# Contents
+- [Status](#status)
+- [Logger](#logger)
+  - [Structured](#structured-logging)
+  - [Conditional](#conditional-logging)
+  - [Logger object](#logger-object)
+  - [In tests](#logging-in-tests)
+  - [Location and StackTrace](#location-and-stacktrace)
+- [Writer](#writer)
+  - [ConsoleWriter](#consolewriter)
+  - [JSONWriter](#jsonwriter)
+  - [ProtoWriter](#protowriter)
+  - [TeeWriter](#teewriter)
+  - [The best writer ever](#the-best-writer-ever)
+- [Tracer](#tracer)
+- [Tracer + Logger](#tracer--logger)
+- [Metrics](#metrics)
+- [Distributed](#distributed)
+  - [Labels](#labels)
+  - [Span.ID](#spanid)
+- [Performance](#performance)
+  - [Allocs](#allocs)
+- [Roadmap](#roadmap)
+
 # Status
 It evolves as I use it. I still can change anything, but for now I'm quiet satisfied with most of details.
 
@@ -21,8 +45,24 @@ It's tested a bit but bugs are possible. Please report if find.
 # Logger
 
 Logging as usual.
+
 ```golang
 tlog.Printf("message: %v", "arguments")
+```
+
+## Structured logging
+
+```golang
+tlog.Printw("message", tlog.AInt("i", i), tlog.AString("path", pth))
+
+attrs := tlog.Attrs{
+	{Name: "op", Value: "save"},
+	{Name: "inter", Value: i}, // only basic types and tlog.ID are supported
+}
+
+// if ... { attrs = append(attrs, ...)
+
+tlog.Printw("message", attrs...)
 ```
 
 ## Conditional logging
@@ -101,11 +141,70 @@ In most cases it's enough to have only one filter, but if you need, you may have
 By default all conditionals are disabled.
 
 ## Logger object
-Logger can be created separately. All the same operations available there.
+
+Logger can be created as an object by `tlog.New`.
+All the same core functions are available at `*tlog.Logger`, `package` and `tlog.Span`.
+
 ```golang
 l := tlog.New(...)
+
 l.Printf("unconditional")
 l.V("topic").Printf("conditional")
+
+tr := l.Start()
+defer tr.Finish()
+
+tr.Printf("trace info")
+```
+
+`nil` `*tlog.Logger` works perfectly fine as well as uninitialized `tlog.Span`. They both just do nothing but never `panic`.
+
+```golang
+type Service struct {
+	logger *tlog.Logger
+}
+
+func NewService() *Service {
+	s := &Service{}
+
+	if needLogs {
+		s.logger = tlog.New(...) // set if needed, leave nil if not
+	}
+
+	return s
+}
+
+func (s *Service) Operation() {
+	// ...
+	s.logger.Printf("some details") // use anyway without fear
+}
+```
+
+## Logging in tests
+
+Log to `*testing.T` or `*testing.B` from your service code.
+
+```golang
+// using the Service defined above
+
+func TestService(t *testing.T) {
+	topics := "conn,rawbody" // get it from flags
+	tostderr := false // if function crash messages from testing.T will not be printed
+
+	tl := tlog.NewTestLogger(t, topics, tostderr)
+
+	s := NewService()
+	s.logger = tl
+
+	r, err := s.PrepareOp()
+	// if err != nil ...
+	// assert r
+
+	// instead of t.Logf()
+	tl.Printf("dump: %v", r)
+
+	// ...
+}
 ```
 
 ## Location and StackTrace
@@ -124,11 +223,13 @@ tlog.Printf("called from here: %v", l.String())
 tlog.Printf("crashed\n%v", tlog.Callers(0, 10))
 ```
 
-## Writer
+# Writer
 
 Writer is a backend of logger. It encodes messages and writes to the file, console, network connection or else.
 
-### ConsoleWriter
+Planned way is to log to the file (like normal loggers do) by compact encoding and to use separate agent to send it to central server or to serve requests as part of distributed storage.
+
+## ConsoleWriter
 
 It supports the same flags as stdlib `log` plus some extra.
 ```golang
@@ -136,7 +237,7 @@ var w io.Writer = os.Stderr // could be any writer
 tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(w, tlog.LstdFlags | tlog.Milliseconds))
 ```
 
-### JSONWriter
+## JSONWriter
 
 Encodes logs in a compact way to analyze them later. It only needs `io.Writer`.
 ```golang
@@ -146,14 +247,14 @@ var w io.Writer = file // could be os.Stderr or net.Conn...
 tlog.DefailtLogger = tlog.New(tlog.NewJSONWriter(w))
 ```
 
-### ProtobufWriter
+## ProtoWriter
 
-Even more compact and fast encoding.
+Ptotobuf encoding is compact and fast.
 ```golang
 _ = tlog.NewProtoWriter(w)
 ```
 
-### TeeWriter
+## TeeWriter
 
 You also may use several writers at the same time.
 ```golang
@@ -165,7 +266,7 @@ l := tlog.New(w)
 l = tlog.New(cw, jw) // the same result as before
 ```
 
-### The best writer ever
+## The best writer ever
 
 You can implement your own [tlog.Writer](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc#Writer).
 
@@ -182,10 +283,11 @@ Writer interface {
 
 There are more writers in `tlog` package, find them in [docs](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc).
 
-# Tracing
+# Tracer
 
 It's hard to overvalue tracing when it comes to many parallel requests and especially when it's distributed system.
 So tracing is here.
+
 ```golang
 func Google(ctx context.Context, user, query string) (*Response, error) {
     tr := tlog.Start() // records start time and location (function name, file and line)
@@ -198,9 +300,9 @@ func Google(ctx context.Context, user, query string) (*Response, error) {
     for _, b := range backends {
         go func(){
             subctx := tlog.ContextWithID(ctx, tr.ID)
-	    
+
             res := b.Search(subctx, u, q)
-	    
+
             // handle res
         }()
     }
@@ -210,7 +312,7 @@ func Google(ctx context.Context, user, query string) (*Response, error) {
     // wait for and take results of backends
 
     // each message contains time, so you can measure each block between messages
-    tr.Printf("%d Pages found on backends", len(res.Pages))
+    tr.Printw("backends responded", tlog.AInt("pages", len(res.Pages)))
 
     // ...
 
@@ -235,17 +337,21 @@ func (b *VideosBackend) Search(ctx context.Context, q string) ([]*Page, error) {
     return res, nil
 }
 ```
-Traces may be used as metrics either. Analyzing time of messages you can measure how much each function elapsed, how much time has passed since one message to another.
+Traces may be used as metrics either. Analyzing timestamps of messages you can measure how much time has passed since one message to another.
 
-**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually. Should not be hard, there are helpers.**
+**Important thing you should remember: `context.Context Values` are not passed through the network (`http.Request.WithContext` for example). You must pass `Span.ID` manually.
+Should not be hard, there are helpers.**
 
 Analysing and visualising tool is going to be later.
 
-Trace also can be used as `EventLog` (similar to https://godoc.org/golang.org/x/net/trace#EventLog)
+Trace can also be used as [net/trace.EventLog](https://godoc.org/golang.org/x/net/trace#EventLog).
+
+There is example middleware for [gin](ext/tlgin/gin.go) to extract `Span.ID` and spawn new `Span`
 
 # Tracer + Logger
 
 The best part is that you don't need to pass the same useful information to logs and to traces like when you use two separate systems, it's done for you!
+
 ```golang
 tr := tlog.Start()
 defer tr.Finish()
@@ -269,7 +375,7 @@ defer tr.Finish()
 // write highly volatile values to messages, not to labels.
 tr.Printf("account_id %x", accid)
 
-// labels should not exceed 1000 unique key-values pairs.
+// labels is not supposed to exceed 1000 unique key-values pairs.
 tr.SetLabels(tlog.Labels{"span=label"})
 
 tr.Observe("fully_qualified_metric_name_with_units", 123.456, tlog.Labels{"observation=label"})
@@ -304,18 +410,26 @@ Check out prometheus naming convention https://prometheus.io/docs/practices/nami
 
 # Distributed
 
-Distributed traces work almost the same as local logger.
+Distributed tracing work almost the same as local logger.
 
 ## Labels
 
-First thing you sould set up is `Labels`. They are attached to each following message and starting span. You can find out later which machine and process produced each log event by these labels. There are some predefined label names that can be filled for you.
+First thing you sould set up is `tlog.Labels`.
+They are attached to each of the **following** `Message`, `Span` and `Metric`.
+You can find out later which machine and process produced each log event by these labels.
+
+Resetting `Labels` **replaces** all of them not just given. `Messages` created before `Labels` was set are not annotated with them.
+
+There are some predefined label names that can be filled for you.
 
 ```golang
 tlog.DefaultLogger = tlog.New(...)
 
 // full list is in tlog.AutoLabels
 base := tlog.FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_randid")
+
 ls := append(Labels{"service=myservice"}, base...)
+
 ls = append(ls, tlog.ParseLabels(*userLabelsFlag)...)
 
 tlog.SetLabels(ls)
@@ -351,7 +465,7 @@ func client(ctx context.Context) {
     req := &http.Request{}
 
     if id := tlog.IDFromContext(ctx); id != (tlog.ID{}) {
-        req.Header.Set("X-Traceid", id.FullString())
+        req.Header.Set("X-Traceid", id.FullString()) // ID.String returns short prefix. It's not enough to Swawn from it.
     }
     
     // ...
@@ -361,7 +475,9 @@ func client(ctx context.Context) {
 # Performance
 
 ## Allocs
+
 Allocations are one of the worst enemies of performance. So I fighted each alloc and each byte and even hacked runtime (see `unsafe.go`). So you'll get much more than stdlib `log` gives you almost for the same price.
+
 ```
 goos: linux
 goarch: amd64
@@ -391,7 +507,7 @@ BenchmarkGlogLogger/Parallel-8              	 1943516	       629 ns/op	     224 
 BenchmarkLogrusLogger/SingleThread-8         	  386980	      2786 ns/op	     896 B/op	      19 allocs/op
 BenchmarkLogrusLogger/Parallel-8             	  263313	      5347 ns/op	     897 B/op	      19 allocs/op
 
-# trace with one message (must actually be one alloc on 8 bytes per op)
+# trace with one message 
 BenchmarkTlogTraces/ConsoleStd/SingleThread/StartPrintfFinish-8   	  648499	      1837 ns/op	        36.8 disk_B/op	       0 B/op	       0 allocs/op
 BenchmarkTlogTraces/ConsoleStd/Parallel/StartPrintfFinish-8       	 1615582	       718 ns/op	        36.5 disk_B/op	       0 B/op	       0 allocs/op
 BenchmarkTlogTraces/JSON/SingleThread/StartPrintfFinish-8         	  444662	      2440 ns/op	       250 disk_B/op	       0 B/op	       0 allocs/op
@@ -417,12 +533,13 @@ BenchmarkWriter/Proto/Parallel/TracedMetric-8                   	24649119	      
 BenchmarkLocationCaller-8         	 4326907	       265 ns/op	       0 B/op	       0 allocs/op
 BenchmarkLocationNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	       0 allocs/op
 ```
-1 alloc in each line with `Printf` is `int` to `interface{}` conversion.
+1 alloc in each line with `Printw` is `int` to `interface{}` conversion.
 
-1 more alloc in lines with `Printf` is []interface{} allocation for variadic args. tlog is not the case because of compiler optimizations.
+1 more alloc in most loggers is []interface{} allocation for variadic args. tlog is not the case because argumet doesn't leak and compiler optimiazation.
 2 more allocs in `LogLogger/Det` benchmark is because of `runtime.(*Frames).Next()` - that's why I hacked it.
 
 # Roadmap
+
 * Create swiss knife tool to analyse system performance through traces.
 * Create interactive dashboard for traces with web interface.
 * Integrate with existing tools

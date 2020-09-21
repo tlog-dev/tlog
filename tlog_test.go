@@ -19,6 +19,11 @@ import (
 
 type testt struct{}
 
+const (
+	Parallel     = "Parallel"
+	SingleThread = "SingleThread"
+)
+
 func testRandID() func() ID {
 	rnd := rand.New(rand.NewSource(0))
 
@@ -189,30 +194,30 @@ func TestPrintw(t *testing.T) {
 	cfg.MessageWidth = 20
 	cw.StructuredConfig = &cfg
 
-	Printw("message", Attrs{{"i", 1}, {"receiver", "pkg"}})
-	PrintwDepth(0, "message", Attrs{{"i", 2}, {"receiver", "pkg"}})
+	Printw("message", AInt("i", 1), AString("receiver", "pkg"))
+	PrintwDepth(0, "message", Attrs{{"i", 2}, {"receiver", "pkg"}}...)
 
-	DefaultLogger.Printw("message", Attrs{{"i", 3}, {"receiver", "logger"}})
-	DefaultLogger.PrintwDepth(0, "message", Attrs{{"i", 4}, {"receiver", "logger"}})
+	DefaultLogger.Printw("message", Attrs{{"i", 3}, {"receiver", "logger"}}...)
+	DefaultLogger.PrintwDepth(0, "message", Attrs{{"i", 4}, {"receiver", "logger"}}...)
 
 	tr := Start()
-	tr.Printw("message", Attrs{{"i", 5}, {"receiver", "trace"}})
-	tr.PrintwDepth(0, "message", Attrs{{"i", 6}, {"receiver", "trace"}})
+	tr.Printw("message", Attrs{{"i", 5}, {"receiver", "trace"}}...)
+	tr.PrintwDepth(0, "message", Attrs{{"i", 6}, {"receiver", "trace"}}...)
 	tr.Finish()
 
 	tr = Span{}
-	tr.Printw("message", Attrs{{"i", 7}})
+	tr.Printw("message", Attrs{{"i", 7}}...)
 
-	Printw("msg", Attrs{{"quoted", `a=b`}})
-	Printw("msg", Attrs{{"quoted", `q"w"e`}})
+	Printw("msg", Attrs{{"quoted", `a=b`}}...)
+	Printw("msg", Attrs{{"quoted", `q"w"e`}}...)
 
-	Printw("msg", Attrs{{"empty", ``}})
+	Printw("msg", Attrs{{"empty", ``}}...)
 	cfg.QuoteEmptyValue = true
-	Printw("msg", Attrs{{"empty", ``}})
+	Printw("msg", Attrs{{"empty", ``}}...)
 
-	Printw("msg", Attrs{{"difflen", `a`}, {"next", "val"}})
-	Printw("msg", Attrs{{"difflen", `abcde`}, {"next", "val"}})
-	Printw("msg", Attrs{{"difflen", `ab`}, {"next", "val"}})
+	Printw("msg", Attrs{{"difflen", `a`}, {"next", "val"}}...)
+	Printw("msg", Attrs{{"difflen", `abcde`}, {"next", "val"}}...)
+	Printw("msg", Attrs{{"difflen", `ab`}, {"next", "val"}}...)
 
 	assert.Equal(t, `message             i=1  receiver=pkg
 message             i=2  receiver=pkg
@@ -512,6 +517,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr.Finish()
 
+	//nolint:lll
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"M":{"t":"metric_desc","d":\["name=metric_name","type=type","help=help description","labels","const=labels"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
@@ -634,7 +640,7 @@ func BenchmarkStdLogLogger(b *testing.B) {
 				}
 			})
 
-			b.Run("Parallel", func(b *testing.B) {
+			b.Run(Parallel, func(b *testing.B) {
 				b.ReportAllocs()
 
 				b.RunParallel(func(b *testing.PB) {
@@ -671,7 +677,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 				act  func(i int)
 			}{
 				{"Printf", func(i int) { l.Printf("message: %d", 1000+i) }},
-				{"Printw", func(i int) { l.Printw("message", Attrs{{"i", 1000 + i}}) }},
+				{"Printw", func(i int) { l.Printw("message", AInt("i", 1000+i)) }},
 			}
 
 			for _, par := range []bool{false, true} {
@@ -692,7 +698,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 						}
 					})
 				} else {
-					b.Run("Parallel", func(b *testing.B) {
+					b.Run(Parallel, func(b *testing.B) {
 						for _, tc := range cases {
 							tc := tc
 
@@ -745,9 +751,9 @@ func BenchmarkTlogTracer(b *testing.B) {
 			for _, par := range []bool{false, true} {
 				par := par
 
-				n := "SingleThread"
+				n := SingleThread
 				if par {
-					n = "Parallel"
+					n = Parallel
 				}
 
 				b.Run(n, func(b *testing.B) {
@@ -771,7 +777,7 @@ func BenchmarkTlogTracer(b *testing.B) {
 							gtr.Printf("message: %d", 1000+i) // 1 alloc here: int to interface{} conversion
 						}},
 						{"Printw", func(i int) {
-							gtr.Printw("message", Attrs{{"i", 1000 + i}}) // 1 alloc here: int to interface{} conversion
+							gtr.Printw("message", AInt("i", 1000+i)) // 1 alloc here: int to interface{} conversion
 						}},
 						{"PrintRaw", func(i int) {
 							gtr.PrintRaw(0, buf)

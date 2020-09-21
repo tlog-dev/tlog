@@ -19,18 +19,19 @@ func BenchmarkJaegerTracer(b *testing.B) {
 
 	rep := jaeger.NewRemoteReporter(transp)
 
-	l, cl := jaeger.NewTracer("jaeger", jaeger.NewConstSampler(true),
-		//	jaeger.NewLoggingReporter(jlog{}),
-		rep,
-	)
+	if false {
+		rep = jaeger.NewCompositeReporter(rep, jaeger.NewLoggingReporter(jlog{}))
+	}
+
+	l, cl := jaeger.NewTracer("jaeger", jaeger.NewConstSampler(true), rep)
 	defer cl.Close()
 
 	for _, par := range []bool{false, true} {
 		par := par
 
-		n := "SingleThread"
+		n := SingleThread
 		if par {
-			n = "Parallel"
+			n = Parallel
 		}
 
 		b.Run(n, func(b *testing.B) {

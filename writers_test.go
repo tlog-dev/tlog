@@ -498,9 +498,9 @@ func BenchmarkWriter(b *testing.B) {
 			for _, par := range []bool{false, true} {
 				par := par
 
-				n := "SingleThread"
+				n := SingleThread
 				if par {
-					n = "Parallel"
+					n = Parallel
 				}
 
 				b.Run(n, func(b *testing.B) {
