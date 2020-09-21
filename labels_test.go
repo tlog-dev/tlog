@@ -67,7 +67,7 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	assert.Equal(t, Labels{"_hostname=myhost", "_user=myuser", "_pid=mypid", "_md5=mymd5", "_sha1=mysha1", "_execname=myname"},
 		FillLabelsWithDefaults("_hostname=myhost", "_user=myuser", "_pid=mypid", "_md5=mymd5", "_sha1=mysha1", "_execname=myname"))
 
-	ll := FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_execsha1", "_execname")
+	ll := FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_execsha1", "_execname", "_randid")
 
 	t.Logf("%v", ll)
 
@@ -88,6 +88,9 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 
 	re = regexp.MustCompile(`^_execname=tlog.test`) // no $ (.exe)
 	assert.True(t, re.MatchString(ll[5]), "%s is not %s ", ll[5], re)
+
+	re = regexp.MustCompile(`^_randid=[0-9a-z]{32}$`)
+	assert.True(t, re.MatchString(ll[6]), "%s is not %s ", ll[6], re)
 }
 
 func TestParseLabels(t *testing.T) {
@@ -99,4 +102,28 @@ func TestParseLabels(t *testing.T) {
 	assert.True(t, re.MatchString(ll[0]), "%s is not %s ", ll[0], re)
 
 	assert.Equal(t, "a=b", ll[1])
+}
+
+func TestLabelsEqual(t *testing.T) {
+	a := Labels{"a", "b", "c"}
+	b := Labels{"b", "a"}
+
+	a.Sort()
+	b.Sort()
+
+	assert.False(t, a.Equal(b), "must not be equal %v ? %v", a, b)
+
+	b = Labels{"b", "a", "c"}
+
+	assert.Panics(t, func() { a.Equal(b) })
+
+	b.Sort()
+
+	assert.True(t, a.Equal(b), "must be equal %v ? %v", a, b)
+
+	b = Labels{"b", "a", "d"}
+
+	b.Sort()
+
+	assert.False(t, a.Equal(b), "must not be equal %v ? %v", a, b)
 }

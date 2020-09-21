@@ -30,10 +30,8 @@ func (t testingWriter) Write(p []byte) (int, error) {
 	}
 
 	padded := make([]byte, len(p)+pad)
+	copy(padded[:pad], spaces)
 	copy(padded[pad:], p)
-	for i := 0; i < pad; i++ {
-		padded[i] = ' '
-	}
 
 	testingLogDepth(t.t, string(padded), 5)
 

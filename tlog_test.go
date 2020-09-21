@@ -75,11 +75,7 @@ func TestTlogParallel(t *testing.T) {
 }
 
 func TestPanicf(t *testing.T) {
-	defer func(l *Logger) {
-		DefaultLogger = l
-	}(DefaultLogger)
 	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
-
 	now = func() time.Time {
 		tm = tm.Add(time.Second)
 		return tm
@@ -182,6 +178,48 @@ raw message 3
 	assert.Equal(t, 3, n)
 }
 
+func TestPrintln(t *testing.T) {
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+
+	Println("message", 1)
+
+	DefaultLogger.Println("message", 2)
+
+	tr := Start()
+
+	tr.Println("message", 3)
+
+	tr.Finish()
+
+	assert.Equal(t, `message 1
+message 2
+message 3
+`, buf.String())
+}
+
+func TestPrintfwDepth(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewConsoleWriter(&buf, 0)
+	DefaultLogger = New(w)
+	DefaultLogger.randID = testRandID()
+
+	PrintfwDepth(-1, "message %v", Args{1}, Attrs{AInt("i", 1)})
+
+	DefaultLogger.PrintfwDepth(-1, "message %v", Args{2}, Attrs{AInt("i", 2)})
+
+	tr := Start()
+
+	tr.PrintfwDepth(-1, "message %v", Args{3}, Attrs{AInt("i", 3)})
+
+	tr.Finish()
+
+	assert.Equal(t, `message 1                               i=1
+message 2                               i=2
+message 3                               span=0194fdc2  i=3
+`, buf.String())
+}
+
 func TestPrintw(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -235,6 +273,60 @@ msg                 difflen=ab     next=val
 `, buf.String())
 }
 
+func TestLabelRegexp(t *testing.T) {
+	l := New()
+
+	l.SetLabels(Labels{"a", "b=c"})
+
+	assert.Panics(t, func() {
+		l.SetLabels(Labels{"!a", "b=c"})
+	})
+}
+
+func TestMetrics(t *testing.T) {
+	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
+	now = func() time.Time {
+		tm = tm.Add(time.Second)
+		return tm
+	}
+
+	var w collectWriter
+
+	DefaultLogger = New(&w)
+	DefaultLogger.NoLocations = true
+
+	RegisterMetric("name1", MGauge, "help 1", Labels{"label1"})
+	Observe("name1", 4, Labels{"label11"})
+
+	DefaultLogger.RegisterMetric("name2", MCounter, "help 2", Labels{"label2"})
+	DefaultLogger.Observe("name2", 2, Labels{"label22"})
+
+	tr := Start()
+
+	tr.Observe("name2", 5, Labels{"label33"})
+
+	tr.Finish()
+
+	assert.Equal(t, []cev{
+		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name1", "type=" + MGauge, "help=help 1", "labels", "label1"}}},
+		{Ev: Metric{Name: "name1", Value: 4, Labels: Labels{"label11"}}},
+		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name2", "type=" + MCounter, "help=help 2", "labels", "label2"}}},
+		{Ev: Metric{Name: "name2", Value: 2, Labels: Labels{"label22"}}},
+		{Ev: SpanStart{ID: tr.ID, Started: tr.Started.UnixNano()}},
+		{ID: tr.ID, Ev: Metric{Name: "name2", Value: 5, Labels: Labels{"label33"}}},
+		{Ev: SpanFinish{ID: tr.ID, Elapsed: time.Second.Nanoseconds()}},
+	}, w.Events)
+
+	// regexp
+	assert.Panics(t, func() {
+		DefaultLogger.RegisterMetric("qwe123!", "", "", nil)
+	})
+
+	assert.Panics(t, func() {
+		DefaultLogger.RegisterMetric("qwe123", "", "", Labels{"a=!"})
+	})
+}
+
 //nolint:wsl
 func TestVerbosity(t *testing.T) {
 	tm := time.Date(2019, time.July, 5, 23, 49, 40, 0, time.Local)
@@ -249,6 +341,7 @@ func TestVerbosity(t *testing.T) {
 
 	DefaultLogger = New(NewConsoleWriter(&buf, Lnone))
 
+	assert.False(t, If("any_topic"))
 	V("any_topic").Printf("All conditionals are disabled by default")
 
 	SetFilter("topic1,tlog=topic3")
@@ -256,6 +349,10 @@ func TestVerbosity(t *testing.T) {
 	assert.Equal(t, "topic1,tlog=topic3", Filter())
 
 	Printf("unconditional message")
+
+	assert.True(t, DefaultLogger.If("topic1"))
+	assert.False(t, DefaultLogger.If("topic2"))
+
 	DefaultLogger.V("topic1").Printf("topic1 message (enabled)")
 	DefaultLogger.V("topic2").Printf("topic2 message (disabled)")
 
@@ -282,7 +379,7 @@ func TestVerbosity(t *testing.T) {
 		tr.Printf("traced msg")
 	}
 	tr.V("topic2").Printf("trace conditioned message 1")
-	if tr.V("TRACE").Valid() {
+	if tr.If("TRACE") {
 		tr.Printf("trace conditioned message 2")
 	}
 	tr.Finish()
@@ -548,6 +645,10 @@ func TestAppendWriter(t *testing.T) {
 
 	assert.Equal(t, l.Writer, Discard)
 
+	l.AppendWriter()
+
+	assert.Equal(t, l.Writer, Discard)
+
 	l.AppendWriter(Discard)
 
 	assert.Equal(t, l.Writer, Discard)
@@ -559,21 +660,43 @@ func TestAppendWriter(t *testing.T) {
 	l.AppendWriter(Discard, Discard)
 
 	assert.Equal(t, l.Writer, TeeWriter{Discard, Discard, Discard, Discard})
+
+	jw := NewJSONWriter(nil)
+	l = New(jw)
+
+	l.AppendWriter(Discard)
+
+	assert.Equal(t, l.Writer, TeeWriter{jw, Discard})
+}
+
+func TestRandID(t *testing.T) {
+	l := New()
+
+	go func() {
+		l.Printf("msg")
+	}()
+
+	id := l.RandID()
+	assert.NotZero(t, id)
+
+	id = (*Logger)(nil).RandID()
+	assert.Zero(t, id)
 }
 
 func TestCoverUncovered(t *testing.T) {
-	defer func(l *Logger) {
-		DefaultLogger = l
-	}(DefaultLogger)
-
 	var buf bytes.Buffer
 	DefaultLogger = New(NewJSONWriter(&buf))
+
+	assert.True(t, DefaultLogger.Valid())
+	assert.False(t, (*Logger)(nil).Valid())
 
 	SetLabels(Labels{"a", "q"})
 
 	assert.Equal(t, `{"L":{"L":["a","q"]}}`+"\n", buf.String())
 
 	(*Logger)(nil).SetLabels(Labels{"a"})
+
+	(*Logger)(nil).SetFilter("any")
 
 	assert.Equal(t, "too short id: 7, wanted 16", TooShortIDError{N: 7}.Error())
 
@@ -588,6 +711,53 @@ func TestCoverUncovered(t *testing.T) {
 
 	id := DefaultLogger.stdRandID()
 	assert.NotZero(t, id)
+
+	tr := NewSpan(nil, ID{1, 2, 3}, 0)
+	assert.Zero(t, tr)
+
+	tr = NewSpan(DefaultLogger, ID{1, 2, 3}, 0)
+	assert.True(t, DefaultLogger == tr.Logger)
+	assert.NotZero(t, tr.ID)
+
+	var w collectWriter
+	l := New(&w)
+	l.NoLocations = true
+	l.randID = func() ID { return ID{4, 5, 6} }
+	now = func() time.Time {
+		return time.Unix(0, 0)
+	}
+
+	(*Logger)(nil).SpawnOrStart(ID{1, 2, 3})
+
+	tr = l.SpawnOrStart(ID{1, 2, 3})
+	assert.True(t, l == tr.Logger)
+
+	tr = l.SpawnOrStart(ID{})
+	assert.True(t, l == tr.Logger)
+
+	assert.Equal(t, []cev{
+		{Ev: SpanStart{ID: ID{4, 5, 6}, Parent: ID{1, 2, 3}}},
+		{Ev: SpanStart{ID: ID{4, 5, 6}}},
+	}, w.Events)
+
+	w.Events = w.Events[:0]
+
+	tr = l.Migrate(Span{ID: ID{1, 2, 3}})
+	assert.Zero(t, tr)
+
+	tr = l.Migrate(Span{Logger: DefaultLogger, ID: ID{4, 5, 6}})
+	assert.True(t, l == tr.Logger)
+	assert.Equal(t, []cev{}, w.Events)
+
+	w.Events = w.Events[:0]
+
+	l.randID = func() ID { return ID{7, 8, 9} }
+
+	tr = tr.Spawn()
+	_ = Span{}.Spawn()
+	assert.Equal(t, []cev{
+		{Ev: SpanStart{ID: ID{7, 8, 9}, Parent: ID{4, 5, 6}}},
+	}, w.Events)
 }
 
 func TestPrintfVsPrintln(t *testing.T) {

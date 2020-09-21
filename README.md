@@ -1,4 +1,4 @@
-[![Documentation](https://godoc.org/github.com/nikandfor/tlog?status.svg)](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc)
+[![Documentation](https://pkg.go.dev/badge/github.com/nikandfor/tlog)](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc)
 [![Build Status](https://travis-ci.com/nikandfor/tlog.svg?branch=master)](https://travis-ci.com/nikandfor/tlog)
 [![CircleCI](https://circleci.com/gh/nikandfor/tlog.svg?style=svg)](https://circleci.com/gh/nikandfor/tlog)
 [![codecov](https://codecov.io/gh/nikandfor/tlog/branch/master/graph/badge.svg)](https://codecov.io/gh/nikandfor/tlog)
@@ -189,7 +189,11 @@ Log to `*testing.T` or `*testing.B` from your service code.
 
 func TestService(t *testing.T) {
 	topics := "conn,rawbody" // get it from flags
-	tostderr := false // if function crash messages from testing.T will not be printed
+
+	// if function crash messages from testing.T will not be printed
+	// so set it to os.Stderr or buffer to print logs on your own
+	// leave it nil to print to the test like by t.Logf
+	var tostderr io.Writer
 
 	tl := tlog.NewTestLogger(t, topics, tostderr)
 

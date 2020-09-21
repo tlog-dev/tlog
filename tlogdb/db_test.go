@@ -20,7 +20,7 @@ import (
 var tlogV = flag.String("tlog-v", "", "")
 
 func TestDBSmoke(t *testing.T) {
-	tl = tlog.NewTestLogger(t, *tlogV, false)
+	tl = tlog.NewTestLogger(t, *tlogV, nil)
 	tlog.DefaultLogger = tl
 
 	const N = 3

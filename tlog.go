@@ -5,7 +5,6 @@ package tlog
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -142,6 +141,10 @@ const ( // metric types
 	Mempty     = ""
 )
 
+const ( // meta types
+	MetaMetricDescription = "metric_desc"
+)
+
 var now = time.Now
 
 var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoLocations = true; return l }()
@@ -150,10 +153,10 @@ var ErrorLabel = Labels{"error"}
 
 var ( // regexp
 	mtName  = "[_a-zA-Z][_a-zA-Z0-9]*"
-	mtLabel = mtName + "(=[_=/a-zA-Z0-9]*)?"
+	mtLabel = mtName + "(=[_=/a-zA-Z0-9-]*)?"
 
-	mtNameRe  = regexp.MustCompile(mtName)
-	mtLabelRe = regexp.MustCompile(mtLabel)
+	mtNameRe  = regexp.MustCompile("^" + mtName + "$")
+	mtLabelRe = regexp.MustCompile("^" + mtLabel + "$")
 )
 
 // New creates new Logger with given writers.
@@ -176,6 +179,10 @@ func New(ws ...Writer) *Logger {
 }
 
 func (l *Logger) AppendWriter(ws ...Writer) {
+	if len(ws) == 0 {
+		return
+	}
+
 	switch w := l.Writer.(type) {
 	case DiscardWriter:
 		if len(ws) == 1 {
@@ -189,11 +196,16 @@ func (l *Logger) AppendWriter(ws ...Writer) {
 
 	default:
 		tw := NewTeeWriter(w)
+
 		l.Writer = append(tw, ws...)
 	}
 }
 
 func (l *Logger) RandID() (id ID) {
+	if l == nil {
+		return
+	}
+
 	l.mu.Lock()
 	id = l.randID()
 	l.mu.Unlock()
@@ -600,6 +612,10 @@ func (l *Logger) SpawnOrStart(id ID) Span {
 }
 
 func (l *Logger) Migrate(s Span) Span {
+	if s.Logger == nil {
+		return Span{}
+	}
+
 	return Span{
 		Logger:  l,
 		ID:      s.ID,
@@ -939,37 +955,7 @@ func (i ID) FormatTo(b []byte, f rune) {
 	}
 }
 
-func (i ID) MarshalJSON() (d []byte, err error) {
-	var b [34]byte
-
-	b[0] = '"'
-	b[len(b)-1] = '"'
-
-	i.FormatTo(b[1:len(b)-1], 'x')
-
-	return b[:], nil
-}
-
-func (i *ID) UnmarshalJSON(b []byte) error {
-	if b[0] != '"' || b[len(b)-1] != '"' {
-		return errors.New("bad format")
-	}
-
-	q, err := IDFromString(string(b[1 : len(b)-1]))
-	if err != nil {
-		return err
-	}
-
-	*i = q
-
-	return nil
-}
-
 func (l *Logger) stdRandID() (id ID) {
-	if l == nil {
-		return
-	}
-
 	for id == (ID{}) {
 		_, _ = l.rnd.Read(id[:])
 	}
@@ -977,8 +963,9 @@ func (l *Logger) stdRandID() (id ID) {
 	return
 }
 
-func AInt(n string, v int) Attr      { return Attr{Name: n, Value: v} }
-func AInt64(n string, v int64) Attr  { return Attr{Name: n, Value: v} }
-func AUnt64(n string, v uint64) Attr { return Attr{Name: n, Value: v} }
-func AString(n, v string) Attr       { return Attr{Name: n, Value: v} }
-func AID(n string, v ID) Attr        { return Attr{Name: n, Value: v} }
+func AInt(n string, v int) Attr       { return Attr{Name: n, Value: v} }
+func AInt64(n string, v int64) Attr   { return Attr{Name: n, Value: v} }
+func AUint64(n string, v uint64) Attr { return Attr{Name: n, Value: v} }
+func AFloat(n string, v float64) Attr { return Attr{Name: n, Value: v} }
+func AString(n, v string) Attr        { return Attr{Name: n, Value: v} }
+func AID(n string, v ID) Attr         { return Attr{Name: n, Value: v} }

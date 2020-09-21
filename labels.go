@@ -147,8 +147,8 @@ func (ls *Labels) Set(k, v string) {
 }
 
 // Get gets k label value or "", false.
-func (ls *Labels) Get(k string) (string, bool) {
-	for _, l := range *ls {
+func (ls Labels) Get(k string) (string, bool) {
+	for _, l := range ls {
 		if l == k {
 			return "", true
 		} else if strings.HasPrefix(l, k+"=") {
@@ -192,11 +192,9 @@ func (ls *Labels) Merge(b Labels) {
 }
 
 // Copy copies Labels including deleted thumbstones.
-func (ls *Labels) Copy() Labels {
-	r := make(Labels, len(*ls))
-	for i, v := range *ls {
-		r[i] = v
-	}
+func (ls Labels) Copy() Labels {
+	r := make(Labels, len(ls))
+	copy(r, ls)
 	return r
 }
 
@@ -209,18 +207,20 @@ func (ls Labels) Sort() {
 //
 // Both sets MUST be sorted.
 func (ls Labels) Equal(b Labels) bool {
-	if !sort.StringsAreSorted(ls) || !sort.StringsAreSorted(b) {
-		panic("both label sets must be sorted to compare")
-	}
-
 	if len(ls) != len(b) {
 		return false
 	}
 
 	for i := range ls {
-		if ls[i] != b[i] {
-			return false
+		if ls[i] == b[i] {
+			continue
 		}
+
+		if !sort.StringsAreSorted(ls) || !sort.StringsAreSorted(b) {
+			panic("both label sets must be sorted to compare")
+		}
+
+		return false
 	}
 
 	return true

@@ -3,6 +3,8 @@ package tlog
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"testing"
@@ -422,13 +424,90 @@ func TestProtoWriter(t *testing.T) {
 	}
 }
 
-func TestLockedWriter(t *testing.T) {
-	l := New(NewLockedWriter(Discard))
+func TestHelperWriters(t *testing.T) {
+	now = func() time.Time { return time.Unix(0, 0) }
 
+	var w collectWriter
+
+	l := New(
+		NewFallbackWriter(
+			NewLockedWriter(&errorWriter{err: errors.New("error")}),
+			NewTeeWriter(&w, Discard),
+		),
+	)
+	l.NoLocations = true
+	l.randID = func() ID { return ID{1, 2, 3, 4, 5} }
+
+	l.RegisterMetric("name", MCounter, "", nil)
+	l.Observe("name", 1, nil)
 	l.SetLabels(Labels{"a", "b"})
 	tr := l.Start()
 	tr.Printf("message: %v", 2)
 	tr.Finish()
+
+	exp := []cev{
+		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name", "type=" + MCounter, "help=", "labels"}}},
+		{Ev: Metric{Name: "name", Value: 1}},
+		{Ev: Labels{"a", "b"}},
+		{Ev: SpanStart{ID: tr.ID}},
+		{ID: tr.ID, Ev: Message{Text: "message: 2"}},
+		{Ev: SpanFinish{ID: tr.ID}},
+	}
+	assert.Equal(t, exp, w.Events)
+
+	w.Events = w.Events[:0]
+	var fb collectWriter
+
+	l.Writer = NewFallbackWriter(
+		&w,
+		&fb,
+	)
+
+	l.RegisterMetric("name", MCounter, "", nil)
+	l.Observe("name", 1, nil)
+	l.SetLabels(Labels{"a", "b"})
+	tr = l.Start()
+	tr.Printf("message: %v", 2)
+	tr.Finish()
+
+	assert.Equal(t, exp, w.Events)
+}
+
+func TestMetricsCache(t *testing.T) {
+	metricsCacheMaxValues = 10
+
+	var b, exp bufWriter
+
+	w := NewJSONWriter(&b)
+
+	l := New(w)
+
+	for i := 0; i < metricsCacheMaxValues+1; i++ {
+		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i+1, i, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		if t.Failed() {
+			return
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		if t.Failed() {
+			t.Logf("cache (%d): %v", len(w.cc), w.cc)
+			return
+		}
+	}
 }
 
 func TestTeeWriter(t *testing.T) {
@@ -469,6 +548,102 @@ func TestNewTeeWriter(t *testing.T) {
 	d := NewTeeWriter(a, b, c, Discard)
 
 	assert.Len(t, d, 5)
+}
+
+func TestConsoleMetrics(t *testing.T) {
+	var buf bytes.Buffer
+
+	w := NewConsoleWriter(&buf, 0)
+	l := New(NewTeeWriter(w))
+
+	l.RegisterMetric("name", MCounter, "help 1", Labels{"labels1"})
+	l.Observe("name", 3, Labels{"labels=again"})
+
+	assert.Equal(t, `Meta: metric_desc ["name=name" "type=counter" "help=help 1" "labels" "labels1"]
+name          3.00000  labels=again
+`, buf.String())
+}
+
+//nolint:lll
+func TestAttributes(t *testing.T) {
+	now = func() time.Time { return time.Unix(0, 0) }
+
+	var js, pb bytes.Buffer
+
+	l := New(NewJSONWriter(&js), NewProtoWriter(&pb))
+	l.NoLocations = true
+
+	id := ID{1, 2, 3, 4, 5, 6}
+
+	l.Printw("helpers",
+		AInt("int", -1),
+		AInt64("int64", -2),
+		AUint64("uint64", 3),
+		AFloat("float64", 4.5),
+		AString("str", "string"),
+		AID("id", id),
+	)
+
+	l.Printw("slice", Attrs{
+		{Name: "int32", Value: int32(-1)},
+		{Name: "int16", Value: int16(-2)},
+		{Name: "int8", Value: int8(-3)},
+		{Name: "uint", Value: uint(4)},
+		{Name: "uint32", Value: uint32(5)},
+		{Name: "uint16", Value: uint16(6)},
+		{Name: "uint8", Value: uint8(7)},
+		{Name: "float32", Value: float32(8.5)},
+	}...)
+
+	l.Printw("undef", Attr{Name: "undef", Value: &bwr{}})
+
+	assert.Equal(t, `{"m":{"m":"helpers","a":[{"n":"int","t":"i","v":-1},{"n":"int64","t":"i","v":-2},{"n":"uint64","t":"u","v":3},{"n":"float64","t":"f","v":4.5},{"n":"str","t":"s","v":"string"},{"n":"id","t":"d","v":"01020304050600000000000000000000"}]}}
+{"m":{"m":"slice","a":[{"n":"int32","t":"i","v":-1},{"n":"int16","t":"i","v":-2},{"n":"int8","t":"i","v":-3},{"n":"uint","t":"u","v":4},{"n":"uint32","t":"u","v":5},{"n":"uint16","t":"u","v":6},{"n":"uint8","t":"u","v":7},{"n":"float32","t":"f","v":8.5}]}}
+{"m":{"m":"undef","a":[{"n":"undef","t":"?","ut":"*tlog.bwr"}]}}
+`, js.String())
+
+	var pbuf []byte
+
+	pbuf = encode(pbuf[:0], &tlogpb.Record{Message: &tlogpb.Message{
+		Text: "helpers",
+		Attrs: []*tlogpb.Attr{
+			{Name: "int", Type: 'i', Int: -1},
+			{Name: "int64", Type: 'i', Int: -2},
+			{Name: "uint64", Type: 'u', Uint: 3},
+			{Name: "float64", Type: 'f', Float: 4.5},
+			{Name: "str", Type: 's', Str: "string"},
+			{Name: "id", Type: 'd', Bytes: id[:]},
+		},
+	}})
+
+	i := len(pbuf)
+	assert.Equal(t, pbuf, pb.Bytes()[:i])
+
+	pbuf = encode(pbuf[:0], &tlogpb.Record{Message: &tlogpb.Message{
+		Text: "slice",
+		Attrs: []*tlogpb.Attr{
+			{Name: "int32", Type: 'i', Int: -1},
+			{Name: "int16", Type: 'i', Int: -2},
+			{Name: "int8", Type: 'i', Int: -3},
+			{Name: "uint", Type: 'u', Uint: 4},
+			{Name: "uint32", Type: 'u', Uint: 5},
+			{Name: "uint16", Type: 'u', Uint: 6},
+			{Name: "uint8", Type: 'u', Uint: 7},
+			{Name: "float32", Type: 'f', Float: 8.5},
+		},
+	}})
+
+	assert.Equal(t, pbuf, pb.Bytes()[i:i+len(pbuf)])
+	i += len(pbuf)
+
+	pbuf = encode(pbuf[:0], &tlogpb.Record{Message: &tlogpb.Message{
+		Text: "undef",
+		Attrs: []*tlogpb.Attr{
+			{Name: "undef", Type: '?', Str: "*tlog.bwr"},
+		},
+	}})
+
+	assert.Equal(t, pbuf, pb.Bytes()[i:])
 }
 
 //nolint:gocognit

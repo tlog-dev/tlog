@@ -114,4 +114,9 @@ func TestContextWithRandom(t *testing.T) {
 	ctx = ContextWithRandomID(context.Background())
 	res = IDFromContext(ctx)
 	assert.NotZero(t, res)
+
+	DefaultLogger = nil
+
+	ctx = ContextWithRandomID(context.Background())
+	assert.Equal(t, context.Background(), ctx)
 }

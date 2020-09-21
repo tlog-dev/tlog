@@ -117,12 +117,15 @@ github.com/nikandfor/tlog v0.4.2/go.mod h1:cHuUMNLZGK/rjlh2gUDE50Px9kmnojAYZ/Ub8
 github.com/nikandfor/tlog v0.5.1-0.20200818001742-8a93f3f3c653/go.mod h1:p3CPQJOM8Sq2hzeKIpfbSoqsaLiAQ/gv0p+UhhPlwsg=
 github.com/nikandfor/tlog v0.5.1-0.20200819205345-b32d421a95e9/go.mod h1:u6MVPQc3ix2ek2cdySN7w+wapNqXtx576056MxDvBZo=
 github.com/nikandfor/tlog v0.6.1-0.20200920173347-d29fee383fee/go.mod h1:Cgkn4zOFRcdzY/wSr1EMPbSGPd/hrcqYNUvHwzbTG5c=
+github.com/nikandfor/tlog v0.6.1-0.20200921230809-148196d9b0f2/go.mod h1:kk6gA2m7wSigC+Uetn9DtXVi3eUnfuEktNbLR28OEMU=
 github.com/nikandfor/xrain v0.0.0-20200808102054-6a1388982a5e/go.mod h1:sXdCXqFpifJeBONAcfzn+XJ4nuvKn+Rd10AfHtUtzhQ=
 github.com/nikandfor/xrain v0.0.0-20200818135427-644706c9c405/go.mod h1:2GwCWm2IwYYMBcX4c7U/ehkkb40kDbyWaIjjgp5LiWI=
 github.com/nikandfor/xrain v0.0.0-20200918135248-f1d704dd29ca h1:aHrJLNfJgfl3JsaUIZFt5WaeIFJPgujET+PFELpA5ZY=
 github.com/nikandfor/xrain v0.0.0-20200918135248-f1d704dd29ca/go.mod h1:4EY0llqled+vqNGdQjNZSjkUmLXAis9DPBGCKF0BhHU=
 github.com/nikandfor/xrain v0.0.0-20200920181451-7477483fd7ca h1:bqxoEfFhvrSUKqGegyj9BIfkL61bNtIEM8AbPAj47ME=
 github.com/nikandfor/xrain v0.0.0-20200920181451-7477483fd7ca/go.mod h1:sQPmR+5CT4ZnbHBuu5IgnnVWyEk6ldc8iQG309c8vaM=
+github.com/nikandfor/xrain v0.0.0-20200921231627-f669ab2645f2 h1:FUupRBb+RDAYe6IK8Fp8zndtBgs5K3BGW2uCisUaI9s=
+github.com/nikandfor/xrain v0.0.0-20200921231627-f669ab2645f2/go.mod h1:5cWZHeCMaj0Gei5I+ri/vieDTIb/kynjaV06xKo3D84=
 github.com/opentracing/opentracing-go v1.1.0 h1:pWlfV3Bxv7k65HYwkikxat0+s3pV4bsqf19k25Ur8rU=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=

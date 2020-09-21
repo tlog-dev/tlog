@@ -119,6 +119,19 @@ type (
 		Fallback Writer
 	}
 
+	collectWriter struct {
+		Events []cev
+	}
+
+	errorWriter struct {
+		err error
+	}
+
+	cev struct {
+		ID ID
+		Ev interface{}
+	}
+
 	bufWriter []byte
 
 	bwr struct {
@@ -135,7 +148,7 @@ type (
 	}
 )
 
-const metricsCacheMaxValues = 1000
+var metricsCacheMaxValues = 1000
 
 var ( // type checks
 	_ Writer = &ConsoleWriter{}
@@ -144,6 +157,8 @@ var ( // type checks
 	_ Writer = &TeeWriter{}
 	_ Writer = &LockedWriter{}
 	_ Writer = FallbackWriter{}
+	_ Writer = errorWriter{}
+	_ Writer = &collectWriter{}
 
 	Discard Writer = DiscardWriter{}
 )
@@ -525,6 +540,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	defer wr.Ret(&b)
 
 	b = AppendPrintf(b, "%v  %15.5f ", m.Name, m.Value)
+
 	for _, l := range m.Labels {
 		b = append(b, ' ')
 		b = append(b, l...)
@@ -711,7 +727,7 @@ func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 			b = appendSafe(b, v)
 			b = append(b, '"')
 		case int, int64, int32, int16, int8:
-			b = append(b, `"i","v":"`...)
+			b = append(b, `"i","v":`...)
 
 			var iv int64
 			switch v := v.(type) {
@@ -728,10 +744,8 @@ func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 			}
 
 			b = strconv.AppendInt(b, iv, 10)
-
-			b = append(b, '"')
 		case uint, uint64, uint32, uint16, uint8:
-			b = append(b, `"u","v":"`...)
+			b = append(b, `"u","v":`...)
 
 			var iv uint64
 			switch v := v.(type) {
@@ -748,16 +762,12 @@ func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 			}
 
 			b = strconv.AppendUint(b, iv, 10)
-
-			b = append(b, '"')
 		case float64:
-			b = append(b, `"f","v":"`...)
+			b = append(b, `"f","v":`...)
 			b = strconv.AppendFloat(b, v, 'f', -1, 64)
-			b = append(b, '"')
 		case float32:
-			b = append(b, `"f","v":"`...)
+			b = append(b, `"f","v":`...)
 			b = strconv.AppendFloat(b, float64(v), 'f', -1, 32)
-			b = append(b, '"')
 		default:
 			b = AppendPrintf(b, `"?","ut":"%T"`, v)
 		}
@@ -804,16 +814,16 @@ func (w *writerCache) killMetric(n string) {
 	}
 }
 
-func (w *writerCache) metricCached(m Metric) (cnum int, had bool) {
+func (w *writerCache) metricCached(m Metric) (cnum int, full bool) {
 	skip := w.skip[m.Name]
 	if skip == -1 {
-		return 0, false
+		return 0, true
 	}
 
 	if skip > metricsCacheMaxValues {
 		w.killMetric(m.Name)
 
-		return 0, false
+		return 0, true
 	}
 
 	n := m.Name
@@ -824,7 +834,7 @@ func (w *writerCache) metricCached(m Metric) (cnum int, had bool) {
 	}
 
 	cnum = -1
-	had = true
+	full = false
 outer:
 	for _, c := range w.cc[h] {
 		if len(c.Labels) != len(m.Labels) {
@@ -842,31 +852,35 @@ outer:
 		}
 
 		cnum = c.N
+
+		break
 	}
 
-	if cnum == -1 {
-		w.ccn++
-		cnum = w.ccn
-		had = false
-
-		w.skip[m.Name]++
-
-		ls := make(Labels, len(m.Labels))
-		copy(ls, m.Labels)
-
-		w.cc[h] = append(w.cc[h], mh{
-			N:      cnum,
-			Name:   m.Name,
-			Labels: ls,
-		})
+	if cnum != -1 {
+		return
 	}
+
+	w.ccn++
+	cnum = w.ccn
+	full = true
+
+	w.skip[m.Name]++
+
+	ls := make(Labels, len(m.Labels))
+	copy(ls, m.Labels)
+
+	w.cc[h] = append(w.cc[h], mh{
+		N:      cnum,
+		Name:   m.Name,
+		Labels: ls,
+	})
 
 	return
 }
 
 func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 	w.mu.Lock()
-	cnum, had := w.metricCached(m)
+	cnum, full := w.metricCached(m)
 	w.mu.Unlock()
 
 	b, wr := Getbuf()
@@ -881,13 +895,16 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 		sid.FormatTo(b[i:], 'x')
 	}
 
-	b = append(b, `"h":`...)
-	b = strconv.AppendInt(b, int64(cnum), 10)
+	if cnum != 0 {
+		b = append(b, `"h":`...)
+		b = strconv.AppendInt(b, int64(cnum), 10)
+		b = append(b, ',')
+	}
 
-	b = append(b, `,"v":`...)
+	b = append(b, `"v":`...)
 	b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
 
-	if !had {
+	if full {
 		b = append(b, `,"n":"`...)
 		b = appendSafe(b, m.Name)
 		b = append(b, '"')
@@ -1284,15 +1301,17 @@ func (w *ProtoWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 }
 
 func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
-	cnum, had := w.metricCached(m)
+	cnum, full := w.metricCached(m)
 
 	sz := 0
 	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
-	sz += 1 + varintSize(uint64(cnum)) // hash
-	sz += 1 + 8                        // value
-	if !had {
+	if cnum != 0 {
+		sz += 1 + varintSize(uint64(cnum)) // hash
+	}
+	sz += 1 + 8 // value
+	if full {
 		sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
 		for _, l := range m.Labels {
 			q := len(l)
@@ -1313,12 +1332,14 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	b = appendTagVarint(b, 2<<3|0, uint64(cnum)) //nolint:staticcheck
+	if cnum != 0 {
+		b = appendTagVarint(b, 2<<3|0, uint64(cnum)) //nolint:staticcheck
+	}
 
 	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
 
-	if !had {
+	if full {
 		b = appendTagVarint(b, 4<<3|2, uint64(len(m.Name)))
 		b = append(b, m.Name...)
 
@@ -1610,6 +1631,43 @@ func (w DiscardWriter) Message(Message, ID) error       { return nil }
 func (w DiscardWriter) Metric(Metric, ID) error         { return nil }
 func (w DiscardWriter) SpanStarted(s SpanStart) error   { return nil }
 func (w DiscardWriter) SpanFinished(f SpanFinish) error { return nil }
+
+func (w errorWriter) Labels(Labels, ID) error         { return w.err }
+func (w errorWriter) Meta(Meta) error                 { return w.err }
+func (w errorWriter) Message(Message, ID) error       { return w.err }
+func (w errorWriter) Metric(Metric, ID) error         { return w.err }
+func (w errorWriter) SpanStarted(s SpanStart) error   { return w.err }
+func (w errorWriter) SpanFinished(f SpanFinish) error { return w.err }
+
+func (w *collectWriter) Labels(ls Labels, id ID) error {
+	w.Events = append(w.Events, cev{Ev: ls, ID: id})
+	return nil
+}
+
+func (w *collectWriter) Meta(m Meta) error {
+	w.Events = append(w.Events, cev{Ev: m})
+	return nil
+}
+
+func (w *collectWriter) Message(m Message, id ID) error {
+	w.Events = append(w.Events, cev{Ev: m, ID: id})
+	return nil
+}
+
+func (w *collectWriter) Metric(m Metric, id ID) error {
+	w.Events = append(w.Events, cev{Ev: m, ID: id})
+	return nil
+}
+
+func (w *collectWriter) SpanStarted(s SpanStart) error {
+	w.Events = append(w.Events, cev{Ev: s})
+	return nil
+}
+
+func (w *collectWriter) SpanFinished(f SpanFinish) error {
+	w.Events = append(w.Events, cev{Ev: f})
+	return nil
+}
 
 func NewLockedWriter(w Writer) *LockedWriter {
 	return &LockedWriter{w: w}
