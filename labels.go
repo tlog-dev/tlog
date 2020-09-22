@@ -22,6 +22,7 @@ type Labels []string
 //     _hostname - local hostname
 //     _user - current user
 //     _pid - process pid
+//     _timezone - local timezone code
 //     _execmd5 - this binary md5 hash
 //     _execsha1 - this binary sha1 hash
 //     _execname - executable base name (project name)
@@ -32,6 +33,10 @@ var AutoLabels = map[string]func() string{
 	"_pid": func() string {
 		return fmt.Sprintf("%d", os.Getpid())
 	},
+	"_timezone": func() (n string) {
+		n, _ = now().Zone()
+		return
+	},
 	"_execmd5":  ExecutableMD5,
 	"_execsha1": ExecutableSHA1,
 	"_execname": func() string {
@@ -40,7 +45,6 @@ var AutoLabels = map[string]func() string{
 	"_randid": func() string {
 		return DefaultLogger.randID().FullString()
 	},
-	// TODO: timezone
 }
 
 // Hostname returns hostname or err.Error().

@@ -116,7 +116,11 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			}
 			t.PC = ex
 			t.Entry = 0x100 + ex
-			t.File = strings.TrimPrefix(t.File, Prefix) // cut prefix in case of repo is not in GOPATH or similar folder structure
+
+			for _, p := range strings.Split(Prefix, "/") {
+				t.File = strings.TrimPrefix(t.File, p+"/") // trim prefix in case of repo is not in GOPATH or similar folder structure
+			}
+
 			o = t
 		case Message:
 			t.Frame = locs[t.Frame]

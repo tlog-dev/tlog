@@ -67,7 +67,7 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	assert.Equal(t, Labels{"_hostname=myhost", "_user=myuser", "_pid=mypid", "_md5=mymd5", "_sha1=mysha1", "_execname=myname"},
 		FillLabelsWithDefaults("_hostname=myhost", "_user=myuser", "_pid=mypid", "_md5=mymd5", "_sha1=mysha1", "_execname=myname"))
 
-	ll := FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_execsha1", "_execname", "_randid")
+	ll := FillLabelsWithDefaults("_hostname", "_user", "_pid", "_execmd5", "_execsha1", "_execname", "_randid", "_timezone")
 
 	t.Logf("%v", ll)
 
@@ -91,6 +91,10 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 
 	re = regexp.MustCompile(`^_randid=[0-9a-z]{32}$`)
 	assert.True(t, re.MatchString(ll[6]), "%s is not %s ", ll[6], re)
+
+	tzn, _ := now().Zone()
+	assert.NotZero(t, tzn)
+	assert.Equal(t, "_timezone="+tzn, ll[7])
 }
 
 func TestParseLabels(t *testing.T) {
