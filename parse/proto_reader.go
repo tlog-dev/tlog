@@ -115,7 +115,7 @@ func (r *ProtoReader) Any() (interface{}, error) {
 	case 'L':
 		return r.Labels()
 	case 'l':
-		return r.Location()
+		return r.Frame()
 	case 'm':
 		return r.Message()
 	case 'v':
@@ -169,7 +169,7 @@ func (r *ProtoReader) Labels() (ls Labels, err error) {
 	return ls, nil
 }
 
-func (r *ProtoReader) Location() (l Location, err error) {
+func (r *ProtoReader) Frame() (l Frame, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
@@ -237,7 +237,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			if err != nil {
 				return m, err
 			}
-			m.Location = uint64(x)
+			m.Frame = uint64(x)
 		case 3<<3 | 1:
 			m.Time = r.time()
 		case 4<<3 | 2:
@@ -365,7 +365,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			if err != nil {
 				return s, err
 			}
-			s.Location = uint64(x)
+			s.Frame = uint64(x)
 		case 4<<3 | 1:
 			s.Started = r.time()
 		default:

@@ -20,7 +20,7 @@ Idea and most of the concepts were designated while working on distributed syste
   - [Conditional](#conditional-logging)
   - [Logger object](#logger-object)
   - [In tests](#logging-in-tests)
-  - [Location and StackTrace](#location-and-stacktrace)
+  - [Callers](#callers)
 - [Writer](#writer)
   - [ConsoleWriter](#consolewriter)
   - [JSONWriter](#jsonwriter)
@@ -211,9 +211,9 @@ func TestService(t *testing.T) {
 }
 ```
 
-## Location and StackTrace
+## Callers
 
-Location in source code is recorded for each message you log (if you not disabled it). But you also may also capture some location or stack trace.
+Location in source code is recorded for each message you log (if you not disabled it). But you also may capture some location or stack trace.
 ```golang
 l := tlog.Caller(0) // 0 means current line
 l = tlog.Caller(2) // 2 frames higher
@@ -294,7 +294,7 @@ So tracing is here.
 
 ```golang
 func Google(ctx context.Context, user, query string) (*Response, error) {
-    tr := tlog.Start() // records start time and location (function name, file and line)
+    tr := tlog.Start() // records frame (function name, file and line) and start time
     defer tr.Finish() // records duration
 
     tr.SetLabels(Labels{"user=" + user}) // attach to Span and each of it's messages.
@@ -534,8 +534,8 @@ BenchmarkWriter/Proto/Parallel/TracedMessage-8                  	 6444532	      
 BenchmarkWriter/Proto/Parallel/TracedMetric-8                   	24649119	        44.0 ns/op	        32.0 disk_B/op	       0 B/op	       0 allocs/op
 
 # Caller
-BenchmarkLocationCaller-8         	 4326907	       265 ns/op	       0 B/op	       0 allocs/op
-BenchmarkLocationNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFrameCaller-8         	 4326907	       265 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFrameNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	       0 allocs/op
 ```
 1 alloc in each line with `Printw` is `int` to `interface{}` conversion.
 

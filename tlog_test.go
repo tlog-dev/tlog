@@ -293,7 +293,7 @@ func TestMetrics(t *testing.T) {
 	var w collectWriter
 
 	DefaultLogger = New(&w)
-	DefaultLogger.NoLocations = true
+	DefaultLogger.NoCaller = true
 
 	RegisterMetric("name1", MGauge, "help 1", Labels{"label1"})
 	Observe("name1", 4, Labels{"label11"})
@@ -728,7 +728,7 @@ func TestCoverUncovered(t *testing.T) {
 
 	var w collectWriter
 	l := New(&w)
-	l.NoLocations = true
+	l.NoCaller = true
 	l.randID = func() ID { return ID{4, 5, 6} }
 	now = func() time.Time {
 		return time.Unix(0, 0)
@@ -788,7 +788,7 @@ func BenchmarkPrintfVsPrintln(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(NewConsoleWriter(ioutil.Discard, 0))
-	l.NoLocations = true
+	l.NoCaller = true
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message %d %d %d", i, i+1, i+2)
@@ -846,7 +846,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			l := New(NewConsoleWriter(ioutil.Discard, tc.ff))
 			if tc.ff == LstdFlags {
-				l.NoLocations = true
+				l.NoCaller = true
 			}
 
 			cases := []struct {

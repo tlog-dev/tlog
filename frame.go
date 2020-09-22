@@ -40,13 +40,13 @@ func Funcentry(s int) Frame {
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with only one alloc (resulting slice).
 func Callers(skip, n int) Frames {
 	tr := make([]Frame, n)
-	return FillCallers(1+skip, tr)
+	return CallersFill(1+skip, tr)
 }
 
-// FillStackTrace returns callers stack trace into provided array.
+// FillCallers returns callers stack trace into provided array.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
-func FillCallers(skip int, tr Frames) Frames {
+func CallersFill(skip int, tr Frames) Frames {
 	n := runtime.Callers(2+skip, *(*[]uintptr)(unsafe.Pointer(&tr)))
 	return tr[:n]
 }

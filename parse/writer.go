@@ -9,7 +9,7 @@ import (
 type (
 	Writer interface {
 		Labels(Labels) error
-		Location(Location) error
+		Frame(Frame) error
 		Message(Message) error
 		Metric(Metric) error
 		Meta(Meta) error
@@ -27,7 +27,7 @@ type (
 
 	ConvertWriter struct {
 		w  Writer
-		ls map[tlog.Location]struct{}
+		ls map[tlog.Frame]struct{}
 	}
 )
 
@@ -41,8 +41,8 @@ func (w AnyWriter) Labels(ls Labels) error {
 	return w.w.Labels(ls.Labels, ls.Span)
 }
 
-func (w AnyWriter) Location(l Location) error {
-	tlog.Location(l.PC).SetCache(l.Name, l.File, l.Line)
+func (w AnyWriter) Frame(l Frame) error {
+	tlog.Frame(l.PC).SetCache(l.Name, l.File, l.Line)
 
 	return nil
 }
@@ -59,9 +59,9 @@ func (w AnyWriter) Meta(m Meta) error {
 func (w AnyWriter) Message(m Message) error {
 	return w.w.Message(
 		tlog.Message{
-			Location: tlog.Location(m.Location),
-			Time:     m.Time,
-			Text:     m.Text,
+			Frame: tlog.Frame(m.Frame),
+			Time:  m.Time,
+			Text:  m.Text,
 		},
 		m.Span,
 	)
@@ -79,10 +79,10 @@ func (w AnyWriter) Metric(m Metric) error {
 
 func (w AnyWriter) SpanStart(s SpanStart) error {
 	return w.w.SpanStarted(tlog.SpanStart{
-		ID:       s.ID,
-		Parent:   s.Parent,
-		Started:  s.Started,
-		Location: tlog.Location(s.Location),
+		ID:      s.ID,
+		Parent:  s.Parent,
+		Started: s.Started,
+		Frame:   tlog.Frame(s.Frame),
 	})
 }
 
@@ -103,8 +103,8 @@ func (w *ConsoleWriter) Labels(ls Labels) error {
 	return w.w.Labels(ls.Labels, ls.Span)
 }
 
-func (w *ConsoleWriter) Location(l Location) error {
-	tlog.Location(l.PC).SetCache(l.Name, l.File, l.Line)
+func (w *ConsoleWriter) Frame(l Frame) error {
+	tlog.Frame(l.PC).SetCache(l.Name, l.File, l.Line)
 
 	return nil
 }
@@ -121,9 +121,9 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 func (w *ConsoleWriter) Message(m Message) (err error) {
 	return w.w.Message(
 		tlog.Message{
-			Location: tlog.Location(m.Location),
-			Time:     m.Time,
-			Text:     m.Text,
+			Frame: tlog.Frame(m.Frame),
+			Time:  m.Time,
+			Text:  m.Text,
 		},
 		m.Span,
 	)
@@ -142,10 +142,10 @@ func (w *ConsoleWriter) Metric(m Metric) (err error) {
 
 func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
 	return w.w.SpanStarted(tlog.SpanStart{
-		ID:       s.ID,
-		Parent:   s.Parent,
-		Started:  s.Started,
-		Location: tlog.Location(s.Location),
+		ID:      s.ID,
+		Parent:  s.Parent,
+		Started: s.Started,
+		Frame:   tlog.Frame(s.Frame),
 	})
 }
 
@@ -159,7 +159,7 @@ func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
 func NewConvertWriter(w Writer) *ConvertWriter {
 	return &ConvertWriter{
 		w:  w,
-		ls: make(map[tlog.Location]struct{}),
+		ls: make(map[tlog.Frame]struct{}),
 	}
 }
 
@@ -177,16 +177,16 @@ func (w *ConvertWriter) Meta(m tlog.Meta) error {
 }
 
 func (w *ConvertWriter) Message(m tlog.Message, sid tlog.ID) error {
-	err := w.location(m.Location)
+	err := w.location(m.Frame)
 	if err != nil {
 		return err
 	}
 
 	return w.w.Message(Message{
-		Span:     sid,
-		Location: uint64(m.Location),
-		Time:     m.Time,
-		Text:     m.Text,
+		Span:  sid,
+		Frame: uint64(m.Frame),
+		Time:  m.Time,
+		Text:  m.Text,
 	})
 }
 
@@ -200,16 +200,16 @@ func (w *ConvertWriter) Metric(m tlog.Metric, sid tlog.ID) error {
 }
 
 func (w *ConvertWriter) SpanStarted(s tlog.SpanStart) error {
-	err := w.location(s.Location)
+	err := w.location(s.Frame)
 	if err != nil {
 		return err
 	}
 
 	return w.w.SpanStart(SpanStart{
-		ID:       s.ID,
-		Parent:   s.Parent,
-		Location: uint64(s.Location),
-		Started:  s.Started,
+		ID:      s.ID,
+		Parent:  s.Parent,
+		Frame:   uint64(s.Frame),
+		Started: s.Started,
 	})
 }
 
@@ -220,14 +220,14 @@ func (w *ConvertWriter) SpanFinished(f tlog.SpanFinish) error {
 	})
 }
 
-func (w *ConvertWriter) location(l tlog.Location) error {
+func (w *ConvertWriter) location(l tlog.Frame) error {
 	if _, ok := w.ls[l]; ok {
 		return nil
 	}
 
 	name, file, line := l.NameFileLine()
 
-	err := w.w.Location(Location{
+	err := w.w.Frame(Frame{
 		PC:   uint64(l),
 		Name: name,
 		File: file,

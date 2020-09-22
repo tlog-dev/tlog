@@ -36,8 +36,8 @@ type (
 		// Have effect on Write function only.
 		DepthCorrection int
 
-		// NoLocations disables locations capturing.
-		NoLocations bool
+		// NoCaller disables capturing caller's frame.
+		NoCaller bool
 
 		rnd    *rand.Rand
 		randID func() ID
@@ -147,7 +147,7 @@ const ( // meta types
 
 var now = time.Now
 
-var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoLocations = true; return l }()
+var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoCaller = true; return l }()
 
 var ErrorLabel = Labels{"error"}
 
@@ -347,7 +347,7 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 
 func newspan(l *Logger, d int, par ID) Span {
 	var loc Frame
-	if !l.NoLocations {
+	if !l.NoCaller {
 		loc = Funcentry(d + 2)
 	}
 
@@ -380,7 +380,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 	t := now()
 
 	var loc Frame
-	if !l.NoLocations {
+	if !l.NoCaller {
 		loc = Caller(d + 2)
 	}
 

@@ -82,7 +82,7 @@ func (w *Writer) Labels(ls parse.Labels) (err error) {
 	return
 }
 
-func (w *Writer) Location(l parse.Location) error {
+func (w *Writer) Frame(l parse.Frame) error {
 	return nil
 }
 

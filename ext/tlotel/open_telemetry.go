@@ -140,7 +140,7 @@ func (t Tracer) Start(ctx context.Context, spanName string, opts ...trace.StartO
 
 	se.Started = s.Started.UnixNano()
 
-	if !t.Logger.NoLocations {
+	if !t.Logger.NoCaller {
 		se.Frame = tlog.Funcentry(1)
 	}
 
@@ -212,7 +212,7 @@ func (s Span) AddEventWithTimestamp(ctx context.Context, tm time.Time, name stri
 		Text: name,
 	}
 
-	if !s.Span.Logger.NoLocations {
+	if !s.Span.Logger.NoCaller {
 		m.Frame = tlog.Caller(1)
 	}
 	if tm != (time.Time{}) {

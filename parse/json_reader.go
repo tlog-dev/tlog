@@ -89,7 +89,7 @@ func (r *JSONReader) Any() (interface{}, error) {
 	case 'L':
 		return r.Labels()
 	case 'l':
-		return r.Location()
+		return r.Frame()
 	case 'm':
 		return r.Message()
 	case 'v':
@@ -151,15 +151,15 @@ func (r *JSONReader) Labels() (ls Labels, err error) {
 	return ls, nil
 }
 
-func (r *JSONReader) Location() (l Location, err error) {
+func (r *JSONReader) Frame() (l Frame, err error) {
 	if r.r.Type() != json.Object {
-		return Location{}, r.r.ErrorHere(errors.New("object expected"))
+		return Frame{}, r.r.ErrorHere(errors.New("object expected"))
 	}
 
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
-			return Location{}, r.r.ErrorHere(errors.New("empty key"))
+			return Frame{}, r.r.ErrorHere(errors.New("empty key"))
 		}
 		switch k[0] {
 		case 'f':
@@ -170,24 +170,24 @@ func (r *JSONReader) Location() (l Location, err error) {
 			n := string(r.r.NextNumber())
 			l.PC, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
-				return Location{}, r.r.ErrorHere(err)
+				return Frame{}, r.r.ErrorHere(err)
 			}
 		case 'e':
 			n := string(r.r.NextNumber())
 			l.Entry, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
-				return Location{}, r.r.ErrorHere(err)
+				return Frame{}, r.r.ErrorHere(err)
 			}
 		case 'l':
 			n := string(r.r.NextNumber())
 			v, err := strconv.ParseUint(n, 10, 64)
 			if err != nil {
-				return Location{}, r.r.ErrorHere(err)
+				return Frame{}, r.r.ErrorHere(err)
 			}
 			l.Line = int(v)
 		default:
 			if err := r.unknownField(k); err != nil {
-				return Location{}, err
+				return Frame{}, err
 			}
 		}
 	}
@@ -216,7 +216,7 @@ func (r *JSONReader) Message() (m Message, err error) {
 			m.Text = string(r.r.NextString())
 		case 'l':
 			n := string(r.r.NextNumber())
-			m.Location, err = strconv.ParseUint(n, 10, 64)
+			m.Frame, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
@@ -353,7 +353,7 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 		switch k[0] {
 		case 'l':
 			n := string(r.r.NextNumber())
-			s.Location, err = strconv.ParseUint(n, 10, 64)
+			s.Frame, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}

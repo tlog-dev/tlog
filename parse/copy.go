@@ -29,12 +29,12 @@ func Copy(w Writer, r LowReader) error {
 				return errors.Wrap(err, "writer")
 			}
 		case 'l':
-			l, err := r.Location()
+			l, err := r.Frame()
 			if err != nil {
 				return errors.Wrap(err, "reader")
 			}
 
-			err = w.Location(l)
+			err = w.Frame(l)
 			if err != nil {
 				return errors.Wrap(err, "writer")
 			}

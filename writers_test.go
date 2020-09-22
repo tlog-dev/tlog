@@ -435,7 +435,7 @@ func TestHelperWriters(t *testing.T) {
 			NewTeeWriter(&w, Discard),
 		),
 	)
-	l.NoLocations = true
+	l.NoCaller = true
 	l.randID = func() ID { return ID{1, 2, 3, 4, 5} }
 
 	l.RegisterMetric("name", MCounter, "", nil)
@@ -571,7 +571,7 @@ func TestAttributes(t *testing.T) {
 	var js, pb bytes.Buffer
 
 	l := New(NewJSONWriter(&js), NewProtoWriter(&pb))
-	l.NoLocations = true
+	l.NoCaller = true
 
 	id := ID{1, 2, 3, 4, 5, 6}
 

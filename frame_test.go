@@ -11,24 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLocation(t *testing.T) {
-	testLocationInside(t)
+func TestFrame(t *testing.T) {
+	testFrameInside(t)
 }
 
-func testLocationInside(t *testing.T) {
+func testFrameInside(t *testing.T) {
 	pc := Caller(0)
 	name, file, line := pc.NameFileLine()
-	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
+	assert.Equal(t, "tlog.testFrameInside", path.Base(name))
 	assert.Equal(t, "frame_test.go", filepath.Base(file))
 	assert.Equal(t, 19, line)
 }
 
-func TestLocationShort(t *testing.T) {
+func TestFrameShort(t *testing.T) {
 	pc := Caller(0)
 	assert.Equal(t, "frame_test.go:27", pc.String())
 }
 
-func TestLocation2(t *testing.T) {
+func TestFrame2(t *testing.T) {
 	func() {
 		func() {
 			l := Funcentry(0)
@@ -38,7 +38,7 @@ func TestLocation2(t *testing.T) {
 	}()
 }
 
-func TestLocationFormat(t *testing.T) {
+func TestFrameFormat(t *testing.T) {
 	l := Caller(-1)
 
 	var b bytes.Buffer
@@ -67,7 +67,7 @@ func TestLocationFormat(t *testing.T) {
 	assert.Equal(t, "Caller:25", b.String())
 }
 
-func TestLocationCropFileName(t *testing.T) {
+func TestFrameCropFileName(t *testing.T) {
 	assert.Equal(t, "github.com/nikandfor/tlog/sub/module/file.go",
 		cropFilename("/path/to/src/github.com/nikandfor/tlog/sub/module/file.go", "github.com/nikandfor/tlog/sub/module.(*type).method"))
 	assert.Equal(t, "github.com/nikandfor/tlog/sub/module/file.go",
@@ -98,7 +98,7 @@ func TestSetCache(t *testing.T) {
 	assert.Equal(t, "file.go:10", l.String())
 }
 
-func BenchmarkLocationString(b *testing.B) {
+func BenchmarkFrameString(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
@@ -106,7 +106,7 @@ func BenchmarkLocationString(b *testing.B) {
 	}
 }
 
-func BenchmarkLocationCaller(b *testing.B) {
+func BenchmarkFrameCaller(b *testing.B) {
 	b.ReportAllocs()
 
 	var l Frame
@@ -118,7 +118,7 @@ func BenchmarkLocationCaller(b *testing.B) {
 	_ = l
 }
 
-func BenchmarkLocationNameFileLine(b *testing.B) {
+func BenchmarkFrameNameFileLine(b *testing.B) {
 	b.ReportAllocs()
 
 	var n, f string

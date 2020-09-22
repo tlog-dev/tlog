@@ -39,29 +39,29 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	})
 
 	_ = w.Message(tlog.Message{
-		Location: tlog.Caller(0),
-		Time:     now(),
-		Text:     "3",
+		Frame: tlog.Caller(0),
+		Time:  now(),
+		Text:  "3",
 	}, tlog.ID{})
 
 	_ = w.SpanStarted(tlog.SpanStart{
-		ID:       ID{1},
-		Parent:   ID{},
-		Started:  now(),
-		Location: tlog.Caller(0),
+		ID:      ID{1},
+		Parent:  ID{},
+		Started: now(),
+		Frame:   tlog.Caller(0),
 	})
 
 	_ = w.Message(tlog.Message{
-		Location: tlog.Caller(0),
-		Time:     now(),
-		Text:     "5",
+		Frame: tlog.Caller(0),
+		Time:  now(),
+		Text:  "5",
 	}, ID{1})
 
 	_ = w.SpanStarted(tlog.SpanStart{
-		ID:       ID{2},
-		Parent:   ID{1},
-		Started:  now(),
-		Location: tlog.Caller(0),
+		ID:      ID{2},
+		Parent:  ID{1},
+		Started: now(),
+		Frame:   tlog.Caller(0),
 	})
 
 	_ = w.Metric(
@@ -108,7 +108,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		}
 
 		switch t := o.(type) {
-		case Location:
+		case Frame:
 			ex, ok := locs[t.PC]
 			if !ok {
 				ex = uint64(len(locs) + 1)
@@ -119,13 +119,13 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			t.File = strings.TrimPrefix(t.File, Prefix) // cut prefix in case of repo is not in GOPATH or similar folder structure
 			o = t
 		case Message:
-			t.Location = locs[t.Location]
+			t.Frame = locs[t.Frame]
 			o = t
 		case Metric:
 			t.Hash = 0
 			o = t
 		case SpanStart:
-			t.Location = locs[t.Location]
+			t.Frame = locs[t.Frame]
 			o = t
 		}
 
@@ -150,7 +150,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 				"mode=debug",
 			},
 		},
-		Location{
+		Frame{
 			PC:    1,
 			Entry: 0x101,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
@@ -158,12 +158,12 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  42,
 		},
 		Message{
-			Span:     ID{},
-			Location: 1,
-			Time:     now(),
-			Text:     "3",
+			Span:  ID{},
+			Frame: 1,
+			Time:  now(),
+			Text:  "3",
 		},
-		Location{
+		Frame{
 			PC:    2,
 			Entry: 0x102,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
@@ -171,12 +171,12 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  51,
 		},
 		SpanStart{
-			ID:       ID{1},
-			Parent:   ID{},
-			Location: 2,
-			Started:  now(),
+			ID:      ID{1},
+			Parent:  ID{},
+			Frame:   2,
+			Started: now(),
 		},
-		Location{
+		Frame{
 			PC:    3,
 			Entry: 0x103,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
@@ -184,12 +184,12 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  55,
 		},
 		Message{
-			Span:     ID{1},
-			Location: 3,
-			Time:     now(),
-			Text:     "5",
+			Span:  ID{1},
+			Frame: 3,
+			Time:  now(),
+			Text:  "5",
 		},
-		Location{
+		Frame{
 			PC:    4,
 			Entry: 0x104,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
@@ -197,10 +197,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  64,
 		},
 		SpanStart{
-			ID:       ID{2},
-			Parent:   ID{1},
-			Location: 4,
-			Started:  now(),
+			ID:      ID{2},
+			Parent:  ID{1},
+			Frame:   4,
+			Started: now(),
 		},
 		Metric{
 			Span:   ID{2},

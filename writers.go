@@ -558,7 +558,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 
 func (w *ConsoleWriter) caller() Frame {
 	var buf [6]Frame
-	FillCallers(2, buf[:])
+	CallersFill(2, buf[:])
 	i := 0
 	for i+1 < len(buf) {
 		name, _, _ := buf[i].NameFileLine()
