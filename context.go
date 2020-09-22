@@ -3,8 +3,8 @@ package tlog
 import "context"
 
 type (
-	key     struct{}
-	spankey struct{}
+	ctxidkey   struct{}
+	ctxspankey struct{}
 )
 
 // ContextWithID creates new context with Span ID context.Value.
@@ -13,7 +13,7 @@ func ContextWithID(ctx context.Context, id ID) context.Context {
 	if id == (ID{}) {
 		return ctx
 	}
-	return context.WithValue(ctx, key{}, id)
+	return context.WithValue(ctx, ctxidkey{}, id)
 }
 
 // ContextWithRandomID creates new context with random Span ID context.Value.
@@ -27,7 +27,7 @@ func ContextWithRandomID(ctx context.Context) context.Context {
 	id := DefaultLogger.randID()
 	DefaultLogger.mu.Unlock()
 
-	return context.WithValue(ctx, key{}, id)
+	return context.WithValue(ctx, ctxidkey{}, id)
 }
 
 // ContextWithIDOrRandom creates new context with Span ID context.Value.
@@ -37,7 +37,7 @@ func ContextWithIDOrRandom(ctx context.Context, id ID) context.Context {
 		return ContextWithRandomID(ctx)
 	}
 
-	return context.WithValue(ctx, key{}, id)
+	return context.WithValue(ctx, ctxidkey{}, id)
 }
 
 // ContextWithSpan creates new context with Span ID context.Value.
@@ -46,17 +46,17 @@ func ContextWithSpan(ctx context.Context, s Span) context.Context {
 	if s.ID == (ID{}) {
 		return ctx
 	}
-	return context.WithValue(ctx, spankey{}, s)
+	return context.WithValue(ctx, ctxspankey{}, s)
 }
 
 // IDFromContext receives Span ID from Context.
 // It returns zero if no ID found.
 func IDFromContext(ctx context.Context) ID {
-	v := ctx.Value(key{})
+	v := ctx.Value(ctxidkey{})
 	if id, ok := v.(ID); ok {
 		return id
 	}
-	v = ctx.Value(spankey{})
+	v = ctx.Value(ctxspankey{})
 	if s, ok := v.(Span); ok {
 		return s.ID
 	}
@@ -70,7 +70,7 @@ func SpanFromContext(ctx context.Context) (s Span) {
 		return Span{}
 	}
 
-	v := ctx.Value(spankey{})
+	v := ctx.Value(ctxspankey{})
 	s, _ = v.(Span)
 
 	return

@@ -1,4 +1,3 @@
-//nolint
 package tlog
 
 import (
@@ -6,10 +5,8 @@ import (
 	"unsafe"
 )
 
+//nolint
 type (
-	// Use simple []byte instead of bytes.Buffer to avoid large dependency.
-	buffer []byte
-
 	// pp is used to store a printer's state and is reused with sync.Pool to avoid allocations.
 	pp struct {
 		buf []byte

@@ -474,6 +474,40 @@ func TestHelperWriters(t *testing.T) {
 }
 
 func TestMetricsCache(t *testing.T) {
+	var b, exp bufWriter
+
+	w := NewJSONWriter(&b)
+
+	l := New(w)
+
+	l.Observe("name", 1, Labels{"a=b"})
+	assert.Equal(t, `{"v":{"h":1,"v":1,"n":"name","L":["a=b"]}}`+"\n", string(b))
+
+	b = b[:0]
+
+	l.Observe("name", 1, Labels{"a=c"})
+	assert.Equal(t, `{"v":{"h":2,"v":1,"n":"name","L":["a=c"]}}`+"\n", string(b))
+
+	b = b[:0]
+
+	for i := 0; i < metricsCacheMaxValues+10; i++ {
+		l.Observe("name", float64(i), Labels{"a=b"})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d}}`+"\n", 1, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		l.Observe("name", float64(i), Labels{"a=c"})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d}}`+"\n", 2, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+	}
+}
+
+func TestMetricsCacheKill(t *testing.T) {
 	metricsCacheMaxValues = 10
 
 	var b, exp bufWriter
@@ -508,6 +542,92 @@ func TestMetricsCache(t *testing.T) {
 			return
 		}
 	}
+}
+
+func TestMetricsCacheKill2(t *testing.T) {
+	metricsCacheMaxValues = 100
+	strhash0 = func(p *string, u uintptr) uintptr {
+		u = strhash(p, u)
+		u &= 0x7
+		return u
+	}
+
+	var b, exp bufWriter
+
+	w := NewJSONWriter(&b)
+
+	l := New(w)
+
+	for i := 0; i < metricsCacheMaxValues; i++ {
+		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i+1, i, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		if t.Failed() {
+			return
+		}
+	}
+
+	for i := 0; i < metricsCacheMaxValues; i++ {
+		l.Observe("name2", float64(i), Labels{fmt.Sprintf("label=%d", i)})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d,"n":"name2","L":["label=%d"]}}`+"\n", metricsCacheMaxValues+i+1, i, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		if t.Failed() {
+			return
+		}
+	}
+
+	l.Observe("name3", float64(0), Labels{"a=b", "c=d"})
+
+	//	t.Logf("cache before: %d | %v %v", len(w.cc), w.skip, w.cc)
+
+	l.Observe("name", float64(0), Labels{fmt.Sprintf("label=%d", metricsCacheMaxValues)})
+
+	//	t.Logf("cache after:  %d | %v %v", len(w.cc), w.skip, w.cc)
+
+	b = b[:0]
+
+	for i := 0; i < 3; i++ {
+		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		if t.Failed() {
+			t.Logf("cache (%d): %v", len(w.cc), w.cc)
+			return
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		l.Observe("name2", float64(i), Labels{fmt.Sprintf("label=%d", i)})
+
+		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d}}`+"\n", metricsCacheMaxValues+i+1, i)
+		assert.Equal(t, exp, b)
+
+		b = b[:0]
+
+		if t.Failed() {
+			t.Logf("cache (%d): %v", len(w.cc), w.cc)
+			return
+		}
+	}
+
+	l.Observe("name3", float64(1.1), Labels{"a=b", "c=d"})
+
+	exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%v}}`+"\n", 2*metricsCacheMaxValues+1, 1.1)
+	assert.Equal(t, exp, b)
+
+	b = b[:0]
 }
 
 func TestTeeWriter(t *testing.T) {

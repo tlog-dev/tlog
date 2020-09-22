@@ -1,4 +1,3 @@
-//nolint:deadcode
 package tlog
 
 import (
@@ -173,10 +172,6 @@ func strhash(p *string, h uintptr) uintptr
 //go:noescape
 //go:linkname byteshash runtime.strhash
 func byteshash(p *[]byte, h uintptr) uintptr
-
-//go:noescape
-//go:linkname strhash0 runtime.strhash
-func strhash0(p unsafe.Pointer, h uintptr) uintptr
 
 func StrHash(s string, h uintptr) uintptr {
 	return strhash(&s, h)

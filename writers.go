@@ -166,6 +166,8 @@ var ( // type checks
 
 var spaces = []byte("                                                                                                                                                ")
 
+var strhash0 = strhash
+
 var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 128)} }}
 
 // Getbuf gets bytes buffer from a pool to reduce gc pressure.
@@ -838,10 +840,10 @@ func (w *writerCache) metricCached(m Metric) (cnum int, full bool) {
 	}
 
 	n := m.Name
-	h := strhash(&n, 0)
+	h := strhash0(&n, 0)
 	for _, l := range m.Labels {
 		n = l
-		h = strhash(&n, h)
+		h = strhash0(&n, h)
 	}
 
 	cnum = -1
