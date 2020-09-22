@@ -19,6 +19,7 @@ go:
 
 script:
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+  - go test -coverprofile=coverage.txt -covermode=atomic . ./parse/... ./rotated ./circle ./ext/...
 
 after_success:
   - test "$TRAVIS_OS_NAME" = linux && test "$TRAVIS_CPU_ARCH" = amd64 && test "$TRAVIS_GO_VERSION" = "1.15" && export CODECOV_UPLOAD=yes
