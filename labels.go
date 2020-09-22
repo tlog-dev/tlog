@@ -14,7 +14,8 @@ import (
 
 // Labels is a set of labels with optional values.
 //
-// Labels are attached to all following events (in an optimal way) until replaced.
+// Global Labels are attached to all the following events (in an optimal way) until replaced.
+// Span Labels are attached to Span and all it's events.
 type Labels []string
 
 // AutoLabels is a list of automatically filled labels
@@ -39,6 +40,7 @@ var AutoLabels = map[string]func() string{
 	"_randid": func() string {
 		return DefaultLogger.randID().FullString()
 	},
+	// TODO: timezone
 }
 
 // Hostname returns hostname or err.Error().

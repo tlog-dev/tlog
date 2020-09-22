@@ -52,8 +52,6 @@ type (
 	// ConsoleWriter produces similar output as stdlib log.Logger.
 	//
 	// Each event ends up with a single Write.
-	//
-	// It's unsafe to write event simultaneously.
 	ConsoleWriter struct {
 		w         io.Writer
 		f         int
@@ -67,8 +65,6 @@ type (
 	// JSONWriter produces output readable by both machines and humans.
 	//
 	// Each event ends up with a single Write if message fits in 1000 bytes (default) buffer.
-	//
-	// It's unsafe to write event simultaneously.
 	JSONWriter struct {
 		w io.Writer
 		writerCache
@@ -77,8 +73,6 @@ type (
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
 	//
 	// Each event ends up with a single Write.
-	//
-	// It's unsafe to write event simultaneously.
 	ProtoWriter struct {
 		w io.Writer
 		writerCache
@@ -104,8 +98,7 @@ type (
 	// DiscardWriter discards all events.
 	DiscardWriter struct{}
 
-	// LockedWriter is a Writer under Mutex
-	// It's safe to write event simultaneously.
+	// LockedWriter is a Writer under Mutex.
 	LockedWriter struct {
 		mu sync.Mutex
 		w  Writer
@@ -119,12 +112,12 @@ type (
 		Fallback Writer
 	}
 
-	collectWriter struct {
-		Events []cev
-	}
-
 	errorWriter struct {
 		err error
+	}
+
+	collectWriter struct {
+		Events []cev
 	}
 
 	cev struct {
@@ -142,9 +135,16 @@ type (
 		b Attrs
 	}
 
+	// LockedIOWriter is io.Writer protected by sync.Mutex.
 	LockedIOWriter struct {
 		mu sync.Mutex
 		w  io.Writer
+	}
+
+	// CountableIODiscard discards data but counts operations and bytes.
+	// It's safe to use simultaneously (atimic operations are used).
+	CountableIODiscard struct {
+		B, N int64
 	}
 )
 
@@ -160,6 +160,7 @@ var ( // type checks
 	_ Writer = errorWriter{}
 	_ Writer = &collectWriter{}
 
+	// Discard is a writer that discards all events.
 	Discard Writer = DiscardWriter{}
 )
 
@@ -167,6 +168,11 @@ var spaces = []byte("                                                           
 
 var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 128)} }}
 
+// Getbuf gets bytes buffer from a pool to reduce gc pressure.
+// Buffer must be returned after used as
+//     b, wr := tlog.Getbuf()
+//     defer wr.Ret(&b)
+//     b = append(b[:0], ...)
 func Getbuf() (_ bufWriter, wr *bwr) { //nolint:golint
 	wr = bufPool.Get().(*bwr)
 	return wr.b[:0], wr
@@ -179,6 +185,11 @@ func (wr *bwr) Ret(b *bufWriter) {
 
 var attrsPool = sync.Pool{New: func() interface{} { return &awr{b: make(Attrs, 4)} }}
 
+// GetAttrsbuf gets Attrs buffer from a pool to reduce gc pressure.
+// Buffer must be returned after used as
+//     b, wr := tlog.GetAttrsbuf()
+//     defer wr.Ret(&b)
+//     b = append(b[:0], ...)
 func GetAttrsbuf() (_ Attrs, wr *awr) { //nolint:golint
 	wr = attrsPool.Get().(*awr)
 	return wr.b[:0], wr
@@ -581,7 +592,7 @@ func makeWriteCache() writerCache {
 	}
 }
 
-// NewConsoleWriter creates JSON writer.
+// NewJSONWriter creates JSON writer.
 func NewJSONWriter(w io.Writer) *JSONWriter {
 	return &JSONWriter{
 		w:           w,
@@ -1018,7 +1029,7 @@ func (w *JSONWriter) location(b []byte, l Frame) []byte {
 	return b
 }
 
-// NewConsoleWriter creates protobuf writer.
+// NewProtoWriter creates protobuf writer.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
 		w:           w,
@@ -1791,10 +1802,6 @@ func (w *LockedIOWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 
 	return w.w.Write(p)
-}
-
-type CountableIODiscard struct {
-	B, N int64
 }
 
 func (w *CountableIODiscard) ReportDisk(b *testing.B) {

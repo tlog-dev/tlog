@@ -99,6 +99,7 @@ func (l Frame) nameFileLine() (name, file string, line int) {
 	return
 }
 
+// Entry is functions entry point.
 func (l Frame) Entry() Frame {
 	funcInfo := findfunc(l)
 	if funcInfo.entry == nil {
@@ -107,6 +108,8 @@ func (l Frame) Entry() Frame {
 	return Frame(*funcInfo.entry)
 }
 
+// SetCache sets name, file and line for Frame.
+// It allows to work with Frame in another binary the same as in original.
 func (l Frame) SetCache(name, file string, line int) {
 	locmu.Lock()
 	locc[l] = nfl{

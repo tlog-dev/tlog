@@ -1,5 +1,3 @@
-// tlog is a logger and a tracer in the same time.
-//
 package tlog
 
 import (
@@ -18,12 +16,8 @@ type (
 	// ID is a Span ID.
 	ID [16]byte
 
-	// Printfer is an interface to print to *Logger and to Span in the same time.
-	Printfer interface {
-		Printf(string, ...interface{})
-	}
-
-	// Logger is an logging handler that creates logging events and passes them to the Writer.
+	// Logger is a convenient public API to produce logging events.
+	// Events are packed into structs and passed to the Writer.
 	// A Logger methods can be called simultaneously.
 	Logger struct {
 		Writer
@@ -43,7 +37,7 @@ type (
 		randID func() ID
 	}
 
-	// Writer is an general encoder and writer of events.
+	// Writer is an encoder and writer of events.
 	Writer interface {
 		Labels(ls Labels, sid ID) error
 		SpanStarted(s SpanStart) error
@@ -53,6 +47,16 @@ type (
 		Meta(m Meta) error
 	}
 
+	// Span is a tracing primitive. Span usually represents some function call.
+	Span struct {
+		Logger *Logger
+
+		ID ID
+
+		Started time.Time
+	}
+
+	// SpanStart is a log event.
 	SpanStart struct {
 		ID      ID
 		Parent  ID
@@ -60,12 +64,13 @@ type (
 		Frame   Frame
 	}
 
+	// SpanFinish is a log event.
 	SpanFinish struct {
 		ID      ID
 		Elapsed int64
 	}
 
-	// Message is an Log event.
+	// Message is a log event.
 	Message struct {
 		Frame Frame
 		Time  int64
@@ -82,33 +87,28 @@ type (
 		Value interface{}
 	}
 
+	// Metric is a log event.
 	Metric struct {
 		Name   string
 		Value  float64
 		Labels Labels
 	}
 
-	// Span is an tracing primitive. Span usually represents some function call.
-	Span struct {
-		Logger *Logger
-
-		ID ID
-
-		Started time.Time
-	}
-
+	// Meta is a log event.
 	Meta struct {
 		Type string
 
 		Data Labels
 	}
 
+	// TooShortIDError is an ID parsing error.
 	TooShortIDError struct {
 		N int
 	}
 )
 
-var ( // for you not to import os if you don't want
+// for you not to import os if you don't want.
+var (
 	Stderr = os.Stderr
 	Stdout = os.Stdout
 )
@@ -132,7 +132,8 @@ const ( // console writer flags
 	Lnone        = 0
 )
 
-const ( // metric types
+// Metric types.
+const (
 	MCounter   = "counter"
 	MGauge     = "gauge"
 	MSummary   = "summary"
@@ -141,12 +142,14 @@ const ( // metric types
 	Mempty     = ""
 )
 
-const ( // meta types
+// Meta types.
+const (
 	MetaMetricDescription = "metric_desc"
 )
 
 var now = time.Now
 
+// DefaultLogger is a package interface Logger object.
 var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoCaller = true; return l }()
 
 var ErrorLabel = Labels{"error"}
@@ -178,6 +181,7 @@ func New(ws ...Writer) *Logger {
 	return l
 }
 
+// AppendWriter appends writers. Multiple writers are combined into TeeWriter. Order matters.
 func (l *Logger) AppendWriter(ws ...Writer) {
 	if len(ws) == 0 {
 		return
@@ -201,6 +205,7 @@ func (l *Logger) AppendWriter(ws ...Writer) {
 	}
 }
 
+// RandID returns random ID filled with Logger's random.
 func (l *Logger) RandID() (id ID) {
 	if l == nil {
 		return
@@ -218,13 +223,13 @@ func SetLabels(ls Labels) {
 	newlabels(DefaultLogger, ls, ID{})
 }
 
-// Printf writes logging Message.
+// Printf builds and writes Message event.
 // Arguments are handled in the manner of fmt.Printf.
 func Printf(f string, args ...interface{}) {
 	newmessage(DefaultLogger, 0, ID{}, f, args, nil)
 }
 
-// PrintfDepth writes logging Message.
+// PrintfDepth builds and writes Message event.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func PrintfDepth(d int, f string, args ...interface{}) {
@@ -232,7 +237,7 @@ func PrintfDepth(d int, f string, args ...interface{}) {
 }
 
 // Panicf does the same as Printf but panics in the end.
-// panic argument is fmt.Sprintf result with func arguments.
+// panic argument is fmt.Sprintf result with the func arguments.
 func Panicf(f string, args ...interface{}) {
 	newmessage(DefaultLogger, 0, ID{}, f, args, nil)
 	panic(fmt.Sprintf(f, args...))
@@ -244,7 +249,7 @@ func Fatalf(f string, args ...interface{}) {
 	os.Exit(1)
 }
 
-// PrintRaw writes logging Message with given text.
+// PrintRaw writes Message event with given text.
 //
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
@@ -252,27 +257,36 @@ func PrintRaw(d int, b []byte) {
 	newmessage(DefaultLogger, d, ID{}, bytesToString(b), nil, nil)
 }
 
+// Println does the same as Printf but formats message in fmt.Println manner.
 func Println(args ...interface{}) {
 	newmessage(DefaultLogger, 0, ID{}, "", args, nil)
 }
 
+// Printw does the same as Printf but preserves attributes types.
+// So that they can be restored and processed according to it's type.
+// In contrast Printf arguments are encoded into string and can only be searched by text search.
+//
+// Only basic types are supported: ints, uints, string and ID.
 func Printw(msg string, kv ...Attr) {
 	newmessage(DefaultLogger, 0, ID{}, msg, nil, kv)
 }
 
+// PrintwDepth does the same as Printw but captures caller's Frame d frames higher.
+// if d is 0 call is equivalent to Printw.
 func PrintwDepth(d int, msg string, kv ...Attr) {
 	newmessage(DefaultLogger, d, ID{}, msg, nil, kv)
 }
 
+// PrintfwDepth is a combination of Printf, Printw and *Depth.
 func PrintfwDepth(d int, f string, args Args, attrs Attrs) {
 	newmessage(DefaultLogger, d, ID{}, f, args, attrs)
 }
 
 // V checks if topic tp is enabled and returns default Logger or nil.
 //
-// It's OK to use nil Logger, it wonn't crash and won't emit eny Messages to writer.
+// It's OK to use nil Logger, it won't crash and won't emit any events to the Writer.
 //
-// Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
+// Multiple comma separated topics could be provided. Logger will be non-nil if at least one of these topics is enabled.
 //
 // Usecases:
 //     tlog.V("write").Printf("%d bytes written to address %v", n, addr)
@@ -289,6 +303,7 @@ func V(tp string) *Logger {
 	return DefaultLogger
 }
 
+// If does the same checks as V but only returns bool.
 func If(tp string) bool {
 	return DefaultLogger.ifv(tp)
 }
@@ -296,7 +311,7 @@ func If(tp string) bool {
 // SetFilter sets filter to use in V.
 //
 // Filter is a comma separated chain of rules.
-// Each rule is applyed to result of previous rule and adds or removes some locations.
+// Each rule is applied to result of previous rule and adds or removes some locations.
 // Rule started with '!' excludes matching locations.
 //
 // Each rule is one of: topic (some word you used in V argument)
@@ -305,7 +320,7 @@ func If(tp string) bool {
 //     send
 //     encryption
 //
-// and location (directory, file, function)
+// location (directory, file, function) or
 //     path/to/file.go
 //     short_file.go
 //     path/to/package - subpackages doesn't math
@@ -316,7 +331,7 @@ func If(tp string) bool {
 //
 // topics in location
 //     tlog.Span=timing
-//     p2p/conn.go=read+write - multiple topics in the location are separated by '+'
+//     p2p/conn.go=read+write - multiple topics in location are separated by '+'
 //
 // Example
 //     module,!module/file.go,funcInFile
@@ -326,7 +341,7 @@ func SetFilter(f string) {
 	DefaultLogger.SetFilter(f)
 }
 
-// Filter returns current verbosity filter for default NamedWriter in DefaultLogger.
+// Filter returns current verbosity filter of DefaultLogger.
 func Filter() string {
 	return DefaultLogger.Filter()
 }
@@ -423,6 +438,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 	)
 }
 
+// NewSpan creates new span by hand.
 func NewSpan(l *Logger, par ID, d int) Span {
 	if l == nil {
 		return Span{}
@@ -431,7 +447,7 @@ func NewSpan(l *Logger, par ID, d int) Span {
 	return newspan(l, d, par)
 }
 
-// Start creates new root trace.
+// Start creates new root Span.
 //
 // Span must be Finished in the end.
 func Start() Span {
@@ -442,9 +458,9 @@ func Start() Span {
 	return newspan(DefaultLogger, 0, ID{})
 }
 
-// Spawn creates new child trace.
+// Spawn creates new child Span.
 //
-// Trace could be started on one machine and derived on another.
+// Parent Span could be started on one machine and derived on another.
 //
 // Span must be Finished in the end.
 func Spawn(id ID) Span {
@@ -455,9 +471,9 @@ func Spawn(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
-// SpawnOrStart creates new child trace if id is not zero and new trace overwise.
+// SpawnOrStart creates new child Span if ID is not zero and new Span overwise.
 //
-// Trace could be started on one machine and derived on another.
+// Parent Span could be started on one machine and derived on another.
 //
 // Span must be Finished in the end.
 func SpawnOrStart(id ID) Span {
@@ -468,50 +484,57 @@ func SpawnOrStart(id ID) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
+// RegisterMetric saves metric description.
+// name is fully quatified name in prometheus manner.
+// typ is one of tlog.M* constants.
+// help is a short description.
+// labels are const labels that are attached to each Observation.
 func RegisterMetric(name, typ, help string, ls Labels) {
 	DefaultLogger.RegisterMetric(name, typ, help, ls)
 }
 
-func Observe(n string, v float64, ls Labels) {
+// Observe records Metric event.
+func Observe(name string, val float64, ls Labels) {
 	_ = DefaultLogger.Metric(Metric{
-		Name:   n,
+		Name:   name,
+		Value:  val,
 		Labels: ls,
-		Value:  v,
 	}, ID{})
 }
 
+// SetLabels sets labels for all the following events.
 func (l *Logger) SetLabels(ls Labels) {
 	newlabels(l, ls, ID{})
 }
 
-// Printf writes logging Message to Writer.
+// Printf writes Message event to Writer.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Printf(f string, args ...interface{}) {
 	newmessage(l, 0, ID{}, f, args, nil)
 }
 
-// PrintfDepth writes logging Message.
+// PrintfDepth writes Message event.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) PrintfDepth(d int, f string, args ...interface{}) {
 	newmessage(l, d, ID{}, f, args, nil)
 }
 
-// Panicf writes logging Message and panics.
+// Panicf writes Message event and panics.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Panicf(f string, args ...interface{}) {
 	newmessage(l, 0, ID{}, f, args, nil)
 	panic(fmt.Sprintf(f, args...))
 }
 
-// Panicf writes logging Message and calls os.Exit(1) in the end.
+// Fatalf writes Message event and calls os.Exit(1) in the end.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Fatalf(f string, args ...interface{}) {
 	newmessage(l, 0, ID{}, f, args, nil)
 	os.Exit(1)
 }
 
-// PrintRaw writes logging Message with given text.
+// PrintRaw writes Message event with given text.
 //
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
@@ -519,18 +542,27 @@ func (l *Logger) PrintRaw(d int, b []byte) {
 	newmessage(l, d+0, ID{}, bytesToString(b), nil, nil)
 }
 
+// Println does the same as Printf but formats message in fmt.Println manner.
 func (l *Logger) Println(args ...interface{}) {
 	newmessage(l, 0, ID{}, "", args, nil)
 }
 
+// Printw does the same as Printf but preserves attributes types.
+// So that they can be restored and processed according to it's type.
+// In contrast Printf arguments are encoded into string and can only be searched by text search.
+//
+// Only basic types are supported: ints, uints, string and ID.
 func (l *Logger) Printw(msg string, kv ...Attr) {
 	newmessage(l, 0, ID{}, msg, nil, kv)
 }
 
+// PrintwDepth does the same as Printw but captures caller's Frame d frames higher.
+// if d is 0 call is equivalent to Printw.
 func (l *Logger) PrintwDepth(d int, msg string, kv ...Attr) {
 	newmessage(l, d, ID{}, msg, nil, kv)
 }
 
+// PrintfwDepth is a combination of Printf, Printw and *Depth.
 func (l *Logger) PrintfwDepth(d int, f string, args Args, attrs Attrs) {
 	newmessage(l, d, ID{}, f, args, attrs)
 }
@@ -538,7 +570,7 @@ func (l *Logger) PrintfwDepth(d int, f string, args Args, attrs Attrs) {
 // Write is an io.Writer interface implementation.
 //
 // It never returns any error.
-func (l *Logger) Write(b []byte) (int, error) {
+func (l *Logger) Write(b []byte) (_ int, err error) {
 	if l == nil {
 		return len(b), nil
 	}
@@ -548,6 +580,11 @@ func (l *Logger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// RegisterMetric saves metric description.
+// name is fully quatified name in prometheus manner.
+// typ is one of tlog.M* constants.
+// help is a short description.
+// labels are const labels that are attached to each Observation.
 func (l *Logger) RegisterMetric(name, typ, help string, ls Labels) {
 	if !mtNameRe.MatchString(name) {
 		panic("bad metric name: " + name + ", expected: " + mtName)
@@ -571,6 +608,7 @@ func (l *Logger) RegisterMetric(name, typ, help string, ls Labels) {
 	})
 }
 
+// Observe records Metric event.
 func (l *Logger) Observe(n string, v float64, ls Labels) {
 	_ = l.Metric(Metric{
 		Name:   n,
@@ -579,7 +617,7 @@ func (l *Logger) Observe(n string, v float64, ls Labels) {
 	}, ID{})
 }
 
-// Start creates new root trace.
+// Start creates new root Span.
 //
 // Span must be Finished in the end.
 func (l *Logger) Start() Span {
@@ -590,9 +628,9 @@ func (l *Logger) Start() Span {
 	return newspan(l, 0, ID{})
 }
 
-// Spawn creates new child trace.
+// Spawn creates new child Span.
 //
-// Trace could be started on one machine and derived on another.
+// Span could be started on one machine and derived on another.
 //
 // Span must be Finished in the end.
 func (l *Logger) Spawn(id ID) Span {
@@ -603,6 +641,7 @@ func (l *Logger) Spawn(id ID) Span {
 	return newspan(l, 0, id)
 }
 
+// SpawnOrStart Spawns new child Span or create new if id is empty.
 func (l *Logger) SpawnOrStart(id ID) Span {
 	if l == nil {
 		return Span{}
@@ -611,6 +650,7 @@ func (l *Logger) SpawnOrStart(id ID) Span {
 	return newspan(l, 0, id)
 }
 
+// Migrate returns copy of the given Span that writes it's events to this Logger.
 func (l *Logger) Migrate(s Span) Span {
 	if s.Logger == nil {
 		return Span{}
@@ -644,9 +684,9 @@ func (l *Logger) ifv(tp string) (ok bool) {
 
 // V checks if one of topics in tp is enabled and returns default Logger or nil.
 //
-// It's OK to use nil Logger, it won't crash and won't emit eny Messages to writer.
+// It's OK to use nil Logger, it won't crash and won't emit any events to writer.
 //
-// Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
+// Multiple comma separated topics could be provided. Logger will be non-nil if at least one of these topics is enabled.
 func (l *Logger) V(tp string) *Logger {
 	if l == nil || !l.ifv(tp) {
 		return nil
@@ -655,7 +695,7 @@ func (l *Logger) V(tp string) *Logger {
 	return l
 }
 
-// Valid checks if Logger is not nil and was not disabled by filter.
+// Valid checks if Logger is active.
 // It's safe to call any method from not Valid Logger.
 func (l *Logger) Valid() bool { return l != nil }
 
@@ -674,7 +714,7 @@ func (l *Logger) SetFilter(filters string) {
 	l.mu.Unlock()
 }
 
-// Filter returns current verbosity filter value for default filter.
+// Filter returns current verbosity filter value.
 //
 // See package.SetFilter description for details.
 func (l *Logger) Filter() string {
@@ -688,11 +728,11 @@ func (l *Logger) Filter() string {
 	return l.filter.f
 }
 
-// V checks if one of topics in tp is enabled and returns the same Span or empty.
+// V checks if one of topics in tp is enabled and returns the same Span or empty overwise.
 //
-// It return empty Span if you call V on empty Span.
+// It is safe to call any methods on empty Span.
 //
-// Multiple comma separated topics could be passed. Logger will be non-nil if at least one of these topics is enabled.
+// Multiple comma separated topics could be provided. Span will be Valid if at least one of these topics is enabled.
 func (s Span) V(tp string) Span {
 	if !s.Logger.ifv(tp) {
 		return Span{}
@@ -701,10 +741,14 @@ func (s Span) V(tp string) Span {
 	return s
 }
 
+// If does the same checks as V but only returns bool.
 func (s Span) If(tp string) bool {
 	return s.Logger.ifv(tp)
 }
 
+// SetLabels sets labels associated with Span.
+// Unlike Logger.SetLabels it can be set at any time and have effect on all events happened before and after.
+// It can be called multiple times. Different label keys are merged.
 func (s Span) SetLabels(ls Labels) {
 	newlabels(s.Logger, ls, s.ID)
 }
@@ -722,20 +766,20 @@ func (s Span) Spawn() Span {
 	return newspan(s.Logger, 0, s.ID)
 }
 
-// Printf writes logging Message annotated with trace id.
+// Printf writes Message event annotated with Span ID.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) Printf(f string, args ...interface{}) {
 	newmessage(s.Logger, 0, s.ID, f, args, nil)
 }
 
-// PrintfDepth writes logging Message.
+// PrintfDepth writes Message event.
 // Depth is a number of stack trace frames to skip from caller of that function. 0 is equal to Printf.
 // Arguments are handled in the manner of fmt.Printf.
 func (s Span) PrintfDepth(d int, f string, args ...interface{}) {
 	newmessage(s.Logger, d, s.ID, f, args, nil)
 }
 
-// PrintRaw writes logging Message with given text annotated with trace id.
+// PrintRaw writes Message event with given text annotated with Span id.
 //
 // This functions is intended to use in a really hot code.
 // All possible allocs are eliminated. You should reuse buffer either.
@@ -743,18 +787,27 @@ func (s Span) PrintRaw(d int, b []byte) {
 	newmessage(s.Logger, d, s.ID, bytesToString(b), nil, nil)
 }
 
+// Println does the same as Printf but formats message in fmt.Println manner.
 func (s Span) Println(args ...interface{}) {
 	newmessage(s.Logger, 0, s.ID, "", args, nil)
 }
 
+// Printw does the same as Printf but preserves attributes types.
+// So that they can be restored and processed according to it's type.
+// In contrast Printf arguments are encoded into string and can only be searched by text search.
+//
+// Only basic types are supported: ints, uints, string and ID.
 func (s Span) Printw(msg string, kv ...Attr) {
 	newmessage(s.Logger, 0, s.ID, msg, nil, kv)
 }
 
+// PrintwDepth does the same as Printw but captures caller's Frame d frames higher.
+// if d is 0 call is equivalent to Printw.
 func (s Span) PrintwDepth(d int, msg string, kv ...Attr) {
 	newmessage(s.Logger, d, s.ID, msg, nil, kv)
 }
 
+// PrintfwDepth is a combination of Printf, Printw and *Depth.
 func (s Span) PrintfwDepth(d int, f string, args Args, attrs Attrs) {
 	newmessage(s.Logger, d, s.ID, f, args, attrs)
 }
@@ -762,7 +815,7 @@ func (s Span) PrintfwDepth(d int, f string, args Args, attrs Attrs) {
 // Write is an io.Writer interface implementation.
 //
 // It never returns any error.
-func (s Span) Write(b []byte) (int, error) {
+func (s Span) Write(b []byte) (_ int, err error) {
 	if s.Logger == nil {
 		return len(b), nil
 	}
@@ -772,6 +825,7 @@ func (s Span) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// Observe records Metric event and associates it with the Span.
 func (s Span) Observe(n string, v float64, ls Labels) {
 	_ = s.Logger.Metric(Metric{
 		Name:   n,
@@ -801,20 +855,22 @@ func (s Span) Finish() {
 func (s Span) Valid() bool { return s.Logger != nil }
 
 // String returns short string representation.
+//
+// It's not supposed to be able to recover it back to the same value as it was.
 func (i ID) String() string {
 	var b [16]byte
 	i.FormatTo(b[:], 'v')
 	return string(b[:])
 }
 
-// FullString returns full id in string representation.
+// FullString returns full id represented as string.
 func (i ID) FullString() string {
 	var b [32]byte
 	i.FormatTo(b[:], 'v')
 	return string(b[:])
 }
 
-// IDFromBytes checks slice length and casts to ID type (copying).
+// IDFromBytes decodes ID from bytes slice.
 //
 // If byte slice is shorter than type length result is returned as is and TooShortIDError as error value.
 // You may use result if you expected short ID prefix.
@@ -866,6 +922,7 @@ func IDFromString(s string) (id ID, err error) {
 	return
 }
 
+// IDFromStringAsBytes is the same as IDFromString. It avoids alloc in IDFromString(string(b)).
 func IDFromStringAsBytes(s []byte) (id ID, err error) {
 	if bytes.Equal([]byte("________________________________")[:len(s)], s) {
 		return
@@ -903,7 +960,7 @@ func (e TooShortIDError) Error() string {
 }
 
 // Format is fmt.Formatter interface implementation.
-// It supports width. '+' flag sets width to full id length.
+// It supports width. '+' flag sets width to full ID length.
 func (i ID) Format(s fmt.State, c rune) {
 	var buf0 [32]byte
 	buf1 := buf0[:]
@@ -920,6 +977,7 @@ func (i ID) Format(s fmt.State, c rune) {
 	_, _ = s.Write(buf[:w])
 }
 
+// FormatTo is alloc free Format alternative.
 func (i ID) FormatTo(b []byte, f rune) {
 	if i == (ID{}) {
 		if f == 'v' || f == 'V' {

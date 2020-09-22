@@ -10,7 +10,7 @@ import (
 )
 
 // Frame is a program counter alias.
-// Function name, file name and line can be obtained from it but only in the same binary where Caller of Funcentry was called.
+// Function name, file name and line can be obtained from it but only in the same binary where Caller or Funcentry was called.
 type Frame uintptr
 
 // Frames is a stack trace.
@@ -43,7 +43,7 @@ func Callers(skip, n int) Frames {
 	return CallersFill(1+skip, tr)
 }
 
-// FillCallers returns callers stack trace into provided array.
+// CallersFill puts callers stack trace into provided slice.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
 func CallersFill(skip int, tr Frames) Frames {
@@ -54,6 +54,7 @@ func CallersFill(skip int, tr Frames) Frames {
 // String formats Frame as base_name.go:line.
 //
 // Works only in the same binary where Caller of Funcentry was called.
+// Or if Frame.SetCache was called.
 func (l Frame) String() string {
 	_, file, line := l.NameFileLine()
 	file = filepath.Base(file)
@@ -132,6 +133,7 @@ func (l Frame) Format(s fmt.State, c rune) {
 // String formats Frames as list of type_name (file.go:line)
 //
 // Works only in the same binary where Caller of Funcentry was called.
+// Or if Frame.SetCache was called.
 func (t Frames) String() string {
 	var b []byte
 	for _, l := range t {

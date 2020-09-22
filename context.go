@@ -91,7 +91,7 @@ func SpawnFromContext(ctx context.Context) Span {
 	return newspan(DefaultLogger, 0, id)
 }
 
-// SpanFromContextOrStart loads saved by ContextWithSpan Span from Context.
+// SpawnFromContextOrStart loads saved by ContextWithSpan Span from Context.
 // It starts new trace if no ID found.
 func SpawnFromContextOrStart(ctx context.Context) Span {
 	if DefaultLogger == nil {
