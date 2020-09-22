@@ -1,3 +1,6 @@
+// because of dependency errors
+//+build ignore
+
 package tlog
 
 import (
