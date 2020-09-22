@@ -1,7 +1,7 @@
 [![Documentation](https://pkg.go.dev/badge/github.com/nikandfor/tlog)](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc)
 [![Build Status](https://travis-ci.com/nikandfor/tlog.svg?branch=master)](https://travis-ci.com/nikandfor/tlog)
 [![CircleCI](https://circleci.com/gh/nikandfor/tlog.svg?style=svg)](https://circleci.com/gh/nikandfor/tlog)
-[![codecov](https://codecov.io/gh/nikandfor/tlog/branch/master/graph/badge.svg)](https://codecov.io/gh/nikandfor/tlog)
+[![codecov](https://codecov.io/gh/nikandfor/tlog/tags/latest/graph/badge.svg)](https://codecov.io/gh/nikandfor/tlog)
 [![GolangCI](https://golangci.com/badges/github.com/nikandfor/tlog.svg)](https://golangci.com/r/github.com/nikandfor/tlog)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikandfor/tlog)](https://goreportcard.com/report/github.com/nikandfor/tlog)
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/nikandfor/tlog?sort=semver)
