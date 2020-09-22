@@ -32,18 +32,18 @@ import (
 	* Meta - Any metadata. There are few defined by tlog and any can be defined by app. Defined by tlog are:
 		* Metric - metric description (name, help message, metric type and metric static labels).
 
-	* Location - Location in code: PC (program counter), file name, line and function name.
+	* Frame - Location in code: PC (program counter), file name, line and function name.
 	Other events are attached to previously logged locations by PC.
 	PC may be reused for another location if it was recompiled.
 	So PC life time is limited by file (or stream) it is logged to.
 
-	* Message - Event with timestamp, Location, text and attributes. May be attached to Span or not by its ID.
+	* Message - Event with timestamp, Frame, text and attributes. May be attached to Span or not by its ID.
 	Attributes encoded as a list of tuples with name, type and value.
 
 	* Metric - Metric data. Contains Hash, name, value and Labels.
 	Hash is calculated somehow from other fields so that they are omitted if was logged earlier it the file (stream).
 
-	* SpanStart - Span started event. Contains ID, Parent ID, timestamp and Location.
+	* SpanStart - Span started event. Contains ID, Parent ID, timestamp and Frame.
 
 	* SpanFinish - Span finished event. Contains ID and time elapsed.
 */
@@ -86,7 +86,7 @@ type (
 
 	writerCache struct {
 		mu   sync.Mutex //nolint:structcheck
-		ls   map[Location]struct{}
+		ls   map[Frame]struct{}
 		cc   map[uintptr][]mh
 		skip map[string]int
 		ccn  int
@@ -223,7 +223,7 @@ func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) [
 }
 
 //nolint:gocognit,nestif
-func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc Location) []byte {
+func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc Frame) []byte {
 	var fname, file string
 	line := -1
 
@@ -408,7 +408,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.buildHeader(b, m.Time, m.Location)
+	b = w.buildHeader(b, m.Time, m.Frame)
 
 	if w.f&Lmessagespan != 0 {
 		i := len(b)
@@ -431,7 +431,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, tm int64, loc Location) []byte {
+func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, tm int64, loc Frame) []byte {
 	b = w.buildHeader(b, tm, loc)
 
 	i := len(b)
@@ -450,7 +450,7 @@ func (w *ConsoleWriter) SpanStarted(s SpanStart) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.spanHeader(b, s.ID, s.Parent, s.Started, s.Location)
+	b = w.spanHeader(b, s.ID, s.Parent, s.Started, s.Frame)
 
 	if s.Parent == (ID{}) {
 		b = append(b, "Span started\n"...)
@@ -507,9 +507,9 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 
 	return w.Message(
 		Message{
-			Location: loc,
-			Time:     now().UnixNano(),
-			Text:     bytesToString(b),
+			Frame: loc,
+			Time:  now().UnixNano(),
+			Text:  bytesToString(b),
 		},
 		sid,
 	)
@@ -525,9 +525,9 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 
 	return w.Message(
 		Message{
-			Location: loc,
-			Time:     now().UnixNano(),
-			Text:     bytesToString(b),
+			Frame: loc,
+			Time:  now().UnixNano(),
+			Text:  bytesToString(b),
 		},
 		ID{},
 	)
@@ -548,16 +548,16 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 
 	return w.Message(
 		Message{
-			Location: loc,
-			Time:     now().UnixNano(),
-			Text:     bytesToString(b),
+			Frame: loc,
+			Time:  now().UnixNano(),
+			Text:  bytesToString(b),
 		},
 		sid,
 	)
 }
 
-func (w *ConsoleWriter) caller() Location {
-	var buf [6]Location
+func (w *ConsoleWriter) caller() Frame {
+	var buf [6]Frame
 	FillCallers(2, buf[:])
 	i := 0
 	for i+1 < len(buf) {
@@ -575,7 +575,7 @@ func (w *ConsoleWriter) caller() Location {
 
 func makeWriteCache() writerCache {
 	return writerCache{
-		ls:   make(map[Location]struct{}),
+		ls:   make(map[Frame]struct{}),
 		cc:   make(map[uintptr][]mh),
 		skip: make(map[string]int),
 	}
@@ -658,13 +658,13 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	if m.Location != 0 {
+	if m.Frame != 0 {
 		w.mu.Lock()
 
-		if _, ok := w.ls[m.Location]; !ok {
+		if _, ok := w.ls[m.Frame]; !ok {
 			defer w.mu.Unlock()
 
-			b = w.location(b, m.Location)
+			b = w.location(b, m.Frame)
 		} else {
 			w.mu.Unlock()
 		}
@@ -685,9 +685,9 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 		b = append(b, ',')
 	}
 
-	if m.Location != 0 {
+	if m.Frame != 0 {
 		b = append(b, `"l":`...)
-		b = strconv.AppendInt(b, int64(m.Location), 10)
+		b = strconv.AppendInt(b, int64(m.Frame), 10)
 		b = append(b, ',')
 	}
 
@@ -935,13 +935,13 @@ func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	if s.Location != 0 {
+	if s.Frame != 0 {
 		w.mu.Lock()
 
-		if _, ok := w.ls[s.Location]; !ok {
+		if _, ok := w.ls[s.Frame]; !ok {
 			defer w.mu.Unlock()
 
-			b = w.location(b, s.Location)
+			b = w.location(b, s.Frame)
 		} else {
 			w.mu.Unlock()
 		}
@@ -956,7 +956,7 @@ func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	b = strconv.AppendInt(b, s.Started, 10)
 
 	b = append(b, `,"l":`...)
-	b = strconv.AppendInt(b, int64(s.Location), 10)
+	b = strconv.AppendInt(b, int64(s.Frame), 10)
 
 	if s.Parent != (ID{}) {
 		b = append(b, `,"p":"`...)
@@ -992,7 +992,7 @@ func (w *JSONWriter) SpanFinished(f SpanFinish) (err error) {
 	return
 }
 
-func (w *JSONWriter) location(b []byte, l Location) []byte {
+func (w *JSONWriter) location(b []byte, l Frame) []byte {
 	name, file, line := l.NameFileLine()
 	//	name = path.Base(name)
 
@@ -1097,13 +1097,13 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	if m.Location != 0 {
+	if m.Frame != 0 {
 		w.mu.Lock()
 
-		if _, ok := w.ls[m.Location]; !ok {
+		if _, ok := w.ls[m.Frame]; !ok {
 			defer w.mu.Unlock()
 
-			b = w.location(b, m.Location)
+			b = w.location(b, m.Frame)
 		} else {
 			w.mu.Unlock()
 		}
@@ -1116,8 +1116,8 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
-	if m.Location != 0 {
-		sz += 1 + varintSize(uint64(m.Location))
+	if m.Frame != 0 {
+		sz += 1 + varintSize(uint64(m.Frame))
 	}
 	if m.Time != 0 {
 		sz += 1 + 8 // m.Time
@@ -1143,8 +1143,8 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	if m.Location != 0 {
-		b = appendTagVarint(b, 2<<3|0, uint64(m.Location)) //nolint:staticcheck
+	if m.Frame != 0 {
+		b = appendTagVarint(b, 2<<3|0, uint64(m.Frame)) //nolint:staticcheck
 	}
 
 	if m.Time != 0 {
@@ -1361,21 +1361,21 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 	if s.Parent != (ID{}) {
 		sz += 1 + varintSize(uint64(len(s.Parent))) + len(s.Parent)
 	}
-	if s.Location != 0 {
-		sz += 1 + varintSize(uint64(s.Location))
+	if s.Frame != 0 {
+		sz += 1 + varintSize(uint64(s.Frame))
 	}
 	sz += 1 + 8 // s.Started
 
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	if s.Location != 0 {
+	if s.Frame != 0 {
 		w.mu.Lock()
 
-		if _, ok := w.ls[s.Location]; !ok {
+		if _, ok := w.ls[s.Frame]; !ok {
 			defer w.mu.Unlock()
 
-			b = w.location(b, s.Location)
+			b = w.location(b, s.Frame)
 		} else {
 			w.mu.Unlock()
 		}
@@ -1394,8 +1394,8 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 		b = append(b, s.Parent[:]...)
 	}
 
-	if s.Location != 0 {
-		b = appendTagVarint(b, 3<<3|0, uint64(s.Location)) //nolint:staticcheck
+	if s.Frame != 0 {
+		b = appendTagVarint(b, 3<<3|0, uint64(s.Frame)) //nolint:staticcheck
 	}
 
 	b = append(b, 4<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -1430,7 +1430,7 @@ func (w *ProtoWriter) SpanFinished(f SpanFinish) (err error) {
 	return
 }
 
-func (w *ProtoWriter) location(b []byte, l Location) []byte {
+func (w *ProtoWriter) location(b []byte, l Frame) []byte {
 	name, file, line := l.NameFileLine()
 
 	sz := 0

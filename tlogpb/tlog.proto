@@ -6,7 +6,7 @@ package tlogpb;
 
 message Record {
     Labels labels          = 1;
-    Location location      = 2;
+    Frame frame            = 2;
     Message message        = 3;
     SpanStart span_start   = 4;
     SpanFinish span_finish = 5;
@@ -19,7 +19,7 @@ message Labels {
     repeated string labels = 2;
 }
 
-message Location {
+message Frame {
     int64 pc    = 1;
     int64 entry = 2;
     string name = 3;
@@ -28,10 +28,10 @@ message Location {
 }
 
 message Message {
-    bytes span     = 1;
-    int64 location = 2;
-    sfixed64 time  = 3;
-    string text    = 4;
+    bytes span    = 1;
+    int64 frame   = 2;
+    sfixed64 time = 3;
+    string text   = 4;
 
     repeated Attr attrs = 5;
 }
@@ -63,7 +63,7 @@ message Meta {
 message SpanStart {
     bytes id         = 1;
     bytes parent     = 2;
-    int64 location   = 3;
+    int64 frame      = 3;
     sfixed64 started = 4;
 }
 

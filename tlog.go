@@ -54,10 +54,10 @@ type (
 	}
 
 	SpanStart struct {
-		ID       ID
-		Parent   ID
-		Started  int64
-		Location Location
+		ID      ID
+		Parent  ID
+		Started int64
+		Frame   Frame
 	}
 
 	SpanFinish struct {
@@ -67,10 +67,10 @@ type (
 
 	// Message is an Log event.
 	Message struct {
-		Location Location
-		Time     int64
-		Text     string
-		Attrs    Attrs
+		Frame Frame
+		Time  int64
+		Text  string
+		Attrs Attrs
 	}
 
 	Args = []interface{}
@@ -346,7 +346,7 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 }
 
 func newspan(l *Logger, d int, par ID) Span {
-	var loc Location
+	var loc Frame
 	if !l.NoLocations {
 		loc = Funcentry(d + 2)
 	}
@@ -363,10 +363,10 @@ func newspan(l *Logger, d int, par ID) Span {
 	l.mu.Unlock()
 
 	_ = l.Writer.SpanStarted(SpanStart{
-		ID:       s.ID,
-		Parent:   par,
-		Started:  s.Started.UnixNano(),
-		Location: loc,
+		ID:      s.ID,
+		Parent:  par,
+		Started: s.Started.UnixNano(),
+		Frame:   loc,
 	})
 
 	return s
@@ -379,7 +379,7 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 
 	t := now()
 
-	var loc Location
+	var loc Frame
 	if !l.NoLocations {
 		loc = Caller(d + 2)
 	}
@@ -414,10 +414,10 @@ func newmessage(l *Logger, d int, sid ID, f string, args []interface{}, attrs At
 
 	_ = l.Writer.Message(
 		Message{
-			Location: loc,
-			Time:     t.UnixNano(),
-			Text:     bytesToString(txt),
-			Attrs:    lattrs,
+			Frame: loc,
+			Time:  t.UnixNano(),
+			Text:  bytesToString(txt),
+			Attrs: lattrs,
 		},
 		sid,
 	)

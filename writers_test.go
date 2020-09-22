@@ -55,19 +55,19 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 
 	w.f = Llongfile
 	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
-	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", b)
+	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?frame.go:25  ", b)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
 	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
-	assert.Equal(t, "location.go:25        ", string(b))
+	assert.Equal(t, "frame.go:25           ", string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
 	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
-	assert.Equal(t, "locatio:25  ", string(b))
+	assert.Equal(t, "frame.g:25  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 10
@@ -199,13 +199,13 @@ func TestProtoWriter(t *testing.T) {
 
 	_ = w.Message(
 		Message{
-			Location: loc,
-			Time:     2,
-			Text:     "4",
+			Frame: loc,
+			Time:  2,
+			Text:  "4",
 		},
 		id,
 	)
-	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
+	pbuf = encode(pbuf, &tlogpb.Record{Frame: &tlogpb.Frame{
 		Pc:    int64(loc),
 		Entry: int64(loc.Entry()),
 		Name:  name,
@@ -219,13 +219,13 @@ func TestProtoWriter(t *testing.T) {
 	}
 
 	assert.Equal(t, pbuf, buf.Bytes()[:l])
-	t.Logf("Location:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf))
+	t.Logf("Frame:\n%vexp:\n%v", hex.Dump(buf.Bytes()[:l]), hex.Dump(pbuf))
 
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
-		Span:     id[:],
-		Location: int64(loc),
-		Time:     2,
-		Text:     "4",
+		Span:  id[:],
+		Frame: int64(loc),
+		Time:  2,
+		Text:  "4",
 	}})
 	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
 	t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf[l:]))
@@ -239,12 +239,12 @@ func TestProtoWriter(t *testing.T) {
 
 	// SpanStarted
 	_ = w.SpanStarted(SpanStart{
-		ID:       id,
-		Parent:   par,
-		Started:  2,
-		Location: loc,
+		ID:      id,
+		Parent:  par,
+		Started: 2,
+		Frame:   loc,
 	})
-	pbuf = encode(pbuf, &tlogpb.Record{Location: &tlogpb.Location{
+	pbuf = encode(pbuf, &tlogpb.Record{Frame: &tlogpb.Frame{
 		Pc:    int64(loc),
 		Entry: int64(loc.Entry()),
 		Name:  name,
@@ -258,10 +258,10 @@ func TestProtoWriter(t *testing.T) {
 	}
 
 	pbuf = encode(pbuf, &tlogpb.Record{SpanStart: &tlogpb.SpanStart{
-		Id:       id[:],
-		Parent:   par[:],
-		Location: int64(loc),
-		Started:  2,
+		Id:      id[:],
+		Parent:  par[:],
+		Frame:   int64(loc),
+		Started: 2,
 	}})
 	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
 	t.Logf("SpanStart:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf[l:]))
@@ -300,17 +300,17 @@ func TestProtoWriter(t *testing.T) {
 	// Message
 	_ = w.Message(
 		Message{
-			Location: loc,
-			Time:     2,
-			Text:     string(make([]byte, 1000)),
+			Frame: loc,
+			Time:  2,
+			Text:  string(make([]byte, 1000)),
 		},
 		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
-		Span:     id[:],
-		Location: int64(loc),
-		Time:     2,
-		Text:     string(make([]byte, 1000)),
+		Span:  id[:],
+		Frame: int64(loc),
+		Time:  2,
+		Text:  string(make([]byte, 1000)),
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
@@ -522,14 +522,14 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, ID{})
-	_ = w.Message(Message{Location: loc, Text: "msg", Time: 1}, ID{})
+	_ = w.Message(Message{Frame: loc, Text: "msg", Time: 1}, ID{})
 	_ = w.SpanStarted(SpanStart{ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe})
 	_ = w.SpanFinished(SpanFinish{ID{100}, time.Second.Nanoseconds()})
 
 	re := `{"L":{"L":\["a=b","f"\]}}
-{"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
+{"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*frame.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
 {"m":{"t":1,"l":\d+,"m":"msg"}}
-{"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
+{"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*frame.go","l":32,"n":"github.com/nikandfor/tlog.Funcentry"}}
 {"s":{"i":"64000000000000000000000000000000","s":1562408312000000000,"l":\d+}}
 {"f":{"i":"64000000000000000000000000000000","e":1000000000}}
 `
@@ -691,9 +691,9 @@ func BenchmarkWriter(b *testing.B) {
 					}{
 						{"TracedMessage", func(i int) {
 							_ = w.Message(Message{
-								Location: loc,
-								Time:     1,
-								Text:     msg,
+								Frame: loc,
+								Time:  1,
+								Text:  msg,
 							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 						}},
 						{"TracedMetric", func(i int) {

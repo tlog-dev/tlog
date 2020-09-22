@@ -20,10 +20,10 @@ func testLocation3(t *testing.T) {
 }
 
 func TestLocationZero(t *testing.T) {
-	var l Location
+	var l Frame
 
 	entry := l.Entry()
-	assert.Equal(t, Location(0), entry)
+	assert.Equal(t, Frame(0), entry)
 
 	name, file, line := l.NameFileLine()
 	assert.Equal(t, "", name)

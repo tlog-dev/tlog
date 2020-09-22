@@ -39,8 +39,8 @@ func (t *testt) Func(l *Logger) {
 	l.Printf("pointer receiver")
 }
 
-func (t *testt) testloc2() Location {
-	return func() Location {
+func (t *testt) testloc2() Frame {
+	return func() Frame {
 		return Caller(0)
 	}()
 }

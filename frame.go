@@ -9,52 +9,52 @@ import (
 	"unsafe"
 )
 
-// Location is a program counter alias.
+// Frame is a program counter alias.
 // Function name, file name and line can be obtained from it but only in the same binary where Caller of Funcentry was called.
-type Location uintptr
+type Frame uintptr
 
-// StackTrace is a stack trace.
+// Frames is a stack trace.
 // It's quiet the same as runtime.CallerFrames but more efficient.
-type StackTrace []Location
+type Frames []Frame
 
 // Caller returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
 // It's hacked version of runtime.Caller with no allocs.
-func Caller(s int) Location {
+func Caller(s int) Frame {
 	var pc [1]uintptr
 	runtime.Callers(2+s, pc[:])
-	return Location(pc[0])
+	return Frame(pc[0])
 }
 
 // Funcentry returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
-func Funcentry(s int) Location {
+func Funcentry(s int) Frame {
 	var pc [1]uintptr
 	runtime.Callers(2+s, pc[:])
-	return Location(pc[0]).Entry()
+	return Frame(pc[0]).Entry()
 }
 
-// StackTrace returns callers stack trace.
+// Callers returns callers stack trace.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with only one alloc (resulting slice).
-func Callers(skip, n int) StackTrace {
-	tr := make([]Location, n)
+func Callers(skip, n int) Frames {
+	tr := make([]Frame, n)
 	return FillCallers(1+skip, tr)
 }
 
 // FillStackTrace returns callers stack trace into provided array.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
-func FillCallers(skip int, tr StackTrace) StackTrace {
+func FillCallers(skip int, tr Frames) Frames {
 	n := runtime.Callers(2+skip, *(*[]uintptr)(unsafe.Pointer(&tr)))
 	return tr[:n]
 }
 
-// String formats Location as base_name.go:line.
+// String formats Frame as base_name.go:line.
 //
 // Works only in the same binary where Caller of Funcentry was called.
-func (l Location) String() string {
+func (l Frame) String() string {
 	_, file, line := l.NameFileLine()
 	file = filepath.Base(file)
 
@@ -79,7 +79,7 @@ func (l Location) String() string {
 
 // Format is fmt.Formatter interface implementation.
 // It supports width. Precision sets line number width. '+' prints full path not base.
-func (l Location) Format(s fmt.State, c rune) {
+func (l Frame) Format(s fmt.State, c rune) {
 	name, file, line := l.NameFileLine()
 
 	nn := file
@@ -129,10 +129,10 @@ func (l Location) Format(s fmt.State, c rune) {
 	s.Write(b[:n])
 }
 
-// String formats StackTrace as list of type_name (file.go:line)
+// String formats Frames as list of type_name (file.go:line)
 //
 // Works only in the same binary where Caller of Funcentry was called.
-func (t StackTrace) String() string {
+func (t Frames) String() string {
 	var b []byte
 	for _, l := range t {
 		n, f, l := l.NameFileLine()
@@ -142,7 +142,7 @@ func (t StackTrace) String() string {
 	return string(b)
 }
 
-func (t StackTrace) Format(s fmt.State, c rune) {
+func (t Frames) Format(s fmt.State, c rune) {
 	switch {
 	case s.Flag('+'):
 		for _, l := range t {

@@ -59,8 +59,8 @@ type (
 	}
 
 	span struct {
-		Location tlog.Location
-		Labels   tlog.Labels
+		Frame  tlog.Frame
+		Labels tlog.Labels
 	}
 )
 
@@ -276,7 +276,7 @@ func (w *Writer) SpanStarted(s tlog.SpanStart) error {
 	defer w.mu.Unlock()
 	w.mu.Lock()
 
-	w.s[s.ID] = span{Location: s.Location}
+	w.s[s.ID] = span{Frame: s.Frame}
 
 	return nil
 }
@@ -288,13 +288,13 @@ func (w *Writer) SpanFinished(f tlog.SpanFinish) error {
 	sp := w.s[f.ID]
 	defer delete(w.s, f.ID)
 
-	if sp.Location == 0 {
+	if sp.Frame == 0 {
 		return nil
 	}
 
 	dur := float64(f.Elapsed) / float64(time.Millisecond)
 
-	name, _, _ := sp.Location.NameFileLine()
+	name, _, _ := sp.Frame.NameFileLine()
 	//	name = path.Base(name)
 
 	ls := tlog.Labels{"func=" + name}

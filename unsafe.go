@@ -34,7 +34,7 @@ type (
 
 var (
 	locmu sync.Mutex
-	locc  = map[Location]nfl{}
+	locc  = map[Frame]nfl{}
 )
 
 // NameFileLine returns function name, file and line number for location.
@@ -42,7 +42,7 @@ var (
 // This works only in the same binary where location was captured.
 //
 // This functions is a little bit modified version of runtime.(*Frames).Next().
-func (l Location) NameFileLine() (name, file string, line int) {
+func (l Frame) NameFileLine() (name, file string, line int) {
 	locmu.Lock()
 	c, ok := locc[l]
 	locmu.Unlock()
@@ -63,7 +63,7 @@ func (l Location) NameFileLine() (name, file string, line int) {
 	return
 }
 
-func (l Location) nameFileLine() (name, file string, line int) {
+func (l Frame) nameFileLine() (name, file string, line int) {
 	if l == 0 {
 		return
 	}
@@ -99,15 +99,15 @@ func (l Location) nameFileLine() (name, file string, line int) {
 	return
 }
 
-func (l Location) Entry() Location {
+func (l Frame) Entry() Frame {
 	funcInfo := findfunc(l)
 	if funcInfo.entry == nil {
 		return 0
 	}
-	return Location(*funcInfo.entry)
+	return Frame(*funcInfo.entry)
 }
 
-func (l Location) SetCache(name, file string, line int) {
+func (l Frame) SetCache(name, file string, line int) {
 	locmu.Lock()
 	locc[l] = nfl{
 		name: name,
@@ -118,10 +118,10 @@ func (l Location) SetCache(name, file string, line int) {
 }
 
 //go:linkname findfunc runtime.findfunc
-func findfunc(pc Location) funcInfo
+func findfunc(pc Frame) funcInfo
 
 //go:linkname funcline1 runtime.funcline1
-func funcline1(f funcInfo, targetpc Location, strict bool) (file string, line int32)
+func funcline1(f funcInfo, targetpc Frame, strict bool) (file string, line int32)
 
 //go:linkname funcname runtime.funcname
 func funcname(f funcInfo) string
@@ -130,7 +130,7 @@ func funcname(f funcInfo) string
 func funcdata(f funcInfo, i uint8) unsafe.Pointer
 
 //go:linkname pcdatavalue runtime.pcdatavalue
-func pcdatavalue(f funcInfo, table int32, targetpc Location, cache unsafe.Pointer) int32
+func pcdatavalue(f funcInfo, table int32, targetpc Frame, cache unsafe.Pointer) int32
 
 //go:linkname funcnameFromNameoff runtime.funcnameFromNameoff
 func funcnameFromNameoff(f funcInfo, nameoff int32) string

@@ -53,7 +53,7 @@ func hotCode(tr tlog.Span, a1 int, a2 float64, buf []byte) []byte {
 	return buf // reuse buffer
 }
 
-var fireLocation tlog.Location
+var fireFrame tlog.Frame
 
 func fire(tr tlog.Span, a1 int, a2 float64, buf []byte) []byte {
 	// use the same span
@@ -66,12 +66,12 @@ func fire(tr tlog.Span, a1 int, a2 float64, buf []byte) []byte {
 	buf = append(buf, "  float "...)
 	buf = strconv.AppendFloat(buf, a2, 'f', -1, 64)
 
-	if fireLocation == 0 {
-		fireLocation = tlog.Caller(0)
+	if fireFrame == 0 {
+		fireFrame = tlog.Caller(0)
 	}
 
 	tr.Logger.Message(tlog.Message{
-		Location: fireLocation,
+		Frame: fireFrame,
 		// Time: time.Now().UnixNano(),
 		Text: tlog.UnsafeBytesToString(buf),
 	}, tr.ID)

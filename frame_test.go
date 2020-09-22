@@ -19,13 +19,13 @@ func testLocationInside(t *testing.T) {
 	pc := Caller(0)
 	name, file, line := pc.NameFileLine()
 	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
-	assert.Equal(t, "location_test.go", filepath.Base(file))
+	assert.Equal(t, "frame_test.go", filepath.Base(file))
 	assert.Equal(t, 19, line)
 }
 
 func TestLocationShort(t *testing.T) {
 	pc := Caller(0)
-	assert.Equal(t, "location_test.go:27", pc.String())
+	assert.Equal(t, "frame_test.go:27", pc.String())
 }
 
 func TestLocation2(t *testing.T) {
@@ -33,7 +33,7 @@ func TestLocation2(t *testing.T) {
 		func() {
 			l := Funcentry(0)
 
-			assert.Equal(t, "location_test.go:33", l.String())
+			assert.Equal(t, "frame_test.go:33", l.String())
 		}()
 	}()
 }
@@ -44,22 +44,22 @@ func TestLocationFormat(t *testing.T) {
 	var b bytes.Buffer
 
 	fmt.Fprintf(&b, "%v", l)
-	assert.Equal(t, "location.go:25", b.String())
+	assert.Equal(t, "frame.go:25", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%.3v", l)
-	assert.Equal(t, "location.go: 25", b.String())
+	assert.Equal(t, "frame.go: 25", b.String())
 
 	b.Reset()
 
-	fmt.Fprintf(&b, "%18.3v", l)
-	assert.Equal(t, "location.go   : 25", b.String())
+	fmt.Fprintf(&b, "%15.3v", l)
+	assert.Equal(t, "frame.go   : 25", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%+v", l)
-	assert.True(t, regexp.MustCompile(`[\w./-]*location.go:25`).MatchString(b.String()))
+	assert.True(t, regexp.MustCompile(`[\w./-]*frame.go:25`).MatchString(b.String()))
 
 	b.Reset()
 
@@ -89,7 +89,7 @@ func TestCaller(t *testing.T) {
 }
 
 func TestSetCache(t *testing.T) {
-	l := Location(0x1234567890)
+	l := Frame(0x1234567890)
 
 	assert.NotEqual(t, "file.go:10", l.String())
 
@@ -109,7 +109,7 @@ func BenchmarkLocationString(b *testing.B) {
 func BenchmarkLocationCaller(b *testing.B) {
 	b.ReportAllocs()
 
-	var l Location
+	var l Frame
 
 	for i := 0; i < b.N; i++ {
 		l = Caller(0)
