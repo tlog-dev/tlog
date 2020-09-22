@@ -107,27 +107,3 @@ func TestParseLabels(t *testing.T) {
 
 	assert.Equal(t, "a=b", ll[1])
 }
-
-func TestLabelsEqual(t *testing.T) {
-	a := Labels{"a", "b", "c"}
-	b := Labels{"b", "a"}
-
-	a.Sort()
-	b.Sort()
-
-	assert.False(t, a.Equal(b), "must not be equal %v ? %v", a, b)
-
-	b = Labels{"b", "a", "c"}
-
-	assert.Panics(t, func() { a.Equal(b) })
-
-	b.Sort()
-
-	assert.True(t, a.Equal(b), "must be equal %v ? %v", a, b)
-
-	b = Labels{"b", "a", "d"}
-
-	b.Sort()
-
-	assert.False(t, a.Equal(b), "must not be equal %v ? %v", a, b)
-}

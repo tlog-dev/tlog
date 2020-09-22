@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -202,32 +201,4 @@ func (ls Labels) Copy() Labels {
 	r := make(Labels, len(ls))
 	copy(r, ls)
 	return r
-}
-
-// Sort sorts labels.
-func (ls Labels) Sort() {
-	sort.Strings(ls)
-}
-
-// Equal compares two label sets.
-//
-// Both sets MUST be sorted.
-func (ls Labels) Equal(b Labels) bool {
-	if len(ls) != len(b) {
-		return false
-	}
-
-	for i := range ls {
-		if ls[i] == b[i] {
-			continue
-		}
-
-		if !sort.StringsAreSorted(ls) || !sort.StringsAreSorted(b) {
-			panic("both label sets must be sorted to compare")
-		}
-
-		return false
-	}
-
-	return true
 }
