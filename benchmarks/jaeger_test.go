@@ -1,13 +1,15 @@
-// because of dependency errors
-//+build ignore
-
-package tlog
+package benchmarks
 
 import (
 	"testing"
 
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/uber/jaeger-client-go"
+)
+
+const (
+	Parallel     = "Parallel"
+	SingleThread = "SingleThread"
 )
 
 type (

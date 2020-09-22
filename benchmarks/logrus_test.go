@@ -1,13 +1,15 @@
-package tlog
+package benchmarks
 
 import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/nikandfor/tlog"
 )
 
 func BenchmarkLogrusLogger(b *testing.B) {
-	var w CountableIODiscard
+	var w tlog.CountableIODiscard
 
 	l := logrus.New()
 	l.Out = &w

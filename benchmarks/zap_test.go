@@ -1,14 +1,16 @@
-package tlog
+package benchmarks
 
 import (
 	"testing"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/nikandfor/tlog"
 )
 
 func BenchmarkZapLogger(b *testing.B) {
-	var w CountableIODiscard
+	var w tlog.CountableIODiscard
 
 	enc := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		MessageKey:     "m",

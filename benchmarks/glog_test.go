@@ -1,4 +1,4 @@
-package tlog
+package benchmarks
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 )
 
 func BenchmarkGlogLogger(b *testing.B) {
-	b.Skip("it creates files")
+	//	b.Skip("it creates files")
 
 	b.Run("SingleThread", func(b *testing.B) {
 		b.ReportAllocs()
