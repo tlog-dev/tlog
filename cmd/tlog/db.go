@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,51 +97,30 @@ func openWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err 
 	ext := filepath.Ext(n)
 	ext = strings.TrimPrefix(ext, ".")
 
-	var fw io.WriteCloser
-	var dbb *xrain.MmapBack
-
 	switch ext {
-	case "json",
-		"protobuf", "proto", "pb",
-		"log", "":
-		fw, err = fwopen(c, n)
-		if err != nil {
-			return
-		}
-
-		cl = fw.Close
 	case "tldb", "tlogdb", "db":
-		dbb, err = xrain.Mmap(n, os.O_CREATE|os.O_RDWR)
-		if err != nil {
-			return
-		}
-
-		cl = dbb.Close
 	default:
-		err = errors.New("undefined writer format: %v", ext)
+		return openWriterNoDB(c, n)
+	}
+
+	dbb, err := xrain.Mmap(n, os.O_CREATE|os.O_RDWR)
+	if err != nil {
 		return
 	}
 
-	switch ext {
-	case "json", "j":
-		w = parse.NewAnyWiter(tlog.NewJSONWriter(fw))
-	case "protobuf", "proto", "pb":
-		w = parse.NewAnyWiter(tlog.NewProtoWriter(fw))
-	case "console", "stderr", "log", "":
-		w = parse.NewConsoleWriter(fw, tlog.LdetFlags|tlog.Lspans|tlog.Lmessagespan)
-	case "tldb", "tlogdb", "db":
-		var xdb *xrain.DB
-		xdb, err = xrain.NewDB(dbb, 0, nil)
-		if err != nil {
-			return
-		}
+	cl = dbb.Close
 
-		db := tlogdb.NewDB(xdb)
+	var xdb *xrain.DB
+	xdb, err = xrain.NewDB(dbb, 0, nil)
+	if err != nil {
+		return
+	}
 
-		w, err = tlogdb.NewWriter(db)
-		if err != nil {
-			return
-		}
+	db := tlogdb.NewDB(xdb)
+
+	w, err = tlogdb.NewWriter(db)
+	if err != nil {
+		return
 	}
 
 	return

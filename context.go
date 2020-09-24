@@ -49,56 +49,68 @@ func ContextWithSpan(ctx context.Context, s Span) context.Context {
 	return context.WithValue(ctx, ctxspankey{}, s)
 }
 
-// IDFromContext receives Span ID from Context.
+// IDFromContext receives Span.ID or ID from Context.
 // It returns zero if no ID found.
 func IDFromContext(ctx context.Context) ID {
-	v := ctx.Value(ctxidkey{})
-	if id, ok := v.(ID); ok {
-		return id
-	}
-	v = ctx.Value(ctxspankey{})
+	v := ctx.Value(ctxspankey{})
 	if s, ok := v.(Span); ok {
 		return s.ID
 	}
+
+	v = ctx.Value(ctxidkey{})
+	if id, ok := v.(ID); ok {
+		return id
+	}
+
 	return ID{}
 }
 
 // SpanFromContext loads saved by ContextWithSpan Span from Context.
 // It returns empty (no-op) Span if no ID found.
 func SpanFromContext(ctx context.Context) (s Span) {
-	if DefaultLogger == nil {
-		return Span{}
-	}
-
 	v := ctx.Value(ctxspankey{})
 	s, _ = v.(Span)
 
 	return
 }
 
-// SpawnFromContext spawns new Span derived form Span ID from Context.
+// SpawnFromContext spawns new Span derived form Span or ID from Context.
 // It returns empty (no-op) Span if no ID found.
 func SpawnFromContext(ctx context.Context) Span {
+	v := ctx.Value(ctxspankey{})
+	s, ok := v.(Span)
+	if ok {
+		return newspan(s.Logger, 0, s.ID)
+	}
+
 	if DefaultLogger == nil {
 		return Span{}
 	}
 
-	id := IDFromContext(ctx)
-	if id == (ID{}) {
-		return Span{}
+	v = ctx.Value(ctxidkey{})
+	id, ok := v.(ID)
+	if ok {
+		return newspan(DefaultLogger, 0, id)
 	}
 
-	return newspan(DefaultLogger, 0, id)
+	return Span{}
 }
 
 // SpawnFromContextOrStart loads saved by ContextWithSpan Span from Context.
 // It starts new trace if no ID found.
 func SpawnFromContextOrStart(ctx context.Context) Span {
+	v := ctx.Value(ctxspankey{})
+	s, ok := v.(Span)
+	if ok {
+		return newspan(s.Logger, 0, s.ID)
+	}
+
 	if DefaultLogger == nil {
 		return Span{}
 	}
 
-	id := IDFromContext(ctx)
+	v = ctx.Value(ctxidkey{})
+	id, _ := v.(ID)
 
 	return newspan(DefaultLogger, 0, id)
 }

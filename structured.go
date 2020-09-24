@@ -19,9 +19,12 @@ type (
 
 		QuoteAnyValue   bool
 		QuoteEmptyValue bool
+
+		structValWidth sync.Map // string -> int
 	}
 )
 
+// DefaultStructuredConfig is default config to format structured logs by ConsoleWriter.
 var DefaultStructuredConfig = StructuredConfig{
 	MessageWidth:     40,
 	IDWidth:          8,
@@ -29,8 +32,6 @@ var DefaultStructuredConfig = StructuredConfig{
 	PairSeparator:    "  ",
 	KVSeparator:      "=",
 }
-
-var structValWidth sync.Map // string -> int
 
 //nolint:gocognit
 func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs Attrs) []byte {
@@ -91,13 +92,13 @@ func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs At
 		vw := vend - vst
 		if vw < c.ValueMaxPadWidth && i+1 < len(kvs) {
 			var w int
-			iw, ok := structValWidth.Load(kv.Name)
+			iw, ok := c.structValWidth.Load(kv.Name)
 			if ok {
 				w = iw.(int)
 			}
 
 			if !ok || vw > w {
-				structValWidth.Store(kv.Name, vw)
+				c.structValWidth.Store(kv.Name, vw)
 			} else if vw < w {
 				b = append(b, spaces[:w-vw]...)
 			}

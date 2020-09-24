@@ -48,30 +48,30 @@ linters-settings:
     for-loops: true
   gocritic:
     enabled-tags:
+      - experimental
       - performance
       - style
-      - experimental
     disabled-checks:
-      - unnamedResult
+      - appendAssign
       - builtinShadow
       - commentedOutCode
-      - appendAssign
+      - unnamedResult
       - whyNoLint
       - yodaStyleExpr
 
 linters:
   enable-all: true
   disable:
-    - unparam
-    - nakedret
-    - gochecknoinits
-    - gochecknoglobals
-    - prealloc
-    - gomnd
-    - testpackage
-    - nlreturn
     - funlen
-    - godox
     - gci
-    - wsl
+    - gochecknoglobals
+    - gochecknoinits
+    - godox
     - goerr113
+    - gomnd
+    - nakedret
+    - nlreturn
+    - prealloc
+    - testpackage
+    - unparam
+    - wsl

@@ -88,6 +88,7 @@ func AppendPrintf(b []byte, format string, a ...interface{}) []byte {
 	return b
 }
 
+// AppendPrintln is similar to fmt.Sprintln but faster. See doc for AppendPrintf for more details.
 func AppendPrintln(b []byte, a ...interface{}) []byte {
 	var p pp
 	p.buf = b

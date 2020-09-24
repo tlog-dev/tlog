@@ -42,6 +42,10 @@ var AutoLabels = map[string]func() string{
 		return filepath.Base(os.Args[0])
 	},
 	"_randid": func() string {
+		if DefaultLogger == nil {
+			panic("DefaultLogger is not set")
+		}
+
 		return DefaultLogger.randID().FullString()
 	},
 }

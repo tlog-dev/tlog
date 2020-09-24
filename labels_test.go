@@ -60,6 +60,8 @@ func TestLabels(t *testing.T) {
 }
 
 func TestDumpLabelsWithDefault(t *testing.T) {
+	DefaultLogger = New()
+
 	assert.Equal(t, Labels{"a", "b", "c"}, FillLabelsWithDefaults("a", "b", "c"))
 
 	assert.Equal(t, Labels{"a=b", "f"}, FillLabelsWithDefaults("a=b", "f"))
@@ -95,6 +97,13 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	tzn, _ := now().Zone()
 	assert.NotZero(t, tzn)
 	assert.Equal(t, "_timezone="+tzn, ll[7])
+
+	//
+	DefaultLogger = nil
+
+	assert.Panics(t, func() {
+		FillLabelsWithDefaults("_randid")
+	})
 }
 
 func TestParseLabels(t *testing.T) {

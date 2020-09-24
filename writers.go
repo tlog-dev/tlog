@@ -171,9 +171,10 @@ var strhash0 = strhash
 var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 128)} }}
 
 // Getbuf gets bytes buffer from a pool to reduce gc pressure.
-// Buffer must be returned after used as
+// Buffer must be returned after used. Usage:
 //     b, wr := tlog.Getbuf()
 //     defer wr.Ret(&b)
+//
 //     b = append(b[:0], ...)
 func Getbuf() (_ bufWriter, wr *bwr) { //nolint:golint
 	wr = bufPool.Get().(*bwr)
@@ -188,9 +189,10 @@ func (wr *bwr) Ret(b *bufWriter) {
 var attrsPool = sync.Pool{New: func() interface{} { return &awr{b: make(Attrs, 4)} }}
 
 // GetAttrsbuf gets Attrs buffer from a pool to reduce gc pressure.
-// Buffer must be returned after used as
+// Buffer must be returned after used. Usage:
 //     b, wr := tlog.GetAttrsbuf()
 //     defer wr.Ret(&b)
+//
 //     b = append(b[:0], ...)
 func GetAttrsbuf() (_ Attrs, wr *awr) { //nolint:golint
 	wr = attrsPool.Get().(*awr)
