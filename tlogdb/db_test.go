@@ -57,7 +57,7 @@ func TestDBSmoke(t *testing.T) {
 	}
 
 	err = db.View(func(tx *xrain.Tx) error {
-		xrain.DebugDump(tl, tx.SimpleBucket)
+		xrain.DebugDump(tl.IOWriter(0), tx.SimpleBucket)
 
 		return nil
 	})

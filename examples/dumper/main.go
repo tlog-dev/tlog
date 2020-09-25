@@ -42,7 +42,7 @@ func main() {
 
 	tlog.Printf("usual log message (appears in console only)")
 
-	dumper.V("dump,pkg").Write([]byte("some big file content (appears in dumps file only, if selected by filter)"))
+	dumper.V("dump,pkg").PrintBytes(0, []byte("some big file content (appears in dumps file only, if selected by filter)"))
 
 	request()
 }

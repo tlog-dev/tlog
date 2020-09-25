@@ -45,23 +45,9 @@ func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs At
 		b = append(b, spaces[:c.MessageWidth-msgw]...)
 	}
 
-	pad := false
-	if sid != (ID{}) {
-		b = append(b, "span"...)
-		b = append(b, c.KVSeparator...)
-
-		st := len(b)
-		b = append(b, "________________________________"[:c.IDWidth]...)
-		sid.FormatTo(b[st:], 'f')
-
-		pad = true
-	}
-
 	for i, kv := range kvs {
-		if pad {
+		if i != 0 {
 			b = append(b, c.PairSeparator...)
-		} else {
-			pad = true
 		}
 
 		b = append(b, kv.Name...)

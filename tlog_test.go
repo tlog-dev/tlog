@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -43,6 +44,12 @@ func (t *testt) testloc2() Frame {
 	return func() Frame {
 		return Caller(0)
 	}()
+}
+
+func TestMessageSize(t *testing.T) {
+	tp := reflect.TypeOf(Message{})
+
+	t.Logf("Message size: %x (%[1]d), align %x (%[2]d)", tp.Size(), tp.Align())
 }
 
 func TestTlogParallel(t *testing.T) {
@@ -98,7 +105,7 @@ func TestPanicf(t *testing.T) {
 `, buf.String())
 }
 
-func TestPrintRaw(t *testing.T) {
+func TestPrintBytes(t *testing.T) {
 	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
@@ -106,15 +113,15 @@ func TestPrintRaw(t *testing.T) {
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, 0))
 
-	PrintRaw(0, []byte("raw message 1"))
-	DefaultLogger.PrintRaw(0, []byte("raw message 2"))
+	PrintBytes(0, []byte("raw message 1"))
+	DefaultLogger.PrintBytes(0, []byte("raw message 2"))
 
 	tr := Start()
-	tr.PrintRaw(0, []byte("raw message 3"))
+	tr.PrintBytes(0, []byte("raw message 3"))
 	tr.Finish()
 
 	tr = Span{}
-	tr.PrintRaw(0, []byte("raw message 4"))
+	tr.PrintBytes(0, []byte("raw message 4"))
 
 	assert.Equal(t, `raw message 1
 raw message 2
@@ -122,7 +129,7 @@ raw message 3
 `, buf.String())
 }
 
-func TestPrintfDepth(t *testing.T) {
+func TestIOWriter(t *testing.T) {
 	defer func(l *Logger) {
 		DefaultLogger = l
 	}(DefaultLogger)
@@ -130,42 +137,18 @@ func TestPrintfDepth(t *testing.T) {
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, 0))
 
-	PrintfDepth(0, "message %d", 1)
-	DefaultLogger.PrintfDepth(0, "message %d", 2)
-
-	tr := Start()
-	tr.PrintfDepth(0, "message %d", 3)
-	tr.Finish()
-
-	tr = Span{}
-	tr.PrintfDepth(0, "message %d", 4)
-
-	assert.Equal(t, `message 1
-message 2
-message 3
-`, buf.String())
-}
-
-func TestWrite(t *testing.T) {
-	defer func(l *Logger) {
-		DefaultLogger = l
-	}(DefaultLogger)
-
-	var buf bytes.Buffer
-	DefaultLogger = New(NewConsoleWriter(&buf, 0))
-
-	n, err := DefaultLogger.Write([]byte("raw message 2"))
+	n, err := DefaultLogger.IOWriter(0).Write([]byte("raw message 2"))
 	assert.NoError(t, err)
 	assert.Equal(t, 13, n)
 
 	tr := Start()
-	n, err = tr.Write([]byte("raw message 3"))
+	n, err = tr.IOWriter(0).Write([]byte("raw message 3"))
 	assert.NoError(t, err)
 	assert.Equal(t, 13, n)
 	tr.Finish()
 
 	tr = Span{}
-	n, err = tr.Write([]byte("raw message 4"))
+	n, err = tr.IOWriter(0).Write([]byte("raw message 4"))
 	assert.NoError(t, err)
 	assert.Equal(t, 13, n)
 
@@ -173,7 +156,7 @@ func TestWrite(t *testing.T) {
 raw message 3
 `, buf.String())
 
-	n, err = (*Logger)(nil).Write([]byte("123"))
+	n, err = (*Logger)(nil).IOWriter(0).Write([]byte("123"))
 	assert.NoError(t, err)
 	assert.Equal(t, 3, n)
 }
@@ -198,28 +181,6 @@ message 3
 `, buf.String())
 }
 
-func TestPrintfwDepth(t *testing.T) {
-	var buf bytes.Buffer
-	w := NewConsoleWriter(&buf, 0)
-	DefaultLogger = New(w)
-	DefaultLogger.randID = testRandID()
-
-	PrintfwDepth(-1, "message %v", Args{1}, Attrs{AInt("i", 1)})
-
-	DefaultLogger.PrintfwDepth(-1, "message %v", Args{2}, Attrs{AInt("i", 2)})
-
-	tr := Start()
-
-	tr.PrintfwDepth(-1, "message %v", Args{3}, Attrs{AInt("i", 3)})
-
-	tr.Finish()
-
-	assert.Equal(t, `message 1                               i=1
-message 2                               i=2
-message 3                               span=0194fdc2  i=3
-`, buf.String())
-}
-
 func TestPrintw(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -233,14 +194,11 @@ func TestPrintw(t *testing.T) {
 	cw.StructuredConfig = &cfg
 
 	Printw("message", AInt("i", 1), AString("receiver", "pkg"))
-	PrintwDepth(0, "message", Attrs{{"i", 2}, {"receiver", "pkg"}}...)
 
 	DefaultLogger.Printw("message", Attrs{{"i", 3}, {"receiver", "logger"}}...)
-	DefaultLogger.PrintwDepth(0, "message", Attrs{{"i", 4}, {"receiver", "logger"}}...)
 
 	tr := Start()
 	tr.Printw("message", Attrs{{"i", 5}, {"receiver", "trace"}}...)
-	tr.PrintwDepth(0, "message", Attrs{{"i", 6}, {"receiver", "trace"}}...)
 	tr.Finish()
 
 	tr = Span{}
@@ -258,11 +216,8 @@ func TestPrintw(t *testing.T) {
 	Printw("msg", Attrs{{"difflen", `ab`}, {"next", "val"}}...)
 
 	assert.Equal(t, `message             i=1  receiver=pkg
-message             i=2  receiver=pkg
 message             i=3  receiver=logger
-message             i=4  receiver=logger
-message             span=0194fdc2  i=5  receiver=trace
-message             span=0194fdc2  i=6  receiver=trace
+message             i=5  receiver=trace
 msg                 quoted="a=b"
 msg                 quoted="q\"w\"e"
 msg                 empty=
@@ -605,7 +560,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Printf("message %d", 2)
 
-	tr1.PrintfwDepth(0, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
+	tr1.PrintRaw(0, LevelDebug, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
 
 	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
 	tr1.Observe("metric_name", 456.123, Labels{"q=w", "e=1"})
@@ -956,8 +911,8 @@ func BenchmarkTlogTracer(b *testing.B) {
 						{"Printw", func(i int) {
 							gtr.Printw("message", AInt("i", 1000+i)) // 1 alloc here: int to interface{} conversion
 						}},
-						{"PrintRaw", func(i int) {
-							gtr.PrintRaw(0, buf)
+						{"PrintBytes", func(i int) {
+							gtr.PrintBytes(0, buf)
 						}},
 						{"StartPrintfFinish", func(i int) {
 							tr := l.Start()
@@ -1003,11 +958,12 @@ func BenchmarkTlogProtoWrite(b *testing.B) {
 	l := New(NewProtoWriter(ioutil.Discard))
 
 	tr := l.Start()
+	w := tr.IOWriter(0)
 
 	buf := AppendPrintf(nil, "message %d", 1000)
 
 	for i := 0; i < b.N; i++ {
-		_, _ = tr.Write(buf)
+		_, _ = w.Write(buf)
 	}
 
 	tr.Finish()

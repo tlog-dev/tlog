@@ -41,14 +41,14 @@ func hotCode(tr tlog.Span, a1 int, a2 float64, buf []byte) []byte {
 	buf = append(buf[:0], "hotter log int "...)
 	buf = strconv.AppendInt(buf, int64(a1), 10)
 
-	tr.PrintRaw(0, buf)
+	tr.PrintBytes(0, buf)
 
 	// work
 
 	buf = append(buf[:0], "hotter float "...)
 	buf = strconv.AppendFloat(buf, a2, 'f', -1, 64)
 
-	tr.PrintRaw(0, buf)
+	tr.PrintBytes(0, buf)
 
 	return buf // reuse buffer
 }

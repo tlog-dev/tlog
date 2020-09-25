@@ -702,6 +702,7 @@ func TestAttributes(t *testing.T) {
 		AFloat("float64", 4.5),
 		AString("str", "string"),
 		AID("id", id),
+		AError("err", errors.New("some_err")),
 	)
 
 	l.Printw("slice", Attrs{
@@ -715,9 +716,11 @@ func TestAttributes(t *testing.T) {
 		{Name: "float32", Value: float32(8.5)},
 	}...)
 
+	//	l.Printw("nil", Attr{Name: "nil", Value: nil})
+
 	l.Printw("undef", Attr{Name: "undef", Value: &bwr{}})
 
-	assert.Equal(t, `{"m":{"m":"helpers","a":[{"n":"int","t":"i","v":-1},{"n":"int64","t":"i","v":-2},{"n":"uint64","t":"u","v":3},{"n":"float64","t":"f","v":4.5},{"n":"str","t":"s","v":"string"},{"n":"id","t":"d","v":"01020304050600000000000000000000"}]}}
+	assert.Equal(t, `{"m":{"m":"helpers","a":[{"n":"int","t":"i","v":-1},{"n":"int64","t":"i","v":-2},{"n":"uint64","t":"u","v":3},{"n":"float64","t":"f","v":4.5},{"n":"str","t":"s","v":"string"},{"n":"id","t":"d","v":"01020304050600000000000000000000"},{"n":"err","t":"s","v":"some_err"}]}}
 {"m":{"m":"slice","a":[{"n":"int32","t":"i","v":-1},{"n":"int16","t":"i","v":-2},{"n":"int8","t":"i","v":-3},{"n":"uint","t":"u","v":4},{"n":"uint32","t":"u","v":5},{"n":"uint16","t":"u","v":6},{"n":"uint8","t":"u","v":7},{"n":"float32","t":"f","v":8.5}]}}
 {"m":{"m":"undef","a":[{"n":"undef","t":"?","ut":"*tlog.bwr"}]}}
 `, js.String())
@@ -733,6 +736,7 @@ func TestAttributes(t *testing.T) {
 			{Name: "float64", Type: 'f', Float: 4.5},
 			{Name: "str", Type: 's', Str: "string"},
 			{Name: "id", Type: 'd', Bytes: id[:]},
+			{Name: "err", Type: 's', Str: "some_err"},
 		},
 	}})
 

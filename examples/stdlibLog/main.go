@@ -23,10 +23,10 @@ func main() {
 	// pass *tlog.Logger or tlog.Span to stdlib logger
 	// or anywhere io.Writer is expected
 
-	l.DepthCorrection = 2 // correct which stack frame to record (to not record log.go:172 all the time)
+	w := l.IOWriter(2) // correct which stack frame to record (to not record log.go:172 all the time)
 
+	log.SetOutput(w)
 	log.SetFlags(0) // hide time column produced by stdlib log
-	log.SetOutput(l)
 
 	log.Printf("use as stdlib log")
 }

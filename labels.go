@@ -192,9 +192,13 @@ func (ls *Labels) Merge(b Labels) {
 			continue
 		}
 		kv := strings.SplitN(add, "=", 2)
-		if kv[0] == "" {
+
+		switch {
+		case len(kv) == 1:
+			ls.Set(kv[0], "")
+		case kv[0] == "":
 			ls.Del(kv[1])
-		} else {
+		default:
 			ls.Set(kv[0], kv[1])
 		}
 	}
