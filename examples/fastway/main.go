@@ -71,7 +71,7 @@ func fire(tr tlog.Span, a1 int, a2 float64, buf []byte) []byte {
 	}
 
 	tr.Logger.Message(tlog.Message{
-		PC: fireFrame,
+		PC: firePC,
 		// Time: time.Now().UnixNano(),
 		Text: tlog.UnsafeBytesToString(buf),
 	}, tr.ID)
