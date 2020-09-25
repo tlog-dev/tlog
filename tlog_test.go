@@ -189,7 +189,7 @@ func TestPrintw(t *testing.T) {
 	DefaultLogger = New(cw)
 	DefaultLogger.randID = testRandID()
 
-	cfg := DefaultStructuredConfig
+	cfg := DefaultStructuredConfig.Copy()
 	cfg.MessageWidth = 20
 	cw.StructuredConfig = &cfg
 
@@ -720,6 +720,12 @@ func TestCoverUncovered(t *testing.T) {
 	assert.Equal(t, []cev{
 		{Ev: SpanStart{ID: ID{7, 8, 9}, Parent: ID{4, 5, 6}}},
 	}, w.Events)
+
+	var cw CountableIODiscard
+
+	n, err := cw.Write([]byte("qwert"))
+	assert.NoError(t, err)
+	assert.Equal(t, 5, n)
 }
 
 func TestPrintfVsPrintln(t *testing.T) {

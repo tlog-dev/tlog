@@ -92,7 +92,6 @@ func renderFromDB(c *cli.Command) (err error) {
 	return
 }
 
-//nolint:goconst
 func openWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
 	ext := filepath.Ext(n)
 	ext = strings.TrimPrefix(ext, ".")

@@ -897,8 +897,6 @@ func IDFromString(s string) (id ID, err error) {
 	var c byte
 	for ; i < len(s); i++ {
 		switch {
-		case s[i] == '_':
-			continue
 		case '0' <= s[i] && s[i] <= '9':
 			c = s[i] - '0'
 		case 'a' <= s[i] && s[i] <= 'f':

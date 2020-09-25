@@ -24,6 +24,22 @@ type (
 	}
 )
 
+// Copy makes config copy.
+// Use it instead of assignment since structure contains fields that should not be copied.
+func (c *StructuredConfig) Copy() StructuredConfig {
+	return StructuredConfig{
+		MessageWidth:     c.MessageWidth,
+		IDWidth:          c.IDWidth,
+		ValueMaxPadWidth: c.ValueMaxPadWidth,
+
+		PairSeparator: c.PairSeparator,
+		KVSeparator:   c.KVSeparator,
+
+		QuoteAnyValue:   c.QuoteAnyValue,
+		QuoteEmptyValue: c.QuoteEmptyValue,
+	}
+}
+
 // DefaultStructuredConfig is default config to format structured logs by ConsoleWriter.
 var DefaultStructuredConfig = StructuredConfig{
 	MessageWidth:     40,

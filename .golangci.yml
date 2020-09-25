@@ -58,6 +58,7 @@ linters-settings:
       - unnamedResult
       - whyNoLint
       - yodaStyleExpr
+      - octalLiteral
 
 linters:
   enable-all: true

@@ -20,7 +20,7 @@ func updateFlags(ff, of int, s string) (_, _ int) {
 			of |= os.O_TRUNC
 		case 'd':
 			ff = tlog.LdetFlags
-		case 's':
+		case 's', 'S':
 			ff |= tlog.Lspans | tlog.Lmessagespan
 		case 'n':
 			ff |= tlog.Lfuncname
@@ -33,6 +33,15 @@ func updateFlags(ff, of int, s string) (_, _ int) {
 	}
 
 	return ff, of
+}
+
+func updateConsoleLoggerOptions(w *tlog.ConsoleWriter, s string) {
+	for _, c := range s {
+		switch c { //nolint:gocritic
+		case 'S':
+			w.IDWidth = 2 * len(tlog.ID{})
+		}
+	}
 }
 
 func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error) {
@@ -53,18 +62,20 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 			return
 		}
 
-		cl()
+		_ = cl()
 
 		cl = nil
 	}()
 
 	for _, d := range strings.Split(dst, ",") {
+		var opts string
 		ff := tlog.LstdFlags
 		of := 0
 		if p := strings.IndexByte(d, ':'); p != -1 {
-			ff, of = updateFlags(ff, of, d[p+1:])
-
+			opts = d[p+1:]
 			d = d[:p]
+
+			ff, of = updateFlags(ff, of, opts)
 		}
 
 		ext := filepath.Ext(d)
@@ -95,7 +106,11 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 		var w tlog.Writer
 		switch ext {
 		case "", ".log":
-			w = tlog.NewConsoleWriter(fw, ff)
+			cw := tlog.NewConsoleWriter(fw, ff)
+
+			updateConsoleLoggerOptions(cw, opts)
+
+			w = cw
 		case ".proto":
 			w = tlog.NewProtoWriter(fw)
 		case ".json":
