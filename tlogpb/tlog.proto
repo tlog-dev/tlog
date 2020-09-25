@@ -29,7 +29,7 @@ message Frame {
 
 message Message {
     bytes span    = 1;
-    int64 frame   = 2;
+    int64 pc      = 2;
     sfixed64 time = 3;
     string text   = 4;
 
@@ -63,7 +63,7 @@ message Meta {
 message SpanStart {
     bytes id         = 1;
     bytes parent     = 2;
-    int64 frame      = 3;
+    int64 pc         = 3;
     sfixed64 started = 4;
 }
 

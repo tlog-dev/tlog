@@ -27,7 +27,7 @@ type (
 
 	ConvertWriter struct {
 		w  Writer
-		ls map[tlog.Frame]struct{}
+		ls map[tlog.PC]struct{}
 	}
 )
 
@@ -42,7 +42,7 @@ func (w AnyWriter) Labels(ls Labels) error {
 }
 
 func (w AnyWriter) Frame(l Frame) error {
-	tlog.Frame(l.PC).SetCache(l.Name, l.File, l.Line)
+	tlog.PC(l.PC).SetCache(l.Name, l.File, l.Line)
 
 	return nil
 }
@@ -59,9 +59,9 @@ func (w AnyWriter) Meta(m Meta) error {
 func (w AnyWriter) Message(m Message) error {
 	return w.w.Message(
 		tlog.Message{
-			Frame: tlog.Frame(m.Frame),
-			Time:  m.Time,
-			Text:  m.Text,
+			PC:   tlog.PC(m.PC),
+			Time: m.Time,
+			Text: m.Text,
 		},
 		m.Span,
 	)
@@ -82,7 +82,7 @@ func (w AnyWriter) SpanStart(s SpanStart) error {
 		ID:      s.ID,
 		Parent:  s.Parent,
 		Started: s.Started,
-		Frame:   tlog.Frame(s.Frame),
+		PC:      tlog.PC(s.PC),
 	})
 }
 
@@ -104,7 +104,7 @@ func (w *ConsoleWriter) Labels(ls Labels) error {
 }
 
 func (w *ConsoleWriter) Frame(l Frame) error {
-	tlog.Frame(l.PC).SetCache(l.Name, l.File, l.Line)
+	tlog.PC(l.PC).SetCache(l.Name, l.File, l.Line)
 
 	return nil
 }
@@ -121,9 +121,9 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 func (w *ConsoleWriter) Message(m Message) (err error) {
 	return w.w.Message(
 		tlog.Message{
-			Frame: tlog.Frame(m.Frame),
-			Time:  m.Time,
-			Text:  m.Text,
+			PC:   tlog.PC(m.PC),
+			Time: m.Time,
+			Text: m.Text,
 		},
 		m.Span,
 	)
@@ -145,7 +145,7 @@ func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
 		ID:      s.ID,
 		Parent:  s.Parent,
 		Started: s.Started,
-		Frame:   tlog.Frame(s.Frame),
+		PC:      tlog.PC(s.PC),
 	})
 }
 
@@ -159,7 +159,7 @@ func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
 func NewConvertWriter(w Writer) *ConvertWriter {
 	return &ConvertWriter{
 		w:  w,
-		ls: make(map[tlog.Frame]struct{}),
+		ls: make(map[tlog.PC]struct{}),
 	}
 }
 
@@ -177,16 +177,16 @@ func (w *ConvertWriter) Meta(m tlog.Meta) error {
 }
 
 func (w *ConvertWriter) Message(m tlog.Message, sid tlog.ID) error {
-	err := w.location(m.Frame)
+	err := w.location(m.PC)
 	if err != nil {
 		return err
 	}
 
 	return w.w.Message(Message{
-		Span:  sid,
-		Frame: uint64(m.Frame),
-		Time:  m.Time,
-		Text:  m.Text,
+		Span: sid,
+		PC:   uint64(m.PC),
+		Time: m.Time,
+		Text: m.Text,
 	})
 }
 
@@ -200,7 +200,7 @@ func (w *ConvertWriter) Metric(m tlog.Metric, sid tlog.ID) error {
 }
 
 func (w *ConvertWriter) SpanStarted(s tlog.SpanStart) error {
-	err := w.location(s.Frame)
+	err := w.location(s.PC)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (w *ConvertWriter) SpanStarted(s tlog.SpanStart) error {
 	return w.w.SpanStart(SpanStart{
 		ID:      s.ID,
 		Parent:  s.Parent,
-		Frame:   uint64(s.Frame),
+		PC:      uint64(s.PC),
 		Started: s.Started,
 	})
 }
@@ -220,7 +220,7 @@ func (w *ConvertWriter) SpanFinished(f tlog.SpanFinish) error {
 	})
 }
 
-func (w *ConvertWriter) location(l tlog.Frame) error {
+func (w *ConvertWriter) location(l tlog.PC) error {
 	if _, ok := w.ls[l]; ok {
 		return nil
 	}

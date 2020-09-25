@@ -14,7 +14,7 @@ type (
 	}
 
 	filterkey struct {
-		l  Frame
+		l  PC
 		tp string
 	}
 )
@@ -54,7 +54,7 @@ func (f filter) match(t string) bool {
 	return en
 }
 
-func (f filter) matchFilter(loc Frame, t string) bool {
+func (f filter) matchFilter(loc PC, t string) bool {
 	topics := strings.Split(t, ",")
 	name, file, _ := loc.NameFileLine()
 

@@ -11,55 +11,55 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFrame(t *testing.T) {
-	testFrameInside(t)
+func TestLocation(t *testing.T) {
+	testLocationInside(t)
 }
 
-func testFrameInside(t *testing.T) {
+func testLocationInside(t *testing.T) {
 	pc := Caller(0)
 	name, file, line := pc.NameFileLine()
-	assert.Equal(t, "tlog.testFrameInside", path.Base(name))
-	assert.Equal(t, "frame_test.go", filepath.Base(file))
+	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
+	assert.Equal(t, "location_test.go", filepath.Base(file))
 	assert.Equal(t, 19, line)
 }
 
-func TestFrameShort(t *testing.T) {
+func TestLocationShort(t *testing.T) {
 	pc := Caller(0)
-	assert.Equal(t, "frame_test.go:27", pc.String())
+	assert.Equal(t, "location_test.go:27", pc.String())
 }
 
-func TestFrame2(t *testing.T) {
+func TestLocation2(t *testing.T) {
 	func() {
 		func() {
 			l := Funcentry(0)
 
-			assert.Equal(t, "frame_test.go:33", l.String())
+			assert.Equal(t, "location_test.go:33", l.String())
 		}()
 	}()
 }
 
-func TestFrameFormat(t *testing.T) {
+func TestLocationFormat(t *testing.T) {
 	l := Caller(-1)
 
 	var b bytes.Buffer
 
 	fmt.Fprintf(&b, "%v", l)
-	assert.Equal(t, "frame.go:25", b.String())
+	assert.Equal(t, "location.go:25", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%.3v", l)
-	assert.Equal(t, "frame.go: 25", b.String())
+	assert.Equal(t, "location.go: 25", b.String())
 
 	b.Reset()
 
-	fmt.Fprintf(&b, "%15.3v", l)
-	assert.Equal(t, "frame.go   : 25", b.String())
+	fmt.Fprintf(&b, "%18.3v", l)
+	assert.Equal(t, "location.go   : 25", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%+v", l)
-	assert.True(t, regexp.MustCompile(`[\w./-]*frame.go:25`).MatchString(b.String()))
+	assert.True(t, regexp.MustCompile(`[\w./-]*location.go:25`).MatchString(b.String()))
 
 	b.Reset()
 
@@ -67,7 +67,7 @@ func TestFrameFormat(t *testing.T) {
 	assert.Equal(t, "Caller:25", b.String())
 }
 
-func TestFrameCropFileName(t *testing.T) {
+func TestLocationCropFileName(t *testing.T) {
 	assert.Equal(t, "github.com/nikandfor/tlog/sub/module/file.go",
 		cropFilename("/path/to/src/github.com/nikandfor/tlog/sub/module/file.go", "github.com/nikandfor/tlog/sub/module.(*type).method"))
 	assert.Equal(t, "github.com/nikandfor/tlog/sub/module/file.go",
@@ -89,7 +89,7 @@ func TestCaller(t *testing.T) {
 }
 
 func TestSetCache(t *testing.T) {
-	l := Frame(0x1234567890)
+	l := PC(0x1234567890)
 
 	assert.NotEqual(t, "file.go:10", l.String())
 
@@ -98,7 +98,7 @@ func TestSetCache(t *testing.T) {
 	assert.Equal(t, "file.go:10", l.String())
 }
 
-func BenchmarkFrameString(b *testing.B) {
+func BenchmarkLocationString(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
@@ -106,10 +106,10 @@ func BenchmarkFrameString(b *testing.B) {
 	}
 }
 
-func BenchmarkFrameCaller(b *testing.B) {
+func BenchmarkLocationCaller(b *testing.B) {
 	b.ReportAllocs()
 
-	var l Frame
+	var l PC
 
 	for i := 0; i < b.N; i++ {
 		l = Caller(0)
@@ -118,7 +118,7 @@ func BenchmarkFrameCaller(b *testing.B) {
 	_ = l
 }
 
-func BenchmarkFrameNameFileLine(b *testing.B) {
+func BenchmarkLocationNameFileLine(b *testing.B) {
 	b.ReportAllocs()
 
 	var n, f string

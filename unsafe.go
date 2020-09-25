@@ -33,7 +33,7 @@ type (
 
 var (
 	locmu sync.Mutex
-	locc  = map[Frame]nfl{}
+	locc  = map[PC]nfl{}
 )
 
 // NameFileLine returns function name, file and line number for location.
@@ -41,7 +41,7 @@ var (
 // This works only in the same binary where location was captured.
 //
 // This functions is a little bit modified version of runtime.(*Frames).Next().
-func (l Frame) NameFileLine() (name, file string, line int) {
+func (l PC) NameFileLine() (name, file string, line int) {
 	locmu.Lock()
 	c, ok := locc[l]
 	locmu.Unlock()
@@ -62,7 +62,7 @@ func (l Frame) NameFileLine() (name, file string, line int) {
 	return
 }
 
-func (l Frame) nameFileLine() (name, file string, line int) {
+func (l PC) nameFileLine() (name, file string, line int) {
 	if l == 0 {
 		return
 	}
@@ -99,17 +99,17 @@ func (l Frame) nameFileLine() (name, file string, line int) {
 }
 
 // Entry is functions entry point.
-func (l Frame) Entry() Frame {
+func (l PC) Entry() PC {
 	funcInfo := findfunc(l)
 	if funcInfo.entry == nil {
 		return 0
 	}
-	return Frame(*funcInfo.entry)
+	return PC(*funcInfo.entry)
 }
 
-// SetCache sets name, file and line for Frame.
-// It allows to work with Frame in another binary the same as in original.
-func (l Frame) SetCache(name, file string, line int) {
+// SetCache sets name, file and line for the PC.
+// It allows to work with PC in another binary the same as in original.
+func (l PC) SetCache(name, file string, line int) {
 	locmu.Lock()
 	locc[l] = nfl{
 		name: name,
@@ -120,10 +120,10 @@ func (l Frame) SetCache(name, file string, line int) {
 }
 
 //go:linkname findfunc runtime.findfunc
-func findfunc(pc Frame) funcInfo
+func findfunc(pc PC) funcInfo
 
 //go:linkname funcline1 runtime.funcline1
-func funcline1(f funcInfo, targetpc Frame, strict bool) (file string, line int32)
+func funcline1(f funcInfo, targetpc PC, strict bool) (file string, line int32)
 
 //go:linkname funcname runtime.funcname
 func funcname(f funcInfo) string
@@ -132,7 +132,7 @@ func funcname(f funcInfo) string
 func funcdata(f funcInfo, i uint8) unsafe.Pointer
 
 //go:linkname pcdatavalue runtime.pcdatavalue
-func pcdatavalue(f funcInfo, table int32, targetpc Frame, cache unsafe.Pointer) int32
+func pcdatavalue(f funcInfo, table int32, targetpc PC, cache unsafe.Pointer) int32
 
 //go:linkname funcnameFromNameoff runtime.funcnameFromNameoff
 func funcnameFromNameoff(f funcInfo, nameoff int32) string

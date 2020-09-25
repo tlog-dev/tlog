@@ -216,7 +216,7 @@ func (r *JSONReader) Message() (m Message, err error) {
 			m.Text = string(r.r.NextString())
 		case 'l':
 			n := string(r.r.NextNumber())
-			m.Frame, err = strconv.ParseUint(n, 10, 64)
+			m.PC, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
@@ -353,7 +353,7 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 		switch k[0] {
 		case 'l':
 			n := string(r.r.NextNumber())
-			s.Frame, err = strconv.ParseUint(n, 10, 64)
+			s.PC, err = strconv.ParseUint(n, 10, 64)
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}

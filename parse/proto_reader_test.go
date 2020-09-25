@@ -39,29 +39,29 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	})
 
 	_ = w.Message(tlog.Message{
-		Frame: tlog.Caller(0),
-		Time:  now(),
-		Text:  "3",
+		PC:   tlog.Caller(0),
+		Time: now(),
+		Text: "3",
 	}, tlog.ID{})
 
 	_ = w.SpanStarted(tlog.SpanStart{
 		ID:      ID{1},
 		Parent:  ID{},
 		Started: now(),
-		Frame:   tlog.Caller(0),
+		PC:      tlog.Caller(0),
 	})
 
 	_ = w.Message(tlog.Message{
-		Frame: tlog.Caller(0),
-		Time:  now(),
-		Text:  "5",
+		PC:   tlog.Caller(0),
+		Time: now(),
+		Text: "5",
 	}, ID{1})
 
 	_ = w.SpanStarted(tlog.SpanStart{
 		ID:      ID{2},
 		Parent:  ID{1},
 		Started: now(),
-		Frame:   tlog.Caller(0),
+		PC:      tlog.Caller(0),
 	})
 
 	_ = w.Metric(
@@ -123,13 +123,13 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 			o = t
 		case Message:
-			t.Frame = locs[t.Frame]
+			t.PC = locs[t.PC]
 			o = t
 		case Metric:
 			t.Hash = 0
 			o = t
 		case SpanStart:
-			t.Frame = locs[t.Frame]
+			t.PC = locs[t.PC]
 			o = t
 		}
 
@@ -162,10 +162,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  42,
 		},
 		Message{
-			Span:  ID{},
-			Frame: 1,
-			Time:  now(),
-			Text:  "3",
+			Span: ID{},
+			PC:   1,
+			Time: now(),
+			Text: "3",
 		},
 		Frame{
 			PC:    2,
@@ -177,7 +177,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		SpanStart{
 			ID:      ID{1},
 			Parent:  ID{},
-			Frame:   2,
+			PC:      2,
 			Started: now(),
 		},
 		Frame{
@@ -188,10 +188,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  55,
 		},
 		Message{
-			Span:  ID{1},
-			Frame: 3,
-			Time:  now(),
-			Text:  "5",
+			Span: ID{1},
+			PC:   3,
+			Time: now(),
+			Text: "5",
 		},
 		Frame{
 			PC:    4,
@@ -203,7 +203,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		SpanStart{
 			ID:      ID{2},
 			Parent:  ID{1},
-			Frame:   4,
+			PC:      4,
 			Started: now(),
 		},
 		Metric{

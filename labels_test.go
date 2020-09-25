@@ -31,10 +31,13 @@ func TestLabels(t *testing.T) {
 	ll.Set("key2", "")
 	assert.ElementsMatch(t, Labels{"key=value", "key2"}, ll)
 
-	ll.Merge(Labels{"", "key2=val2", "=key"})
-	assert.ElementsMatch(t, Labels{"key2=val2"}, ll)
+	ll.Merge(Labels{"", "key2=val2", "=key", "key3"})
+	assert.ElementsMatch(t, Labels{"key2=val2", "key3"}, ll)
 
 	ll.Del("key")
+	assert.ElementsMatch(t, Labels{"key2=val2", "key3"}, ll)
+
+	ll.Del("key3")
 	assert.ElementsMatch(t, Labels{"key2=val2"}, ll)
 
 	ll.Set("flag", "")

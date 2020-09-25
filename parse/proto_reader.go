@@ -237,7 +237,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			if err != nil {
 				return m, err
 			}
-			m.Frame = uint64(x)
+			m.PC = uint64(x)
 		case 3<<3 | 1:
 			m.Time = r.time()
 		case 4<<3 | 2:
@@ -365,7 +365,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			if err != nil {
 				return s, err
 			}
-			s.Frame = uint64(x)
+			s.PC = uint64(x)
 		case 4<<3 | 1:
 			s.Started = r.time()
 		default:

@@ -24,7 +24,7 @@ type (
 		ID     ID `json:"i"`
 		Parent ID `json:"p"`
 
-		Frame uint64 `json:"l"`
+		PC uint64 `json:"l"`
 
 		Started int64 `json:"s"`
 	}
@@ -35,10 +35,10 @@ type (
 	}
 
 	Message struct {
-		Span  ID     `json:"s"`
-		Frame uint64 `json:"l"`
-		Time  int64  `json:"t"`
-		Text  string `json:"m"`
+		Span ID     `json:"s"`
+		PC   uint64 `json:"l"`
+		Time int64  `json:"t"`
+		Text string `json:"m"`
 	}
 
 	Metric struct {

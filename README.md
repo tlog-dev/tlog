@@ -561,8 +561,8 @@ BenchmarkWriter/Proto/Parallel/TracedMessage-8                  	 6444532	      
 BenchmarkWriter/Proto/Parallel/TracedMetric-8                   	24649119	        44.0 ns/op	        32.0 disk_B/op	       0 B/op	       0 allocs/op
 
 # Caller
-BenchmarkFrameCaller-8         	 4326907	       265 ns/op	       0 B/op	       0 allocs/op
-BenchmarkFrameNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLocationCaller-8         	 4326907	       265 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLocationNameFileLine-8   	 5736783	       207 ns/op	       0 B/op	       0 allocs/op
 ```
 1 alloc in each line with `Printw` is `int` to `interface{}` conversion.
 

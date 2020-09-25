@@ -6,24 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFrame3(t *testing.T) {
+func TestLocation3(t *testing.T) {
 	testInline(t)
 }
 
 func testInline(t *testing.T) {
-	testFrame3(t)
+	testLocation3(t)
 }
 
-func testFrame3(t *testing.T) {
+func testLocation3(t *testing.T) {
 	l := Caller(1)
 	assert.Equal(t, "unsafe_test.go:14", l.String())
 }
 
-func TestFrameZero(t *testing.T) {
-	var l Frame
+func TestLocationZero(t *testing.T) {
+	var l PC
 
 	entry := l.Entry()
-	assert.Equal(t, Frame(0), entry)
+	assert.Equal(t, PC(0), entry)
 
 	name, file, line := l.NameFileLine()
 	assert.Equal(t, "", name)

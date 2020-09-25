@@ -72,7 +72,7 @@ type (
 		ID      ID
 		Parent  ID
 		Started int64
-		Frame   Frame
+		PC      PC
 	}
 
 	// SpanFinish is a log event.
@@ -83,7 +83,7 @@ type (
 
 	// Message is a log event.
 	Message struct {
-		Frame Frame
+		PC    PC
 		Time  int64
 		Text  string
 		Attrs Attrs
@@ -203,7 +203,7 @@ func newspan(l *Logger, d int, par ID) Span {
 		return Span{}
 	}
 
-	var loc Frame
+	var loc PC
 	if !l.NoCaller {
 		loc = Funcentry(d + 2)
 	}
@@ -223,7 +223,7 @@ func newspan(l *Logger, d int, par ID) Span {
 		ID:      s.ID,
 		Parent:  par,
 		Started: s.Started.UnixNano(),
-		Frame:   loc,
+		PC:      loc,
 	})
 
 	return s
@@ -236,7 +236,7 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 
 	t := now()
 
-	var loc Frame
+	var loc PC
 	if !l.NoCaller {
 		loc = Caller(d + 2)
 	}
@@ -271,7 +271,7 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 
 	_ = l.Writer.Message(
 		Message{
-			Frame: loc,
+			PC:    loc,
 			Time:  t.UnixNano(),
 			Text:  bytesToString(txt),
 			Attrs: lattrs,
