@@ -3,6 +3,7 @@ package tlog
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -755,6 +756,26 @@ func BenchmarkPrintfVsPrintln(b *testing.B) {
 		l.Printf("message %d %d %d", i, i+1, i+2)
 		l.Println("message", i, i+1, i+2)
 	}
+}
+
+func BenchmarkRand(b *testing.B) {
+	b.Run("Std", func(b *testing.B) {
+		b.RunParallel(func(b *testing.PB) {
+			var id ID
+			for b.Next() {
+				_, _ = rand.Read(id[:])
+			}
+		})
+	})
+
+	b.Run("Crypto", func(b *testing.B) {
+		b.RunParallel(func(b *testing.PB) {
+			var id ID
+			for b.Next() {
+				_, _ = crand.Read(id[:])
+			}
+		})
+	})
 }
 
 func BenchmarkStdLogLogger(b *testing.B) {

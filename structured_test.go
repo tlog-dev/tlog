@@ -9,7 +9,6 @@ import (
 func TestStructured(t *testing.T) {
 	a := StructuredConfig{
 		MessageWidth:     1,
-		IDWidth:          2,
 		ValueMaxPadWidth: 3,
 
 		PairSeparator: "4",

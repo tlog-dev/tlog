@@ -11,7 +11,6 @@ type (
 	StructuredConfig struct {
 		// Minimal message width
 		MessageWidth     int
-		IDWidth          int
 		ValueMaxPadWidth int
 
 		PairSeparator string
@@ -29,7 +28,6 @@ type (
 func (c *StructuredConfig) Copy() StructuredConfig {
 	return StructuredConfig{
 		MessageWidth:     c.MessageWidth,
-		IDWidth:          c.IDWidth,
 		ValueMaxPadWidth: c.ValueMaxPadWidth,
 
 		PairSeparator: c.PairSeparator,
@@ -43,7 +41,6 @@ func (c *StructuredConfig) Copy() StructuredConfig {
 // DefaultStructuredConfig is default config to format structured logs by ConsoleWriter.
 var DefaultStructuredConfig = StructuredConfig{
 	MessageWidth:     40,
-	IDWidth:          8,
 	ValueMaxPadWidth: 20,
 	PairSeparator:    "  ",
 	KVSeparator:      "=",
