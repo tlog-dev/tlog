@@ -359,7 +359,7 @@ func (r *JSONReader) SpanStart() (s SpanStart, err error) {
 			}
 		case 's':
 			n := string(r.r.NextNumber())
-			s.Started, err = strconv.ParseInt(n, 10, 64)
+			s.StartedAt, err = strconv.ParseInt(n, 10, 64)
 			if err != nil {
 				return SpanStart{}, r.r.ErrorHere(err)
 			}

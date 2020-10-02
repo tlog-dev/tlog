@@ -239,10 +239,10 @@ func TestProtoWriter(t *testing.T) {
 
 	// SpanStarted
 	_ = w.SpanStarted(SpanStart{
-		ID:      id,
-		Parent:  par,
-		Started: 2,
-		PC:      loc,
+		ID:        id,
+		Parent:    par,
+		StartedAt: 2,
+		PC:        loc,
 	})
 	pbuf = encode(pbuf, &tlogpb.Record{Frame: &tlogpb.Frame{
 		Pc:    int64(loc),
@@ -258,10 +258,10 @@ func TestProtoWriter(t *testing.T) {
 	}
 
 	pbuf = encode(pbuf, &tlogpb.Record{SpanStart: &tlogpb.SpanStart{
-		Id:      id[:],
-		Parent:  par[:],
-		Pc:      int64(loc),
-		Started: 2,
+		Id:        id[:],
+		Parent:    par[:],
+		Pc:        int64(loc),
+		StartedAt: 2,
 	}})
 	assert.Equal(t, pbuf[l:], buf.Bytes()[l:])
 	t.Logf("SpanStart:\n%vexp:\n%v", hex.Dump(buf.Bytes()[l:]), hex.Dump(pbuf[l:]))

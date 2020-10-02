@@ -61,10 +61,10 @@ message Meta {
 }
 
 message SpanStart {
-    bytes id         = 1;
-    bytes parent     = 2;
-    int64 pc         = 3;
-    sfixed64 started = 4;
+    bytes id            = 1;
+    bytes parent        = 2;
+    int64 pc            = 3;
+    sfixed64 started_at = 4;
 }
 
 message SpanFinish {

@@ -465,7 +465,7 @@ func (w *ConsoleWriter) SpanStarted(s SpanStart) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.spanHeader(b, s.ID, s.Parent, s.Started, s.PC)
+	b = w.spanHeader(b, s.ID, s.Parent, s.StartedAt, s.PC)
 
 	if s.Parent == (ID{}) {
 		b = append(b, "Span started\n"...)
@@ -968,7 +968,7 @@ func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	s.ID.FormatTo(b[i:], 'x')
 
 	b = append(b, `,"s":`...)
-	b = strconv.AppendInt(b, s.Started, 10)
+	b = strconv.AppendInt(b, s.StartedAt, 10)
 
 	b = append(b, `,"l":`...)
 	b = strconv.AppendInt(b, int64(s.PC), 10)
@@ -1379,7 +1379,7 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 	if s.PC != 0 {
 		sz += 1 + varintSize(uint64(s.PC))
 	}
-	sz += 1 + 8 // s.Started
+	sz += 1 + 8 // s.StartedAt
 
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
@@ -1414,7 +1414,7 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 	}
 
 	b = append(b, 4<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(s.Started))
+	binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(s.StartedAt))
 
 	_, err = w.w.Write(b)
 

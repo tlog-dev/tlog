@@ -45,10 +45,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	}, tlog.ID{})
 
 	_ = w.SpanStarted(tlog.SpanStart{
-		ID:      ID{1},
-		Parent:  ID{},
-		Started: now(),
-		PC:      tlog.Caller(0),
+		ID:        ID{1},
+		Parent:    ID{},
+		StartedAt: now(),
+		PC:        tlog.Caller(0),
 	})
 
 	_ = w.Message(tlog.Message{
@@ -58,10 +58,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	}, ID{1})
 
 	_ = w.SpanStarted(tlog.SpanStart{
-		ID:      ID{2},
-		Parent:  ID{1},
-		Started: now(),
-		PC:      tlog.Caller(0),
+		ID:        ID{2},
+		Parent:    ID{1},
+		StartedAt: now(),
+		PC:        tlog.Caller(0),
 	})
 
 	_ = w.Metric(
@@ -175,10 +175,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  51,
 		},
 		SpanStart{
-			ID:      ID{1},
-			Parent:  ID{},
-			PC:      2,
-			Started: now(),
+			ID:        ID{1},
+			Parent:    ID{},
+			PC:        2,
+			StartedAt: now(),
 		},
 		Frame{
 			PC:    3,
@@ -201,10 +201,10 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Line:  64,
 		},
 		SpanStart{
-			ID:      ID{2},
-			Parent:  ID{1},
-			PC:      4,
-			Started: now(),
+			ID:        ID{2},
+			Parent:    ID{1},
+			PC:        4,
+			StartedAt: now(),
 		},
 		Metric{
 			Span:   ID{2},

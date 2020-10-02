@@ -64,15 +64,15 @@ type (
 
 		ID ID
 
-		Started time.Time
+		StartedAt time.Time
 	}
 
 	// SpanStart is a log event.
 	SpanStart struct {
-		ID      ID
-		Parent  ID
-		Started int64
-		PC      PC
+		ID        ID
+		Parent    ID
+		StartedAt int64
+		PC        PC
 	}
 
 	// SpanFinish is a log event.
@@ -209,8 +209,8 @@ func newspan(l *Logger, d int, par ID) Span {
 	}
 
 	s := Span{
-		Logger:  l,
-		Started: now(),
+		Logger:    l,
+		StartedAt: now(),
 	}
 
 	l.mu.Lock()
@@ -220,10 +220,10 @@ func newspan(l *Logger, d int, par ID) Span {
 	l.mu.Unlock()
 
 	_ = l.Writer.SpanStarted(SpanStart{
-		ID:      s.ID,
-		Parent:  par,
-		Started: s.Started.UnixNano(),
-		PC:      loc,
+		ID:        s.ID,
+		Parent:    par,
+		StartedAt: s.StartedAt.UnixNano(),
+		PC:        loc,
 	})
 
 	return s
@@ -648,9 +648,9 @@ func (l *Logger) Migrate(s Span) Span {
 	}
 
 	return Span{
-		Logger:  l,
-		ID:      s.ID,
-		Started: s.Started,
+		Logger:    l,
+		ID:        s.ID,
+		StartedAt: s.StartedAt,
 	}
 }
 
@@ -813,7 +813,7 @@ func (s Span) Finish() {
 		return
 	}
 
-	el := now().Sub(s.Started)
+	el := now().Sub(s.StartedAt)
 
 	_ = s.Logger.Writer.SpanFinished(SpanFinish{
 		ID:      s.ID,

@@ -268,7 +268,7 @@ func TestMetrics(t *testing.T) {
 		{Ev: Metric{Name: "name1", Value: 4, Labels: Labels{"label11"}}},
 		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name2", "type=" + MCounter, "help=help 2", "labels", "label2"}}},
 		{Ev: Metric{Name: "name2", Value: 2, Labels: Labels{"label22"}}},
-		{Ev: SpanStart{ID: tr.ID, Started: tr.Started.UnixNano()}},
+		{Ev: SpanStart{ID: tr.ID, StartedAt: tr.StartedAt.UnixNano()}},
 		{ID: tr.ID, Ev: Metric{Name: "name2", Value: 5, Labels: Labels{"label33"}}},
 		{Ev: SpanFinish{ID: tr.ID, Elapsed: time.Second.Nanoseconds()}},
 	}, w.Events)

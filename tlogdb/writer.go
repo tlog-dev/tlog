@@ -214,7 +214,7 @@ func (w *Writer) Meta(m parse.Meta) (err error) {
 
 func (w *Writer) SpanStart(s parse.SpanStart) (err error) {
 	var tsbuf [8]byte
-	binary.BigEndian.PutUint64(tsbuf[:], uint64(s.Started))
+	binary.BigEndian.PutUint64(tsbuf[:], uint64(s.StartedAt))
 
 	data, err := json.Marshal(s)
 	if err != nil {

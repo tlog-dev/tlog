@@ -79,10 +79,10 @@ func (w AnyWriter) Metric(m Metric) error {
 
 func (w AnyWriter) SpanStart(s SpanStart) error {
 	return w.w.SpanStarted(tlog.SpanStart{
-		ID:      s.ID,
-		Parent:  s.Parent,
-		Started: s.Started,
-		PC:      tlog.PC(s.PC),
+		ID:        s.ID,
+		Parent:    s.Parent,
+		StartedAt: s.StartedAt,
+		PC:        tlog.PC(s.PC),
 	})
 }
 
@@ -142,10 +142,10 @@ func (w *ConsoleWriter) Metric(m Metric) (err error) {
 
 func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
 	return w.w.SpanStarted(tlog.SpanStart{
-		ID:      s.ID,
-		Parent:  s.Parent,
-		Started: s.Started,
-		PC:      tlog.PC(s.PC),
+		ID:        s.ID,
+		Parent:    s.Parent,
+		StartedAt: s.StartedAt,
+		PC:        tlog.PC(s.PC),
 	})
 }
 
@@ -206,10 +206,10 @@ func (w *ConvertWriter) SpanStarted(s tlog.SpanStart) error {
 	}
 
 	return w.w.SpanStart(SpanStart{
-		ID:      s.ID,
-		Parent:  s.Parent,
-		PC:      uint64(s.PC),
-		Started: s.Started,
+		ID:        s.ID,
+		Parent:    s.Parent,
+		PC:        uint64(s.PC),
+		StartedAt: s.StartedAt,
 	})
 }
 

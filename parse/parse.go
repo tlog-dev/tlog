@@ -26,7 +26,7 @@ type (
 
 		PC uint64 `json:"l"`
 
-		Started int64 `json:"s"`
+		StartedAt int64 `json:"s"`
 	}
 
 	SpanFinish struct {

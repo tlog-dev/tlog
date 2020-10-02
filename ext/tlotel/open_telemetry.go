@@ -133,12 +133,12 @@ func (t Tracer) Start(ctx context.Context, spanName string, opts ...trace.StartO
 	}
 
 	if cfg.StartTime != (time.Time{}) {
-		s.Started = cfg.StartTime
+		s.StartedAt = cfg.StartTime
 	} else {
-		s.Started = time.Now()
+		s.StartedAt = time.Now()
 	}
 
-	se.Started = s.Started.UnixNano()
+	se.StartedAt = s.StartedAt.UnixNano()
 
 	if !t.Logger.NoCaller {
 		se.PC = tlog.Funcentry(1)
@@ -195,9 +195,9 @@ func (s Span) End(opts ...trace.EndOption) {
 	}
 
 	if cfg.EndTime != (time.Time{}) {
-		e.Elapsed = cfg.EndTime.Sub(s.Span.Started).Nanoseconds()
+		e.Elapsed = cfg.EndTime.Sub(s.Span.StartedAt).Nanoseconds()
 	} else {
-		e.Elapsed = time.Since(s.Span.Started).Nanoseconds()
+		e.Elapsed = time.Since(s.Span.StartedAt).Nanoseconds()
 	}
 
 	_ = s.Span.Logger.SpanFinished(e)

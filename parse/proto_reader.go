@@ -367,7 +367,7 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			}
 			s.PC = uint64(x)
 		case 4<<3 | 1:
-			s.Started = r.time()
+			s.StartedAt = r.time()
 		default:
 			if err = r.skipField(tag, "span start"); err != nil { //nolint:gocritic
 				return s, err
