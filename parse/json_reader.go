@@ -3,11 +3,11 @@ package parse
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/json"
 
 	"github.com/nikandfor/tlog"
@@ -231,6 +231,27 @@ func (r *JSONReader) Message() (m Message, err error) {
 			if err != nil {
 				return Message{}, r.r.ErrorHere(err)
 			}
+		case 'i':
+			n := r.r.NextNumber()
+			if len(n) != 0 {
+				switch n[0] {
+				case 'I':
+					m.Level = tlog.LevelInfo
+				case 'E':
+					m.Level = tlog.LevelError
+				case 'F':
+					m.Level = tlog.LevelFatal
+				default:
+					v, err := strconv.ParseInt(string(n), 10, 32)
+					if err != nil {
+						return Message{}, r.r.ErrorHere(err)
+					}
+
+					m.Level = Level(v)
+				}
+			}
+		case 'a':
+			m.Attrs, err = r.messageAttrs()
 		default:
 			if err := r.unknownField(k); err != nil {
 				return Message{}, err
@@ -245,6 +266,74 @@ func (r *JSONReader) Message() (m Message, err error) {
 	r.tp = 0
 
 	return m, nil
+}
+
+func (r *JSONReader) messageAttrs() (as Attrs, err error) {
+	if r.r.Type() != json.Array {
+		return as, r.r.ErrorHere(errors.New("array expected"))
+	}
+
+	for r.r.HasNext() {
+		if r.r.Type() != json.Object {
+			return as, r.r.ErrorHere(errors.New("object expected"))
+		}
+
+		var a Attr
+
+		var tp byte
+		val, wr := tlog.Getbuf()
+		defer wr.Ret(&val)
+
+		for r.r.HasNext() {
+			k := r.r.NextString()
+			if len(k) == 0 {
+				return as, r.r.ErrorHere(errors.New("empty key"))
+			}
+
+			switch k[0] {
+			case 'n':
+				a.Name = string(r.r.NextString())
+			case 't':
+				v := r.r.NextString()
+				if len(v) == 0 {
+					return as, r.r.ErrorHere(errors.New("empty attr type"))
+				}
+
+				tp = v[0]
+			case 'v':
+				v := r.r.NextAsBytes()
+				val = append(val[:0], v...)
+			default:
+				if err = r.unknownField(k); err != nil {
+					return
+				}
+			}
+		}
+
+		switch tp {
+		case 'd':
+			v := json.Wrap(val).NextString()
+			a.Value, err = tlog.IDFromStringAsBytes(v)
+		case 'i':
+			a.Value, err = strconv.ParseInt(string(val), 10, 64)
+		case 'u':
+			a.Value, err = strconv.ParseUint(string(val), 10, 64)
+		case 'f':
+			a.Value, err = strconv.ParseFloat(string(val), 64)
+		case 's':
+			v := json.Wrap(val).NextString()
+			a.Value = string(v)
+		case '?':
+			v := json.Wrap(val).NextString()
+			a.Value = string(v)
+		default:
+			a.Value = errors.New("unsupported field type: '%c'", tp)
+		}
+
+		as = append(as, a)
+	}
+
+	return
 }
 
 func (r *JSONReader) Metric() (m Metric, err error) {

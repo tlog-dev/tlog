@@ -46,54 +46,54 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "2019-07-07_08:19:30.100  ", string(b))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "2019-07-07_08:19:30.100200  ", string(b))
 
 	w.f = Llongfile
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", b)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "location.go:25        ", string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "locatio:25  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 10
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "Caller      ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 4
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "Call  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 15
-	b = w.buildHeader(b[:0], tm.UnixNano(), (&testt{}).testloc2())
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), (&testt{}).testloc2())
 	assert.Equal(t, "testloc2.func1   ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 12
-	b = w.buildHeader(b[:0], tm.UnixNano(), (&testt{}).testloc2())
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), (&testt{}).testloc2())
 	assert.Equal(t, "testloc2.fu1  ", string(b))
 
 	w.f = Ltypefunc
-	b = w.buildHeader(b[:0], tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
 	assert.Equal(t, "tlog.Caller  ", string(b))
 
-	b = w.buildHeader(b[:0], tm.UnixNano(), (&testt{}).testloc2())
+	b = w.buildHeader(b[:0], 0, tm.UnixNano(), (&testt{}).testloc2())
 	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(b))
 }
 
@@ -300,17 +300,19 @@ func TestProtoWriter(t *testing.T) {
 	// Message
 	_ = w.Message(
 		Message{
-			PC:   loc,
-			Time: 2,
-			Text: string(make([]byte, 1000)),
+			PC:    loc,
+			Time:  2,
+			Level: LevelError,
+			Text:  string(make([]byte, 1000)),
 		},
 		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Message: &tlogpb.Message{
-		Span: id[:],
-		Pc:   int64(loc),
-		Time: 2,
-		Text: string(make([]byte, 1000)),
+		Span:  id[:],
+		Pc:    int64(loc),
+		Time:  2,
+		Level: 1,
+		Text:  string(make([]byte, 1000)),
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Message:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
@@ -722,7 +724,7 @@ func TestAttributes(t *testing.T) {
 
 	assert.Equal(t, `{"m":{"m":"helpers","a":[{"n":"int","t":"i","v":-1},{"n":"int64","t":"i","v":-2},{"n":"uint64","t":"u","v":3},{"n":"float64","t":"f","v":4.5},{"n":"str","t":"s","v":"string"},{"n":"id","t":"d","v":"01020304050600000000000000000000"},{"n":"err","t":"s","v":"some_err"}]}}
 {"m":{"m":"slice","a":[{"n":"int32","t":"i","v":-1},{"n":"int16","t":"i","v":-2},{"n":"int8","t":"i","v":-3},{"n":"uint","t":"u","v":4},{"n":"uint32","t":"u","v":5},{"n":"uint16","t":"u","v":6},{"n":"uint8","t":"u","v":7},{"n":"float32","t":"f","v":8.5}]}}
-{"m":{"m":"undef","a":[{"n":"undef","t":"?","ut":"*tlog.bwr"}]}}
+{"m":{"m":"undef","a":[{"n":"undef","t":"?","v":"*tlog.bwr"}]}}
 `, js.String())
 
 	var pbuf []byte
@@ -741,7 +743,9 @@ func TestAttributes(t *testing.T) {
 	}})
 
 	i := len(pbuf)
-	assert.Equal(t, pbuf, pb.Bytes()[:i])
+	if !assert.Equal(t, pbuf, pb.Bytes()[:i]) {
+		t.Logf("helpers:\n%v", hex.Dump(pbuf))
+	}
 
 	pbuf = encode(pbuf[:0], &tlogpb.Record{Message: &tlogpb.Message{
 		Text: "slice",

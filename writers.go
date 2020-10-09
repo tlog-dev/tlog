@@ -237,8 +237,8 @@ func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) [
 	return b
 }
 
-//nolint:gocognit,nestif
-func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc PC) []byte {
+//nolint:gocognit,gocyclo,nestif
+func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte {
 	var fname, file string
 	line := -1
 
@@ -328,6 +328,22 @@ func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc PC) []byte {
 
 		b = append(b, ' ', ' ')
 	}
+
+	if w.f&Llevel != 0 {
+		switch {
+		case lv == LevelInfo:
+			b = append(b, 'I')
+		case lv == LevelError:
+			b = append(b, 'E')
+		case lv == LevelFatal:
+			b = append(b, 'F')
+		default:
+			b = strconv.AppendInt(b, int64(lv), 16)
+		}
+
+		b = append(b, ' ', ' ')
+	}
+
 	if w.f&(Llongfile|Lshortfile) != 0 {
 		fname, file, line = loc.NameFileLine()
 
@@ -376,6 +392,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, ts int64, loc PC) []byte {
 
 		b = append(b, ' ', ' ')
 	}
+
 	if w.f&(Ltypefunc|Lfuncname) != 0 {
 		if line == -1 {
 			fname, _, _ = loc.NameFileLine()
@@ -423,7 +440,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.buildHeader(b, m.Time, m.PC)
+	b = w.buildHeader(b, m.Level, m.Time, m.PC)
 
 	if w.f&Lmessagespan != 0 {
 		i := len(b)
@@ -447,7 +464,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, tm int64, loc PC) []byte {
-	b = w.buildHeader(b, tm, loc)
+	b = w.buildHeader(b, 0, tm, loc)
 
 	i := len(b)
 	b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
@@ -710,6 +727,21 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	b = append(b, m.Text...)
 	b = append(b, '"')
 
+	if m.Level != 0 {
+		b = append(b, `,"i":"`...)
+
+		switch m.Level {
+		case LevelError:
+			b = append(b, 'E')
+		case LevelFatal:
+			b = append(b, 'F')
+		default:
+			b = strconv.AppendInt(b, int64(m.Level), 16)
+		}
+
+		b = append(b, `"`...)
+	}
+
 	if len(m.Attrs) != 0 {
 		b = w.appendAttrs(b, m.Attrs)
 	}
@@ -784,7 +816,7 @@ func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 			b = append(b, `"f","v":`...)
 			b = strconv.AppendFloat(b, float64(v), 'f', -1, 32)
 		default:
-			b = AppendPrintf(b, `"?","ut":"%T"`, v)
+			b = AppendPrintf(b, `"?","v":"%T"`, v)
 		}
 
 		b = append(b, '}')
@@ -1140,6 +1172,9 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	if l != 0 {
 		sz += 1 + varintSize(uint64(l)) + l
 	}
+	if m.Level != 0 {
+		sz += 1 + varintSize(uint64(int64(m.Level)<<1)^uint64(int64(m.Level)>>63))
+	}
 	if len(m.Attrs) != 0 {
 		for _, a := range m.Attrs {
 			as := w.attrSize(a)
@@ -1167,8 +1202,13 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time))
 	}
 
+	if m.Level != 0 {
+		lv := uint64(int64(m.Level)<<1) | uint64(int64(m.Level)>>63)
+		b = appendTagVarint(b, 4<<3|0, lv) //nolint:staticcheck
+	}
+
 	if l != 0 {
-		b = appendTagVarint(b, 4<<3|2, uint64(l))
+		b = appendTagVarint(b, 5<<3|2, uint64(l))
 		b = append(b, m.Text...)
 	}
 
@@ -1182,36 +1222,39 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *ProtoWriter) attrSize(a Attr) (s int) {
-	s = 1 + varintSize(uint64(len(a.Name))) + len(a.Name)
+	s = 1 + 1
+	s += 1 + varintSize(uint64(len(a.Name))) + len(a.Name)
 
 	switch v := a.Value.(type) {
 	case ID:
-		s += 1 + 1
 		s += 1 + 1 + len(v)
 	case string:
-		s += 1 + 1
 		s += 1 + varintSize(uint64(len(v))) + len(v)
 	case int, int64, int32, int16, int8:
-		s += 1 + 1
+		var tv int64
 		switch v := v.(type) {
 		case int:
-			s += 1 + varintSize(uint64(v))
+			tv = int64(v)
 		case int64:
-			s += 1 + varintSize(uint64(v))
+			tv = int64(v) // nolint:unconvert
 		case int32:
-			s += 1 + varintSize(uint64(v))
+			tv = int64(v)
 		case int16:
-			s += 1 + varintSize(uint64(v))
+			tv = int64(v)
 		case int8:
-			s += 1 + varintSize(uint64(v))
+			tv = int64(v)
 		}
+
+		tvu := uint64(tv<<1) ^ uint64(tv>>63)
+
+		s += 1 + varintSize(tvu)
 	case uint, uint64, uint32, uint16, uint8:
 		var tv uint64
 		switch v := v.(type) {
 		case uint:
 			tv = uint64(v)
 		case uint64:
-			tv = uint64(v) // nolint:unconvert
+			tv = uint64(v) //nolint:unconvert
 		case uint32:
 			tv = uint64(v)
 		case uint16:
@@ -1220,15 +1263,12 @@ func (w *ProtoWriter) attrSize(a Attr) (s int) {
 			tv = uint64(v)
 		}
 
-		s += 1 + 1
 		s += 1 + varintSize(tv)
 	case float64, float32:
-		s += 1 + 1
 		s += 1 + 8
 	default:
 		tp := fmt.Sprintf("%T", v)
 
-		s += 1 + 1
 		s += 1 + varintSize(uint64(len(tp))) + len(tp)
 	}
 
@@ -1240,7 +1280,7 @@ func (w *ProtoWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 	for _, a := range attrs {
 		as := w.attrSize(a)
 
-		b = appendTagVarint(b, 5<<3|2, uint64(as))
+		b = appendTagVarint(b, 6<<3|2, uint64(as))
 
 		b = appendTagVarint(b, 1<<3|2, uint64(len(a.Name)))
 		b = append(b, a.Name...)
@@ -1259,21 +1299,23 @@ func (w *ProtoWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 		case int, int64, int32, int16, int8:
 			b = appendTagVarint(b, 2<<3|0, uint64('i'))
 
-			var tv uint64
+			var tv int64
 			switch v := v.(type) {
 			case int:
-				tv = uint64(v)
+				tv = int64(v)
 			case int64:
-				tv = uint64(v)
+				tv = int64(v) //nolint:unconvert
 			case int32:
-				tv = uint64(v)
+				tv = int64(v)
 			case int16:
-				tv = uint64(v)
+				tv = int64(v)
 			case int8:
-				tv = uint64(v)
+				tv = int64(v)
 			}
 
-			b = appendTagVarint(b, 4<<3|0, tv)
+			tvu := uint64(tv<<1) ^ uint64(tv>>63)
+
+			b = appendTagVarint(b, 4<<3|0, tvu)
 		case uint, uint64, uint32, uint16, uint8:
 			b = appendTagVarint(b, 2<<3|0, uint64('u'))
 

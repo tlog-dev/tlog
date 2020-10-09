@@ -63,6 +63,7 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - exhaustive
     - funlen
     - gci
     - gochecknoglobals

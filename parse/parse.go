@@ -5,7 +5,10 @@ import (
 )
 
 type (
-	ID = tlog.ID
+	ID    = tlog.ID
+	Level = tlog.Level
+	Attr  = tlog.Attr
+	Attrs = tlog.Attrs
 
 	Labels struct {
 		Span   ID          `json:"s"`
@@ -35,10 +38,12 @@ type (
 	}
 
 	Message struct {
-		Span ID     `json:"s"`
-		PC   uint64 `json:"l"`
-		Time int64  `json:"t"`
-		Text string `json:"m"`
+		Span  ID     `json:"s"`
+		PC    uint64 `json:"l"`
+		Time  int64  `json:"t"`
+		Text  string `json:"m"`
+		Level Level  `json:"i"`
+		Attrs Attrs  `json:"a"`
 	}
 
 	Metric struct {

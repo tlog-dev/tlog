@@ -561,7 +561,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Printf("message %d", 2)
 
-	tr1.PrintRaw(0, LevelDebug, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
+	tr1.PrintRaw(0, LevelError, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
 
 	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
 	tr1.Observe("metric_name", 456.123, Labels{"q=w", "e=1"})
@@ -580,7 +580,7 @@ func TestJSONWriterSpans(t *testing.T) {
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517074000000000,"l":\d+,"m":"link to ID","a":\[{"n":"id","t":"d","v":"0194fdc2fa2ffcc041d3ff12045b73c8"},{"n":"str","t":"s","v":"str_value"}\]}}
+{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517074000000000,"l":\d+,"m":"link to ID","i":"E","a":\[{"n":"id","t":"d","v":"0194fdc2fa2ffcc041d3ff12045b73c8"},{"n":"str","t":"s","v":"str_value"}\]}}
 {"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":\d+,"v":123.456789,"n":"metric_name","L":\["q=w","e=1"\]}}
 {"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":\d+,"v":456.123}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":3000000000}}

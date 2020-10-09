@@ -20,10 +20,10 @@ func TestTestLogger(t *testing.T) {
 
 	tl.Printf("message")
 
-	assert.Equal(t, tm.Format("2006-01-02_15:04:05.000000")+"  test_logger_test.:21  message\n", buf.String())
+	assert.Equal(t, tm.Format("2006-01-02_15:04:05.000000")+"  I  test_logger_test.:21  message\n", buf.String())
 
 	tl = NewTestLogger(t, "", nil)
 
-	t.Logf("there must be 2 log lines after that")
+	t.Logf("there must be log line after that")
 	tl.Printf("it must appear in test out")
 }

@@ -2,6 +2,7 @@ package parse
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -41,11 +42,15 @@ func (r *ProtoReader) Type() (Type, error) {
 	start := r.pos + r.i
 	r.lim = start + 11
 
+	//	r.l.Printf("pos %x  i %x  buf %x", r.pos, r.i, len(r.buf))
+
 again:
 	rl, err := r.varint() // record len
 	if err != nil {
 		return 0, r.wraperr(err)
 	}
+
+	//	r.l.Printf("rl %x  pos %x  i %x  buf %x", rl, r.pos, r.i, len(r.buf))
 
 	if rl == 0 {
 		goto again
@@ -69,15 +74,15 @@ again:
 
 	if r.pos+r.i+ml != r.lim {
 		r.i = start - r.pos
-		return 0, r.newerr("bad length")
+		return 0, r.newerr("bad record length")
 	}
 	if tag&7 != 2 {
 		r.i = start - r.pos
 		return 0, r.newerr("bad record type")
 	}
 
-	if r.l.V("tag") != nil {
-		r.l.Printf("record tag: %x type %x len %x", tag>>3, tag&7, rl)
+	if r.l.V("tag,record_tag") != nil {
+		r.l.Printf("record tag: %x type %x len %x at %x  (pos %x  i %x)", tag>>3, tag&7, rl, start, r.pos, r.i)
 	}
 
 	switch tag >> 3 {
@@ -140,9 +145,11 @@ func (r *ProtoReader) Labels() (ls Labels, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("labels tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -173,9 +180,11 @@ func (r *ProtoReader) Frame() (l Frame, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("frame tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 0: //nolint:staticcheck
 			x, err := r.varint()
@@ -223,9 +232,11 @@ func (r *ProtoReader) Message() (m Message, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("message tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -233,22 +244,40 @@ func (r *ProtoReader) Message() (m Message, err error) {
 			copy(m.Span[:], r.buf[r.i:r.i+x])
 			r.i += x
 		case 2<<3 | 0: //nolint:staticcheck
-			x, err := r.varint()
-			if err != nil {
-				return m, err
-			}
+			var x int
+			x, err = r.varint()
 			m.PC = uint64(x)
 		case 3<<3 | 1:
-			m.Time = r.time()
-		case 4<<3 | 2:
-			m.Text, err = r.string()
+			m.Time, err = r.time()
+		case 4<<3 | 0: //nolint:staticcheck
+			x, err := r.varint()
 			if err != nil {
-				return m, err
+				break
 			}
+
+			m.Level = Level(x >> 1)
+
+			if x&1 != 0 {
+				m.Level = -m.Level
+			}
+		case 5<<3 | 2:
+			m.Text, err = r.string()
+		case 6<<3 | 2:
+			var a Attr
+			a, err = r.messageAttr()
+			if err != nil {
+				break
+			}
+
+			m.Attrs = append(m.Attrs, a)
 		default:
 			if err = r.skipField(tag, "message"); err != nil { //nolint:gocritic
 				return m, err
 			}
+		}
+
+		if err != nil {
+			return m, err
 		}
 	}
 
@@ -259,13 +288,98 @@ func (r *ProtoReader) Message() (m Message, err error) {
 	return m, nil
 }
 
+func (r *ProtoReader) messageAttr() (a Attr, err error) {
+	st := r.i
+
+	l, err := r.varint()
+	if err != nil {
+		return
+	}
+
+	lim := r.pos + r.i + l
+
+	if lim > r.lim {
+		r.i = st
+		return a, r.newerr("bad attr length")
+	}
+
+	var tp byte
+
+	for r.pos+r.i < lim {
+		tag := r.buf[r.i]
+		r.i++
+
+		if r.l.V("tag") != nil {
+			r.l.Printf("message attr tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
+		}
+
+		switch tag {
+		case 1<<3 | 2:
+			a.Name, err = r.string()
+		case 2<<3 | 0:
+			tp = r.buf[r.i]
+			r.i++
+		case 3<<3 | 2:
+			a.Value, err = r.string()
+		case 4<<3 | 0:
+			var v int64
+			v, err = r.varint64()
+			if err != nil {
+				break
+			}
+
+			a.Value = v>>1 ^ v<<63>>63
+		case 5<<3 | 0:
+			var v int64
+			v, err = r.varint64()
+			if err != nil {
+				break
+			}
+
+			a.Value = uint64(v)
+		case 6<<3 | 1:
+			var v int64
+			v, err = r.time()
+			if err != nil {
+				break
+			}
+
+			a.Value = math.Float64frombits(uint64(v))
+		case 7<<3 | 2:
+			if tp == 'd' {
+				var v []byte
+				v, err = r.bytes()
+				if err != nil {
+					break
+				}
+
+				a.Value, err = tlog.IDFromBytes(v)
+			} else {
+				err = errors.New("unsupported attr type")
+			}
+		default:
+			if err = r.skipField(tag, "message attribute"); err != nil { //nolint:gocritic
+				return
+			}
+		}
+
+		if err != nil {
+			return a, err
+		}
+	}
+
+	return a, nil
+}
+
 func (r *ProtoReader) Metric() (m Metric, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("metric tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -274,22 +388,21 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			r.i += x
 		case 2<<3 | 0: //nolint:staticcheck
 			m.Hash, err = r.varint64()
-			if err != nil {
-				return m, err
-			}
 		case 3<<3 | 1:
-			v := r.time()
+			var v int64
+			v, err = r.time()
+			if err != nil {
+				break
+			}
+
 			m.Value = math.Float64frombits(uint64(v))
 		case 4<<3 | 2:
 			m.Name, err = r.string()
-			if err != nil {
-				return m, err
-			}
 		case 5<<3 | 2:
 			var l string
 			l, err = r.string()
 			if err != nil {
-				return m, err
+				break
 			}
 
 			m.Labels = append(m.Labels, l)
@@ -297,6 +410,10 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			if err = r.skipField(tag, "metrics"); err != nil { //nolint:gocritic
 				return m, err
 			}
+		}
+
+		if err != nil {
+			return m, err
 		}
 	}
 
@@ -311,9 +428,11 @@ func (r *ProtoReader) Meta() (m Meta, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("meta tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 2:
 			m.Type, err = r.string()
@@ -346,9 +465,11 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("span_start tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -361,17 +482,23 @@ func (r *ProtoReader) SpanStart() (s SpanStart, err error) {
 			copy(s.Parent[:], r.buf[r.i:r.i+x])
 			r.i += x
 		case 3<<3 | 0: //nolint:staticcheck
-			x, err := r.varint()
+			var x int64
+			x, err = r.varint64()
 			if err != nil {
-				return s, err
+				break
 			}
+
 			s.PC = uint64(x)
 		case 4<<3 | 1:
-			s.StartedAt = r.time()
+			s.StartedAt, err = r.time()
 		default:
 			if err = r.skipField(tag, "span start"); err != nil { //nolint:gocritic
 				return s, err
 			}
+		}
+
+		if err != nil {
+			return s, err
 		}
 	}
 
@@ -386,9 +513,11 @@ func (r *ProtoReader) SpanFinish() (f SpanFinish, err error) {
 	for r.pos+r.i < r.lim {
 		tag := r.buf[r.i]
 		r.i++
+
 		if r.l.V("tag") != nil {
-			r.l.Printf("tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i)
+			r.l.Printf("span_finish tag: %x type %x at %x+%x", tag>>3, tag&7, r.pos, r.i-1)
 		}
+
 		switch tag {
 		case 1<<3 | 2:
 			x := int(r.buf[r.i])
@@ -434,8 +563,6 @@ func (r *ProtoReader) skip() error {
 		if err != nil {
 			return err
 		}
-		//	case 1:
-		//		r.i += 8
 	case 2:
 		x, err := r.varint()
 		if err != nil {
@@ -446,6 +573,10 @@ func (r *ProtoReader) skip() error {
 			return err
 		}
 		r.i += x
+	case 1:
+		r.i += 8
+	case 5:
+		r.i += 4
 	default:
 		return r.newerr("unsupported tag type: %v", tag&7)
 	}
@@ -454,16 +585,27 @@ func (r *ProtoReader) skip() error {
 }
 
 func (r *ProtoReader) string() (s string, err error) {
+	v, err := r.bytes()
+	if err != nil {
+		return
+	}
+
+	s = string(v)
+
+	return
+}
+
+func (r *ProtoReader) bytes() (v []byte, err error) {
 	i := r.i
 	x, err := r.varint()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if r.i+x > r.lim {
 		r.i = i
-		return "", r.newerr("out of string")
+		return nil, r.newerr("out of string")
 	}
-	s = string(r.buf[r.i : r.i+x])
+	v = r.buf[r.i : r.i+x]
 	r.i += x
 	return
 }
@@ -488,21 +630,28 @@ func (r *ProtoReader) varint64() (x int64, err error) {
 		//	r.l.Printf("c at %x+%x : %x", r.pos, r.i, c)
 		r.i++
 
-		if c < 0x80 {
-			if i > 9 || i == 9 && c > 1 {
-				r.i -= i // to have position on start of varint
-				return x, r.newerr("varint overflow")
-			}
-			return x | int64(c)<<s, nil
-		}
 		x |= int64(c&0x7f) << s
 		s += 7
+
+		if i > 9 || i == 9 && c > 1 {
+			r.i -= i // to have position on start of varint
+			return x, r.newerr("varint overflow")
+		}
+
+		if c < 0x80 {
+			return x, nil
+		}
 	}
 }
 
-func (r *ProtoReader) time() (t int64) {
+func (r *ProtoReader) time() (t int64, err error) {
+	if r.pos+r.i+8 > r.lim {
+		return 0, errors.New("out of range")
+	}
+
 	t = int64(binary.LittleEndian.Uint64(r.buf[r.i:]))
 	r.i += 8
+
 	return
 }
 
@@ -529,7 +678,7 @@ func (r *ProtoReader) more(s int) error {
 
 again:
 	n, err := r.r.Read(r.buf[end:])
-	if r.l.V("") != nil {
+	if r.l.V("read") != nil {
 		r.l.Printf("Read %v %v of %v", n, err, len(r.buf)-end)
 	}
 	if n != 0 && end+n < s && err == nil {
@@ -561,7 +710,7 @@ func (r *ProtoReader) newerr(msg string, args ...interface{}) error {
 
 	err := fmt.Errorf(msg, args...) //nolint:goerr113
 
-	r.err = fmt.Errorf("%w (pos: %d)", err, r.pos+r.i)
+	r.err = fmt.Errorf("%w (pos: 0x%x)", err, r.pos+r.i)
 
 	return r.err
 }

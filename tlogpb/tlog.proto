@@ -31,16 +31,17 @@ message Message {
     bytes span    = 1;
     int64 pc      = 2;
     sfixed64 time = 3;
-    string text   = 4;
+    sint32 level  = 4;
+    string text   = 5;
 
-    repeated Attr attrs = 5;
+    repeated Attr attrs = 6;
 }
 
 message Attr {
     string name  = 1;
     int32 type   = 2;  // char
     string str   = 3;
-    int64 int    = 4;
+    sint64 int   = 4;
     uint64 uint  = 5;
     double float = 6;
     bytes bytes  = 7;

@@ -13,8 +13,10 @@ import (
 	"github.com/nikandfor/tlog"
 )
 
-func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Reader) Reader) {
+func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Reader, *tlog.Logger) Reader) {
 	const Prefix = "github.com/nikandfor/tlog/"
+
+	tl := tlog.NewTestLogger(t, "", tlog.Stderr)
 
 	var buf bytes.Buffer
 	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.Local)
@@ -83,12 +85,23 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Elapsed: 2 * time.Second.Nanoseconds(),
 	})
 
+	_ = w.Message(tlog.Message{
+		Text: "attrs",
+		Attrs: Attrs{
+			{Name: "id", Value: ID{1, 2, 3, 4, 5}},
+			{Name: "str", Value: "string"},
+			{Name: "int", Value: int(-5)},
+			{Name: "uint", Value: uint(5)},
+			{Name: "float", Value: 1.12},
+		},
+	}, ID{})
+
 	t.Logf("data:\n%v", hex.Dump(buf.Bytes()))
 
 	// read
-	r := newr(&buf)
+	r := newr(&buf, tl)
 	if r, ok := r.(*ProtoReader); ok {
-		r.buf = r.buf[:10]
+		r.buf = r.buf[:0:10]
 	}
 
 	var res []interface{}
@@ -159,7 +172,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x101,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  42,
+			Line:  44,
 		},
 		Message{
 			Span: ID{},
@@ -172,7 +185,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x102,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  51,
+			Line:  53,
 		},
 		SpanStart{
 			ID:        ID{1},
@@ -185,7 +198,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x103,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  55,
+			Line:  57,
 		},
 		Message{
 			Span: ID{1},
@@ -198,7 +211,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Entry: 0x104,
 			Name:  "github.com/nikandfor/tlog/parse.testReader",
 			File:  "parse/proto_reader_test.go",
-			Line:  64,
+			Line:  66,
 		},
 		SpanStart{
 			ID:        ID{2},
@@ -220,12 +233,22 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			ID:      ID{1},
 			Elapsed: 2 * time.Second.Nanoseconds(),
 		},
+		Message{
+			Text: "attrs",
+			Attrs: Attrs{
+				{Name: "id", Value: ID{1, 2, 3, 4, 5}},
+				{Name: "str", Value: "string"},
+				{Name: "int", Value: int64(-5)},
+				{Name: "uint", Value: uint64(5)},
+				{Name: "float", Value: 1.12},
+			},
+		},
 	}, res)
 }
 
 func TestProtoReader(t *testing.T) {
 	testReader(t,
 		func(w io.Writer) tlog.Writer { return tlog.NewProtoWriter(w) },
-		func(r io.Reader) Reader { return NewProtoReader(r) },
+		func(r io.Reader, tl *tlog.Logger) Reader { rd := NewProtoReader(r); rd.l = tl; return rd },
 	)
 }
