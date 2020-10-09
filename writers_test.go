@@ -105,7 +105,7 @@ func TestConsoleWriterSpans(t *testing.T) {
 
 	w := NewConsoleWriter(&b, Ldate|Ltime|Lmilliseconds|Lspans|Lmessagespan)
 	l := New(w)
-	l.randID = testRandID()
+	l.NewID = testRandID()
 
 	l.SetLabels(Labels{"a=b", "f"})
 
@@ -438,7 +438,7 @@ func TestHelperWriters(t *testing.T) {
 		),
 	)
 	l.NoCaller = true
-	l.randID = func() ID { return ID{1, 2, 3, 4, 5} }
+	l.NewID = func() ID { return ID{1, 2, 3, 4, 5} }
 
 	l.RegisterMetric("name", MCounter, "", nil)
 	l.Observe("name", 1, nil)

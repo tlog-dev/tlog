@@ -27,12 +27,15 @@ const (
 )
 
 func testRandID() func() ID {
+	var mu sync.Mutex
 	rnd := rand.New(rand.NewSource(0))
 
 	return func() (id ID) {
+		mu.Lock()
 		for id == (ID{}) {
 			_, _ = rnd.Read(id[:])
 		}
+		mu.Unlock()
 		return
 	}
 }
@@ -63,7 +66,7 @@ func TestTlogParallel(t *testing.T) {
 
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(LockWriter(&buf), LstdFlags))
-	DefaultLogger.randID = testRandID()
+	DefaultLogger.NewID = testRandID()
 
 	var wg sync.WaitGroup
 	wg.Add(M)
@@ -91,7 +94,7 @@ func TestPanicf(t *testing.T) {
 
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, LstdFlags))
-	DefaultLogger.randID = testRandID()
+	DefaultLogger.NewID = testRandID()
 
 	assert.Panics(t, func() {
 		Panicf("panic! %v", 1)
@@ -188,7 +191,7 @@ func TestPrintw(t *testing.T) {
 	cw := NewConsoleWriter(&buf, 0)
 
 	DefaultLogger = New(cw)
-	DefaultLogger.randID = testRandID()
+	DefaultLogger.NewID = testRandID()
 
 	cfg := DefaultStructuredConfig.Copy()
 	cfg.MessageWidth = 20
@@ -547,7 +550,7 @@ func TestJSONWriterSpans(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewJSONWriter(&buf)
 	l := New(w)
-	l.randID = testRandID()
+	l.NewID = testRandID()
 
 	l.SetLabels(Labels{"a=b", "f"})
 
@@ -625,7 +628,7 @@ func TestAppendWriter(t *testing.T) {
 	assert.Equal(t, l.Writer, TeeWriter{jw, Discard})
 }
 
-func TestRandID(t *testing.T) {
+func TestNewID(t *testing.T) {
 	l := New()
 
 	var wg sync.WaitGroup
@@ -685,7 +688,7 @@ func TestCoverUncovered(t *testing.T) {
 	var w collectWriter
 	l := New(&w)
 	l.NoCaller = true
-	l.randID = func() ID { return ID{4, 5, 6} }
+	l.NewID = func() ID { return ID{4, 5, 6} }
 	now = func() time.Time {
 		return time.Unix(0, 0)
 	}
@@ -714,7 +717,7 @@ func TestCoverUncovered(t *testing.T) {
 
 	w.Events = w.Events[:0]
 
-	l.randID = func() ID { return ID{7, 8, 9} }
+	l.NewID = func() ID { return ID{7, 8, 9} }
 
 	tr = tr.Spawn()
 	_ = Span{}.Spawn()

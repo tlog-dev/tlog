@@ -100,13 +100,6 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	tzn, _ := now().Zone()
 	assert.NotZero(t, tzn)
 	assert.Equal(t, "_timezone="+tzn, ll[7])
-
-	//
-	DefaultLogger = nil
-
-	assert.Panics(t, func() {
-		FillLabelsWithDefaults("_randid")
-	})
 }
 
 func TestParseLabels(t *testing.T) {

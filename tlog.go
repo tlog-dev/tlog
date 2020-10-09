@@ -20,8 +20,6 @@ type (
 	// Level is log level.
 	// Default Level is 0. The higher level the more important the message.
 	// The lower level the less important the message.
-	//
-	// Level is not for diciding to produce the message or not to but for fitering them while monitoring the system.
 	Level int8
 
 	// Logger is a convenient public API to produce logging events.
@@ -33,11 +31,11 @@ type (
 		mu     sync.Mutex
 		filter filter
 
+		// NewID returns new random ID. Must be safe to call cuncurrently.
+		NewID func() ID
+
 		// NoCaller disables capturing caller's frame.
 		NoCaller bool
-
-		rnd    *rand.Rand
-		randID func() ID
 	}
 
 	writeWrapper struct {
@@ -214,11 +212,7 @@ func newspan(l *Logger, d int, par ID) Span {
 		StartedAt: now(),
 	}
 
-	l.mu.Lock()
-
-	s.ID = l.randID()
-
-	l.mu.Unlock()
+	s.ID = l.NewID()
 
 	_ = l.Writer.SpanStarted(SpanStart{
 		ID:        s.ID,
@@ -284,10 +278,8 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 
 // New creates new Logger with given writers.
 func New(ws ...Writer) *Logger {
-	l := &Logger{
-		rnd: rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec
-	}
-	l.randID = l.stdRandID
+	l := &Logger{}
+	l.NewID = l.stdRandID
 
 	switch len(ws) {
 	case 0:
@@ -325,17 +317,13 @@ func (l *Logger) AppendWriter(ws ...Writer) {
 	}
 }
 
-// RandID returns random ID filled with Logger's random.
+// RandID is a nil-safe wrapper around l.NewID.
 func (l *Logger) RandID() (id ID) {
 	if l == nil {
 		return
 	}
 
-	l.mu.Lock()
-	id = l.randID()
-	l.mu.Unlock()
-
-	return
+	return l.NewID()
 }
 
 // SetLabels sets labels for default logger.
@@ -1029,7 +1017,7 @@ func (i ID) FormatTo(b []byte, f rune) {
 
 func (l *Logger) stdRandID() (id ID) {
 	for id == (ID{}) {
-		_, _ = l.rnd.Read(id[:])
+		_, _ = rand.Read(id[:])
 	}
 
 	return
