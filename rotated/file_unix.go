@@ -16,9 +16,12 @@ func CreateLogrotate(name string, sig ...os.Signal) *File {
 		Fopen:    FopenSimple,
 		stopc:    make(chan struct{}),
 	}
+
 	if len(sig) == 0 {
 		sig = append(sig, syscall.SIGUSR1)
 	}
+
 	f.RotateOnSignal(sig...)
+
 	return f
 }

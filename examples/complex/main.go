@@ -22,7 +22,7 @@ func initComplexLogger() func() {
 	jw := tlog.NewJSONWriter(&buf)
 
 	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
-	cw.IDWidth = 20
+	cw.IDWidth = 10
 
 	ll = tlog.New(cw, jw)
 
@@ -59,11 +59,11 @@ func work() {
 	var a A
 	a.func1(tr.ID)
 
-	measures_something(tr)
-	measures_something(tr) // to show that metrics are compacted on the second time
+	measuresSomething(tr)
+	measuresSomething(tr) // to show that metrics are compacted from the second time
 }
 
-func measures_something(tr tlog.Span) {
+func measuresSomething(tr tlog.Span) {
 	tr.Observe("fully_qualified_metric_name_with_units", 123.456, tlog.Labels{"algo=fast"})
 }
 

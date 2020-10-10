@@ -209,53 +209,40 @@ func (r *JSONReader) Message() (m Message, err error) {
 	for r.r.HasNext() {
 		k := r.r.NextString()
 		if len(k) == 0 {
-			return Message{}, r.r.ErrorHere(errors.New("empty key"))
+			return m, r.r.ErrorHere(errors.New("empty key"))
 		}
+
 		switch k[0] {
 		case 'm':
 			m.Text = string(r.r.NextString())
 		case 'l':
 			n := string(r.r.NextNumber())
 			m.PC, err = strconv.ParseUint(n, 10, 64)
-			if err != nil {
-				return Message{}, r.r.ErrorHere(err)
-			}
 		case 't':
 			n := string(r.r.NextNumber())
 			m.Time, err = strconv.ParseInt(n, 10, 64)
-			if err != nil {
-				return Message{}, r.r.ErrorHere(err)
-			}
 		case 's':
 			m.Span, err = r.id()
-			if err != nil {
-				return Message{}, r.r.ErrorHere(err)
-			}
 		case 'i':
 			n := r.r.NextNumber()
-			if len(n) != 0 {
-				switch n[0] {
-				case 'I':
-					m.Level = tlog.LevelInfo
-				case 'E':
-					m.Level = tlog.LevelError
-				case 'F':
-					m.Level = tlog.LevelFatal
-				default:
-					v, err := strconv.ParseInt(string(n), 10, 32)
-					if err != nil {
-						return Message{}, r.r.ErrorHere(err)
-					}
-
-					m.Level = Level(v)
-				}
+			if len(n) == 0 {
+				err = errors.New("bad level")
 			}
+
+			v, err := strconv.ParseInt(string(n), 10, 32)
+			if err != nil {
+				break
+			}
+
+			m.Level = Level(v)
 		case 'a':
 			m.Attrs, err = r.messageAttrs()
 		default:
-			if err := r.unknownField(k); err != nil {
-				return Message{}, err
-			}
+			err = r.unknownField(k)
+		}
+
+		if err != nil {
+			return m, r.r.ErrorHere(err)
 		}
 	}
 

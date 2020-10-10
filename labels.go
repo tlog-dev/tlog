@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -27,8 +28,13 @@ type Labels []string
 //     _execname - executable base name (project name)
 //     _randid - random id. May be used to distinguish different runs.
 var AutoLabels = map[string]func() string{
-	"_hostname": Hostname,
-	"_user":     User,
+	"_hostname":   Hostname,
+	"_user":       User,
+	"_os":         func() string { return runtime.GOOS },
+	"_arch":       func() string { return runtime.GOARCH },
+	"_numcpu":     func() string { return fmt.Sprintf("%v", runtime.NumCPU()) },
+	"_gomaxprocs": func() string { return fmt.Sprintf("%v", runtime.GOMAXPROCS(0)) },
+	"_goversion":  func() string { return runtime.Version() },
 	"_pid": func() string {
 		return fmt.Sprintf("%d", os.Getpid())
 	},

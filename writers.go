@@ -211,7 +211,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		f:         f,
 		Shortfile: 20,
 		Funcname:  18,
-		IDWidth:   16,
+		IDWidth:   8,
 	}
 }
 
@@ -333,6 +333,8 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 		switch {
 		case lv == LevelInfo:
 			b = append(b, 'I')
+		case lv == LevelWarning:
+			b = append(b, 'W')
 		case lv == LevelError:
 			b = append(b, 'E')
 		case lv == LevelFatal:
@@ -728,18 +730,8 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	b = append(b, '"')
 
 	if m.Level != 0 {
-		b = append(b, `,"i":"`...)
-
-		switch m.Level {
-		case LevelError:
-			b = append(b, 'E')
-		case LevelFatal:
-			b = append(b, 'F')
-		default:
-			b = strconv.AppendInt(b, int64(m.Level), 16)
-		}
-
-		b = append(b, `"`...)
+		b = append(b, `,"i":`...)
+		b = strconv.AppendInt(b, int64(m.Level), 10)
 	}
 
 	if len(m.Attrs) != 0 {

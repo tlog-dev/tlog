@@ -29,9 +29,13 @@ type (
 		w  Writer
 		ls map[tlog.PC]struct{}
 	}
+
+	DiscardWriter struct{}
 )
 
 var _ tlog.Writer = &ConvertWriter{}
+
+var Discard Writer = DiscardWriter{}
 
 func NewAnyWiter(w tlog.Writer) AnyWriter {
 	return AnyWriter{w: w}
@@ -241,3 +245,11 @@ func (w *ConvertWriter) location(l tlog.PC) error {
 
 	return nil
 }
+
+func (w DiscardWriter) Frame(l Frame) error           { return nil }
+func (w DiscardWriter) Labels(ls Labels) error        { return nil }
+func (w DiscardWriter) Meta(m Meta) error             { return nil }
+func (w DiscardWriter) Message(m Message) error       { return nil }
+func (w DiscardWriter) Metric(m Metric) error         { return nil }
+func (w DiscardWriter) SpanStart(s SpanStart) error   { return nil }
+func (w DiscardWriter) SpanFinish(f SpanFinish) error { return nil }

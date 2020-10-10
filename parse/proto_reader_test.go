@@ -86,7 +86,8 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 	})
 
 	_ = w.Message(tlog.Message{
-		Text: "attrs",
+		Level: tlog.LevelError,
+		Text:  "attrs",
 		Attrs: Attrs{
 			{Name: "id", Value: ID{1, 2, 3, 4, 5}},
 			{Name: "str", Value: "string"},
@@ -234,7 +235,8 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			Elapsed: 2 * time.Second.Nanoseconds(),
 		},
 		Message{
-			Text: "attrs",
+			Level: tlog.LevelError,
+			Text:  "attrs",
 			Attrs: Attrs{
 				{Name: "id", Value: ID{1, 2, 3, 4, 5}},
 				{Name: "str", Value: "string"},

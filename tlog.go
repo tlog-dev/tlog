@@ -115,6 +115,8 @@ type (
 	TooShortIDError struct {
 		N int
 	}
+
+	ReaderFunc func(p []byte) (int, error)
 )
 
 // for you not to import os if you don't want.
@@ -146,6 +148,7 @@ const ( // console writer flags
 // Log levels.
 const (
 	LevelInfo Level = iota
+	LevelWarning
 	LevelError
 	LevelFatal
 
@@ -862,7 +865,7 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 //
 // It's not supposed to be able to recover it back to the same value as it was.
 func (i ID) String() string {
-	var b [16]byte
+	var b [8]byte
 	i.FormatTo(b[:], 'v')
 	return string(b[:])
 }
@@ -968,7 +971,7 @@ func (i ID) Format(s fmt.State, c rune) {
 	buf1 := buf0[:]
 	buf := *(*[]byte)(noescape(unsafe.Pointer(&buf1)))
 
-	w := 16
+	w := 8
 	if W, ok := s.Width(); ok {
 		w = W
 	}
@@ -1022,6 +1025,26 @@ func (l *Logger) stdRandID() (id ID) {
 
 	return
 }
+
+// UUID creates ID generation function.
+// r is a random source. Function panics on Read error.
+//
+// It's got from github.com/google/uuid
+func UUID(r io.Reader) func() ID {
+	return func() (uuid ID) {
+		_, err := io.ReadFull(r, uuid[:])
+		if err != nil {
+			panic(err)
+		}
+
+		uuid[6] = (uuid[6] & 0x0f) | 0x40 // Version 4
+		uuid[8] = (uuid[8] & 0x3f) | 0x80 // Variant is 10
+
+		return uuid
+	}
+}
+
+func (f ReaderFunc) Read(p []byte) (int, error) { return f(p) }
 
 func AInt(n string, v int) Attr       { return Attr{Name: n, Value: v} }
 func AInt64(n string, v int64) Attr   { return Attr{Name: n, Value: v} }
