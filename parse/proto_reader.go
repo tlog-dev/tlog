@@ -320,7 +320,20 @@ func (r *ProtoReader) messageAttr() (a Attr, err error) {
 			tp = r.buf[r.i]
 			r.i++
 		case 3<<3 | 2:
-			a.Value, err = r.string()
+			var val string
+			val, err = r.string()
+			if err != nil {
+				return
+			}
+
+			switch tp {
+			case 's':
+				a.Value = val
+			case '?':
+				a.Value = errors.New(val)
+			default:
+				err = errors.New("expected string of undefined type")
+			}
 		case 4<<3 | 0:
 			var v int64
 			v, err = r.varint64()

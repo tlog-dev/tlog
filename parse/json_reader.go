@@ -312,7 +312,7 @@ func (r *JSONReader) messageAttrs() (as Attrs, err error) {
 			a.Value = string(v)
 		case '?':
 			v := json.Wrap(val).NextString()
-			a.Value = string(v)
+			a.Value = errors.New(string(v))
 		default:
 			a.Value = errors.New("unsupported field type: '%c'", tp)
 		}

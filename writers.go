@@ -807,6 +807,12 @@ func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 		case float32:
 			b = append(b, `"f","v":`...)
 			b = strconv.AppendFloat(b, float64(v), 'f', -1, 32)
+		case fmt.Stringer:
+			val := v.String()
+
+			b = append(b, `"s","v":"`...)
+			b = appendSafe(b, val)
+			b = append(b, '"')
 		default:
 			b = AppendPrintf(b, `"?","v":"%T"`, v)
 		}
@@ -1336,6 +1342,13 @@ func (w *ProtoWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 
 			b = append(b, 6<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 			binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(float64(v)))
+		case fmt.Stringer: // encode as string
+			b = appendTagVarint(b, 2<<3|0, uint64('s'))
+
+			val := v.String()
+
+			b = appendTagVarint(b, 3<<3|2, uint64(len(val)))
+			b = append(b, val...)
 		default:
 			tp := fmt.Sprintf("%T", v)
 
