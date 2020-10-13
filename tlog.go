@@ -171,7 +171,18 @@ const (
 	MetaMetricDescription = "metric_desc"
 )
 
-var now = time.Now
+var ( // now, rand
+	now = time.Now
+
+	rndmu    sync.Mutex
+	rnd      = rand.New(rand.NewSource(time.Now().UnixNano()))
+	randread = ReaderFunc(func(p []byte) (n int, err error) {
+		rndmu.Lock()
+		n, err = rnd.Read(p)
+		rndmu.Unlock()
+		return
+	})
+)
 
 // DefaultLogger is a package interface Logger object.
 var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoCaller = true; return l }()
@@ -282,7 +293,7 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 // New creates new Logger with given writers.
 func New(ws ...Writer) *Logger {
 	l := &Logger{}
-	l.NewID = l.stdRandID
+	l.NewID = stdRandID
 
 	switch len(ws) {
 	case 0:
@@ -1018,9 +1029,9 @@ func (i ID) FormatTo(b []byte, f rune) {
 	}
 }
 
-func (l *Logger) stdRandID() (id ID) {
+func stdRandID() (id ID) {
 	for id == (ID{}) {
-		_, _ = rand.Read(id[:])
+		_, _ = randread(id[:])
 	}
 
 	return

@@ -52,7 +52,7 @@ var AutoLabels = map[string]func() string{
 			return DefaultLogger.NewID().FullString()
 		}
 
-		return (*Logger)(nil).stdRandID().FullString()
+		return stdRandID().FullString()
 	},
 }
 

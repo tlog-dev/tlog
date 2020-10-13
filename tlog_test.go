@@ -675,7 +675,7 @@ func TestCoverUncovered(t *testing.T) {
 	ID{}.FormatTo(b, 'x')
 	assert.Equal(t, "00000000", string(b))
 
-	id := DefaultLogger.stdRandID()
+	id := stdRandID()
 	assert.NotZero(t, id)
 
 	tr := NewSpan(nil, ID{1, 2, 3}, 0)
