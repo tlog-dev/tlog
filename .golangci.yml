@@ -18,6 +18,7 @@ linters-settings:
     list-type: whitelist
     packages:
       - github.com/beorn7/perks/quantile
+      - github.com/getsentry/sentry-go
       - github.com/gin-gonic/gin
       - github.com/golang/glog
       - github.com/golang/protobuf/proto

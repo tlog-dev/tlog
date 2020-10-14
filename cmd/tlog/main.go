@@ -9,6 +9,7 @@ import (
 
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
+	"gopkg.in/fsnotify.v1"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/parse"
@@ -26,6 +27,7 @@ func main() {
 		Description: "tracelog cmd",
 		Before:      before,
 		Flags: []*cli.Flag{
+			cli.NewFlag("rewrite", false, "rewrite existing output file if exists"),
 			cli.NewFlag("verbosity,v", "", "verbosity"),
 			cli.HelpFlag,
 			cli.FlagfileFlag,
@@ -33,7 +35,11 @@ func main() {
 		Commands: []*cli.Command{{
 			Name:   "convert,c",
 			Action: convert,
-			Usage:  "{infile} <outfile>",
+			Usage:  "{infiles} <outfile>",
+			Flags: []*cli.Flag{
+				cli.NewFlag("detach,d", false, "run in background"),
+				cli.NewFlag("follow,f", false, "process new data as file grows"),
+			},
 		}, {
 			Name:   "render",
 			Action: render,
@@ -62,6 +68,9 @@ func convert(c *cli.Command) (err error) {
 	if c.Args.Len() < 2 {
 		return errors.New("arguments expected")
 	}
+	if c.Bool("follow") && c.Args.Len() != 2 {
+		return errors.New("only one input file is supported in follow mode")
+	}
 
 	w, clw, err := openWriter(c, c.Args[c.Args.Len()-1])
 	if err != nil {
@@ -72,6 +81,10 @@ func convert(c *cli.Command) (err error) {
 			err = e
 		}
 	}()
+
+	if c.Bool("follow") {
+		return convertFollow(c, w, c.Args.First())
+	}
 
 	var r parse.LowReader
 	for _, a := range c.Args[:c.Args.Len()-1] {
@@ -99,6 +112,65 @@ func convert(c *cli.Command) (err error) {
 	}
 
 	return nil
+}
+
+func convertFollow(c *cli.Command, w parse.Writer, f string) (err error) {
+	r, cl, err := openReader(c, f)
+	if err != nil {
+		return errors.Wrap(err, "open input file %v", f)
+	}
+	defer func() {
+		e := cl()
+		if err == nil {
+			err = e
+		}
+	}()
+
+	fs, err := fsnotify.NewWatcher()
+	if err != nil {
+		return errors.Wrap(err, "create watcher")
+	}
+
+	defer func() {
+		e := fs.Close()
+		if err == nil {
+			err = e
+		}
+	}()
+
+	err = fs.Add(f)
+	if err != nil {
+		return errors.Wrap(err, "watch for file %v", f)
+	}
+
+	var ev fsnotify.Event
+
+loop:
+	for {
+		err = parse.Copy(w, r)
+		if errors.Is(err, io.EOF) {
+			err = nil
+		}
+		if err != nil {
+			break
+		}
+
+		select {
+		case ev = <-fs.Events:
+		case err = <-fs.Errors:
+			break loop
+		}
+
+		tlog.Printf("op %v %v", ev.Op, ev.Name)
+
+		if ev.Op&fsnotify.Remove == fsnotify.Remove {
+			tlog.Printf("file removed %v", ev.Name)
+
+			break
+		}
+	}
+
+	return err
 }
 
 //nolint:goconst
@@ -184,8 +256,8 @@ func fwopen(c *cli.Command, n string) (io.WriteCloser, error) {
 		return nopCloser{os.Stdout}, nil
 	}
 
-	ff := os.O_RDWR | os.O_CREATE
-	if !c.Bool("force") {
+	ff := os.O_RDWR | os.O_CREATE | os.O_APPEND
+	if !c.Bool("rewrite") {
 		ff |= os.O_EXCL
 	}
 
