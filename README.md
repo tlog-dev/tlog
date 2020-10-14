@@ -258,7 +258,7 @@ Then you may get function name, file name and file line for each frame.
 ```go
 funcName, fileName, fileLine := l.NameFileLine()
 funcName, fileName, fileLine = s[2].NameFileLine()
-tlog.Printf("called from here: %v", l.String())
+tlog.Printf("called from here: %#v", l.String())
 tlog.Printf("crashed\n%v", tlog.Callers(0, 10))
 ```
 
@@ -266,7 +266,8 @@ tlog.Printf("crashed\n%v", tlog.Callers(0, 10))
 
 Writer is a backend of logger. It encodes messages and writes to the file, console, network connection or else.
 
-Planned way is to log to the file (like normal loggers do) by compact encoding and to use separate agent to send it to central server or to serve requests as part of distributed storage.
+Planned way is to log to the file (like normal loggers do) by compact encoding and to use separate agent
+to process data, send it to external services or serve requests as part of distributed storage.
 
 ## ConsoleWriter
 
@@ -295,7 +296,7 @@ _ = tlog.NewProtoWriter(w)
 
 ## TeeWriter
 
-You also may use several writers at the same time.
+You also may use several writers in the same time.
 ```go
 cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags)
 jw := tlog.NewJSONWriter(file)
@@ -405,7 +406,7 @@ tlog.Printf("but logs don't appear in traces")
 ```go
 tlog.SetLabels(tlog.Labels{"global=label"})
 
-tlog.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MSummary, "help message that describes metric", tlog.Labels{"metric=const_label"})
+tlog.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MSummary, "help message that describes metric")
 
 // This is metric either. It records span duration as Metric.
 tr := tlog.Start()
@@ -425,23 +426,23 @@ This result in the following prometheus-like output
 ```
 # HELP fully_qualified_metric_name_with_units help message that describes metric
 # TYPE fully_qualified_metric_name_with_units summary
-fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.1"} 123.456
-fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.5"} 123.456
-fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.9"} 123.456
-fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.95"} 123.456
-fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="0.99"} 123.456
-fully_qualified_metric_name_with_units{global="label",span="label",metric="const_label",observation="label",quantile="1"} 123.456
-fully_qualified_metric_name_with_units_sum{global="label",span="label",metric="const_label",observation="label"} 123.456
-fully_qualified_metric_name_with_units_count{global="label",span="label",metric="const_label",observation="label"} 1
+fully_qualified_metric_name_with_units{global="label",span="label",observation="label",quantile="0.1"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",observation="label",quantile="0.5"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",observation="label",quantile="0.9"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",observation="label",quantile="0.95"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",observation="label",quantile="0.99"} 123.456
+fully_qualified_metric_name_with_units{global="label",span="label",observation="label",quantile="1"} 123.456
+fully_qualified_metric_name_with_units_sum{global="label",span="label",observation="label"} 123.456
+fully_qualified_metric_name_with_units_count{global="label",span="label",observation="label"} 1
 # HELP tlog_span_duration_ms span context duration in milliseconds
 # TYPE tlog_span_duration_ms summary
-tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.1"} 0.094489
-tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.5"} 0.094489
-tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.9"} 0.094489
-tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.95"} 0.094489
-tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.99"} 0.094489
-tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="1"} 0.094489
-tlog_span_duration_ms_sum{global="label",span="label",func="main.main.func2"} 0.094489
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.1"} 0.066248
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.5"} 0.066248
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.9"} 0.066248
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.95"} 0.066248
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="0.99"} 0.066248
+tlog_span_duration_ms{global="label",span="label",func="main.main.func2",quantile="1"} 0.066248
+tlog_span_duration_ms_sum{global="label",span="label",func="main.main.func2"} 0.066248
 tlog_span_duration_ms_count{global="label",span="label",func="main.main.func2"} 1
 ```
 
