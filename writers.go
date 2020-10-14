@@ -169,7 +169,7 @@ var ( // type checks
 
 var spaces = []byte("                                                                                                                                                ")
 
-var strhash0 = strhash
+var metricsTest bool
 
 var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 128)} }}
 
@@ -847,6 +847,9 @@ func (w *writerCache) killMetric(n string) {
 }
 
 func (w *writerCache) metricCached(m Metric) (cnum int, full bool) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
 	skip := w.skip[m.Name]
 	if skip == -1 {
 		return 0, true
@@ -859,10 +862,14 @@ func (w *writerCache) metricCached(m Metric) (cnum int, full bool) {
 	}
 
 	n := m.Name
-	h := strhash0(&n, 0)
+	h := strhash(&n, 0)
 	for _, l := range m.Labels {
 		n = l
-		h = strhash0(&n, h)
+		h = strhash(&n, h)
+	}
+
+	if metricsTest {
+		h &= 7
 	}
 
 	cnum = -1
@@ -911,9 +918,7 @@ outer:
 }
 
 func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
-	w.mu.Lock()
 	cnum, full := w.metricCached(m)
-	w.mu.Unlock()
 
 	b, wr := Getbuf()
 	defer wr.Ret(&b)

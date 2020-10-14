@@ -527,11 +527,10 @@ func TestMetricsCacheKill(t *testing.T) {
 
 func TestMetricsCacheKill2(t *testing.T) {
 	metricsCacheMaxValues = 100
-	strhash0 = func(p *string, u uintptr) uintptr {
-		u = strhash(p, u)
-		u &= 0x7
-		return u
-	}
+	metricsTest = true
+	defer func() {
+		metricsTest = false
+	}()
 
 	var b, exp bufWriter
 

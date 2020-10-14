@@ -1035,10 +1035,9 @@ func TestTlogGrandParallel(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	wg.Add(14)
-
 	tr := Start()
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
@@ -1054,6 +1053,7 @@ func TestTlogGrandParallel(t *testing.T) {
 		}()
 	}
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
@@ -1064,6 +1064,7 @@ func TestTlogGrandParallel(t *testing.T) {
 		}()
 	}
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
@@ -1074,6 +1075,7 @@ func TestTlogGrandParallel(t *testing.T) {
 		}()
 	}
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
@@ -1086,6 +1088,7 @@ func TestTlogGrandParallel(t *testing.T) {
 		}()
 	}
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
@@ -1098,6 +1101,7 @@ func TestTlogGrandParallel(t *testing.T) {
 		}()
 	}
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
@@ -1110,12 +1114,57 @@ func TestTlogGrandParallel(t *testing.T) {
 		}()
 	}
 
+	wg.Add(2)
 	for j := 0; j < 2; j++ {
 		go func() {
 			defer wg.Done()
 
 			for i := 0; i < N; i++ {
 				tr.Printf("message %d", i)
+			}
+		}()
+	}
+
+	wg.Add(2)
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i < N; i++ {
+				tr.Printw("message", Attrs{{Name: "i", Value: i}, {Name: "second", Value: i + 1000}}...)
+			}
+		}()
+	}
+
+	wg.Add(2)
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i < N; i++ {
+				RegisterMetric("message", "type", "help", nil)
+			}
+		}()
+	}
+
+	wg.Add(2)
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i < N; i++ {
+				tr.Observe("message", float64(i), nil)
+			}
+		}()
+	}
+
+	wg.Add(2)
+	for j := 0; j < 2; j++ {
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i < N; i++ {
+				tr.Observe("message", float64(i), Labels{"a", "b=c"})
 			}
 		}()
 	}
