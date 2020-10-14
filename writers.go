@@ -70,7 +70,7 @@ type (
 	JSONWriter struct {
 		w io.Writer
 
-		mu sync.Mutex
+		mu sync.RWMutex
 		ls map[PC]struct{}
 	}
 
@@ -80,7 +80,7 @@ type (
 	ProtoWriter struct {
 		w io.Writer
 
-		mu sync.Mutex
+		mu sync.RWMutex
 		ls map[PC]struct{}
 	}
 
@@ -137,6 +137,12 @@ type (
 	// It's safe to use simultaneously (atimic operations are used).
 	CountableIODiscard struct {
 		B, N int64
+	}
+
+	BufferedWriter struct {
+		io.Writer
+		mu sync.Mutex
+		b  []byte
 	}
 )
 
@@ -661,14 +667,15 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 	defer wr.Ret(&b)
 
 	if m.PC != 0 {
-		w.mu.Lock()
+		w.mu.RLock()
+		_, ok := w.ls[m.PC]
+		w.mu.RUnlock()
 
-		if _, ok := w.ls[m.PC]; !ok {
+		if !ok {
+			w.mu.Lock()
 			defer w.mu.Unlock()
 
 			b = w.location(b, m.PC)
-		} else {
-			w.mu.Unlock()
 		}
 	}
 
@@ -839,14 +846,15 @@ func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	defer wr.Ret(&b)
 
 	if s.PC != 0 {
-		w.mu.Lock()
+		w.mu.RLock()
+		_, ok := w.ls[s.PC]
+		w.mu.RUnlock()
 
-		if _, ok := w.ls[s.PC]; !ok {
+		if !ok {
+			w.mu.Lock()
 			defer w.mu.Unlock()
 
 			b = w.location(b, s.PC)
-		} else {
-			w.mu.Unlock()
 		}
 	}
 
@@ -1001,14 +1009,15 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	defer wr.Ret(&b)
 
 	if m.PC != 0 {
-		w.mu.Lock()
+		w.mu.RLock()
+		_, ok := w.ls[m.PC]
+		w.mu.RUnlock()
 
-		if _, ok := w.ls[m.PC]; !ok {
+		if !ok {
+			w.mu.Lock()
 			defer w.mu.Unlock()
 
 			b = w.location(b, m.PC)
-		} else {
-			w.mu.Unlock()
 		}
 	}
 
@@ -1277,14 +1286,15 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 	defer wr.Ret(&b)
 
 	if s.PC != 0 {
-		w.mu.Lock()
+		w.mu.RLock()
+		_, ok := w.ls[s.PC]
+		w.mu.RUnlock()
 
-		if _, ok := w.ls[s.PC]; !ok {
+		if !ok {
+			w.mu.Lock()
 			defer w.mu.Unlock()
 
 			b = w.location(b, s.PC)
-		} else {
-			w.mu.Unlock()
 		}
 	}
 
@@ -1709,4 +1719,23 @@ func (w *CountableIODiscard) Write(p []byte) (int, error) {
 	atomic.AddInt64(&w.B, int64(len(p)))
 
 	return len(p), nil
+}
+
+func (w *BufferedWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	w.b = append(w.b, p...)
+	w.mu.Unlock()
+
+	return len(p), nil
+}
+
+func (w *BufferedWriter) Flush() (err error) {
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	_, err = w.Writer.Write(w.b)
+
+	w.b = w.b[:0]
+
+	return
 }

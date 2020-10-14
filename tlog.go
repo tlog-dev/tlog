@@ -116,7 +116,10 @@ type (
 		N int
 	}
 
-	ReaderFunc func(p []byte) (int, error)
+	concurrentRand struct {
+		mu sync.Mutex
+		r  *rand.Rand
+	}
 )
 
 // for you not to import os if you don't want.
@@ -174,14 +177,7 @@ const (
 var ( // now, rand
 	now = time.Now
 
-	rndmu    sync.Mutex
-	rnd      = rand.New(rand.NewSource(time.Now().UnixNano()))
-	randread = ReaderFunc(func(p []byte) (n int, err error) {
-		rndmu.Lock()
-		n, err = rnd.Read(p)
-		rndmu.Unlock()
-		return
-	})
+	rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))}
 )
 
 // DefaultLogger is a package interface Logger object.
@@ -1016,9 +1012,13 @@ func (i ID) FormatTo(b []byte, f rune) {
 }
 
 func stdRandID() (id ID) {
+	rnd.mu.Lock()
+
 	for id == (ID{}) {
-		_, _ = randread(id[:])
+		_, _ = rnd.r.Read(id[:])
 	}
+
+	rnd.mu.Unlock()
 
 	return
 }
@@ -1040,8 +1040,6 @@ func UUID(r io.Reader) func() ID {
 		return uuid
 	}
 }
-
-func (f ReaderFunc) Read(p []byte) (int, error) { return f(p) }
 
 func AInt(n string, v int) Attr       { return Attr{Name: n, Value: v} }
 func AInt64(n string, v int64) Attr   { return Attr{Name: n, Value: v} }
