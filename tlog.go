@@ -147,13 +147,13 @@ const ( // console writer flags
 
 // Log levels.
 const (
-	LevelInfo Level = iota
-	LevelWarning
-	LevelError
-	LevelFatal
+	InfoLevel Level = iota
+	WarnLevel
+	ErrorLevel
+	FatalLevel
 
 	// Consider using V verbosity filter.
-	LevelDebug Level = -1
+	DebugLevel Level = -1
 )
 
 // Metric types.
@@ -361,19 +361,19 @@ func PrintfDepth(d int, f string, args ...interface{}) {
 // Panicf does the same as Printf but panics in the end.
 // panic argument is fmt.Sprintf result with the func arguments.
 func Panicf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 0, LevelFatal, ID{}, f, args, nil)
+	newmessage(DefaultLogger, 0, FatalLevel, ID{}, f, args, nil)
 	panic(fmt.Sprintf(f, args...))
 }
 
 // Fatalf does the same as Printf but calls os.Exit(1) in the end.
 func Fatalf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 0, LevelFatal, ID{}, f, args, nil)
+	newmessage(DefaultLogger, 0, FatalLevel, ID{}, f, args, nil)
 	os.Exit(1)
 }
 
-// Errorf does the same as Printf but with LevelError log level.
+// Errorf does the same as Printf but with ErrorLevel log level.
 func Errorf(f string, args ...interface{}) {
-	newmessage(DefaultLogger, 0, LevelError, ID{}, f, args, nil)
+	newmessage(DefaultLogger, 0, ErrorLevel, ID{}, f, args, nil)
 }
 
 // PrintBytes writes Message event with given text.
@@ -544,20 +544,20 @@ func (l *Logger) PrintfDepth(d int, f string, args ...interface{}) {
 // Panicf writes Message event and panics.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Panicf(f string, args ...interface{}) {
-	newmessage(l, 0, LevelFatal, ID{}, f, args, nil)
+	newmessage(l, 0, FatalLevel, ID{}, f, args, nil)
 	panic(fmt.Sprintf(f, args...))
 }
 
 // Fatalf writes Message event and calls os.Exit(1) in the end.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Fatalf(f string, args ...interface{}) {
-	newmessage(l, 0, LevelFatal, ID{}, f, args, nil)
+	newmessage(l, 0, FatalLevel, ID{}, f, args, nil)
 	os.Exit(1)
 }
 
-// Errorf does the same as Printf but with LevelError log level.
+// Errorf does the same as Printf but with ErrorLevel log level.
 func (l *Logger) Errorf(f string, args ...interface{}) {
-	newmessage(l, 0, LevelError, ID{}, f, args, nil)
+	newmessage(l, 0, ErrorLevel, ID{}, f, args, nil)
 }
 
 // PrintBytes writes Message event with given text.
@@ -792,9 +792,9 @@ func (s Span) Println(args ...interface{}) {
 	newmessage(s.Logger, 0, 0, s.ID, "", args, nil)
 }
 
-// Errorf does the same as Printf but with LevelError log level.
+// Errorf does the same as Printf but with ErrorLevel log level.
 func (s Span) Errorf(f string, args ...interface{}) {
-	newmessage(s.Logger, 0, LevelError, s.ID, f, args, nil)
+	newmessage(s.Logger, 0, ErrorLevel, s.ID, f, args, nil)
 }
 
 // Printw does the same as Printf but preserves attributes types.

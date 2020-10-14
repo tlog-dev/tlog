@@ -564,7 +564,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.Printf("message %d", 2)
 
-	tr1.PrintRaw(0, LevelError, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
+	tr1.PrintRaw(0, ErrorLevel, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
 
 	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
 	tr1.Observe("metric_name", 456.123, Labels{"q=w", "e=1"})

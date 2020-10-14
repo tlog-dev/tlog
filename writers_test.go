@@ -281,7 +281,7 @@ func TestProtoWriter(t *testing.T) {
 		Message{
 			PC:    loc,
 			Time:  2,
-			Level: LevelError,
+			Level: ErrorLevel,
 			Text:  string(make([]byte, 1000)),
 		},
 		id,
@@ -290,7 +290,7 @@ func TestProtoWriter(t *testing.T) {
 		Span:  id[:],
 		Pc:    int64(loc),
 		Time:  2,
-		Level: int32(LevelError),
+		Level: int32(ErrorLevel),
 		Text:  string(make([]byte, 1000)),
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {

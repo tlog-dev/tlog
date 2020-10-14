@@ -316,13 +316,13 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 		b = append(b, spaces[:w.LevelWidth]...)
 
 		switch {
-		case lv == LevelInfo:
+		case lv == InfoLevel:
 			copy(b[i:], "INFO")
-		case lv == LevelWarning:
+		case lv == WarnLevel:
 			copy(b[i:], "WARN")
-		case lv == LevelError:
+		case lv == ErrorLevel:
 			copy(b[i:], "ERROR")
-		case lv == LevelFatal:
+		case lv == FatalLevel:
 			copy(b[i:], "FATAL")
 		default:
 			b = strconv.AppendInt(b[i:], int64(lv), 16)
