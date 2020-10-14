@@ -37,13 +37,13 @@ func getMsgb(l *Logger, sid ID) (b *MessageBuilder) {
 	return b
 }
 
-func getSpanb(l *Logger, sid ID) (b *SpanStartBuilder) {
+func getSpanb(l *Logger) (b *SpanStartBuilder) {
 	b = spanPool.Get().(*SpanStartBuilder)
 
 	b.Logger = l
 	b.t = time.Time{}
 
-	b.SpanStart = SpanStart{Parent: sid}
+	b.SpanStart = SpanStart{}
 
 	return b
 }
@@ -86,6 +86,16 @@ func (b *MessageBuilder) CallerOnce(d int, loc *PC) *MessageBuilder {
 	}
 
 	b.Message.PC = l
+
+	return b
+}
+
+func (b *MessageBuilder) Location(pc PC) *MessageBuilder {
+	if b == nil {
+		return nil
+	}
+
+	b.Message.PC = pc
 
 	return b
 }
@@ -205,20 +215,23 @@ func (b *MessageBuilder) Printf(f string, args ...interface{}) {
 	msgPool.Put(b)
 }
 
-func (l *Logger) BuildSpanStart(par ID) *SpanStartBuilder {
+func (l *Logger) BuildSpanStart() *SpanStartBuilder {
 	if l == nil {
 		return nil
 	}
 
-	return getSpanb(l, par)
+	return getSpanb(l)
 }
 
-func (s Span) BuildSpanStart() *SpanStartBuilder {
+func (s Span) BuildSpanStart() (b *SpanStartBuilder) {
 	if s.Logger == nil {
 		return nil
 	}
 
-	return getSpanb(s.Logger, s.ID)
+	b = getSpanb(s.Logger)
+	b.SpanStart.Parent = s.ID
+
+	return b
 }
 
 func (b *SpanStartBuilder) Caller(d int) *SpanStartBuilder {
@@ -243,6 +256,16 @@ func (b *SpanStartBuilder) CallerOnce(d int, loc *PC) *SpanStartBuilder {
 	}
 
 	b.SpanStart.PC = l
+
+	return b
+}
+
+func (b *SpanStartBuilder) Location(pc PC) *SpanStartBuilder {
+	if b == nil {
+		return nil
+	}
+
+	b.SpanStart.PC = pc
 
 	return b
 }

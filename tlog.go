@@ -1045,7 +1045,7 @@ func AInt(n string, v int) Attr       { return Attr{Name: n, Value: v} }
 func AInt64(n string, v int64) Attr   { return Attr{Name: n, Value: v} }
 func AUint64(n string, v uint64) Attr { return Attr{Name: n, Value: v} }
 func AFloat(n string, v float64) Attr { return Attr{Name: n, Value: v} }
-func AString(n, v string) Attr        { return Attr{Name: n, Value: v} }
+func AStr(n, v string) Attr           { return Attr{Name: n, Value: v} }
 func AID(n string, v ID) Attr         { return Attr{Name: n, Value: v} }
 func AError(n string, err error) Attr {
 	if err == nil {

@@ -679,37 +679,69 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 		}
 	}
 
+	var comma bool
+
 	b = append(b, `{"m":{`...)
 
 	if sid != (ID{}) {
 		b = append(b, `"s":"`...)
 		i := len(b)
-		b = append(b, `123456789_123456789_123456789_12",`...)
+		b = append(b, `123456789_123456789_123456789_12"`...)
 		sid.FormatTo(b[i:], 'x')
+
+		comma = true
 	}
 
 	if m.Time != 0 {
+		if comma {
+			b = append(b, ',')
+		}
+
 		b = append(b, `"t":`...)
 		b = strconv.AppendInt(b, m.Time, 10)
-		b = append(b, ',')
+
+		comma = true
+	}
+
+	if m.Level != 0 {
+		if comma {
+			b = append(b, ',')
+		}
+
+		b = append(b, `"i":`...)
+		b = strconv.AppendInt(b, int64(m.Level), 10)
+
+		comma = true
 	}
 
 	if m.PC != 0 {
+		if comma {
+			b = append(b, ',')
+		}
+
 		b = append(b, `"l":`...)
 		b = strconv.AppendInt(b, int64(m.PC), 10)
-		b = append(b, ',')
+
+		comma = true
 	}
 
-	b = append(b, `"m":"`...)
-	b = append(b, m.Text...)
-	b = append(b, '"')
+	if m.Text != "" {
+		if comma {
+			b = append(b, ',')
+		}
 
-	if m.Level != 0 {
-		b = append(b, `,"i":`...)
-		b = strconv.AppendInt(b, int64(m.Level), 10)
+		b = append(b, `"m":"`...)
+		b = append(b, m.Text...)
+		b = append(b, '"')
+
+		comma = true
 	}
 
 	if len(m.Attrs) != 0 {
+		if comma {
+			b = append(b, ',')
+		}
+
 		b = w.appendAttrs(b, m.Attrs)
 	}
 
@@ -721,7 +753,7 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 }
 
 func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
-	b = append(b, `,"a":[`...)
+	b = append(b, `"a":[`...)
 
 	for i, a := range attrs {
 		if i != 0 {

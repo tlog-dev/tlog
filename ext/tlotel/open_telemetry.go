@@ -273,7 +273,7 @@ func (s Span) SetStatus(c codes.Code, msg string) {
 }
 
 func (s Span) SetName(n string) {
-	s.Span.PrintwDepth(1, "name", tlog.AString("name", n))
+	s.Span.PrintwDepth(1, "name", tlog.AStr("name", n))
 }
 
 func (s Span) SetAttributes(kv ...label.KeyValue) {

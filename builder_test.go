@@ -28,7 +28,7 @@ func TestMessageBuilder(t *testing.T) {
 
 	var loc PC
 
-	tr := l.BuildSpanStart(ID{}).NewID().CallerOnce(0, &loc).Now().Start()
+	tr := l.BuildSpanStart().NewID().CallerOnce(0, &loc).Now().Start()
 
 	tr.BuildMessage().Now().Str("str", "str_value").Printf("")
 
@@ -38,7 +38,7 @@ func TestMessageBuilder(t *testing.T) {
 {"m":{"t":1562517071000000000,"l":\d+,"m":"message: args","a":\[{"n":"int","t":"i","v":12}\]}}
 {"l":{"p":\d+,"e":\d+,"f":"github.com/nikandfor/tlog/builder_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestMessageBuilder"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":1562517072000000000,"l":\d+}}
-{"m":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","t":1562517073000000000,"m":"","a":\[{"n":"str","t":"s","v":"str_value"}\]}}
+{"m":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","t":1562517073000000000,"a":\[{"n":"str","t":"s","v":"str_value"}\]}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":2000000000}}
 `
 
@@ -76,7 +76,7 @@ func BenchmarkBuilder(b *testing.B) {
 				{"MessageLocOnce", func(i int) { l.BuildMessage().Now().CallerOnce(0, &loc).Printf("message: %d", 1000+i) }},
 				{"MessageAttrs", func(i int) { l.BuildMessage().Now().Caller(0).Int("i", 1000+i).Printf("message") }},
 				{"MessageAttrsLocOnce", func(i int) { l.BuildMessage().Now().CallerOnce(0, &loc).Int("i", 1000+i).Printf("message") }},
-				{"SpanStartFinish", func(i int) { l.BuildSpanStart(ID{}).NewID().Now().Start().Finish() }},
+				{"SpanStartFinish", func(i int) { l.BuildSpanStart().NewID().Now().Start().Finish() }},
 			}
 
 			for _, par := range []bool{false, true} {

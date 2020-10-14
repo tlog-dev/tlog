@@ -197,7 +197,7 @@ func TestPrintw(t *testing.T) {
 	cfg.MessageWidth = 20
 	cw.StructuredConfig = &cfg
 
-	Printw("message", AInt("i", 1), AString("receiver", "pkg"))
+	Printw("message", AInt("i", 1), AStr("receiver", "pkg"))
 
 	DefaultLogger.Printw("message", Attrs{{"i", 3}, {"receiver", "logger"}}...)
 
@@ -574,7 +574,7 @@ func TestJSONWriterSpans(t *testing.T) {
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
-{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517074000000000,"l":\d+,"m":"link to ID","i":2,"a":\[{"n":"id","t":"d","v":"0194fdc2fa2ffcc041d3ff12045b73c8"},{"n":"str","t":"s","v":"str_value"}\]}}
+{"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517074000000000,"i":2,"l":\d+,"m":"link to ID","a":\[{"n":"id","t":"d","v":"0194fdc2fa2ffcc041d3ff12045b73c8"},{"n":"str","t":"s","v":"str_value"}\]}}
 {"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":123.456789}}
 {"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":456.123,"L":\["a=b"\]}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":3000000000}}

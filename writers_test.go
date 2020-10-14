@@ -521,7 +521,7 @@ func TestAttributes(t *testing.T) {
 		AInt64("int64", -2),
 		AUint64("uint64", 3),
 		AFloat("float64", 4.5),
-		AString("str", "string"),
+		AStr("str", "string"),
 		AID("id", id),
 		AError("err", errors.New("some_err")),
 	)
