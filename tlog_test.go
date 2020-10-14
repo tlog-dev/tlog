@@ -821,18 +821,17 @@ func BenchmarkStdLogLogger(b *testing.B) {
 func BenchmarkTlogLogger(b *testing.B) {
 	for _, tc := range []struct {
 		name string
-		ff   int
+		new  func(w io.Writer) *Logger
 	}{
-		{"Std", LstdFlags},
-		{"Det", LdetFlags},
+		{"Std", func(w io.Writer) *Logger { l := New(NewConsoleWriter(w, LstdFlags)); l.NoCaller = true; return l }},
+		{"Det", func(w io.Writer) *Logger { return New(NewConsoleWriter(w, LdetFlags)) }},
+		{"JSON", func(w io.Writer) *Logger { return New(NewJSONWriter(w)) }},
+		{"JSON_NoLoc", func(w io.Writer) *Logger { l := New(NewJSONWriter(w)); l.NoCaller = true; return l }},
 	} {
 		tc := tc
 
 		b.Run(tc.name, func(b *testing.B) {
-			l := New(NewConsoleWriter(ioutil.Discard, tc.ff))
-			if tc.ff == LstdFlags {
-				l.NoCaller = true
-			}
+			l := tc.new(ioutil.Discard)
 
 			cases := []struct {
 				name string
@@ -846,7 +845,7 @@ func BenchmarkTlogLogger(b *testing.B) {
 				par := par
 
 				if !par {
-					b.Run("SingleThread", func(b *testing.B) {
+					b.Run(SingleThread, func(b *testing.B) {
 						for _, tc := range cases {
 							tc := tc
 

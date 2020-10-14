@@ -17,27 +17,6 @@ import (
 	"github.com/nikandfor/tlog/tlogpb"
 )
 
-func TestConsoleWriterAppendSegment(t *testing.T) {
-	pref := []byte("prefix ")
-
-	var w ConsoleWriter
-
-	b := w.appendSegments(pref, 20, "path/to/file.go", '/')
-	assert.Equal(t, "prefix path/to/file.go", string(b))
-
-	b = w.appendSegments(pref, 12, "path/to/file.go", '/')
-	assert.Equal(t, "prefix p/to/file.go", string(b))
-
-	b = w.appendSegments(pref, 11, "path/to/file.go", '/')
-	assert.Equal(t, "prefix p/t/file.go", string(b))
-
-	b = w.appendSegments(pref, 10, "path/to/file.go", '/')
-	assert.Equal(t, "prefix p/t/file.g", string(b))
-
-	b = w.appendSegments(pref, 9, "path/to/file.go", '/')
-	assert.Equal(t, "prefix p/t/file.", string(b))
-}
-
 func TestConsoleWriterBuildHeader(t *testing.T) {
 	var w ConsoleWriter
 	var b bufWriter
@@ -820,6 +799,12 @@ func BenchmarkWriter(b *testing.B) {
 						{"TracedMessage", func(i int) {
 							_ = w.Message(Message{
 								PC:   loc,
+								Time: 1,
+								Text: msg,
+							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
+						}},
+						{"TracedMessage_NoLoc", func(i int) {
+							_ = w.Message(Message{
 								Time: 1,
 								Text: msg,
 							}, ID{1, 2, 3, 4, 5, 6, 7, 8})

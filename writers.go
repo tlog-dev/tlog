@@ -53,11 +53,14 @@ type (
 	//
 	// Each event ends up with a single Write.
 	ConsoleWriter struct {
-		w         io.Writer
-		f         int
-		Shortfile int
-		Funcname  int
-		IDWidth   int
+		w io.Writer
+		f int
+
+		// column widths
+		Shortfile  int
+		Funcname   int
+		IDWidth    int
+		LevelWidth int
 
 		StructuredConfig *StructuredConfig
 	}
@@ -207,34 +210,13 @@ func (wr *awr) Ret(b *Attrs) {
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	return &ConsoleWriter{
-		w:         w,
-		f:         f,
-		Shortfile: 20,
-		Funcname:  18,
-		IDWidth:   8,
+		w:          w,
+		f:          f,
+		Shortfile:  20,
+		Funcname:   18,
+		IDWidth:    8,
+		LevelWidth: 1,
 	}
-}
-
-func (w *ConsoleWriter) appendSegments(b []byte, wid int, name string, s byte) []byte {
-	end := len(b) + wid
-	for len(b) < end {
-		if len(name) <= end-len(b) {
-			b = append(b, name...)
-			break
-		}
-
-		p := strings.IndexByte(name, s)
-		if p == -1 {
-			b = append(b, name[:end-len(b)]...)
-			break
-		}
-
-		b = append(b, name[0], s)
-
-		name = name[p+1:]
-	}
-
-	return b
 }
 
 //nolint:gocognit,gocyclo,nestif
@@ -330,20 +312,25 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 	}
 
 	if w.f&Llevel != 0 {
+		i := len(b)
+		b = append(b, spaces[:w.LevelWidth]...)
+
 		switch {
 		case lv == LevelInfo:
-			b = append(b, 'I')
+			copy(b[i:], "INFO")
 		case lv == LevelWarning:
-			b = append(b, 'W')
+			copy(b[i:], "WARN")
 		case lv == LevelError:
-			b = append(b, 'E')
+			copy(b[i:], "ERROR")
 		case lv == LevelFatal:
-			b = append(b, 'F')
+			copy(b[i:], "FATAL")
 		default:
-			b = strconv.AppendInt(b, int64(lv), 16)
+			b = strconv.AppendInt(b[i:], int64(lv), 16)
 		}
 
-		b = append(b, ' ', ' ')
+		if pad := i + w.LevelWidth + 2 - len(b); pad > 0 {
+			b = append(b, spaces[:pad]...)
+		}
 	}
 
 	if w.f&(Llongfile|Lshortfile) != 0 {
