@@ -51,7 +51,7 @@ func main() {
 		ConstLabels: prometheus.Labels{"metric": "const_label"},
 	})
 
-	l.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MSummary, "help message that describes metric", tlog.Labels{"metric=const_label"})
+	l.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MSummary, "help message that describes metric")
 
 	prometheus.MustRegister(pm)
 	prometheus.MustRegister(pw)

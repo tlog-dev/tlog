@@ -49,11 +49,10 @@ message Attr {
 
 message Metric {
     bytes span   = 1;
-    int64 hash   = 2;
+    string name  = 2;
     double value = 3;
-    string name  = 4;
 
-    repeated string labels = 5;
+    repeated string labels = 4;
 }
 
 message Meta {

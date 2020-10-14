@@ -509,9 +509,8 @@ func SpawnOrStart(id ID) Span {
 // name is fully quatified name in prometheus manner.
 // typ is one of tlog.M* constants.
 // help is a short description.
-// labels are const labels that are attached to each Observation.
-func RegisterMetric(name, typ, help string, ls Labels) {
-	DefaultLogger.RegisterMetric(name, typ, help, ls)
+func RegisterMetric(name, typ, help string) {
+	DefaultLogger.RegisterMetric(name, typ, help)
 }
 
 // Observe records Metric event.
@@ -596,27 +595,14 @@ func (l *Logger) PrintRaw(d int, lvl Level, f string, args Args, attrs Attrs) {
 // name is fully quatified name in prometheus manner.
 // typ is one of tlog.M* constants.
 // help is a short description.
-// labels are const labels that are attached to each Observation.
-func (l *Logger) RegisterMetric(name, typ, help string, ls Labels) {
-	if !mtNameRe.MatchString(name) {
-		panic("bad metric name: " + name + ", expected: " + mtName)
-	}
-	for _, l := range ls {
-		if !mtLabelRe.MatchString(l) {
-			panic("bad label: " + l + ", expected: " + mtLabel)
-		}
-	}
-
+func (l *Logger) RegisterMetric(name, typ, help string) {
 	_ = l.Meta(Meta{
 		Type: "metric_desc",
-		Data: append(
-			Labels{
-				"name=" + name,
-				"type=" + typ,
-				"help=" + help,
-				"labels",
-			},
-			ls...),
+		Data: Labels{
+			"name=" + name,
+			"type=" + typ,
+			"help=" + help,
+		},
 	})
 }
 
@@ -820,8 +806,8 @@ func (s Span) PrintRaw(d int, lvl Level, f string, args Args, attrs Attrs) {
 func (s Span) Observe(n string, v float64, ls Labels) {
 	_ = s.Logger.Metric(Metric{
 		Name:   n,
-		Labels: ls,
 		Value:  v,
+		Labels: ls,
 	}, s.ID)
 }
 

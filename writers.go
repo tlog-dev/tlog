@@ -30,7 +30,7 @@ import (
 	If key is not reset in next Labels it is forgotten.
 
 	* Meta - Any metadata. There are few defined by tlog and any can be defined by app. Defined by tlog are:
-		* Metric - metric description (name, help message, metric type and metric static labels).
+		* Metric - metric description (name, help message, metric type).
 
 	* Location - Location in code: PC (program counter), file name, line and function name.
 	Other events are attached to previously logged locations by PC.
@@ -40,8 +40,7 @@ import (
 	* Message - Event with timestamp, PC, text and attributes. May be attached to Span or not by its ID.
 	Attributes encoded as a list of tuples with name, type and value.
 
-	* Metric - Metric data. Contains Hash, name, value and Labels.
-	Hash is calculated somehow from other fields so that they are omitted if was logged earlier it the file (stream).
+	* Metric - Metric data. Contains name, value and Labels.
 
 	* SpanStart - Span started event. Contains ID, Parent ID, timestamp and PC.
 
@@ -70,7 +69,9 @@ type (
 	// Each event ends up with a single Write if message fits in 1000 bytes (default) buffer.
 	JSONWriter struct {
 		w io.Writer
-		writerCache
+
+		mu sync.Mutex
+		ls map[PC]struct{}
 	}
 
 	// ProtoWriter encodes event logs in protobuf and produces more compact output then JSONWriter.
@@ -78,21 +79,9 @@ type (
 	// Each event ends up with a single Write.
 	ProtoWriter struct {
 		w io.Writer
-		writerCache
-	}
 
-	writerCache struct {
-		mu   sync.Mutex //nolint:structcheck
-		ls   map[PC]struct{}
-		cc   map[uintptr][]mh
-		skip map[string]int
-		ccn  int
-	}
-
-	mh struct {
-		N      int
-		Name   string
-		Labels Labels
+		mu sync.Mutex
+		ls map[PC]struct{}
 	}
 
 	// TeeWriter writes the same events in the same order to all Writers one after another.
@@ -594,19 +583,11 @@ func (w *ConsoleWriter) caller() PC {
 	return buf[i]
 }
 
-func makeWriteCache() writerCache {
-	return writerCache{
-		ls:   make(map[PC]struct{}),
-		cc:   make(map[uintptr][]mh),
-		skip: make(map[string]int),
-	}
-}
-
 // NewJSONWriter creates JSON writer.
 func NewJSONWriter(w io.Writer) *JSONWriter {
 	return &JSONWriter{
-		w:           w,
-		writerCache: makeWriteCache(),
+		w:  w,
+		ls: make(map[PC]struct{}),
 	}
 }
 
@@ -812,114 +793,7 @@ func (w *JSONWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 	return b
 }
 
-func (w *writerCache) killMetric(n string) {
-	w.skip[n] = -1
-
-	for h, list := range w.cc {
-		eq := 0
-		for _, el := range list {
-			if el.Name == n {
-				eq++
-			}
-		}
-
-		if eq == 0 {
-			continue
-		}
-
-		if eq == len(list) {
-			delete(w.cc, h)
-
-			continue
-		}
-
-		var cp []mh
-		for _, el := range list {
-			if el.Name == n {
-				continue
-			}
-
-			cp = append(cp, el)
-		}
-
-		w.cc[h] = cp
-	}
-}
-
-func (w *writerCache) metricCached(m Metric) (cnum int, full bool) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	skip := w.skip[m.Name]
-	if skip == -1 {
-		return 0, true
-	}
-
-	if skip > metricsCacheMaxValues {
-		w.killMetric(m.Name)
-
-		return 0, true
-	}
-
-	n := m.Name
-	h := strhash(&n, 0)
-	for _, l := range m.Labels {
-		n = l
-		h = strhash(&n, h)
-	}
-
-	if metricsTest {
-		h &= 7
-	}
-
-	cnum = -1
-	full = false
-outer:
-	for _, c := range w.cc[h] {
-		if len(c.Labels) != len(m.Labels) {
-			continue
-		}
-
-		if c.Name != m.Name {
-			continue
-		}
-
-		for i, l := range c.Labels {
-			if l != m.Labels[i] {
-				continue outer
-			}
-		}
-
-		cnum = c.N
-
-		break
-	}
-
-	if cnum != -1 {
-		return
-	}
-
-	w.ccn++
-	cnum = w.ccn
-	full = true
-
-	w.skip[m.Name]++
-
-	ls := make(Labels, len(m.Labels))
-	copy(ls, m.Labels)
-
-	w.cc[h] = append(w.cc[h], mh{
-		N:      cnum,
-		Name:   m.Name,
-		Labels: ls,
-	})
-
-	return
-}
-
 func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
-	cnum, full := w.metricCached(m)
-
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
@@ -932,32 +806,24 @@ func (w *JSONWriter) Metric(m Metric, sid ID) (err error) {
 		sid.FormatTo(b[i:], 'x')
 	}
 
-	if cnum != 0 {
-		b = append(b, `"h":`...)
-		b = strconv.AppendInt(b, int64(cnum), 10)
-		b = append(b, ',')
-	}
+	b = append(b, `"n":"`...)
+	b = appendSafe(b, m.Name)
+	b = append(b, '"')
 
-	b = append(b, `"v":`...)
+	b = append(b, `,"v":`...)
 	b = strconv.AppendFloat(b, m.Value, 'g', -1, 64)
 
-	if full {
-		b = append(b, `,"n":"`...)
-		b = appendSafe(b, m.Name)
-		b = append(b, '"')
-
-		if len(m.Labels) != 0 {
-			b = append(b, `,"L":[`...)
-			for i, l := range m.Labels {
-				if i != 0 {
-					b = append(b, ',')
-				}
-				b = append(b, '"')
-				b = appendSafe(b, l)
-				b = append(b, '"')
+	if len(m.Labels) != 0 {
+		b = append(b, `,"L":[`...)
+		for i, l := range m.Labels {
+			if i != 0 {
+				b = append(b, ',')
 			}
-			b = append(b, ']')
+			b = append(b, '"')
+			b = appendSafe(b, l)
+			b = append(b, '"')
 		}
+		b = append(b, ']')
 	}
 
 	b = append(b, `}}`+"\n"...)
@@ -1058,8 +924,8 @@ func (w *JSONWriter) location(b []byte, l PC) []byte {
 // NewProtoWriter creates protobuf writer.
 func NewProtoWriter(w io.Writer) *ProtoWriter {
 	return &ProtoWriter{
-		w:           w,
-		writerCache: makeWriteCache(),
+		w:  w,
+		ls: make(map[PC]struct{}),
 	}
 }
 
@@ -1355,22 +1221,15 @@ func (w *ProtoWriter) appendAttrs(b []byte, attrs Attrs) []byte {
 }
 
 func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
-	cnum, full := w.metricCached(m)
-
 	sz := 0
 	if sid != (ID{}) {
 		sz += 1 + varintSize(uint64(len(sid))) + len(sid)
 	}
-	if cnum != 0 {
-		sz += 1 + varintSize(uint64(cnum)) // hash
-	}
 	sz += 1 + 8 // value
-	if full {
-		sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
-		for _, l := range m.Labels {
-			q := len(l)
-			sz += 1 + varintSize(uint64(q)) + q
-		}
+	sz += 1 + varintSize(uint64(len(m.Name))) + len(m.Name)
+	for _, l := range m.Labels {
+		q := len(l)
+		sz += 1 + varintSize(uint64(q)) + q
 	}
 
 	b, wr := Getbuf()
@@ -1386,21 +1245,15 @@ func (w *ProtoWriter) Metric(m Metric, sid ID) (err error) {
 		b = append(b, sid[:]...)
 	}
 
-	if cnum != 0 {
-		b = appendTagVarint(b, 2<<3|0, uint64(cnum)) //nolint:staticcheck
-	}
+	b = appendTagVarint(b, 2<<3|2, uint64(len(m.Name)))
+	b = append(b, m.Name...)
 
 	b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
 	binary.LittleEndian.PutUint64(b[len(b)-8:], math.Float64bits(m.Value))
 
-	if full {
-		b = appendTagVarint(b, 4<<3|2, uint64(len(m.Name)))
-		b = append(b, m.Name...)
-
-		for _, l := range m.Labels {
-			b = appendTagVarint(b, 5<<3|2, uint64(len(l)))
-			b = append(b, l...)
-		}
+	for _, l := range m.Labels {
+		b = appendTagVarint(b, 4<<3|2, uint64(len(l)))
+		b = append(b, l...)
 	}
 
 	_, err = w.w.Write(b)

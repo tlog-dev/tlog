@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"regexp"
 	"testing"
@@ -366,18 +365,15 @@ func TestProtoWriter(t *testing.T) {
 	// metric itself
 	_ = w.Metric(
 		Metric{
-			Name:   "op_name_metric",
-			Value:  123.456,
-			Labels: []string{"m=1", "mm=2"},
+			Name:  "op_name_metric",
+			Value: 123.456,
 		},
 		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
-		Span:   id[:],
-		Hash:   1,
-		Name:   "op_name_metric",
-		Value:  123.456,
-		Labels: []string{"m=1", "mm=2"},
+		Span:  id[:],
+		Name:  "op_name_metric",
+		Value: 123.456,
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Metric:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
@@ -386,19 +382,20 @@ func TestProtoWriter(t *testing.T) {
 	buf.Reset()
 	pbuf = pbuf[:0]
 
-	// second time is encoded more compact
+	// one more metric
 	_ = w.Metric(
 		Metric{
 			Name:   "op_name_metric",
 			Value:  111.222,
-			Labels: []string{"m=1", "mm=2"},
+			Labels: Labels{"m=1", "mm=2"},
 		},
 		id,
 	)
 	pbuf = encode(pbuf, &tlogpb.Record{Metric: &tlogpb.Metric{
-		Span:  id[:],
-		Hash:  1,
-		Value: 111.222,
+		Span:   id[:],
+		Name:   "op_name_metric",
+		Value:  111.222,
+		Labels: []string{"m=1", "mm=2"},
 	}})
 	if !assert.Equal(t, pbuf, buf.Bytes()) {
 		t.Logf("Metric2:\n%vexp:\n%v", hex.Dump(buf.Bytes()), hex.Dump(pbuf))
@@ -419,16 +416,16 @@ func TestHelperWriters(t *testing.T) {
 	l.NoCaller = true
 	l.NewID = func() ID { return ID{1, 2, 3, 4, 5} }
 
-	l.RegisterMetric("name", MCounter, "", nil)
-	l.Observe("name", 1, nil)
+	l.RegisterMetric("name", MCounter, "")
+	l.Observe("name", 1, Labels{"a=b"})
 	l.SetLabels(Labels{"a", "b"})
 	tr := l.Start()
 	tr.Printf("message: %v", 2)
 	tr.Finish()
 
 	exp := []cev{
-		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name", "type=" + MCounter, "help=", "labels"}}},
-		{Ev: Metric{Name: "name", Value: 1}},
+		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name", "type=" + MCounter, "help="}}},
+		{Ev: Metric{Name: "name", Value: 1, Labels: Labels{"a=b"}}},
 		{Ev: Labels{"a", "b"}},
 		{Ev: SpanStart{ID: tr.ID}},
 		{ID: tr.ID, Ev: Message{Text: "message: 2"}},
@@ -444,170 +441,14 @@ func TestHelperWriters(t *testing.T) {
 		&fb,
 	)
 
-	l.RegisterMetric("name", MCounter, "", nil)
-	l.Observe("name", 1, nil)
+	l.RegisterMetric("name", MCounter, "")
+	l.Observe("name", 1, Labels{"a=b"})
 	l.SetLabels(Labels{"a", "b"})
 	tr = l.Start()
 	tr.Printf("message: %v", 2)
 	tr.Finish()
 
 	assert.Equal(t, exp, w.Events)
-}
-
-func TestMetricsCache(t *testing.T) {
-	var b, exp bufWriter
-
-	w := NewJSONWriter(&b)
-
-	l := New(w)
-
-	l.Observe("name", 1, Labels{"a=b"})
-	assert.Equal(t, `{"v":{"h":1,"v":1,"n":"name","L":["a=b"]}}`+"\n", string(b))
-
-	b = b[:0]
-
-	l.Observe("name", 1, Labels{"a=c"})
-	assert.Equal(t, `{"v":{"h":2,"v":1,"n":"name","L":["a=c"]}}`+"\n", string(b))
-
-	b = b[:0]
-
-	for i := 0; i < metricsCacheMaxValues+10; i++ {
-		l.Observe("name", float64(i), Labels{"a=b"})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d}}`+"\n", 1, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		l.Observe("name", float64(i), Labels{"a=c"})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d}}`+"\n", 2, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-	}
-}
-
-func TestMetricsCacheKill(t *testing.T) {
-	metricsCacheMaxValues = 10
-
-	var b, exp bufWriter
-
-	w := NewJSONWriter(&b)
-
-	l := New(w)
-
-	for i := 0; i < metricsCacheMaxValues+1; i++ {
-		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i+1, i, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		if t.Failed() {
-			return
-		}
-	}
-
-	for i := 0; i < 3; i++ {
-		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		if t.Failed() {
-			t.Logf("cache (%d): %v", len(w.cc), w.cc)
-			return
-		}
-	}
-}
-
-func TestMetricsCacheKill2(t *testing.T) {
-	metricsCacheMaxValues = 100
-	metricsTest = true
-	defer func() {
-		metricsTest = false
-	}()
-
-	var b, exp bufWriter
-
-	w := NewJSONWriter(&b)
-
-	l := New(w)
-
-	for i := 0; i < metricsCacheMaxValues; i++ {
-		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i+1, i, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		if t.Failed() {
-			return
-		}
-	}
-
-	for i := 0; i < metricsCacheMaxValues; i++ {
-		l.Observe("name2", float64(i), Labels{fmt.Sprintf("label=%d", i)})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d,"n":"name2","L":["label=%d"]}}`+"\n", metricsCacheMaxValues+i+1, i, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		if t.Failed() {
-			return
-		}
-	}
-
-	l.Observe("name3", float64(0), Labels{"a=b", "c=d"})
-
-	//	t.Logf("cache before: %d | %v %v", len(w.cc), w.skip, w.cc)
-
-	l.Observe("name", float64(0), Labels{fmt.Sprintf("label=%d", metricsCacheMaxValues)})
-
-	//	t.Logf("cache after:  %d | %v %v", len(w.cc), w.skip, w.cc)
-
-	b = b[:0]
-
-	for i := 0; i < 3; i++ {
-		l.Observe("name", float64(i), Labels{fmt.Sprintf("label=%d", i)})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"v":%d,"n":"name","L":["label=%d"]}}`+"\n", i, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		if t.Failed() {
-			t.Logf("cache (%d): %v", len(w.cc), w.cc)
-			return
-		}
-	}
-
-	for i := 0; i < 3; i++ {
-		l.Observe("name2", float64(i), Labels{fmt.Sprintf("label=%d", i)})
-
-		exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%d}}`+"\n", metricsCacheMaxValues+i+1, i)
-		assert.Equal(t, exp, b)
-
-		b = b[:0]
-
-		if t.Failed() {
-			t.Logf("cache (%d): %v", len(w.cc), w.cc)
-			return
-		}
-	}
-
-	l.Observe("name3", float64(1.1), Labels{"a=b", "c=d"})
-
-	exp = AppendPrintf(exp[:0], `{"v":{"h":%d,"v":%v}}`+"\n", 2*metricsCacheMaxValues+1, 1.1)
-	assert.Equal(t, exp, b)
-
-	b = b[:0]
 }
 
 func TestTeeWriter(t *testing.T) {
@@ -656,11 +497,11 @@ func TestConsoleMetrics(t *testing.T) {
 	w := NewConsoleWriter(&buf, 0)
 	l := New(NewTeeWriter(w))
 
-	l.RegisterMetric("name", MCounter, "help 1", Labels{"labels1"})
-	l.Observe("name", 3, Labels{"labels=again"})
+	l.RegisterMetric("name", MCounter, "help 1")
+	l.Observe("name", 3, Labels{"a=b", "c"})
 
-	assert.Equal(t, `Meta: metric_desc ["name=name" "type=counter" "help=help 1" "labels" "labels1"]
-name          3.00000  labels=again
+	assert.Equal(t, `Meta: metric_desc ["name=name" "type=counter" "help=help 1"]
+name          3.00000  a=b c
 `, buf.String())
 }
 
@@ -785,7 +626,6 @@ func BenchmarkWriter(b *testing.B) {
 				}
 
 				b.Run(n, func(b *testing.B) {
-					ls := Labels{"a=b", "c=d"}
 					msg := "some message"
 
 					var cw CountableIODiscard
@@ -810,9 +650,8 @@ func BenchmarkWriter(b *testing.B) {
 						}},
 						{"TracedMetric", func(i int) {
 							_ = w.Metric(Metric{
-								Name:   "some_fully_qualified_metric",
-								Value:  123.456,
-								Labels: ls,
+								Name:  "some_fully_qualified_metric",
+								Value: 123.456,
 							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 						}},
 					} {

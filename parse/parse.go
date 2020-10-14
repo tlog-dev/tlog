@@ -47,11 +47,9 @@ type (
 	}
 
 	Metric struct {
-		Span   ID          `json:"s"`
-		Labels tlog.Labels `json:"L"`
-		Name   string      `json:"n"`
-		Value  float64     `json:"v"`
-		Hash   int64       `json:"h"`
+		Span  ID      `json:"s"`
+		Name  string  `json:"n"`
+		Value float64 `json:"v"`
 	}
 
 	Meta struct {

@@ -68,9 +68,8 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.Metric(
 		tlog.Metric{
-			Name:   "op_metric",
-			Value:  123.456789,
-			Labels: tlog.Labels{"path=/url/path", "algo=fast"},
+			Name:  "op_metric",
+			Value: 123.456789,
 		},
 		ID{2},
 	)
@@ -138,9 +137,6 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			o = t
 		case Message:
 			t.PC = locs[t.PC]
-			o = t
-		case Metric:
-			t.Hash = 0
 			o = t
 		case SpanStart:
 			t.PC = locs[t.PC]
@@ -221,10 +217,9 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			StartedAt: now(),
 		},
 		Metric{
-			Span:   ID{2},
-			Labels: tlog.Labels{"path=/url/path", "algo=fast"},
-			Name:   "op_metric",
-			Value:  123.456789,
+			Span:  ID{2},
+			Name:  "op_metric",
+			Value: 123.456789,
 		},
 		SpanFinish{
 			ID:      ID{2},

@@ -43,7 +43,7 @@ func main() {
 	ll.SetLabels(lab)
 	ll.Printf("os.Args: %v", os.Args)
 
-	ll.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MGauge, "help message for metric that describes it", tlog.Labels{"const=labels"})
+	ll.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MGauge, "help message for metric that describes it")
 
 	ll.Printf("main: %d", *f)
 
@@ -59,12 +59,9 @@ func work() {
 	var a A
 	a.func1(tr.ID)
 
-	measuresSomething(tr)
-	measuresSomething(tr) // to show that metrics are compacted from the second time
-}
+	tr.SetLabels(tlog.Labels{"a", "b=c"})
 
-func measuresSomething(tr tlog.Span) {
-	tr.Observe("fully_qualified_metric_name_with_units", 123.456, tlog.Labels{"algo=fast"})
+	tr.Observe("fully_qualified_metric_name_with_units", 123.456, nil)
 }
 
 type A struct{}

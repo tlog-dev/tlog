@@ -399,8 +399,8 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			r.i++ // len
 			copy(m.Span[:], r.buf[r.i:r.i+x])
 			r.i += x
-		case 2<<3 | 0: //nolint:staticcheck
-			m.Hash, err = r.varint64()
+		case 2<<3 | 2:
+			m.Name, err = r.string()
 		case 3<<3 | 1:
 			var v int64
 			v, err = r.time()
@@ -409,16 +409,6 @@ func (r *ProtoReader) Metric() (m Metric, err error) {
 			}
 
 			m.Value = math.Float64frombits(uint64(v))
-		case 4<<3 | 2:
-			m.Name, err = r.string()
-		case 5<<3 | 2:
-			var l string
-			l, err = r.string()
-			if err != nil {
-				break
-			}
-
-			m.Labels = append(m.Labels, l)
 		default:
 			if err = r.skipField(tag, "metrics"); err != nil { //nolint:gocritic
 				return m, err

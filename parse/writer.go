@@ -136,9 +136,8 @@ func (w *ConsoleWriter) Message(m Message) (err error) {
 func (w *ConsoleWriter) Metric(m Metric) (err error) {
 	return w.w.Metric(
 		tlog.Metric{
-			Name:   m.Name,
-			Value:  m.Value,
-			Labels: m.Labels,
+			Name:  m.Name,
+			Value: m.Value,
 		},
 		m.Span,
 	)
@@ -196,10 +195,9 @@ func (w *ConvertWriter) Message(m tlog.Message, sid tlog.ID) error {
 
 func (w *ConvertWriter) Metric(m tlog.Metric, sid tlog.ID) error {
 	return w.w.Metric(Metric{
-		Span:   sid,
-		Name:   m.Name,
-		Value:  m.Value,
-		Labels: m.Labels,
+		Span:  sid,
+		Name:  m.Name,
+		Value: m.Value,
 	})
 }
 

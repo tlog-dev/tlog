@@ -254,10 +254,10 @@ func TestMetrics(t *testing.T) {
 	DefaultLogger = New(&w)
 	DefaultLogger.NoCaller = true
 
-	RegisterMetric("name1", MGauge, "help 1", Labels{"label1"})
+	RegisterMetric("name1", MGauge, "help 1")
 	Observe("name1", 4, Labels{"label11"})
 
-	DefaultLogger.RegisterMetric("name2", MCounter, "help 2", Labels{"label2"})
+	DefaultLogger.RegisterMetric("name2", MCounter, "help 2")
 	DefaultLogger.Observe("name2", 2, Labels{"label22"})
 
 	tr := Start()
@@ -267,23 +267,14 @@ func TestMetrics(t *testing.T) {
 	tr.Finish()
 
 	assert.Equal(t, []cev{
-		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name1", "type=" + MGauge, "help=help 1", "labels", "label1"}}},
+		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name1", "type=" + MGauge, "help=help 1"}}},
 		{Ev: Metric{Name: "name1", Value: 4, Labels: Labels{"label11"}}},
-		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name2", "type=" + MCounter, "help=help 2", "labels", "label2"}}},
+		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name2", "type=" + MCounter, "help=help 2"}}},
 		{Ev: Metric{Name: "name2", Value: 2, Labels: Labels{"label22"}}},
 		{Ev: SpanStart{ID: tr.ID, StartedAt: tr.StartedAt.UnixNano()}},
 		{ID: tr.ID, Ev: Metric{Name: "name2", Value: 5, Labels: Labels{"label33"}}},
 		{Ev: SpanFinish{ID: tr.ID, Elapsed: time.Second.Nanoseconds()}},
 	}, w.Events)
-
-	// regexp
-	assert.Panics(t, func() {
-		DefaultLogger.RegisterMetric("qwe123!", "", "", nil)
-	})
-
-	assert.Panics(t, func() {
-		DefaultLogger.RegisterMetric("qwe123", "", "", Labels{"a=!"})
-	})
 }
 
 //nolint:wsl
@@ -554,7 +545,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	l.SetLabels(Labels{"a=b", "f"})
 
-	l.RegisterMetric("metric_name", "type", "help description", Labels{"const=labels"})
+	l.RegisterMetric("metric_name", "type", "help description")
 
 	tr := l.Start()
 
@@ -566,8 +557,8 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	tr1.PrintRaw(0, ErrorLevel, "link to %v", Args{"ID"}, Attrs{{"id", tr.ID}, {"str", "str_value"}})
 
-	tr1.Observe("metric_name", 123.456789, Labels{"q=w", "e=1"})
-	tr1.Observe("metric_name", 456.123, Labels{"q=w", "e=1"})
+	tr1.Observe("metric_name", 123.456789, nil)
+	tr1.Observe("metric_name", 456.123, Labels{"a=b"})
 
 	tr1.Finish()
 
@@ -575,7 +566,7 @@ func TestJSONWriterSpans(t *testing.T) {
 
 	//nolint:lll
 	re := `{"L":{"L":\["a=b","f"\]}}
-{"M":{"t":"metric_desc","d":\["name=metric_name","type=type","help=help description","labels","const=labels"\]}}
+{"M":{"t":"metric_desc","d":\["name=metric_name","type=type","help=help description"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":1562517071000000000,"l":\d+}}
 {"L":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","L":\["a=d","g"\]}}
@@ -584,8 +575,8 @@ func TestJSONWriterSpans(t *testing.T) {
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517073000000000,"l":\d+,"m":"message 2"}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w./-]*tlog_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestJSONWriterSpans"}}
 {"m":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","t":1562517074000000000,"l":\d+,"m":"link to ID","i":2,"a":\[{"n":"id","t":"d","v":"0194fdc2fa2ffcc041d3ff12045b73c8"},{"n":"str","t":"s","v":"str_value"}\]}}
-{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":\d+,"v":123.456789,"n":"metric_name","L":\["q=w","e=1"\]}}
-{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","h":\d+,"v":456.123}}
+{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":123.456789}}
+{"v":{"s":"6e4ff95ff662a5eee82abdf44a2d0b75","n":"metric_name","v":456.123,"L":\["a=b"\]}}
 {"f":{"i":"6e4ff95ff662a5eee82abdf44a2d0b75","e":3000000000}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":5000000000}}
 `
@@ -1142,7 +1133,7 @@ func TestTlogGrandParallel(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < N; i++ {
-				RegisterMetric("message", "type", "help", nil)
+				RegisterMetric("message", "type", "help")
 			}
 		}()
 	}
@@ -1164,7 +1155,7 @@ func TestTlogGrandParallel(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < N; i++ {
-				tr.Observe("message", float64(i), Labels{"a", "b=c"})
+				tr.Observe("message", float64(i), Labels{"a=b", "c"})
 			}
 		}()
 	}

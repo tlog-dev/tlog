@@ -347,21 +347,6 @@ func (r *JSONReader) Metric() (m Metric, err error) {
 			if err != nil {
 				return Metric{}, r.r.ErrorHere(err)
 			}
-		case 'h':
-			n := string(r.r.NextNumber())
-			m.Hash, err = strconv.ParseInt(n, 10, 64)
-			if err != nil {
-				return Metric{}, r.r.ErrorHere(err)
-			}
-		case 'L':
-			if r.r.Type() != json.Array {
-				return Metric{}, r.r.ErrorHere(fmt.Errorf("array expected, got %v %v", r.r.Type(), r.tp))
-			}
-
-			for r.r.HasNext() {
-				l := string(r.r.NextString())
-				m.Labels = append(m.Labels, l)
-			}
 		default:
 			if err := r.unknownField(k); err != nil {
 				return Metric{}, err
