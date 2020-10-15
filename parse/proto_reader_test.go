@@ -20,9 +20,9 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	var buf bytes.Buffer
 	tm := time.Date(2019, 7, 31, 18, 21, 2, 0, time.Local)
-	now := func() int64 {
+	now := func() time.Time {
 		tm = tm.Add(time.Second)
-		return tm.UnixNano()
+		return tm
 	}
 
 	w := neww(&buf)
@@ -76,12 +76,12 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.SpanFinished(tlog.SpanFinish{
 		ID:      ID{2},
-		Elapsed: time.Second.Nanoseconds(),
+		Elapsed: time.Second,
 	})
 
 	_ = w.SpanFinished(tlog.SpanFinish{
 		ID:      ID{1},
-		Elapsed: 2 * time.Second.Nanoseconds(),
+		Elapsed: 2 * time.Second,
 	})
 
 	_ = w.Message(tlog.Message{
@@ -174,7 +174,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Message{
 			Span: ID{},
 			PC:   1,
-			Time: now(),
+			Time: now().UnixNano(),
 			Text: "3",
 		},
 		Frame{
@@ -188,7 +188,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			ID:        ID{1},
 			Parent:    ID{},
 			PC:        2,
-			StartedAt: now(),
+			StartedAt: now().UnixNano(),
 		},
 		Frame{
 			PC:    3,
@@ -200,7 +200,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 		Message{
 			Span: ID{1},
 			PC:   3,
-			Time: now(),
+			Time: now().UnixNano(),
 			Text: "5",
 		},
 		Frame{
@@ -214,7 +214,7 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 			ID:        ID{2},
 			Parent:    ID{1},
 			PC:        4,
-			StartedAt: now(),
+			StartedAt: now().UnixNano(),
 		},
 		Metric{
 			Span:  ID{2},

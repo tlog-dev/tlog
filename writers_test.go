@@ -24,54 +24,54 @@ func TestConsoleWriterBuildHeader(t *testing.T) {
 	loc := Caller(-1)
 
 	w.f = Ldate | Ltime | Lmilliseconds | LUTC
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "2019-07-07_08:19:30.100  ", string(b))
 
 	w.f = Ldate | Ltime | Lmicroseconds | LUTC
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "2019-07-07_08:19:30.100200  ", string(b))
 
 	w.f = Llongfile
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	ok, err := regexp.Match("(github.com/nikandfor/tlog/)?location.go:25  ", b)
 	assert.NoError(t, err)
 	assert.True(t, ok, string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 20
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "location.go:25        ", string(b))
 
 	w.f = Lshortfile
 	w.Shortfile = 10
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "locatio:25  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 10
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "Caller      ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 4
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "Call  ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 15
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), (&testt{}).testloc2())
+	b = w.buildHeader(b[:0], 0, tm, (&testt{}).testloc2())
 	assert.Equal(t, "testloc2.func1   ", string(b))
 
 	w.f = Lfuncname
 	w.Funcname = 12
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), (&testt{}).testloc2())
+	b = w.buildHeader(b[:0], 0, tm, (&testt{}).testloc2())
 	assert.Equal(t, "testloc2.fu1  ", string(b))
 
 	w.f = Ltypefunc
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), loc)
+	b = w.buildHeader(b[:0], 0, tm, loc)
 	assert.Equal(t, "tlog.Caller  ", string(b))
 
-	b = w.buildHeader(b[:0], 0, tm.UnixNano(), (&testt{}).testloc2())
+	b = w.buildHeader(b[:0], 0, tm, (&testt{}).testloc2())
 	assert.Equal(t, "tlog.(*testt).testloc2.func1  ", string(b))
 }
 
@@ -178,7 +178,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			PC:   loc,
-			Time: 2,
+			Time: time.Unix(0, 2),
 			Text: "4",
 		},
 		id,
@@ -219,7 +219,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.SpanStarted(SpanStart{
 		ID:        id,
 		Parent:    par,
-		StartedAt: 2,
+		StartedAt: time.Unix(0, 2),
 		PC:        loc,
 	})
 	pbuf = encode(pbuf, &tlogpb.Record{Frame: &tlogpb.Frame{
@@ -263,7 +263,7 @@ func TestProtoWriter(t *testing.T) {
 	// SpanFinished
 	_ = w.SpanFinished(SpanFinish{
 		ID:      id,
-		Elapsed: time.Second.Nanoseconds(),
+		Elapsed: time.Second,
 	})
 	pbuf = encode(pbuf, &tlogpb.Record{SpanFinish: &tlogpb.SpanFinish{
 		Id:      id[:],
@@ -279,7 +279,7 @@ func TestProtoWriter(t *testing.T) {
 	_ = w.Message(
 		Message{
 			PC:    loc,
-			Time:  2,
+			Time:  time.Unix(0, 2),
 			Level: ErrorLevel,
 			Text:  string(make([]byte, 1000)),
 		},
@@ -403,7 +403,7 @@ func TestProtoWriter(t *testing.T) {
 }
 
 func TestHelperWriters(t *testing.T) {
-	now = func() time.Time { return time.Unix(0, 0) }
+	now = func() time.Time { return time.Time{} }
 
 	var w collectWriter
 
@@ -463,9 +463,9 @@ func TestTeeWriter(t *testing.T) {
 	loc := Caller(-1)
 
 	_ = w.Labels(Labels{"a=b", "f"}, ID{})
-	_ = w.Message(Message{PC: loc, Text: "msg", Time: 1}, ID{})
-	_ = w.SpanStarted(SpanStart{ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC).UnixNano(), fe})
-	_ = w.SpanFinished(SpanFinish{ID{100}, time.Second.Nanoseconds()})
+	_ = w.Message(Message{PC: loc, Text: "msg", Time: time.Unix(0, 1)}, ID{})
+	_ = w.SpanStarted(SpanStart{ID{100}, ID{}, time.Date(2019, 7, 6, 10, 18, 32, 0, time.UTC), fe})
+	_ = w.SpanFinished(SpanFinish{ID{100}, time.Second})
 
 	re := `{"L":{"L":\["a=b","f"\]}}
 {"l":{"p":\d+,"e":\d+,"f":"[\w.-/]*location.go","l":25,"n":"github.com/nikandfor/tlog.Caller"}}
@@ -507,7 +507,7 @@ name                                              3.00000  a=b c
 
 //nolint:lll
 func TestAttributes(t *testing.T) {
-	now = func() time.Time { return time.Unix(0, 0) }
+	now = func() time.Time { return time.Time{} }
 
 	var js, pb bytes.Buffer
 
@@ -638,13 +638,13 @@ func BenchmarkWriter(b *testing.B) {
 						{"TracedMessage", func(i int) {
 							_ = w.Message(Message{
 								PC:   loc,
-								Time: 1,
+								Time: time.Unix(0, 1),
 								Text: msg,
 							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 						}},
 						{"TracedMessage_NoLoc", func(i int) {
 							_ = w.Message(Message{
-								Time: 1,
+								Time: time.Unix(0, 1),
 								Text: msg,
 							}, ID{1, 2, 3, 4, 5, 6, 7, 8})
 						}},

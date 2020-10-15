@@ -17,7 +17,6 @@ type (
 	SpanStartBuilder struct {
 		*Logger
 		SpanStart
-		t time.Time
 	}
 )
 
@@ -41,7 +40,6 @@ func getSpanb(l *Logger) (b *SpanStartBuilder) {
 	b = spanPool.Get().(*SpanStartBuilder)
 
 	b.Logger = l
-	b.t = time.Time{}
 
 	b.SpanStart = SpanStart{}
 
@@ -105,7 +103,7 @@ func (b *MessageBuilder) Now() *MessageBuilder {
 		return nil
 	}
 
-	b.Message.Time = now().UnixNano()
+	b.Message.Time = now()
 
 	return b
 }
@@ -115,7 +113,7 @@ func (b *MessageBuilder) Time(t time.Time) *MessageBuilder {
 		return nil
 	}
 
-	b.Message.Time = t.UnixNano()
+	b.Message.Time = t
 
 	return b
 }
@@ -275,8 +273,7 @@ func (b *SpanStartBuilder) Now() *SpanStartBuilder {
 		return nil
 	}
 
-	b.t = now()
-	b.SpanStart.StartedAt = b.t.UnixNano()
+	b.SpanStart.StartedAt = now()
 
 	return b
 }
@@ -286,8 +283,7 @@ func (b *SpanStartBuilder) Time(t time.Time) *SpanStartBuilder {
 		return nil
 	}
 
-	b.t = t
-	b.SpanStart.StartedAt = b.t.UnixNano()
+	b.SpanStart.StartedAt = t
 
 	return b
 }
@@ -333,7 +329,7 @@ func (b *SpanStartBuilder) Start() (s Span) {
 
 	_ = b.Logger.Writer.SpanStarted(b.SpanStart)
 
-	s = Span{Logger: b.Logger, ID: b.SpanStart.ID, StartedAt: b.t}
+	s = Span{Logger: b.Logger, ID: b.SpanStart.ID, StartedAt: b.SpanStart.StartedAt}
 
 	spanPool.Put(b)
 

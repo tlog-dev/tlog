@@ -132,13 +132,8 @@ func (t Tracer) Start(ctx context.Context, spanName string, opts ...trace.StartO
 		se.Parent = tlog.ID(cfg.Links[0].SpanContext.TraceID)
 	}
 
-	if cfg.StartTime != (time.Time{}) {
-		s.StartedAt = cfg.StartTime
-	} else {
-		s.StartedAt = time.Now()
-	}
-
-	se.StartedAt = s.StartedAt.UnixNano()
+	s.StartedAt = cfg.StartTime
+	se.StartedAt = s.StartedAt
 
 	if !t.Logger.NoCaller {
 		se.PC = tlog.Funcentry(1)
@@ -195,9 +190,9 @@ func (s Span) End(opts ...trace.EndOption) {
 	}
 
 	if cfg.EndTime != (time.Time{}) {
-		e.Elapsed = cfg.EndTime.Sub(s.Span.StartedAt).Nanoseconds()
+		e.Elapsed = cfg.EndTime.Sub(s.Span.StartedAt)
 	} else {
-		e.Elapsed = time.Since(s.Span.StartedAt).Nanoseconds()
+		e.Elapsed = time.Since(s.Span.StartedAt)
 	}
 
 	_ = s.Span.Logger.SpanFinished(e)
@@ -216,7 +211,7 @@ func (s Span) AddEventWithTimestamp(ctx context.Context, tm time.Time, name stri
 		m.PC = tlog.Caller(1)
 	}
 	if tm != (time.Time{}) {
-		m.Time = tm.UnixNano()
+		m.Time = tm
 	}
 
 	m.Attrs = attrs(nil, kvs)
@@ -245,11 +240,7 @@ func (s Span) RecordError(ctx context.Context, err error, opts ...trace.ErrorOpt
 		Attrs: tlog.Attrs{{Name: "error", Value: err}},
 	}
 
-	if cfg.Timestamp != (time.Time{}) {
-		m.Time = cfg.Timestamp.UnixNano()
-	} else {
-		m.Time = time.Now().UnixNano()
-	}
+	m.Time = cfg.Timestamp
 
 	if cfg.StatusCode != 0 {
 		m.Attrs = append(m.Attrs, tlog.AInt("code", int(cfg.StatusCode)))

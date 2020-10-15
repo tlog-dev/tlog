@@ -69,20 +69,20 @@ type (
 	SpanStart struct {
 		ID        ID
 		Parent    ID
-		StartedAt int64
+		StartedAt time.Time
 		PC        PC
 	}
 
 	// SpanFinish is a log event.
 	SpanFinish struct {
 		ID      ID
-		Elapsed int64
+		Elapsed time.Duration
 	}
 
 	// Message is a log event.
 	Message struct {
 		PC    PC
-		Time  int64
+		Time  time.Time
 		Text  string
 		Attrs Attrs
 		Level Level
@@ -198,38 +198,31 @@ func newlabels(l *Logger, ls Labels, sid ID) {
 		return
 	}
 
-	for _, l := range ls {
-		if !mtLabelRe.MatchString(l) {
-			panic("bad label: " + l + ", expected: " + mtLabel)
-		}
-	}
-
 	_ = l.Writer.Labels(ls, sid)
 }
 
-func newspan(l *Logger, d int, par ID) Span {
+func newspan(l *Logger, d int, par ID) (s Span) {
 	if l == nil {
 		return Span{}
 	}
 
-	var loc PC
-	if !l.NoCaller {
-		loc = Funcentry(d + 2)
-	}
-
-	s := Span{
+	s = Span{
 		Logger:    l,
+		ID:        l.NewID(),
 		StartedAt: now(),
 	}
 
-	s.ID = l.NewID()
-
-	_ = l.Writer.SpanStarted(SpanStart{
+	ss := SpanStart{
 		ID:        s.ID,
 		Parent:    par,
-		StartedAt: s.StartedAt.UnixNano(),
-		PC:        loc,
-	})
+		StartedAt: s.StartedAt,
+	}
+
+	if !l.NoCaller {
+		ss.PC = Funcentry(d + 2)
+	}
+
+	_ = l.Writer.SpanStarted(ss)
 
 	return s
 }
@@ -239,18 +232,18 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 		return
 	}
 
-	t := now()
-
-	var loc PC
-	if !l.NoCaller {
-		loc = Caller(d + 2)
+	msg := Message{
+		Time:  now(),
+		Level: lvl,
 	}
 
-	var txt []byte
+	if !l.NoCaller {
+		msg.PC = Caller(d + 2)
+	}
 
 	if args == nil {
 		if f != "" {
-			txt = stringToBytes(f)
+			msg.Text = f
 		}
 	} else {
 		b, wr := Getbuf()
@@ -262,28 +255,17 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 			b = AppendPrintln(b, args...)
 		}
 
-		txt = b
+		msg.Text = bytesToString(b)
 	}
-
-	var lattrs Attrs
 
 	if len(attrs) != 0 {
 		b, wr := GetAttrsbuf()
 		defer wr.Ret(&b)
 
-		lattrs = append(b[:0], attrs...)
+		msg.Attrs = append(b[:0], attrs...)
 	}
 
-	_ = l.Writer.Message(
-		Message{
-			PC:    loc,
-			Time:  t.UnixNano(),
-			Text:  bytesToString(txt),
-			Attrs: lattrs,
-			Level: lvl,
-		},
-		sid,
-	)
+	_ = l.Writer.Message(msg, sid)
 }
 
 // New creates new Logger with given writers.
@@ -817,7 +799,7 @@ func (s Span) Finish() {
 
 	_ = s.Logger.Writer.SpanFinished(SpanFinish{
 		ID:      s.ID,
-		Elapsed: el.Nanoseconds(),
+		Elapsed: el,
 	})
 }
 

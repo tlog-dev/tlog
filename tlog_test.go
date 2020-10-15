@@ -232,16 +232,6 @@ msg                 difflen=ab     next=val
 `, buf.String())
 }
 
-func TestLabelRegexp(t *testing.T) {
-	l := New()
-
-	l.SetLabels(Labels{"a", "b=c"})
-
-	assert.Panics(t, func() {
-		l.SetLabels(Labels{"!a", "b=c"})
-	})
-}
-
 func TestMetrics(t *testing.T) {
 	tm := time.Date(2019, time.July, 6, 19, 45, 25, 0, time.Local)
 	now = func() time.Time {
@@ -271,9 +261,9 @@ func TestMetrics(t *testing.T) {
 		{Ev: Metric{Name: "name1", Value: 4, Labels: Labels{"label11"}}},
 		{Ev: Meta{Type: MetaMetricDescription, Data: Labels{"name=name2", "type=" + MCounter, "help=help 2"}}},
 		{Ev: Metric{Name: "name2", Value: 2, Labels: Labels{"label22"}}},
-		{Ev: SpanStart{ID: tr.ID, StartedAt: tr.StartedAt.UnixNano()}},
+		{Ev: SpanStart{ID: tr.ID, StartedAt: tr.StartedAt}},
 		{ID: tr.ID, Ev: Metric{Name: "name2", Value: 5, Labels: Labels{"label33"}}},
-		{Ev: SpanFinish{ID: tr.ID, Elapsed: time.Second.Nanoseconds()}},
+		{Ev: SpanFinish{ID: tr.ID, Elapsed: time.Second}},
 	}, w.Events)
 }
 
@@ -681,7 +671,7 @@ func TestCoverUncovered(t *testing.T) {
 	l.NoCaller = true
 	l.NewID = func() ID { return ID{4, 5, 6} }
 	now = func() time.Time {
-		return time.Unix(0, 0)
+		return time.Time{}
 	}
 
 	(*Logger)(nil).SpawnOrStart(ID{1, 2, 3})
