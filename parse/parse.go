@@ -69,6 +69,7 @@ type (
 
 		Labels() (Labels, error)
 		Frame() (Frame, error)
+		Meta() (Meta, error)
 		Message() (Message, error)
 		Metric() (Metric, error)
 		SpanStart() (SpanStart, error)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -268,8 +267,14 @@ func (wr *awr) Ret(b *Attrs) {
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	var colorize bool
-	if f, ok := w.(*os.File); ok {
+	if f, ok := w.(interface {
+		Fd() uintptr
+	}); ok {
 		colorize = terminal.IsTerminal(int(f.Fd()))
+	} else if f, ok := w.(interface {
+		Fd() int
+	}); ok {
+		colorize = terminal.IsTerminal(f.Fd())
 	}
 
 	return &ConsoleWriter{
@@ -691,7 +696,11 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = AppendPrintf(b, "Meta: %v %q", m.Type, m.Data)
+	b = AppendPrintf(b, "Meta: %v ", m.Type)
+
+	for _, l := range m.Data {
+		b = AppendPrintf(b, " %q", l)
+	}
 
 	return w.Message(
 		Message{

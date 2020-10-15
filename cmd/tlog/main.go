@@ -17,7 +17,7 @@ import (
 
 type (
 	nopCloser struct {
-		io.Writer
+		*os.File
 	}
 )
 
@@ -201,7 +201,7 @@ func openWriterNoDB(c *cli.Command, n string) (w parse.Writer, cl func() error, 
 	case "protobuf", "proto", "pb":
 		w = parse.NewAnyWiter(tlog.NewProtoWriter(fw))
 	case "console", "stderr", "log", "":
-		w = parse.NewConsoleWriter(fw, tlog.LdetFlags|tlog.Lspans|tlog.Lmessagespan)
+		w = parse.NewAnyWiter(tlog.NewConsoleWriter(fw, tlog.LdetFlags|tlog.Lspans|tlog.Lmessagespan))
 	}
 
 	return
@@ -236,7 +236,7 @@ func openReader(c *cli.Command, n string) (r parse.LowReader, cl func() error, e
 
 func fropen(c *cli.Command, n string) (io.ReadCloser, error) {
 	ext := filepath.Ext(n)
-	if n := strings.TrimSuffix(n, ext); n == "-" {
+	if n := strings.TrimSuffix(n, ext); n == "-" || n == "" {
 		return ioutil.NopCloser(os.Stdin), nil
 	}
 
@@ -252,7 +252,7 @@ func fropen(c *cli.Command, n string) (io.ReadCloser, error) {
 
 func fwopen(c *cli.Command, n string) (io.WriteCloser, error) {
 	ext := filepath.Ext(n)
-	if n := strings.TrimSuffix(n, ext); n == "-" {
+	if n := strings.TrimSuffix(n, ext); n == "-" || n == "" {
 		return nopCloser{os.Stdout}, nil
 	}
 
@@ -269,4 +269,4 @@ func fwopen(c *cli.Command, n string) (io.WriteCloser, error) {
 	return f, nil
 }
 
-func (c nopCloser) Close() error { return nil }
+func (nopCloser) Close() error { return nil }

@@ -22,6 +22,8 @@ func initComplexLogger() func() {
 	jw := tlog.NewJSONWriter(&buf)
 
 	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
+	cw.Shortfile = 14
+	cw.Funcname = 14
 	cw.IDWidth = 10
 	cw.LevelWidth = 3
 

@@ -1,7 +1,6 @@
 package parse
 
 import (
-	"io"
 	"time"
 
 	"github.com/nikandfor/tlog"
@@ -19,11 +18,7 @@ type (
 	}
 
 	AnyWriter struct {
-		w tlog.Writer
-	}
-
-	ConsoleWriter struct {
-		w *tlog.ConsoleWriter
+		tlog.Writer
 	}
 
 	ConvertWriter struct {
@@ -34,16 +29,20 @@ type (
 	DiscardWriter struct{}
 )
 
-var _ tlog.Writer = &ConvertWriter{}
+var (
+	_ Writer = AnyWriter{}
 
-var Discard Writer = DiscardWriter{}
+	_ tlog.Writer = &ConvertWriter{}
+
+	Discard Writer = DiscardWriter{}
+)
 
 func NewAnyWiter(w tlog.Writer) AnyWriter {
-	return AnyWriter{w: w}
+	return AnyWriter{Writer: w}
 }
 
 func (w AnyWriter) Labels(ls Labels) error {
-	return w.w.Labels(ls.Labels, ls.Span)
+	return w.Writer.Labels(ls.Labels, ls.Span)
 }
 
 func (w AnyWriter) Frame(l Frame) error {
@@ -53,7 +52,7 @@ func (w AnyWriter) Frame(l Frame) error {
 }
 
 func (w AnyWriter) Meta(m Meta) error {
-	return w.w.Meta(
+	return w.Writer.Meta(
 		tlog.Meta{
 			Type: m.Type,
 			Data: m.Data,
@@ -62,18 +61,20 @@ func (w AnyWriter) Meta(m Meta) error {
 }
 
 func (w AnyWriter) Message(m Message) error {
-	return w.w.Message(
+	return w.Writer.Message(
 		tlog.Message{
-			PC:   tlog.PC(m.PC),
-			Time: tt(m.Time),
-			Text: m.Text,
+			PC:    tlog.PC(m.PC),
+			Time:  tt(m.Time),
+			Text:  m.Text,
+			Attrs: m.Attrs,
+			Level: m.Level,
 		},
 		m.Span,
 	)
 }
 
 func (w AnyWriter) Metric(m Metric) error {
-	return w.w.Metric(
+	return w.Writer.Metric(
 		tlog.Metric{
 			Name:  m.Name,
 			Value: m.Value,
@@ -83,7 +84,7 @@ func (w AnyWriter) Metric(m Metric) error {
 }
 
 func (w AnyWriter) SpanStart(s SpanStart) error {
-	return w.w.SpanStarted(tlog.SpanStart{
+	return w.Writer.SpanStarted(tlog.SpanStart{
 		ID:        s.ID,
 		Parent:    s.Parent,
 		StartedAt: tt(s.StartedAt),
@@ -92,69 +93,7 @@ func (w AnyWriter) SpanStart(s SpanStart) error {
 }
 
 func (w AnyWriter) SpanFinish(f SpanFinish) error {
-	return w.w.SpanFinished(tlog.SpanFinish{
-		ID:      f.ID,
-		Elapsed: time.Duration(f.Elapsed),
-	})
-}
-
-func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
-	return &ConsoleWriter{
-		w: tlog.NewConsoleWriter(w, f),
-	}
-}
-
-func (w *ConsoleWriter) Labels(ls Labels) error {
-	return w.w.Labels(ls.Labels, ls.Span)
-}
-
-func (w *ConsoleWriter) Frame(l Frame) error {
-	tlog.PC(l.PC).SetCache(l.Name, l.File, l.Line)
-
-	return nil
-}
-
-func (w *ConsoleWriter) Meta(m Meta) error {
-	return w.w.Meta(
-		tlog.Meta{
-			Type: m.Type,
-			Data: m.Data,
-		},
-	)
-}
-
-func (w *ConsoleWriter) Message(m Message) (err error) {
-	return w.w.Message(
-		tlog.Message{
-			PC:   tlog.PC(m.PC),
-			Time: tt(m.Time),
-			Text: m.Text,
-		},
-		m.Span,
-	)
-}
-
-func (w *ConsoleWriter) Metric(m Metric) (err error) {
-	return w.w.Metric(
-		tlog.Metric{
-			Name:  m.Name,
-			Value: m.Value,
-		},
-		m.Span,
-	)
-}
-
-func (w *ConsoleWriter) SpanStart(s SpanStart) (err error) {
-	return w.w.SpanStarted(tlog.SpanStart{
-		ID:        s.ID,
-		Parent:    s.Parent,
-		StartedAt: tt(s.StartedAt),
-		PC:        tlog.PC(s.PC),
-	})
-}
-
-func (w *ConsoleWriter) SpanFinish(f SpanFinish) (err error) {
-	return w.w.SpanFinished(tlog.SpanFinish{
+	return w.Writer.SpanFinished(tlog.SpanFinish{
 		ID:      f.ID,
 		Elapsed: time.Duration(f.Elapsed),
 	})

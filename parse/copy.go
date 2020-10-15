@@ -38,6 +38,16 @@ func Copy(w Writer, r LowReader) error {
 			if err != nil {
 				return errors.Wrap(err, "writer")
 			}
+		case 'M':
+			m, err := r.Meta()
+			if err != nil {
+				return errors.Wrap(err, "reader")
+			}
+
+			err = w.Meta(m)
+			if err != nil {
+				return errors.Wrap(err, "writer")
+			}
 		case 'm':
 			m, err := r.Message()
 			if err != nil {
