@@ -141,18 +141,18 @@ func TestIOWriter(t *testing.T) {
 	var buf bytes.Buffer
 	DefaultLogger = New(NewConsoleWriter(&buf, 0))
 
-	n, err := DefaultLogger.IOWriter(0).Write([]byte("raw message 2"))
+	n, err := DefaultLogger.IOWriter(0, 0).Write([]byte("raw message 2"))
 	assert.NoError(t, err)
 	assert.Equal(t, 13, n)
 
 	tr := Start()
-	n, err = tr.IOWriter(0).Write([]byte("raw message 3"))
+	n, err = tr.IOWriter(0, ErrorLevel).Write([]byte("raw message 3"))
 	assert.NoError(t, err)
 	assert.Equal(t, 13, n)
 	tr.Finish()
 
 	tr = Span{}
-	n, err = tr.IOWriter(0).Write([]byte("raw message 4"))
+	n, err = tr.IOWriter(0, 0).Write([]byte("raw message 4"))
 	assert.NoError(t, err)
 	assert.Equal(t, 13, n)
 
@@ -160,7 +160,7 @@ func TestIOWriter(t *testing.T) {
 raw message 3
 `, buf.String())
 
-	n, err = (*Logger)(nil).IOWriter(0).Write([]byte("123"))
+	n, err = (*Logger)(nil).IOWriter(0, 0).Write([]byte("123"))
 	assert.NoError(t, err)
 	assert.Equal(t, 3, n)
 }
@@ -968,7 +968,7 @@ func BenchmarkTlogProtoWrite(b *testing.B) {
 	l := New(NewProtoWriter(ioutil.Discard))
 
 	tr := l.Start()
-	w := tr.IOWriter(0)
+	w := tr.IOWriter(0, 0)
 
 	buf := AppendPrintf(nil, "message %d", 1000)
 

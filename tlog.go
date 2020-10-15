@@ -43,7 +43,8 @@ type (
 
 		// DepthCorrection is for passing Logger to another loggers. Example:
 		//     log.SetOutput(l) // stdlib.
-		d int
+		d  int
+		lv Level
 	}
 
 	// Writer is an encoder and writer of events.
@@ -120,6 +121,8 @@ type (
 		mu sync.Mutex
 		r  *rand.Rand
 	}
+
+	ReaderFunc func(p []byte) (int, error)
 )
 
 // for you not to import os if you don't want.
@@ -809,20 +812,22 @@ func (s Span) Finish() {
 // It's safe to call any method on not Valid Span.
 func (s Span) Valid() bool { return s.Logger != nil }
 
-func (l *Logger) IOWriter(d int) io.Writer {
+func (l *Logger) IOWriter(d int, lv Level) io.Writer {
 	return writeWrapper{
 		Span: Span{
 			Logger: l,
 		},
-		d: d,
+		d:  d,
+		lv: lv,
 	}
 }
 
 // WriteWrapper returns an io.Writer interface implementation.
-func (s Span) IOWriter(d int) io.Writer {
+func (s Span) IOWriter(d int, lv Level) io.Writer {
 	return writeWrapper{
 		Span: s,
 		d:    d,
+		lv:   lv,
 	}
 }
 
@@ -831,7 +836,7 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 		return len(p), nil
 	}
 
-	newmessage(w.Logger, w.d, 0, w.ID, bytesToString(p), nil, nil)
+	newmessage(w.Logger, w.d, w.lv, w.ID, bytesToString(p), nil, nil)
 
 	return len(p), nil
 }
@@ -1022,6 +1027,8 @@ func UUID(r io.Reader) func() ID {
 		return uuid
 	}
 }
+
+func (f ReaderFunc) Read(p []byte) (int, error) { return f(p) }
 
 func AInt(n string, v int) Attr       { return Attr{Name: n, Value: v} }
 func AInt64(n string, v int64) Attr   { return Attr{Name: n, Value: v} }

@@ -71,9 +71,9 @@ func (*A) func1(id tlog.ID) {
 	tr := ll.Spawn(id)
 	defer tr.Finish()
 
-	ll.Printw("func1", tlog.AInt("num", 3))
+	tr.PrintRaw(0, tlog.WarnLevel, "func1: %v", tlog.Args{"error message"}, tlog.Attrs{{Name: "attribute", Value: "value"}})
 
 	func() {
-		tr.Errorf("func1.1: %v", "error message")
+		tr.Errorf("func1.1: %v", 3)
 	}()
 }

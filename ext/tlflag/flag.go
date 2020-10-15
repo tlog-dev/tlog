@@ -68,6 +68,10 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 	}()
 
 	for _, d := range strings.Split(dst, ",") {
+		if d == "" {
+			continue
+		}
+
 		var opts string
 		ff := tlog.LstdFlags
 		of := 0

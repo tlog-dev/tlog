@@ -187,9 +187,9 @@ var DefaultColorConfig = ColorConfig{
 	DebugLevel: ColorDarkGray,
 	Levels: [4]int{
 		ColorDarkGray,
-		ColorYellow,
 		ColorRed,
-		ColorBlue,
+		ColorRed,
+		ColorRed,
 	},
 	AttrKey: ColorCyan,
 }
@@ -403,6 +403,9 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, t time.Time, loc PC) []b
 		}
 
 		if color != 0 {
+			if lv >= ErrorLevel {
+				b = append(b, colors[ColorBold]...)
+			}
 			b = append(b, colors[color]...)
 		}
 
@@ -419,7 +422,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, t time.Time, loc PC) []b
 		case FatalLevel:
 			copy(b[i:], "FATAL")
 		default:
-			b = strconv.AppendInt(b[i:], int64(lv), 16)
+			b = AppendPrintf(b[:i], "%*x", w.LevelWidth, lv)
 		}
 
 		end := len(b)
