@@ -120,6 +120,29 @@ func BenchmarkBuilder(b *testing.B) {
 	}
 }
 
+func BenchmarkBuilderCallerOnce(b *testing.B) {
+	b.Run("Caller", func(b *testing.B) {
+		m := DefaultLogger.BuildMessage()
+
+		b.RunParallel(func(b *testing.PB) {
+			for b.Next() {
+				m.Caller(2)
+			}
+		})
+	})
+
+	b.Run("CallerOnce", func(b *testing.B) {
+		var loc PC
+		m := DefaultLogger.BuildMessage()
+
+		b.RunParallel(func(b *testing.PB) {
+			for b.Next() {
+				m.CallerOnce(2, &loc)
+			}
+		})
+	})
+}
+
 func BenchmarkMutex(b *testing.B) {
 	b.Run("Mutex", func(b *testing.B) {
 		var mu sync.Mutex
