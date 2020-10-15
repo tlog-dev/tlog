@@ -15,6 +15,7 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.6.1
 	go.opentelemetry.io/otel v0.11.0
+	golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/fsnotify.v1 v1.4.7
 )

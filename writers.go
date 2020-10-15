@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 //go:generate protoc --go_out=. tlogpb/tlog.proto
@@ -61,7 +64,22 @@ type (
 		IDWidth    int
 		LevelWidth int
 
+		Colorize bool
+
+		ColorConfig      *ColorConfig
 		StructuredConfig *StructuredConfig
+	}
+
+	ColorConfig struct {
+		Time       int
+		File       int
+		Func       int
+		SpanID     int
+		Message    int
+		AttrKey    int
+		AttrValue  int
+		DebugLevel int
+		Levels     [4]int
 	}
 
 	// JSONWriter produces output readable by both machines and humans.
@@ -146,6 +164,51 @@ type (
 	}
 )
 
+const ( // colors
+	ColorBlack = iota + 30
+	ColorRed
+	ColorGreen
+	ColorYellow
+	ColorBlue
+	ColorMagenta
+	ColorCyan
+	ColorWhite
+
+	ColorDefault  = 0
+	ColorBold     = 1
+	ColorDarkGray = 90
+)
+
+var DefaultColorConfig = ColorConfig{
+	Time:       ColorDarkGray,
+	File:       ColorDarkGray,
+	Func:       ColorDarkGray,
+	SpanID:     ColorDarkGray,
+	DebugLevel: ColorDarkGray,
+	Levels: [4]int{
+		ColorDarkGray,
+		ColorYellow,
+		ColorRed,
+		ColorBlue,
+	},
+	AttrKey: ColorCyan,
+}
+
+var colors [256][]byte
+
+func init() {
+	for i := range colors {
+		switch {
+		case i < 10:
+			colors[i] = []byte{'\x1b', '[', '0' + byte(i%10), 'm'}
+		case i < 100:
+			colors[i] = []byte{'\x1b', '[', '0' + byte(i/10), '0' + byte(i%10), 'm'}
+		default:
+			colors[i] = []byte{'\x1b', '[', '0' + byte(i/100), '0' + byte(i/10%10), '0' + byte(i%10), 'm'}
+		}
+	}
+}
+
 var metricsCacheMaxValues = 1000
 
 var ( // type checks
@@ -204,13 +267,19 @@ func (wr *awr) Ret(b *Attrs) {
 
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
+	var colorize bool
+	if f, ok := w.(*os.File); ok {
+		colorize = terminal.IsTerminal(int(f.Fd()))
+	}
+
 	return &ConsoleWriter{
 		w:          w,
 		f:          f,
 		Shortfile:  20,
 		Funcname:   18,
 		IDWidth:    8,
-		LevelWidth: 1,
+		LevelWidth: 3,
+		Colorize:   colorize,
 	}
 }
 
@@ -218,6 +287,14 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte {
 	var fname, file string
 	line := -1
+
+	var col *ColorConfig
+	if w.Colorize {
+		col = w.ColorConfig
+		if col == nil {
+			col = &DefaultColorConfig
+		}
+	}
 
 	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
 		t := time.Unix(0, ts)
@@ -229,6 +306,10 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 		var Y, M, D, h, m, s int
 		if w.f&(Ldate|Ltime) != 0 {
 			Y, M, D, h, m, s = splitTime(t)
+		}
+
+		if col != nil && col.Time != 0 {
+			b = append(b, colors[col.Time]...)
 		}
 
 		if w.f&Ldate != 0 {
@@ -303,33 +384,63 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 			}
 		}
 
+		if col != nil && col.Time != 0 {
+			b = append(b, colors[0]...)
+		}
+
 		b = append(b, ' ', ' ')
 	}
 
 	if w.f&Llevel != 0 {
+		var color int
+		if col != nil {
+			switch {
+			case lv < 0:
+				color = col.DebugLevel
+			case lv > FatalLevel:
+				color = col.Levels[FatalLevel]
+			default:
+				color = col.Levels[lv]
+			}
+		}
+
+		if color != 0 {
+			b = append(b, colors[color]...)
+		}
+
 		i := len(b)
 		b = append(b, spaces[:w.LevelWidth]...)
 
-		switch {
-		case lv == InfoLevel:
+		switch lv {
+		case InfoLevel:
 			copy(b[i:], "INFO")
-		case lv == WarnLevel:
+		case WarnLevel:
 			copy(b[i:], "WARN")
-		case lv == ErrorLevel:
+		case ErrorLevel:
 			copy(b[i:], "ERROR")
-		case lv == FatalLevel:
+		case FatalLevel:
 			copy(b[i:], "FATAL")
 		default:
 			b = strconv.AppendInt(b[i:], int64(lv), 16)
 		}
 
-		if pad := i + w.LevelWidth + 2 - len(b); pad > 0 {
+		end := len(b)
+
+		if color != 0 {
+			b = append(b, colors[0]...)
+		}
+
+		if pad := i + w.LevelWidth + 2 - end; pad > 0 {
 			b = append(b, spaces[:pad]...)
 		}
 	}
 
 	if w.f&(Llongfile|Lshortfile) != 0 {
 		fname, file, line = loc.NameFileLine()
+
+		if col != nil && col.File != 0 {
+			b = append(b, colors[col.File]...)
+		}
 
 		if w.f&Lshortfile != 0 {
 			file = filepath.Base(file)
@@ -374,6 +485,10 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 			}
 		}
 
+		if col != nil && col.File != 0 {
+			b = append(b, colors[0]...)
+		}
+
 		b = append(b, ' ', ' ')
 	}
 
@@ -382,6 +497,10 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 			fname, _, _ = loc.NameFileLine()
 		}
 		fname = filepath.Base(fname)
+
+		if col != nil && col.Func != 0 {
+			b = append(b, colors[col.Func]...)
+		}
 
 		if w.f&Lfuncname != 0 {
 			p := strings.Index(fname, ").")
@@ -413,6 +532,10 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte
 			b = append(b, fname...)
 		}
 
+		if col != nil && col.Func != 0 {
+			b = append(b, colors[0]...)
+		}
+
 		b = append(b, ' ', ' ')
 	}
 
@@ -424,20 +547,33 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.buildHeader(b, m.Level, m.Time, m.PC)
-
 	if w.f&Lmessagespan != 0 {
-		i := len(b)
-		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
-		sid.FormatTo(b[i:i+w.IDWidth], 'v')
+		b = w.spanHeader(b, sid, m.Level, m.Time, m.PC)
+	} else {
+		b = w.buildHeader(b, m.Level, m.Time, m.PC)
+	}
 
-		b = append(b, ' ', ' ')
+	var color int
+	if w.Colorize {
+		if w.ColorConfig != nil {
+			color = w.ColorConfig.Message
+		} else {
+			color = DefaultColorConfig.Message
+		}
+
+		if color != 0 {
+			b = append(b, colors[color]...)
+		}
 	}
 
 	b = append(b, m.Text...)
 
+	if color != 0 {
+		b = append(b, colors[0]...)
+	}
+
 	if len(m.Attrs) != 0 {
-		b = structuredFormatter(w.StructuredConfig, b, sid, len(m.Text), m.Attrs)
+		b = structuredFormatter(w, b, sid, len(m.Text), m.Attrs)
 	}
 
 	b.NewLine()
@@ -447,12 +583,29 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *ConsoleWriter) spanHeader(b []byte, sid, par ID, tm int64, loc PC) []byte {
-	b = w.buildHeader(b, 0, tm, loc)
+func (w *ConsoleWriter) spanHeader(b []byte, sid ID, lv Level, tm int64, loc PC) []byte {
+	b = w.buildHeader(b, lv, tm, loc)
+
+	var color int
+	if w.Colorize {
+		if w.ColorConfig != nil {
+			color = w.ColorConfig.SpanID
+		} else {
+			color = DefaultColorConfig.SpanID
+		}
+
+		if color != 0 {
+			b = append(b, colors[color]...)
+		}
+	}
 
 	i := len(b)
 	b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 	sid.FormatTo(b[i:i+w.IDWidth], 'v')
+
+	if color != 0 {
+		b = append(b, colors[0]...)
+	}
 
 	return append(b, ' ', ' ')
 }
@@ -466,7 +619,7 @@ func (w *ConsoleWriter) SpanStarted(s SpanStart) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.spanHeader(b, s.ID, s.Parent, s.StartedAt, s.PC)
+	b = w.spanHeader(b, s.ID, 0, s.StartedAt, s.PC)
 
 	if s.Parent == (ID{}) {
 		b = append(b, "Span started\n"...)
@@ -494,7 +647,7 @@ func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.spanHeader(b, f.ID, ID{}, now().UnixNano(), 0)
+	b = w.spanHeader(b, f.ID, 0, now().UnixNano(), 0)
 
 	b = append(b, "Span finished - elapsed "...)
 
@@ -555,7 +708,12 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = AppendPrintf(b, "%v  %15.5f ", m.Name, m.Value)
+	wh := DefaultStructuredConfig.MessageWidth
+	if cfg := w.StructuredConfig; cfg != nil {
+		wh = cfg.MessageWidth
+	}
+
+	b = AppendPrintf(b, "%-*v  %15.5f ", wh, m.Name, m.Value)
 
 	for _, l := range m.Labels {
 		b = append(b, ' ')

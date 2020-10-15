@@ -20,7 +20,7 @@ func TestTestLogger(t *testing.T) {
 
 	tl.Printf("message")
 
-	assert.Equal(t, tm.Format("2006-01-02_15:04:05.000000")+"  I  test_logger_test.:21  message\n", buf.String())
+	assert.Equal(t, tm.Format("2006-01-02_15:04:05.000000")+"  INF  test_logger_test.:21  message\n", buf.String())
 
 	tl = NewTestLogger(t, "", nil)
 

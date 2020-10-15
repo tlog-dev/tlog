@@ -23,6 +23,7 @@ func initComplexLogger() func() {
 
 	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
 	cw.IDWidth = 10
+	cw.LevelWidth = 3
 
 	ll = tlog.New(cw, jw)
 
@@ -54,7 +55,7 @@ func work() {
 	tr := ll.Start()
 	defer tr.Finish()
 
-	tr.Printf("main: %v", *str)
+	tr.Printw("work", tlog.AStr("argument", *str))
 
 	var a A
 	a.func1(tr.ID)
@@ -70,9 +71,9 @@ func (*A) func1(id tlog.ID) {
 	tr := ll.Spawn(id)
 	defer tr.Finish()
 
-	ll.Printf("func1: %d", 3)
+	ll.Printw("func1", tlog.AInt("num", 3))
 
 	func() {
-		tr.Printf("func1.1: %v", "four")
+		tr.Errorf("func1.1: %v", "error message")
 	}()
 }

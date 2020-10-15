@@ -47,11 +47,23 @@ var DefaultStructuredConfig = StructuredConfig{
 }
 
 //nolint:gocognit
-func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs Attrs) []byte {
+func structuredFormatter(w *ConsoleWriter, b []byte, sid ID, msgw int, kvs Attrs) []byte {
 	const escape = `"'`
 
+	c := w.StructuredConfig
 	if c == nil {
 		c = &DefaultStructuredConfig
+	}
+
+	var colKey, colVal []byte
+	if w.Colorize {
+		col := w.ColorConfig
+		if col == nil {
+			col = &DefaultColorConfig
+		}
+
+		colKey = colors[col.AttrKey]
+		colVal = colors[col.AttrValue]
 	}
 
 	if msgw < c.MessageWidth {
@@ -63,11 +75,23 @@ func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs At
 			b = append(b, c.PairSeparator...)
 		}
 
+		if colKey != nil {
+			b = append(b, colKey...)
+		}
+
 		b = append(b, kv.Name...)
 
 		b = append(b, c.KVSeparator...)
 
+		if colKey != nil {
+			b = append(b, colors[0]...)
+		}
+
 		vst := len(b)
+
+		if colVal != nil {
+			b = append(b, colVal...)
+		}
 
 		switch v := kv.Value.(type) {
 		case string:
@@ -84,6 +108,10 @@ func structuredFormatter(c *StructuredConfig, b []byte, sid ID, msgw int, kvs At
 			}
 		default:
 			b = AppendPrintf(b, "%v", kv.Value)
+		}
+
+		if colVal != nil {
+			b = append(b, colors[0]...)
 		}
 
 		vend := len(b)
