@@ -39,7 +39,7 @@ type (
 
 var _ parse.Writer = &Writer{}
 
-func New(ops sentry.ClientOptions) (*Writer, error) {
+func New(ops sentry.ClientOptions) (*Writer, error) { //nolint:gocritic
 	if ops.Integrations == nil {
 		ops.Integrations = func([]sentry.Integration) []sentry.Integration { return nil }
 	}

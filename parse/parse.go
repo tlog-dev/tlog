@@ -42,8 +42,8 @@ type (
 		PC    uint64 `json:"l"`
 		Time  int64  `json:"t"`
 		Text  string `json:"m"`
-		Level Level  `json:"i"`
 		Attrs Attrs  `json:"a"`
+		Level Level  `json:"i"`
 	}
 
 	Metric struct {

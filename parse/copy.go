@@ -93,6 +93,8 @@ func Copy(w Writer, r LowReader) error {
 			if err != nil {
 				return errors.Wrap(err, "reader")
 			}
+
+			return errors.New("unsupported record: %v", tp)
 		}
 	}
 }

@@ -77,7 +77,7 @@ func (b *MessageBuilder) CallerOnce(d int, loc *PC) *MessageBuilder {
 		return nil
 	}
 
-	l := (PC)(atomic.LoadUintptr((*uintptr)(unsafe.Pointer(loc))))
+	l := PC(atomic.LoadUintptr((*uintptr)(unsafe.Pointer(loc))))
 	if l == 0 {
 		l = Caller(1 + d)
 		atomic.StoreUintptr((*uintptr)(unsafe.Pointer(loc)), uintptr(l))
@@ -247,7 +247,7 @@ func (b *SpanStartBuilder) CallerOnce(d int, loc *PC) *SpanStartBuilder {
 		return nil
 	}
 
-	l := (PC)(atomic.LoadUintptr((*uintptr)(unsafe.Pointer(loc))))
+	l := PC(atomic.LoadUintptr((*uintptr)(unsafe.Pointer(loc))))
 	if l == 0 {
 		l = Caller(1 + d)
 		atomic.StoreUintptr((*uintptr)(unsafe.Pointer(loc)), uintptr(l))

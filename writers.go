@@ -208,8 +208,6 @@ func init() {
 	}
 }
 
-var metricsCacheMaxValues = 1000
-
 var ( // type checks
 	_ Writer = &ConsoleWriter{}
 	_ Writer = &JSONWriter{}
@@ -225,8 +223,6 @@ var ( // type checks
 )
 
 var spaces = []byte("                                                                                                                                                ")
-
-var metricsTest bool
 
 var bufPool = sync.Pool{New: func() interface{} { return &bwr{b: make(bufWriter, 128)} }}
 
@@ -267,13 +263,14 @@ func (wr *awr) Ret(b *Attrs) {
 // NewConsoleWriter creates writer with similar output as log.Logger.
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	var colorize bool
-	if f, ok := w.(interface {
+	switch f := w.(type) {
+	case interface {
 		Fd() uintptr
-	}); ok {
+	}:
 		colorize = terminal.IsTerminal(int(f.Fd()))
-	} else if f, ok := w.(interface {
+	case interface {
 		Fd() int
-	}); ok {
+	}:
 		colorize = terminal.IsTerminal(f.Fd())
 	}
 
@@ -657,7 +654,7 @@ func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 
 	b = append(b, "Span finished - elapsed "...)
 
-	e := time.Duration(f.Elapsed).Seconds() * 1000
+	e := f.Elapsed.Seconds() * 1000
 	b = strconv.AppendFloat(b, e, 'f', 2, 64)
 
 	b = append(b, "ms\n"...)

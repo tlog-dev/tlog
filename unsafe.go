@@ -137,26 +137,6 @@ func pcdatavalue(f funcInfo, table int32, targetpc PC, cache unsafe.Pointer) int
 //go:linkname funcnameFromNameoff runtime.funcnameFromNameoff
 func funcnameFromNameoff(f funcInfo, nameoff int32) string
 
-type sh struct {
-	p unsafe.Pointer
-	l int
-}
-
-type bh struct {
-	p unsafe.Pointer
-	l int
-	c int
-}
-
-func stringToBytes(s string) []byte {
-	h := *(*sh)(unsafe.Pointer(&s))
-	return *(*[]byte)(unsafe.Pointer(&bh{
-		p: h.p,
-		l: h.l,
-		c: h.l,
-	}))
-}
-
 func bytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
@@ -173,6 +153,22 @@ func strhash(p *string, h uintptr) uintptr
 //go:linkname byteshash runtime.strhash
 func byteshash(p *[]byte, h uintptr) uintptr
 
+//go:noescape
+//go:linkname MemHash runtime.memhash
+func MemHash(p unsafe.Pointer, h, s uintptr) uintptr
+
+//go:noescape
+//go:linkname MemHash64 runtime.memhash64
+func MemHash64(p unsafe.Pointer, h uintptr) uintptr
+
+//go:noescape
+//go:linkname MemHash32 runtime.memhash32
+func MemHash32(p unsafe.Pointer, h uintptr) uintptr
+
 func StrHash(s string, h uintptr) uintptr {
 	return strhash(&s, h)
+}
+
+func BytesHash(s []byte, h uintptr) uintptr {
+	return byteshash(&s, h)
 }

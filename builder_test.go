@@ -51,6 +51,7 @@ func TestMessageBuilder(t *testing.T) {
 	}
 }
 
+//nolint:gocognit,dupl
 func BenchmarkBuilder(b *testing.B) {
 	for _, tc := range []struct {
 		name string
@@ -143,6 +144,7 @@ func BenchmarkBuilderCallerOnce(b *testing.B) {
 	})
 }
 
+//nolint:dupl
 func BenchmarkMutex(b *testing.B) {
 	b.Run("Mutex", func(b *testing.B) {
 		var mu sync.Mutex
@@ -150,7 +152,7 @@ func BenchmarkMutex(b *testing.B) {
 		b.Run("SingleThread", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				mu.Lock()
-				mu.Unlock()
+				mu.Unlock() //nolint:staticcheck
 			}
 		})
 
@@ -158,7 +160,7 @@ func BenchmarkMutex(b *testing.B) {
 			b.RunParallel(func(b *testing.PB) {
 				for b.Next() {
 					mu.Lock()
-					mu.Unlock()
+					mu.Unlock() //nolint:staticcheck
 				}
 			})
 		})
@@ -170,7 +172,7 @@ func BenchmarkMutex(b *testing.B) {
 		b.Run("SingleThread", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				mu.RLock()
-				mu.RUnlock()
+				mu.RUnlock() //nolint:staticcheck
 			}
 		})
 
@@ -178,7 +180,7 @@ func BenchmarkMutex(b *testing.B) {
 			b.RunParallel(func(b *testing.PB) {
 				for b.Next() {
 					mu.RLock()
-					mu.RUnlock()
+					mu.RUnlock() //nolint:staticcheck
 				}
 			})
 		})

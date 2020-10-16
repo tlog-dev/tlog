@@ -798,7 +798,7 @@ func BenchmarkStdLogLogger(b *testing.B) {
 	}
 }
 
-//nolint:gocognit
+//nolint:gocognit,dupl
 func BenchmarkTlogLogger(b *testing.B) {
 	for _, tc := range []struct {
 		name string

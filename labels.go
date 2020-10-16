@@ -34,7 +34,7 @@ var AutoLabels = map[string]func() string{
 	"_arch":       func() string { return runtime.GOARCH },
 	"_numcpu":     func() string { return fmt.Sprintf("%v", runtime.NumCPU()) },
 	"_gomaxprocs": func() string { return fmt.Sprintf("%v", runtime.GOMAXPROCS(0)) },
-	"_goversion":  func() string { return runtime.Version() },
+	"_goversion":  runtime.Version,
 	"_pid": func() string {
 		return fmt.Sprintf("%d", os.Getpid())
 	},

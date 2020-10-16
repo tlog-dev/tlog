@@ -500,7 +500,7 @@ func TestConsoleMetrics(t *testing.T) {
 	l.RegisterMetric("name", MCounter, "help 1")
 	l.Observe("name", 3, Labels{"a=b", "c"})
 
-	assert.Equal(t, `Meta: metric_desc ["name=name" "type=counter" "help=help 1"]
+	assert.Equal(t, `Meta: metric_desc  "name=name" "type=counter" "help=help 1"
 name                                              3.00000  a=b c
 `, buf.String())
 }

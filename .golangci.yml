@@ -36,8 +36,10 @@ linters-settings:
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
       - github.com/uber/jaeger-client-go
+      - golang.org/x
       - google.golang.org/protobuf
       - go.opentelemetry.io/otel
+      - gopkg.in/fsnotify.v1
       - go.uber.org/zap
   misspell:
   lll:

@@ -288,6 +288,7 @@ func (r *ProtoReader) Message() (m Message, err error) {
 	return m, nil
 }
 
+//nolint:gocognit
 func (r *ProtoReader) messageAttr() (a Attr, err error) {
 	st := r.i
 
@@ -316,7 +317,7 @@ func (r *ProtoReader) messageAttr() (a Attr, err error) {
 		switch tag {
 		case 1<<3 | 2:
 			a.Name, err = r.string()
-		case 2<<3 | 0:
+		case 2<<3 | 0: //nolint:staticcheck
 			tp = r.buf[r.i]
 			r.i++
 		case 3<<3 | 2:
@@ -334,7 +335,7 @@ func (r *ProtoReader) messageAttr() (a Attr, err error) {
 			default:
 				err = errors.New("expected string of undefined type")
 			}
-		case 4<<3 | 0:
+		case 4<<3 | 0: //nolint:staticcheck
 			var v int64
 			v, err = r.varint64()
 			if err != nil {
@@ -342,7 +343,7 @@ func (r *ProtoReader) messageAttr() (a Attr, err error) {
 			}
 
 			a.Value = v>>1 ^ v<<63>>63
-		case 5<<3 | 0:
+		case 5<<3 | 0: //nolint:staticcheck
 			var v int64
 			v, err = r.varint64()
 			if err != nil {
@@ -371,7 +372,7 @@ func (r *ProtoReader) messageAttr() (a Attr, err error) {
 				err = errors.New("unsupported attr type")
 			}
 		default:
-			if err = r.skipField(tag, "message attribute"); err != nil { //nolint:gocritic
+			if err = r.skipField(tag, "message attribute"); err != nil {
 				return
 			}
 		}

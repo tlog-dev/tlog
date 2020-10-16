@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 	"unsafe"
@@ -180,21 +179,11 @@ const (
 var ( // now, rand
 	now = time.Now
 
-	rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))}
+	rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))} //nolint:gosec
 )
 
 // DefaultLogger is a package interface Logger object.
 var DefaultLogger = func() *Logger { l := New(NewConsoleWriter(os.Stderr, LstdFlags)); l.NoCaller = true; return l }()
-
-var ErrorLabel = Labels{"error"}
-
-var ( // regexp
-	mtName  = "[_a-zA-Z][_a-zA-Z0-9]*"
-	mtLabel = mtName + "(=[_=/a-zA-Z0-9-]*)?"
-
-	mtNameRe  = regexp.MustCompile("^" + mtName + "$")
-	mtLabelRe = regexp.MustCompile("^" + mtLabel + "$")
-)
 
 func newlabels(l *Logger, ls Labels, sid ID) {
 	if l == nil {
@@ -724,10 +713,6 @@ func (s Span) SetLabels(ls Labels) {
 	newlabels(s.Logger, ls, s.ID)
 }
 
-func (s Span) SetError() {
-	newlabels(s.Logger, ErrorLabel, s.ID)
-}
-
 // Spawn spawns new child Span.
 func (s Span) Spawn() Span {
 	return newspan(s.Logger, 0, s.ID)
@@ -1013,7 +998,7 @@ func stdRandID() (id ID) {
 // UUID creates ID generation function.
 // r is a random source. Function panics on Read error.
 //
-// It's got from github.com/google/uuid
+// It's got from github.com/google/uuid.
 func UUID(r io.Reader) func() ID {
 	return func() (uuid ID) {
 		_, err := io.ReadFull(r, uuid[:])

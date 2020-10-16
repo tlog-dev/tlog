@@ -232,15 +232,13 @@ func (s Span) RecordError(ctx context.Context, err error, opts ...trace.ErrorOpt
 		o(&cfg)
 	}
 
-	s.Span.SetError()
-
 	m := tlog.Message{
-		Text:  "error",
 		PC:    tlog.Caller(1),
+		Time:  cfg.Timestamp,
+		Text:  "error",
 		Attrs: tlog.Attrs{{Name: "error", Value: err}},
+		Level: tlog.ErrorLevel,
 	}
-
-	m.Time = cfg.Timestamp
 
 	if cfg.StatusCode != 0 {
 		m.Attrs = append(m.Attrs, tlog.AInt("code", int(cfg.StatusCode)))
