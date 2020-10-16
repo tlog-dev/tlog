@@ -34,9 +34,9 @@ func TestMessageBuilder(t *testing.T) {
 
 	tr.Finish()
 
-	re := `{"l":{"p":\d+,"e":\d+,"f":"[\w./-]+builder_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestMessageBuilder"}}
+	re := `{"l":{"p":\d+,"e":\d+,"f":"[\w./-]*builder_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestMessageBuilder"}}
 {"m":{"t":1562517071000000000,"l":\d+,"m":"message: args","a":\[{"n":"int","t":"i","v":12}\]}}
-{"l":{"p":\d+,"e":\d+,"f":"github.com/nikandfor/tlog/builder_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestMessageBuilder"}}
+{"l":{"p":\d+,"e":\d+,"f":"[\w./-]*builder_test.go","l":\d+,"n":"github.com/nikandfor/tlog.TestMessageBuilder"}}
 {"s":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","s":1562517072000000000,"l":\d+}}
 {"m":{"s":"0194fdc2fa2ffcc041d3ff12045b73c8","t":1562517073000000000,"a":\[{"n":"str","t":"s","v":"str_value"}\]}}
 {"f":{"i":"0194fdc2fa2ffcc041d3ff12045b73c8","e":2000000000}}

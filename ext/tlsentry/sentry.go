@@ -50,9 +50,10 @@ func New(ops sentry.ClientOptions) (*Writer, error) { //nolint:gocritic
 	}
 
 	return &Writer{
-		cl: cl,
-		fs: make(map[uint64]parse.Frame),
-		ss: make(map[ID]*span),
+		MinLevel: tlog.ErrorLevel,
+		cl:       cl,
+		fs:       make(map[uint64]parse.Frame),
+		ss:       make(map[ID]*span),
 	}, nil
 }
 
@@ -125,7 +126,7 @@ func (w *Writer) Message(m parse.Message) error {
 		}
 	}
 
-	ev.Tags = tags(w.ls, nil)
+	ev.Tags = addtags(nil, w.ls)
 
 	w.addEnvironment(&ev)
 
@@ -144,7 +145,7 @@ func (w *Writer) addTransactionInfo(ev *sentry.Event, m parse.Message) {
 		return
 	}
 
-	ev.Tags = tags(s.ls, ev.Tags)
+	ev.Tags = addtags(ev.Tags, s.ls)
 
 	ev.Transaction = m.Span.FullString()
 	ev.StartTimestamp = time.Unix(s.st, 0)
@@ -180,16 +181,66 @@ func (w *Writer) addTransactionInfo(ev *sentry.Event, m parse.Message) {
 
 		fr := w.fs[s.loc]
 		sp.Op = fr.Name
-		sp.Tags = tags(s.ls, nil)
+		sp.Tags = addtags(nil, s.ls)
 
 		ev.Spans = append(ev.Spans, sp)
 	}
 }
 
 func (w *Writer) addEnvironment(ev *sentry.Event) {
+	for _, l := range w.ls {
+		p := strings.Index(l, "=")
+		if p == -1 {
+			addContext2(ev, "user_defined", l[:p], "")
+
+			continue
+		}
+
+		switch l[:p] {
+		case "_arch":
+			addContext2(ev, "device", "arch", l[p+1:])
+		case "_numcpu":
+			addContext2(ev, "device", "num_cpu", l[p+1:])
+		case "_os":
+			addContext2(ev, "os", "name", l[p+1:])
+		case "_goversion":
+			addContext2(ev, "runtime", "name", "go")
+			addContext2(ev, "runtime", "version", l[p+1:])
+		case "_gomaxprocs":
+			addContext2(ev, "runtime", "name", "go")
+			addContext2(ev, "runtime", "go_maxprocs", l[p+1:])
+		case "_hostname":
+			addContext2(ev, "env", "hostname", l[p+1:])
+		case "_user":
+			addContext2(ev, "env", "user", l[p+1:])
+		case "_timezone":
+			addContext2(ev, "env", "timezone", l[p+1:])
+		default:
+			addContext2(ev, "user_defined", l[:p], l[p+1:])
+		}
+	}
 }
 
-func tags(ls tlog.Labels, a map[string]string) (r map[string]string) {
+func addContext2(ev *sentry.Event, d, k, v string) {
+	if ev.Contexts == nil {
+		ev.Contexts = make(map[string]interface{})
+	}
+
+	m, ok := ev.Contexts[d].(map[string]interface{})
+	if !ok {
+		m = make(map[string]interface{})
+		ev.Contexts[d] = m
+	}
+
+	_, ok = m[k]
+	if ok {
+		return
+	}
+
+	m[k] = v
+}
+
+func addtags(a map[string]string, ls tlog.Labels) (r map[string]string) {
 	if len(ls) == 0 {
 		return a
 	}
