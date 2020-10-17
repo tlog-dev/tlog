@@ -64,7 +64,7 @@ func (w AnyWriter) Message(m Message) error {
 	return w.Writer.Message(
 		tlog.Message{
 			PC:    tlog.PC(m.PC),
-			Time:  tt(m.Time),
+			Time:  m.Time,
 			Text:  m.Text,
 			Attrs: m.Attrs,
 			Level: m.Level,
@@ -87,7 +87,7 @@ func (w AnyWriter) SpanStart(s SpanStart) error {
 	return w.Writer.SpanStarted(tlog.SpanStart{
 		ID:        s.ID,
 		Parent:    s.Parent,
-		StartedAt: tt(s.StartedAt),
+		StartedAt: s.StartedAt,
 		PC:        tlog.PC(s.PC),
 	})
 }
@@ -128,7 +128,7 @@ func (w *ConvertWriter) Message(m tlog.Message, sid tlog.ID) error {
 	return w.w.Message(Message{
 		Span: sid,
 		PC:   uint64(m.PC),
-		Time: m.Time.UnixNano(),
+		Time: m.Time,
 		Text: m.Text,
 	})
 }
@@ -151,7 +151,7 @@ func (w *ConvertWriter) SpanStarted(s tlog.SpanStart) error {
 		ID:        s.ID,
 		Parent:    s.Parent,
 		PC:        uint64(s.PC),
-		StartedAt: s.StartedAt.UnixNano(),
+		StartedAt: s.StartedAt,
 	})
 }
 
@@ -191,10 +191,3 @@ func (w DiscardWriter) Message(m Message) error       { return nil }
 func (w DiscardWriter) Metric(m Metric) error         { return nil }
 func (w DiscardWriter) SpanStart(s SpanStart) error   { return nil }
 func (w DiscardWriter) SpanFinish(f SpanFinish) error { return nil }
-
-func tt(t int64) time.Time {
-	if t == 0 {
-		return time.Time{}
-	}
-	return time.Unix(0, t)
-}

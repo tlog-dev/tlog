@@ -42,27 +42,27 @@ func testReader(t *testing.T, neww func(io.Writer) tlog.Writer, newr func(io.Rea
 
 	_ = w.Message(tlog.Message{
 		PC:   tlog.Caller(0),
-		Time: now(),
+		Time: now().UnixNano(),
 		Text: "3",
 	}, tlog.ID{})
 
 	_ = w.SpanStarted(tlog.SpanStart{
 		ID:        ID{1},
 		Parent:    ID{},
-		StartedAt: now(),
+		StartedAt: now().UnixNano(),
 		PC:        tlog.Caller(0),
 	})
 
 	_ = w.Message(tlog.Message{
 		PC:   tlog.Caller(0),
-		Time: now(),
+		Time: now().UnixNano(),
 		Text: "5",
 	}, ID{1})
 
 	_ = w.SpanStarted(tlog.SpanStart{
 		ID:        ID{2},
 		Parent:    ID{1},
-		StartedAt: now(),
+		StartedAt: now().UnixNano(),
 		PC:        tlog.Caller(0),
 	})
 

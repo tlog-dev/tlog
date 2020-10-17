@@ -286,7 +286,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 }
 
 //nolint:gocognit,gocyclo,nestif
-func (w *ConsoleWriter) buildHeader(b []byte, lv Level, t time.Time, loc PC) []byte {
+func (w *ConsoleWriter) buildHeader(b []byte, lv Level, ts int64, loc PC) []byte {
 	var fname, file string
 	line := -1
 
@@ -299,6 +299,8 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, t time.Time, loc PC) []b
 	}
 
 	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
+		t := time.Unix(0, ts)
+
 		if w.f&LUTC != 0 {
 			t = t.UTC()
 		}
@@ -586,7 +588,7 @@ func (w *ConsoleWriter) Message(m Message, sid ID) (err error) {
 	return
 }
 
-func (w *ConsoleWriter) spanHeader(b []byte, sid ID, lv Level, tm time.Time, loc PC) []byte {
+func (w *ConsoleWriter) spanHeader(b []byte, sid ID, lv Level, tm int64, loc PC) []byte {
 	b = w.buildHeader(b, lv, tm, loc)
 
 	var color int
@@ -650,7 +652,7 @@ func (w *ConsoleWriter) SpanFinished(f SpanFinish) (err error) {
 	b, wr := Getbuf()
 	defer wr.Ret(&b)
 
-	b = w.spanHeader(b, f.ID, 0, now(), 0)
+	b = w.spanHeader(b, f.ID, 0, now().UnixNano(), 0)
 
 	b = append(b, "Span finished - elapsed "...)
 
@@ -680,7 +682,7 @@ func (w *ConsoleWriter) Labels(ls Labels, sid ID) error {
 	return w.Message(
 		Message{
 			PC:   loc,
-			Time: now(),
+			Time: now().UnixNano(),
 			Text: bytesToString(b),
 		},
 		sid,
@@ -702,7 +704,7 @@ func (w *ConsoleWriter) Meta(m Meta) error {
 	return w.Message(
 		Message{
 			PC:   loc,
-			Time: now(),
+			Time: now().UnixNano(),
 			Text: bytesToString(b),
 		},
 		ID{},
@@ -730,7 +732,7 @@ func (w *ConsoleWriter) Metric(m Metric, sid ID) error {
 	return w.Message(
 		Message{
 			PC:   loc,
-			Time: now(),
+			Time: now().UnixNano(),
 			Text: bytesToString(b),
 		},
 		sid,
@@ -857,13 +859,13 @@ func (w *JSONWriter) Message(m Message, sid ID) (err error) {
 		comma = true
 	}
 
-	if m.Time != (time.Time{}) {
+	if m.Time != 0 {
 		if comma {
 			b = append(b, ',')
 		}
 
 		b = append(b, `"t":`...)
-		b = strconv.AppendInt(b, m.Time.UnixNano(), 10)
+		b = strconv.AppendInt(b, m.Time, 10)
 
 		comma = true
 	}
@@ -1060,9 +1062,9 @@ func (w *JSONWriter) SpanStarted(s SpanStart) (err error) {
 	b = append(b, `123456789_123456789_123456789_12"`...)
 	s.ID.FormatTo(b[i:], 'x')
 
-	if s.StartedAt != (time.Time{}) {
+	if s.StartedAt != 0 {
 		b = append(b, `,"s":`...)
-		b = strconv.AppendInt(b, s.StartedAt.UnixNano(), 10)
+		b = strconv.AppendInt(b, s.StartedAt, 10)
 	}
 
 	if s.PC != 0 {
@@ -1232,8 +1234,8 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 	if m.PC != 0 {
 		sz += 1 + varintSize(uint64(m.PC))
 	}
-	if m.Time != (time.Time{}) {
-		sz += 1 + 8 // m.Time
+	if m.Time != 0 {
+		sz += 1 + 8
 	}
 	if l != 0 {
 		sz += 1 + varintSize(uint64(l)) + l
@@ -1263,9 +1265,9 @@ func (w *ProtoWriter) Message(m Message, sid ID) (err error) {
 		b = appendTagVarint(b, 2<<3|0, uint64(m.PC)) //nolint:staticcheck
 	}
 
-	if m.Time != (time.Time{}) {
+	if m.Time != 0 {
 		b = append(b, 3<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time.UnixNano()))
+		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(m.Time))
 	}
 
 	if m.Level != 0 {
@@ -1516,9 +1518,9 @@ func (w *ProtoWriter) SpanStarted(s SpanStart) (err error) {
 		b = appendTagVarint(b, 3<<3|0, uint64(s.PC)) //nolint:staticcheck
 	}
 
-	if s.StartedAt != (time.Time{}) {
+	if s.StartedAt != 0 {
 		b = append(b, 4<<3|1, 0, 0, 0, 0, 0, 0, 0, 0)
-		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(s.StartedAt.UnixNano()))
+		binary.LittleEndian.PutUint64(b[len(b)-8:], uint64(s.StartedAt))
 	}
 
 	_, err = w.w.Write(b)

@@ -69,8 +69,8 @@ type (
 	SpanStart struct {
 		ID        ID
 		Parent    ID
-		StartedAt time.Time
 		PC        PC
+		StartedAt int64
 	}
 
 	// SpanFinish is a log event.
@@ -82,7 +82,7 @@ type (
 	// Message is a log event.
 	Message struct {
 		PC    PC
-		Time  time.Time
+		Time  int64
 		Text  string
 		Attrs Attrs
 		Level Level
@@ -207,7 +207,7 @@ func newspan(l *Logger, d int, par ID) (s Span) {
 	ss := SpanStart{
 		ID:        s.ID,
 		Parent:    par,
-		StartedAt: s.StartedAt,
+		StartedAt: s.StartedAt.UnixNano(),
 	}
 
 	if !l.NoCaller {
@@ -225,7 +225,7 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 	}
 
 	msg := Message{
-		Time:  now(),
+		Time:  now().UnixNano(),
 		Level: lvl,
 	}
 
