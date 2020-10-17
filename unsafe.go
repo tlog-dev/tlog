@@ -36,6 +36,10 @@ var (
 	locc  = map[PC]nfl{}
 )
 
+//go:noescape
+//go:linkname callers runtime.callers
+func callers(skip int, pc []PC) int
+
 // NameFileLine returns function name, file and line number for location.
 //
 // This works only in the same binary where location was captured.
@@ -111,10 +115,14 @@ func (l PC) Entry() PC {
 // It allows to work with PC in another binary the same as in original.
 func (l PC) SetCache(name, file string, line int) {
 	locmu.Lock()
-	locc[l] = nfl{
-		name: name,
-		file: file,
-		line: line,
+	if name == "" && file == "" {
+		delete(locc, l)
+	} else {
+		locc[l] = nfl{
+			name: name,
+			file: file,
+			line: line,
+		}
 	}
 	locmu.Unlock()
 }

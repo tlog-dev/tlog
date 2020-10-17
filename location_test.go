@@ -91,6 +91,8 @@ func TestCaller(t *testing.T) {
 func TestSetCache(t *testing.T) {
 	l := PC(0x1234567890)
 
+	l.SetCache("", "", 0)
+
 	assert.NotEqual(t, "file.go:10", l.String())
 
 	l.SetCache("Name", "file.go", 10)

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"unsafe"
 )
+
+// line to not move line numbers in tests
 
 // PC is a program counter alias.
 // Function name, file name and line can be obtained from it but only in the same binary where Caller or Funcentry was called.
@@ -21,18 +21,18 @@ type PCs []PC
 //
 // It's hacked version of runtime.Caller with no allocs.
 func Caller(s int) PC {
-	var pc [1]uintptr
-	runtime.Callers(2+s, pc[:])
-	return PC(pc[0])
+	var pc [1]PC
+	callers(1+s, pc[:])
+	return pc[0]
 }
 
 // Funcentry returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
 func Funcentry(s int) PC {
-	var pc [1]uintptr
-	runtime.Callers(2+s, pc[:])
-	return PC(pc[0]).Entry()
+	var pc [1]PC
+	callers(1+s, pc[:])
+	return pc[0].Entry()
 }
 
 // Callers returns callers stack trace.
@@ -40,14 +40,15 @@ func Funcentry(s int) PC {
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with only one alloc (resulting slice).
 func Callers(skip, n int) PCs {
 	tr := make([]PC, n)
-	return CallersFill(1+skip, tr)
+	n = callers(1+skip, tr)
+	return tr[:n]
 }
 
 // CallersFill puts callers stack trace into provided slice.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
 func CallersFill(skip int, tr PCs) PCs {
-	n := runtime.Callers(2+skip, *(*[]uintptr)(unsafe.Pointer(&tr)))
+	n := callers(1+skip, tr)
 	return tr[:n]
 }
 
