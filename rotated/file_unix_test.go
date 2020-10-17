@@ -1,3 +1,4 @@
+// +build ignore
 // +build linux darwin
 
 package rotated

@@ -1,3 +1,5 @@
+// +build ignore
+
 //nolint:goerr113
 package rotated
 
