@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 )
@@ -27,8 +28,7 @@ type (
 	Logger struct {
 		Writer
 
-		mu     sync.Mutex
-		filter filter
+		filter *filter // accessed by atomic operations
 
 		// NewID returns new random ID. Must be safe to call cuncurrently.
 		NewID func() ID
@@ -633,11 +633,12 @@ func (l *Logger) ifv(tp string) (ok bool) {
 		return false
 	}
 
-	l.mu.Lock()
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	if f == nil {
+		return false
+	}
 
-	ok = l.filter.match(tp)
-
-	l.mu.Unlock()
+	return f.match(tp)
 
 	return ok
 }
@@ -667,11 +668,9 @@ func (l *Logger) SetFilter(filters string) {
 		return
 	}
 
-	l.mu.Lock()
+	f := newFilter(filters)
 
-	l.filter = newFilter(filters)
-
-	l.mu.Unlock()
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
 }
 
 // Filter returns current verbosity filter value.
@@ -682,10 +681,12 @@ func (l *Logger) Filter() string {
 		return ""
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	if f == nil {
+		return ""
+	}
 
-	return l.filter.f
+	return f.f
 }
 
 // V checks if one of topics in tp is enabled and returns the same Span or empty overwise.
