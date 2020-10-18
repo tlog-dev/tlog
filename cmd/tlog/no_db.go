@@ -20,6 +20,6 @@ func renderFromDB(c *cli.Command) (err error) {
 	return NotSupported
 }
 
-func openWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
-	return openWriterNoDB(c, n)
+func openDBWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
+	return nil, nil, NotSupported
 }

@@ -36,6 +36,8 @@ type (
 		Fopen     func(string, int, os.FileMode) (io.Writer, error) // os.OpenFile
 		NameSubst func(string) string                               // substitute @ -> current timestamp
 
+		deferopen bool
+
 		stopc chan struct{}
 	}
 
@@ -72,9 +74,11 @@ func NewWriter(name string, flag int, mode os.FileMode, ops ...Option) (*Writer,
 		w.Mode = 0644
 	}
 
-	err := w.rotate()
-	if err != nil {
-		return nil, err
+	if !w.deferopen {
+		err := w.rotate()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return w, nil
@@ -289,6 +293,10 @@ func fallback(w io.Writer, r string, err error, msg []byte) {
 	}
 
 	_, _ = w.Write(msg)
+}
+
+func WithDefer(w *Writer) {
+	w.deferopen = true
 }
 
 func WithFallback(w io.Writer) Option {

@@ -133,7 +133,7 @@ func (t Tracer) Start(ctx context.Context, spanName string, opts ...trace.StartO
 	}
 
 	s.StartedAt = cfg.StartTime
-	se.StartedAt = s.StartedAt
+	se.StartedAt = s.StartedAt.UnixNano()
 
 	if !t.Logger.NoCaller {
 		se.PC = tlog.Funcentry(1)
@@ -211,7 +211,7 @@ func (s Span) AddEventWithTimestamp(ctx context.Context, tm time.Time, name stri
 		m.PC = tlog.Caller(1)
 	}
 	if tm != (time.Time{}) {
-		m.Time = tm
+		m.Time = tm.UnixNano()
 	}
 
 	m.Attrs = attrs(nil, kvs)
@@ -234,7 +234,7 @@ func (s Span) RecordError(ctx context.Context, err error, opts ...trace.ErrorOpt
 
 	m := tlog.Message{
 		PC:    tlog.Caller(1),
-		Time:  cfg.Timestamp,
+		Time:  cfg.Timestamp.UnixNano(),
 		Text:  "error",
 		Attrs: tlog.Attrs{{Name: "error", Value: err}},
 		Level: tlog.ErrorLevel,

@@ -656,7 +656,7 @@ func TestCoverUncovered(t *testing.T) {
 	ID{}.FormatTo(b, 'x')
 	assert.Equal(t, "00000000", string(b))
 
-	id := stdRandID()
+	id := MathRandID()
 	assert.NotZero(t, id)
 
 	tr := NewSpan(nil, ID{1, 2, 3}, 0)
@@ -760,6 +760,18 @@ func BenchmarkRand(b *testing.B) {
 			}
 		})
 	})
+
+	/*
+		b.Run("fast", func(b *testing.B) {
+			b.RunParallel(func(b *testing.PB) {
+				var id ID
+				for b.Next() {
+					id = FastRandID()
+				}
+				_ = id
+			})
+		})
+	*/
 }
 
 func BenchmarkStdLogLogger(b *testing.B) {

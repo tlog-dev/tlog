@@ -13,7 +13,7 @@ import (
 
 var OpenFile = os.OpenFile
 
-func updateFlags(ff, of int, s string) (_, _ int) {
+func UpdateFlags(ff, of int, s string) (_, _ int) {
 	for _, c := range s {
 		switch c {
 		case '0':
@@ -79,7 +79,7 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 			opts = d[p+1:]
 			d = d[:p]
 
-			ff, of = updateFlags(ff, of, opts)
+			ff, of = UpdateFlags(ff, of, opts)
 		}
 
 		ext := filepath.Ext(d)

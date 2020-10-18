@@ -263,7 +263,7 @@ func newmessage(l *Logger, d int, lvl Level, sid ID, f string, args []interface{
 // New creates new Logger with given writers.
 func New(ws ...Writer) *Logger {
 	l := &Logger{}
-	l.NewID = stdRandID
+	l.NewID = MathRandID
 
 	switch len(ws) {
 	case 0:
@@ -984,7 +984,7 @@ func (i ID) FormatTo(b []byte, f rune) {
 	}
 }
 
-func stdRandID() (id ID) {
+func MathRandID() (id ID) {
 	rnd.mu.Lock()
 
 	for id == (ID{}) {
@@ -995,6 +995,16 @@ func stdRandID() (id ID) {
 
 	return
 }
+
+/* will repeat at most after 2 ** (32 - 2) ids
+func FastRandID() (id ID) {
+	*(*uint32)(unsafe.Pointer(&id[0])) = fastrand()
+	*(*uint32)(unsafe.Pointer(&id[4])) = fastrand()
+	*(*uint32)(unsafe.Pointer(&id[8])) = fastrand()
+	*(*uint32)(unsafe.Pointer(&id[12])) = fastrand()
+	return
+}
+*/
 
 // UUID creates ID generation function.
 // r is a random source. Function panics on Read error.

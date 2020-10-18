@@ -8,7 +8,10 @@ import (
 )
 
 func main() {
-	f := rotated.Create("logfile_template_@.log") // ? will be substituted by time of file creation
+	f, err := rotated.NewWriter("logfile_template_@.log", 0, 0) // @ will be substituted by time of file creation
+	if err != nil {
+		panic(err)
+	}
 	defer f.Close()
 
 	f.Mode = 0660

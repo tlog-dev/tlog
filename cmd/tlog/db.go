@@ -92,14 +92,14 @@ func renderFromDB(c *cli.Command) (err error) {
 	return
 }
 
-func openWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
+func openDBWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
 	ext := filepath.Ext(n)
 	ext = strings.TrimPrefix(ext, ".")
 
 	switch ext {
 	case "tldb", "tlogdb", "db":
 	default:
-		return openWriterNoDB(c, n)
+		panic("unsupported file type")
 	}
 
 	dbb, err := xrain.Mmap(n, os.O_CREATE|os.O_RDWR)

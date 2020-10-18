@@ -2,17 +2,17 @@ package main
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
-	"gopkg.in/fsnotify.v1"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/parse"
+	"github.com/nikandfor/tlog/rotated"
 )
 
 type (
@@ -33,7 +33,7 @@ func main() {
 			cli.FlagfileFlag,
 		},
 		Commands: []*cli.Command{{
-			Name:   "convert,c",
+			Name:   "convert,cat,c",
 			Action: convert,
 			Usage:  "{infiles} <outfile>",
 			Flags: []*cli.Flag{
@@ -65,32 +65,39 @@ func render(c *cli.Command) (err error) {
 }
 
 func convert(c *cli.Command) (err error) {
-	if c.Args.Len() < 2 {
+	if c.Args.Len() == 0 {
 		return errors.New("arguments expected")
 	}
-	if c.Bool("follow") && c.Args.Len() != 2 {
-		return errors.New("only one input file is supported in follow mode")
+
+	var w parse.Writer
+
+	n := c.Args.Len()
+	if n != 1 {
+		n--
+	} else {
+		w = parse.NewAnyWiter(tlog.NewConsoleWriter(os.Stdout, tlog.LstdFlags))
 	}
 
-	w, clw, err := openWriter(c, c.Args[c.Args.Len()-1])
-	if err != nil {
-		return errors.Wrap(err, "open output")
-	}
-	defer func() {
-		if e := clw(); err == nil {
-			err = e
+	if w == nil {
+		var clw func() error
+
+		w, clw, err = openWriter(c, c.Args[c.Args.Len()-1])
+		if err != nil {
+			return
 		}
-	}()
 
-	if c.Bool("follow") {
-		return convertFollow(c, w, c.Args.First())
+		defer func() {
+			if e := clw(); err == nil {
+				err = e
+			}
+		}()
 	}
 
 	var r parse.LowReader
-	for _, a := range c.Args[:c.Args.Len()-1] {
-		//	tlog.Printf("convert %v...", a)
+	var cl func() error
+	for _, a := range c.Args[:n] {
+		tlog.V("filename").Printf("convert %v", a)
 
-		var cl func() error
 		r, cl, err = openReader(c, a)
 		if err != nil {
 			err = errors.Wrap(err, "open input")
@@ -106,7 +113,7 @@ func convert(c *cli.Command) (err error) {
 		}
 
 		if err != nil {
-			err = errors.Wrap(err, "%v", a)
+			err = errors.Wrap(err, "copy %v", a)
 			return
 		}
 	}
@@ -114,67 +121,18 @@ func convert(c *cli.Command) (err error) {
 	return nil
 }
 
-func convertFollow(c *cli.Command, w parse.Writer, f string) (err error) {
-	r, cl, err := openReader(c, f)
-	if err != nil {
-		return errors.Wrap(err, "open input file %v", f)
-	}
-	defer func() {
-		e := cl()
-		if err == nil {
-			err = e
-		}
-	}()
-
-	fs, err := fsnotify.NewWatcher()
-	if err != nil {
-		return errors.Wrap(err, "create watcher")
-	}
-
-	defer func() {
-		e := fs.Close()
-		if err == nil {
-			err = e
-		}
-	}()
-
-	err = fs.Add(f)
-	if err != nil {
-		return errors.Wrap(err, "watch for file %v", f)
-	}
-
-	var ev fsnotify.Event
-
-loop:
-	for {
-		err = parse.Copy(w, r)
-		if errors.Is(err, io.EOF) {
-			err = nil
-		}
-		if err != nil {
-			break
-		}
-
-		select {
-		case ev = <-fs.Events:
-		case err = <-fs.Errors:
-			break loop
-		}
-
-		tlog.Printf("op %v %v", ev.Op, ev.Name)
-
-		if ev.Op&fsnotify.Remove == fsnotify.Remove {
-			tlog.Printf("file removed %v", ev.Name)
-
-			break
-		}
-	}
-
-	return err
-}
-
 //nolint:goconst
-func openWriterNoDB(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
+func openWriter(c *cli.Command, n string) (w parse.Writer, cl func() error, err error) {
+	var flags string
+	if p := strings.LastIndexByte(n, ':'); p != -1 {
+		flags = n[p+1:]
+		n = n[:p]
+	}
+
+	ff := tlog.LdetFlags | tlog.Lspans | tlog.Lmessagespan
+	of := os.O_RDWR | os.O_CREATE | os.O_APPEND
+	ff, of = tlflag.UpdateFlags(ff, of, flags)
+
 	ext := filepath.Ext(n)
 	ext = strings.TrimPrefix(ext, ".")
 
@@ -184,12 +142,14 @@ func openWriterNoDB(c *cli.Command, n string) (w parse.Writer, cl func() error, 
 	case "json",
 		"protobuf", "proto", "pb",
 		"log", "":
-		fw, err = fwopen(c, n)
+		fw, err = fwopen(c, n, of)
 		if err != nil {
 			return
 		}
 
 		cl = fw.Close
+	case "tlogdb", "tldb", "db":
+		return openDBWriter(c, n)
 	default:
 		err = errors.New("undefined writer format: %v", ext)
 		return
@@ -200,8 +160,8 @@ func openWriterNoDB(c *cli.Command, n string) (w parse.Writer, cl func() error, 
 		w = parse.NewAnyWiter(tlog.NewJSONWriter(fw))
 	case "protobuf", "proto", "pb":
 		w = parse.NewAnyWiter(tlog.NewProtoWriter(fw))
-	case "console", "stderr", "log", "":
-		w = parse.NewAnyWiter(tlog.NewConsoleWriter(fw, tlog.LdetFlags|tlog.Lspans|tlog.Lmessagespan))
+	case "console", "stderr", "log", "err", "":
+		w = parse.NewConsoleWriter(fw, ff)
 	}
 
 	return
@@ -211,14 +171,16 @@ func openReader(c *cli.Command, n string) (r parse.LowReader, cl func() error, e
 	ext := filepath.Ext(n)
 	ext = strings.TrimPrefix(ext, ".")
 
-	var fr io.ReadCloser
+	var fr io.Reader
 
 	switch ext {
 	case "json",
 		"protobuf", "proto", "pb":
 		fr, err = fropen(c, n)
 
-		cl = fr.Close
+		if cc, ok := fr.(io.Closer); ok {
+			cl = cc.Close
+		}
 	default:
 		err = errors.New("undefined reader format: %v", ext)
 		return
@@ -234,34 +196,33 @@ func openReader(c *cli.Command, n string) (r parse.LowReader, cl func() error, e
 	return
 }
 
-func fropen(c *cli.Command, n string) (io.ReadCloser, error) {
+func fropen(c *cli.Command, n string) (io.Reader, error) {
 	ext := filepath.Ext(n)
 	if n := strings.TrimSuffix(n, ext); n == "-" || n == "" {
-		return ioutil.NopCloser(os.Stdin), nil
+		return os.Stdin, nil
 	}
 
-	ff := os.O_RDONLY
-
-	f, err := os.OpenFile(n, ff, 0)
+	f, err := rotated.NewReader(n)
 	if err != nil {
 		return nil, err
 	}
 
+	f.Follow = c.Bool("follow")
+
 	return f, nil
 }
 
-func fwopen(c *cli.Command, n string) (io.WriteCloser, error) {
+func fwopen(c *cli.Command, n string, ff int) (io.WriteCloser, error) {
 	ext := filepath.Ext(n)
 	if n := strings.TrimSuffix(n, ext); n == "-" || n == "" {
 		return nopCloser{os.Stdout}, nil
 	}
 
-	ff := os.O_RDWR | os.O_CREATE | os.O_APPEND
 	if !c.Bool("rewrite") {
 		ff |= os.O_EXCL
 	}
 
-	f, err := os.OpenFile(n, ff, 0644)
+	f, err := rotated.NewWriter(n, ff, 0644)
 	if err != nil {
 		return nil, err
 	}

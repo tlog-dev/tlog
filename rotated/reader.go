@@ -38,6 +38,10 @@ func NewReader(name string, ops ...ReaderOption) (r *Reader, err error) {
 		stopc:    make(chan struct{}),
 	}
 
+	for _, o := range ops {
+		o(r)
+	}
+
 	_, err = r.next()
 
 	return r, err
@@ -170,7 +174,7 @@ func NextName(fwd bool) func(b, l string) (next string, ok bool, err error) {
 			pref = b[:p]
 			ext = b[p+1:]
 		} else {
-			ext := filepath.Ext(b)
+			ext = filepath.Ext(b)
 			pref = strings.TrimSuffix(b, ext)
 		}
 
@@ -208,7 +212,7 @@ func NextName(fwd bool) func(b, l string) (next string, ok bool, err error) {
 			})
 		}
 
-		//	tl.Printf("l %q p %v fs %q", x, p, fs)
+		//	tl.Printf("base %q l %q p %v fs %q", b, x, p, fs)
 
 		if p < len(fs) && pref+fs[p]+ext == l {
 			p++

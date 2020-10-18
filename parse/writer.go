@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"io"
 	"time"
 
 	"github.com/nikandfor/tlog"
@@ -19,6 +20,11 @@ type (
 
 	AnyWriter struct {
 		tlog.Writer
+	}
+
+	ConsoleWriter struct {
+		*tlog.ConsoleWriter
+		lastTime int64
 	}
 
 	ConvertWriter struct {
@@ -97,6 +103,120 @@ func (w AnyWriter) SpanFinish(f SpanFinish) error {
 		ID:      f.ID,
 		Elapsed: time.Duration(f.Elapsed),
 	})
+}
+
+func NewConsoleWriter(w io.Writer, ff int) *ConsoleWriter {
+	return &ConsoleWriter{ConsoleWriter: tlog.NewConsoleWriter(w, ff)}
+}
+
+func (w *ConsoleWriter) Labels(ls Labels) error {
+	b, wr := tlog.Getbuf()
+	defer wr.Ret(&b)
+
+	b = append(b, "Labels:"...)
+	for _, l := range ls.Labels {
+		b = append(b, ' ')
+		b = append(b, l...)
+	}
+
+	return w.ConsoleWriter.Message(
+		tlog.Message{
+			Time: w.lastTime,
+			Text: tlog.UnsafeBytesToString(b),
+		},
+		ls.Span,
+	)
+}
+
+func (w *ConsoleWriter) Frame(l Frame) error {
+	tlog.PC(l.PC).SetCache(l.Name, l.File, l.Line)
+
+	return nil
+}
+
+func (w *ConsoleWriter) Meta(m Meta) error {
+	b, wr := tlog.Getbuf()
+	defer wr.Ret(&b)
+
+	b = tlog.AppendPrintf(b, "Meta: %v ", m.Type)
+
+	for _, l := range m.Data {
+		b = tlog.AppendPrintf(b, " %q", l)
+	}
+
+	return w.ConsoleWriter.Message(
+		tlog.Message{
+			Time: w.lastTime,
+			Text: tlog.UnsafeBytesToString(b),
+		},
+		tlog.ID{},
+	)
+}
+
+func (w *ConsoleWriter) Message(m Message) error {
+	w.lastTime = m.Time
+
+	return w.ConsoleWriter.Message(
+		tlog.Message{
+			PC:    tlog.PC(m.PC),
+			Time:  m.Time,
+			Text:  m.Text,
+			Attrs: m.Attrs,
+			Level: m.Level,
+		},
+		m.Span,
+	)
+}
+
+func (w *ConsoleWriter) Metric(m Metric) error {
+	b, wr := tlog.Getbuf()
+	defer wr.Ret(&b)
+
+	wh := tlog.DefaultStructuredConfig.MessageWidth
+	if cfg := w.StructuredConfig; cfg != nil {
+		wh = cfg.MessageWidth
+	}
+
+	b = tlog.AppendPrintf(b, "%-*v  %15.5f ", wh, m.Name, m.Value)
+
+	for _, l := range m.Labels {
+		b = append(b, ' ')
+		b = append(b, l...)
+	}
+
+	return w.ConsoleWriter.Message(
+		tlog.Message{
+			Time: w.lastTime,
+			Text: tlog.UnsafeBytesToString(b),
+		},
+		m.Span,
+	)
+}
+
+func (w *ConsoleWriter) SpanStart(s SpanStart) error {
+	w.lastTime = s.StartedAt
+
+	return w.ConsoleWriter.SpanStarted(tlog.SpanStart{
+		ID:        s.ID,
+		Parent:    s.Parent,
+		StartedAt: s.StartedAt,
+		PC:        tlog.PC(s.PC),
+	})
+}
+
+func (w *ConsoleWriter) SpanFinish(f SpanFinish) error {
+	b, wr := tlog.Getbuf()
+	defer wr.Ret(&b)
+
+	b = tlog.AppendPrintf(b, "Span finished - elapsed %vms", f.Elapsed)
+
+	return w.ConsoleWriter.Message(
+		tlog.Message{
+			Time: w.lastTime,
+			Text: tlog.UnsafeBytesToString(b),
+		},
+		f.ID,
+	)
 }
 
 func NewConvertWriter(w Writer) *ConvertWriter {
