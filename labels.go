@@ -52,7 +52,10 @@ var AutoLabels = map[string]func() string{
 			return DefaultLogger.NewID().FullString()
 		}
 
-		return stdRandID().FullString()
+		return MathRandID().FullString()
+	},
+	"_runid": func() string {
+		return runID // defined in unsafe.go
 	},
 }
 

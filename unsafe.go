@@ -31,6 +31,28 @@ type (
 	}
 )
 
+//go:linkname fastrandseed runtime.fastrandseed
+var fastrandseed uintptr
+
+//go:linkname fastrand runtime.fastrand
+func fastrand() uint32
+
+var runID string
+
+func init() {
+	const h = "0123456789abcdef"
+	var b [16]byte
+	s := int(unsafe.Sizeof(fastrandseed))
+
+	q := fastrandseed
+	for i := 2*s - 1; i >= 0; i-- {
+		b[i] = h[q&0xf]
+		q >>= 4
+	}
+
+	runID = string(b[:s])
+}
+
 var (
 	locmu sync.Mutex
 	locc  = map[PC]nfl{}
