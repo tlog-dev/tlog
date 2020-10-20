@@ -639,8 +639,6 @@ func (l *Logger) ifv(tp string) (ok bool) {
 	}
 
 	return f.match(tp)
-
-	return ok
 }
 
 // V checks if one of topics in tp is enabled and returns default Logger or nil.
