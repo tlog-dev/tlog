@@ -63,7 +63,7 @@ func TestLabels(t *testing.T) {
 }
 
 func TestDumpLabelsWithDefault(t *testing.T) {
-	DefaultLogger = New()
+	DefaultLogger = New(nil)
 
 	assert.Equal(t, Labels{"a", "b", "c"}, FillLabelsWithDefaults("a", "b", "c"))
 

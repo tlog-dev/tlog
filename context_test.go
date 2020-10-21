@@ -1,3 +1,6 @@
+// TODO
+// +build ignore
+
 package tlog
 
 import (

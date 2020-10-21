@@ -31,6 +31,9 @@ type (
 	}
 )
 
+//go:linkname nanotime runtime.nanotime1
+func nanotime() int64
+
 //go:linkname fastrandseed runtime.fastrandseed
 var fastrandseed uintptr
 
@@ -182,6 +185,10 @@ func strhash(p *string, h uintptr) uintptr
 //go:noescape
 //go:linkname byteshash runtime.strhash
 func byteshash(p *[]byte, h uintptr) uintptr
+
+//go:noescape
+//go:linkname memhash runtime.memhash
+func memhash(p *byte, h uintptr, s int) uintptr
 
 //go:noescape
 //go:linkname MemHash runtime.memhash
