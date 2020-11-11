@@ -266,6 +266,10 @@ loop:
 		}
 	}
 
+	if (tp == 's' || tp == 'f') && w.f&Lspans == 0 {
+		return len(p), nil
+	}
+
 	b := w.b[:0]
 
 	if w.f&Lmessagespan != 0 || w.f&Lspans != 0 && (tp == 's' || tp == 'f') {

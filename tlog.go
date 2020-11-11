@@ -4,7 +4,9 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlt"
@@ -25,6 +27,8 @@ type (
 
 		tags []wire.Tag
 		b    []byte
+
+		filter *filter // accessed by atomic operations
 
 		NoTime   bool
 		NoCaller bool
@@ -278,6 +282,148 @@ func (s Span) Printf(f string, args ...interface{}) {
 
 func (s Span) Printw(msg string, kvs ...interface{}) {
 	newprint(s.Logger, s.ID, 0, 0, msg, nil, kvs)
+}
+
+// V checks if topic tp is enabled and returns default Logger or nil.
+//
+// It's OK to use nil Logger, it won't crash and won't emit any events to the Writer.
+//
+// Multiple comma separated topics could be provided. Logger will be non-nil if at least one of these topics is enabled.
+//
+// Usecases:
+//     tlog.V("write").Printf("%d bytes written to address %v", n, addr)
+//
+//     if l := tlog.V("detailed"); l != nil {
+//         c := 1 + 2 // do complex computations here
+//         l.Printf("use result: %d")
+//     }
+func V(tp string) *Logger {
+	if !DefaultLogger.ifv(tp) {
+		return nil
+	}
+
+	return DefaultLogger
+}
+
+// If does the same checks as V but only returns bool.
+func If(tp string) bool {
+	return DefaultLogger.ifv(tp)
+}
+
+func (l *Logger) ifv(tp string) (ok bool) {
+	if l == nil {
+		return false
+	}
+
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	if f == nil {
+		return false
+	}
+
+	return f.match(tp)
+}
+
+// V checks if one of topics in tp is enabled and returns default Logger or nil.
+//
+// It's OK to use nil Logger, it won't crash and won't emit any events to writer.
+//
+// Multiple comma separated topics could be provided. Logger will be non-nil if at least one of these topics is enabled.
+func (l *Logger) V(tp string) *Logger {
+	if l == nil || !l.ifv(tp) {
+		return nil
+	}
+
+	return l
+}
+
+// If checks if some of topics enabled.
+func (l *Logger) If(tp string) bool {
+	return l.ifv(tp)
+}
+
+// V checks if one of topics in tp is enabled and returns the same Span or empty overwise.
+//
+// It is safe to call any methods on empty Span.
+//
+// Multiple comma separated topics could be provided. Span will be Valid if at least one of these topics is enabled.
+func (s Span) V(tp string) Span {
+	if !s.Logger.ifv(tp) {
+		return Span{}
+	}
+
+	return s
+}
+
+// If does the same checks as V but only returns bool.
+func (s Span) If(tp string) bool {
+	return s.Logger.ifv(tp)
+}
+
+// SetFilter sets filter to use in V.
+//
+// Filter is a comma separated chain of rules.
+// Each rule is applied to result of previous rule and adds or removes some locations.
+// Rule started with '!' excludes matching locations.
+//
+// Each rule is one of: topic (some word you used in V argument)
+//     error
+//     networking
+//     send
+//     encryption
+//
+// location (directory, file, function) or
+//     path/to/file.go
+//     short_file.go
+//     path/to/package - subpackages doesn't math
+//     root/* - root package and all subpackages
+//     github.com/nikandfor/tlog.Function
+//     tlog.(*Type).Method
+//     tlog.Type - all methods of type Type
+//
+// topics in location
+//     tlog.Span=timing
+//     p2p/conn.go=read+write - multiple topics in location are separated by '+'
+//
+// Example
+//     module,!module/file.go,funcInFile
+//
+// SetFilter can be called simultaneously with V.
+func SetFilter(f string) {
+	DefaultLogger.SetFilter(f)
+}
+
+// Filter returns current verbosity filter of DefaultLogger.
+func Filter() string {
+	return DefaultLogger.Filter()
+}
+
+// SetFilter sets filter to use in V.
+//
+// See package.SetFilter description for details.
+func (l *Logger) SetFilter(filters string) {
+	if l == nil {
+		return
+	}
+
+	f := newFilter(filters)
+
+	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
+}
+
+// Filter returns current verbosity filter value.
+//
+// See package.SetFilter description for details.
+func (l *Logger) Filter() string {
+	if l == nil {
+		return ""
+	}
+
+	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	if f == nil {
+		return ""
+	}
+
+	return f.f
 }
 
 func Observe(name string, v float64, args ...interface{}) {

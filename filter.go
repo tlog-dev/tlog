@@ -39,7 +39,8 @@ func (f *filter) match(t string) bool {
 		return true
 	}
 
-	loc := Caller(3)
+	var loc PC
+	caller1(3, &loc, 1, 1)
 
 	k := filterkey{
 		l:  loc,

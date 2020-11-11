@@ -5,10 +5,11 @@ import (
 	"runtime"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/tlwriter"
 )
 
 func main() {
-	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(os.Stderr, tlog.LstdFlags))
+	tlog.DefaultLogger = tlog.New(tlwriter.NewConsole(os.Stderr, tlwriter.LstdFlags))
 
 	tlog.SetFilter("topic,info") // change filter in flight
 
@@ -40,7 +41,7 @@ func funcConditionalTrace(id tlog.ID) {
 
 	tr.Printf("this line printed if filter includes topic")
 
-	if tr.Valid() { // true if topic enabled
+	if tr.Logger != nil { // true if topic enabled
 		p := 1 + 1 // complex calculations
 		tr.Printf("verbose output: %v", p)
 	}
