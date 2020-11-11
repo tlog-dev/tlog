@@ -1,4 +1,4 @@
-package tlog
+package tlt
 
 import (
 	"fmt"

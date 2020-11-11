@@ -5,20 +5,26 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/tlt"
+	"github.com/nikandfor/tlog/tlwriter"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
-	ID [16]byte
-
-	Type byte
-
-	Level int8
+	ID     = tlt.ID
+	Type   = tlt.Type
+	Level  = tlt.Level
+	Labels = tlt.Labels
 
 	Logger struct {
-		mu sync.Mutex
-		encoder
+		wire.Encoder
 
-		io.Writer
+		mu sync.Mutex
+
+		tags []wire.Tag
+		b    []byte
 
 		NoTime   bool
 		NoCaller bool
@@ -27,18 +33,15 @@ type (
 	}
 
 	Span struct {
-		Logger *Logger
-		ID     ID
-	}
-
-	Event struct {
-		Logger *Logger
-		ID     ID
+		Logger    *Logger
+		ID        ID
+		StartedAt time.Time
 	}
 
 	Option func(l *Logger)
 )
 
+// Log Levels
 const (
 	Info = iota
 	Warn
@@ -48,17 +51,123 @@ const (
 	Debug = -1
 )
 
-var unixnow = fastnow
+// Metric types
+const (
+	Counter   = "counter"
+	Gauge     = "gauge"
+	Summary   = "summary"
+	Histogram = "histogram"
+)
 
-var DefaultLogger = New(os.Stderr, WithNoCaller)
+var ( // now
+	unixnow = low.UnixNano
+	now     = time.Now
+)
 
-func newspan(l *Logger, d int, par ID) Span { return Span{} }
+var DefaultLogger = New(tlwriter.NewConsole(os.Stderr, tlwriter.LstdFlags), WithNoCaller)
+
+func newspan(l *Logger, par ID, d int, args []interface{}) (s Span) {
+	if l == nil {
+		return
+	}
+
+	if !l.NoTime {
+		s.StartedAt = now()
+	}
+
+	s.Logger = l
+	s.ID = l.NewID()
+
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	l.tags = l.tags[:0]
+
+	l.tags = wire.AppendTagVal(l.tags, wire.Span, s.ID)
+
+	if !l.NoTime {
+		l.tags = wire.AppendTagVal(l.tags, wire.Time, s.StartedAt.UnixNano())
+	}
+
+	l.tags = wire.AppendTagVal(l.tags, wire.Type, wire.Start)
+
+	if par != (ID{}) {
+		l.tags = wire.AppendTagVal(l.tags, wire.Parent, par)
+	}
+
+	if len(args) != 0 {
+		if name, ok := args[0].(string); ok {
+			l.tags = wire.AppendTagVal(l.tags, wire.Name, name)
+			args = args[1:]
+		}
+	}
+
+	wire.Event(&l.Encoder, l.tags, args)
+
+	return
+}
+
+func newprint(l *Logger, id ID, d int16, lv Level, msg string, args []interface{}, kvs []interface{}) {
+	if l == nil {
+		return
+	}
+
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	l.tags = l.tags[:0]
+
+	if id != (ID{}) {
+		l.tags = wire.AppendTagVal(l.tags, wire.Span, id)
+	}
+
+	if !l.NoTime {
+		l.tags = wire.AppendTagVal(l.tags, wire.Time, unixnow())
+	}
+	if !l.NoCaller {
+		//	var pc PC
+		//	caller1(1, &pc, 1, 1)
+		//	tags = append(tags, Tag{R: rLocation, V: pc})
+	}
+
+	if len(args) != 0 {
+		l.tags = wire.AppendTagVal(l.tags, wire.Message, wire.Format{Fmt: msg, Args: args})
+	} else {
+		l.tags = wire.AppendTagVal(l.tags, wire.Message, msg)
+	}
+
+	wire.Event(&l.Encoder, l.tags, kvs)
+}
+
+func observe(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
+	if l == nil {
+		return
+	}
+	if v == nil {
+		panic("nil value")
+	}
+
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	l.tags = l.tags[:0]
+
+	if id != (ID{}) {
+		l.tags = wire.AppendTagVal(l.tags, wire.Span, id)
+	}
+
+	l.tags = wire.AppendTagVal(l.tags, wire.Name, name)
+	l.tags = wire.AppendTagVal(l.tags, wire.Value, v)
+
+	wire.Event(&l.Encoder, l.tags, kvs)
+}
 
 func New(w io.Writer, ops ...Option) *Logger {
 	l := &Logger{
-		Writer: w,
-		NewID:  MathRandID,
+		NewID: tlt.MathRandID,
 	}
+
+	l.Writer = w
 
 	for _, o := range ops {
 		o(l)
@@ -67,176 +176,129 @@ func New(w io.Writer, ops ...Option) *Logger {
 	return l
 }
 
-func (l *Logger) Printf(f string, args ...interface{}) {
+func (l *Logger) Event(tags []wire.Tag, kvs []interface{}) {
 	if l == nil {
 		return
 	}
 
+	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	if !l.NoTime {
-		l.timestamp(unixnow())
-	}
-	if !l.NoCaller {
-		//	var pc PC
-		//	caller1(1, &pc, 1, 1)
-		//	l.caller(pc)
+	wire.Event(&l.Encoder, tags, kvs)
+}
 
-		//	l.caller(Caller(1))
+func (s Span) Event(tags []wire.Tag, kvs []interface{}) {
+	l := s.Logger
+	if l == nil {
+		return
 	}
 
-	l.message(f, args)
+	defer l.mu.Unlock()
+	l.mu.Lock()
 
-	l.write()
+	l.tags = wire.AppendTagVal(l.tags[:0], wire.Span, s.ID)
+	l.tags = append(l.tags, tags...)
 
-	l.mu.Unlock()
+	wire.Event(&l.Encoder, l.tags, kvs)
+}
+
+func SetLabels(ls Labels) {
+	DefaultLogger.SetLabels(ls)
+}
+
+func (l *Logger) SetLabels(ls Labels) {
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	wire.Event(&l.Encoder, []wire.Tag{{T: wire.Labels, V: ls}}, nil)
+}
+
+func Start(args ...interface{}) Span {
+	return newspan(DefaultLogger, ID{}, 0, args)
+}
+
+func Spawn(par ID, args ...interface{}) Span {
+	return newspan(DefaultLogger, par, 0, args)
+}
+
+func (l *Logger) Start(args ...interface{}) Span {
+	return newspan(l, ID{}, 0, args)
+}
+
+func (l *Logger) Spawn(par ID, args ...interface{}) Span {
+	return newspan(l, par, 0, args)
+}
+
+func (s Span) Finish() {
+	l := s.Logger
+	if l == nil {
+		return
+	}
+
+	var d time.Duration
+	if s.StartedAt != (time.Time{}) {
+		d = now().Sub(s.StartedAt)
+	}
+
+	defer l.mu.Unlock()
+	l.mu.Lock()
+
+	l.tags = l.tags[:0]
+
+	l.tags = wire.AppendTagVal(l.tags, wire.Span, s.ID)
+
+	l.tags = wire.AppendTagVal(l.tags, wire.Type, wire.Finish)
+
+	if d != 0 {
+		l.tags = wire.AppendTagVal(l.tags, wire.Duration, d)
+	}
+
+	wire.Event(&l.Encoder, l.tags, nil)
+}
+
+func Printf(f string, args ...interface{}) {
+	newprint(DefaultLogger, ID{}, 0, 0, f, args, nil)
+}
+
+func Printw(msg string, kvs ...interface{}) {
+	newprint(DefaultLogger, ID{}, 0, 0, msg, nil, kvs)
+}
+
+func (l *Logger) Printf(f string, args ...interface{}) {
+	newprint(l, ID{}, 0, 0, f, args, nil)
 }
 
 func (l *Logger) Printw(msg string, kvs ...interface{}) {
-	if l == nil {
-		return
-	}
-
-	l.mu.Lock()
-
-	if !l.NoTime {
-		l.timestamp(unixnow())
-	}
-	if !l.NoCaller {
-		//	l.caller(Caller(1))
-	}
-
-	l.message(msg, nil)
-
-	l.kvs(kvs...)
-
-	l.write()
-
-	l.mu.Unlock()
+	newprint(l, ID{}, 0, 0, msg, nil, kvs)
 }
 
-func (l *Logger) Start(name ...string) (s Span) {
-	if l == nil {
-		return
-	}
-
-	s.Logger = l
-	s.ID = l.NewID()
-
-	l.mu.Lock()
-
-	l.id(s.ID)
-
-	if !l.NoTime {
-		l.timestamp(unixnow())
-	}
-	if !l.NoCaller {
-		//	l.caller(Caller(1))
-	}
-
-	l.rectype('s')
-
-	if len(name) != 0 {
-		l.message(name[0], nil)
-	}
-
-	l.write()
-
-	l.mu.Unlock()
-
-	return s
+func (s Span) Printf(f string, args ...interface{}) {
+	newprint(s.Logger, s.ID, 0, 0, f, args, nil)
 }
 
-func (l *Logger) Spawn(par ID, name ...string) (s Span) {
-	if l == nil {
-		return
-	}
-
-	s.Logger = l
-	s.ID = l.NewID()
-
-	l.mu.Lock()
-
-	l.id(s.ID)
-
-	if !l.NoTime {
-		l.timestamp(unixnow())
-	}
-	if !l.NoCaller {
-		//	l.caller(Caller(1))
-	}
-
-	l.rectype('s')
-
-	if len(name) != 0 {
-		l.message(name[0], nil)
-	}
-
-	l.parent(par)
-
-	l.write()
-
-	l.mu.Unlock()
-
-	return s
+func (s Span) Printw(msg string, kvs ...interface{}) {
+	newprint(s.Logger, s.ID, 0, 0, msg, nil, kvs)
 }
 
-func (l *Logger) write() (err error) {
-	l.eor()
-
-	_, err = l.Writer.Write(l.encoder.b)
-
-	l.encoder.reset()
-
-	return
+func Observe(name string, v float64, args ...interface{}) {
+	observe(DefaultLogger, ID{}, name, v, args)
 }
 
-func (l *Logger) Event() Event {
-	if l == nil {
-		return Event{}
-	}
-
-	l.mu.Lock()
-
-	return Event{Logger: l}
+func (l *Logger) Observe(name string, v float64, args ...interface{}) {
+	observe(l, ID{}, name, v, args)
 }
 
-func (ev Event) Write() (err error) {
-	if ev.Logger != nil {
-		err = ev.Logger.write()
-
-		ev.Logger.mu.Unlock()
-	}
-
-	return
+func (s Span) Observe(name string, v float64, args ...interface{}) {
+	observe(s.Logger, s.ID, name, v, args)
 }
 
-func (l *Logger) reset() {
-	l.encoder.reset()
-
-	l.mu.Unlock()
+func RegisterMetric(name, typ, help string, kvs ...interface{}) {
+	DefaultLogger.RegisterMetric(name, typ, help, kvs...)
 }
 
-func (ev Event) TimeNow() Event {
-	if ev.Logger != nil {
-		ev.Logger.timestamp(unixnow())
-	}
+func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
+	q := []interface{}{"type", typ, "help", help}
+	q = append(q, kvs...)
 
-	return ev
-}
-
-func (ev Event) Timestamp(ts int64) Event {
-	if ev.Logger != nil {
-		ev.Logger.timestamp(ts)
-	}
-
-	return ev
-}
-
-func (ev Event) Time(t time.Time) Event {
-	if ev.Logger != nil {
-		ev.Logger.timestamp(t.UnixNano())
-	}
-
-	return ev
+	l.Event([]wire.Tag{{T: wire.Type, V: 'm'}, {T: wire.Name, V: name}}, q)
 }

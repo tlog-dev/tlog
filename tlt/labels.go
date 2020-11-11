@@ -1,4 +1,4 @@
-package tlog
+package tlt
 
 import (
 	"crypto/md5"  //nolint
@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/nikandfor/tlog/low"
 )
 
 // Labels is a set of labels with optional values.
@@ -49,14 +51,10 @@ var AutoLabels = map[string]func() string{
 		return filepath.Base(os.Args[0])
 	},
 	"_randid": func() string {
-		if DefaultLogger != nil {
-			return DefaultLogger.NewID().FullString()
-		}
-
 		return MathRandID().FullString()
 	},
 	"_runid": func() string {
-		return runID // defined in unsafe.go
+		return low.RunID
 	},
 }
 

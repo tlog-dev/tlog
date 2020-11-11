@@ -1,4 +1,4 @@
-package tlog
+package tlwriter
 
 import (
 	"sync/atomic"

@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/tlt"
+	"github.com/nikandfor/tlog/tlwriter"
+	"github.com/nikandfor/tlog/wire"
 )
 
 var (
@@ -17,22 +18,22 @@ var (
 var ll *tlog.Logger
 
 func initComplexLogger() func() {
-	var buf bytes.Buffer // imagine it is a log file
+	//	var buf bytes.Buffer // imagine it is a log file
 
-	jw := tlog.NewJSONWriter(&buf)
+	//	jw := tlog.NewJSONWriter(&buf)
 
-	cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags|tlog.Lfuncname|tlog.Lspans|tlog.Lmessagespan)
+	cw := tlwriter.NewConsole(os.Stderr, tlwriter.LdetFlags|tlwriter.Lfuncname|tlwriter.Lspans|tlwriter.Lmessagespan)
 	cw.Shortfile = 14
 	cw.Funcname = 14
 	cw.IDWidth = 10
 	cw.LevelWidth = 3
 
-	ll = tlog.New(cw, jw)
+	ll = tlog.New(cw)
 
 	tlog.DefaultLogger = ll // needed for sub package. It uses package interface (tlog.Printf)
 
 	return func() {
-		fmt.Fprintf(os.Stderr, "%s", buf.Bytes())
+		//	fmt.Fprintf(os.Stderr, "%s", buf.Bytes())
 	}
 }
 
@@ -42,11 +43,11 @@ func main() {
 	cl := initComplexLogger()
 	defer cl()
 
-	lab := tlog.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "label_from_flags")
+	lab := tlt.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "label_from_flags")
 	ll.SetLabels(lab)
 	ll.Printf("os.Args: %v", os.Args)
 
-	ll.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MGauge, "help message for metric that describes it")
+	ll.RegisterMetric("fully_qualified_metric_name_with_units", tlog.Gauge, "help message for metric that describes it")
 
 	ll.Printf("main: %d", *f)
 
@@ -57,14 +58,14 @@ func work() {
 	tr := ll.Start()
 	defer tr.Finish()
 
-	tr.Printw("work", tlog.AStr("argument", *str))
+	tr.Printw("work", "argument", *str)
 
 	var a A
 	a.func1(tr.ID)
 
-	tr.SetLabels(tlog.Labels{"a", "b=c"})
+	//	tr.SetLabels(tlog.Labels{"a", "b=c"})
 
-	tr.Observe("fully_qualified_metric_name_with_units", 123.456, nil)
+	tr.Observe("fully_qualified_metric_name_with_units", 123.456)
 }
 
 type A struct{}
@@ -73,9 +74,21 @@ func (*A) func1(id tlog.ID) {
 	tr := ll.Spawn(id)
 	defer tr.Finish()
 
-	tr.PrintRaw(0, tlog.WarnLevel, "func1: %v", tlog.Args{"error message"}, tlog.Attrs{{Name: "attribute", Value: "value"}})
+	tr.Event([]wire.Tag{
+		{T: wire.Level, V: tlog.Warn},
+		{T: wire.Message, V: wire.Format{
+			Fmt:  "func1: %v",
+			Args: []interface{}{"error message"},
+		}},
+	}, []interface{}{"attribute", "value"})
 
 	func() {
-		tr.Errorf("func1.1: %v", 3)
+		tr.Event([]wire.Tag{
+			{T: wire.Level, V: tlog.Error},
+			{T: wire.Message, V: wire.Format{
+				Fmt:  "func1.1: %v",
+				Args: []interface{}{3},
+			}},
+		}, nil)
 	}()
 }

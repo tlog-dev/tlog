@@ -1,21 +1,29 @@
-package tlog
+package tlwriter
 
 import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
 	"golang.org/x/crypto/ssh/terminal"
+
+	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/tlt"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
-	ConsoleWriter struct {
+	ID    = tlt.ID
+	Type  = tlt.Type
+	Level = tlt.Level
+
+	Console struct {
 		w io.Writer
 		f int
 
@@ -30,7 +38,7 @@ type (
 		ColorConfig      *ColorConfig
 		StructuredConfig *StructuredConfig
 
-		b bufWriter
+		b low.Buf
 	}
 
 	ColorConfig struct {
@@ -58,16 +66,18 @@ type (
 
 		structValWidth sync.Map // string -> int
 	}
-
-	bufWriter []byte
-
-	bwr struct {
-		b   bufWriter
-		buf [128 - unsafe.Sizeof([]byte{})]byte
-	}
 )
 
-// ConsoleWriter flags. Similar to log.Logger flags.
+const (
+	Info = iota
+	Warn
+	Error
+	Fatal
+
+	Debug = -1
+)
+
+// Console flags. Similar to log.Logger flags.
 const ( // console writer flags
 	Ldate = 1 << iota
 	Ltime
@@ -132,12 +142,8 @@ func init() {
 	}
 }
 
-var spaces = []byte("                                                                                                                                                ")
-
-var bufPool = sync.Pool{New: func() interface{} { w := &bwr{}; w.b = w.buf[:]; return w }}
-
 // NewConsoleWriter creates writer with similar output as log.Logger.
-func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
+func NewConsole(w io.Writer, f int) *Console {
 	var colorize bool
 	switch f := w.(type) {
 	case interface {
@@ -150,7 +156,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		colorize = terminal.IsTerminal(f.Fd())
 	}
 
-	return &ConsoleWriter{
+	return &Console{
 		w:          w,
 		f:          f,
 		Shortfile:  20,
@@ -161,13 +167,16 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	}
 }
 
-func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
+func (w *Console) Write(p []byte) (_ int, err error) {
 	var (
-		id ID
-		tp Type
-		lv Level
-		tm int64
-		pc int32
+		id, par ID
+		tp      Type
+		lv      Level
+		tm      int64
+		pc      uint64
+		el      time.Duration
+		ls      tlt.Labels
+		val     interface{}
 
 		msg []byte
 
@@ -175,58 +184,83 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 		line       int
 	)
 
+	//	fmt.Fprintf(os.Stderr, "message\n%v", hex.Dump(p))
+
 	// decode header
 	_ = pc
 	i := 0
+loop:
 	for i < len(p) {
 		t := p[i]
 		i++
 
-		switch {
-		case t == 0:
-			break
-		case t == 0x01: // time
+		//	fmt.Fprintf(os.Stderr, "parsetag  i %3x  t %2x\n", i-1, t)
+
+		switch t & wire.TypeMask {
+		case wire.Map:
+			i--
+			break loop
+		case wire.Semantic:
+			// ok
+		default:
+			panic(t)
+		}
+
+		t &^= wire.Semantic
+
+		switch t {
+		case wire.EOR:
+			i--
+			break loop
+		case wire.Time: // time
+			if p[i]&wire.TypeDetMask != 0x1f {
+				panic(p[i])
+			}
+			i++ // int64
 			tm = int64(binary.BigEndian.Uint64(p[i:]))
 			i += 8
-		case t == 0x02: // Type
+		case wire.Type: // Type
+			//	fmt.Fprintf(os.Stderr, "get type %x %[1]q %x %[2]q\n", p[i], p[i+1])
+			i++ // int8
 			tp = Type(p[i])
 			i++
-		case t&0xf0 == 0x01: // Level
-			lv = Level(t & 0xf)
-			lv = lv << 4 >> 4
+		case wire.Level: // Level
+			lv = Level(p[i] & wire.TypeDetMask)
+			if p[i]&wire.TypeMask == wire.Neg {
+				lv = -lv
+			}
 			i++
-		case t&0xf0 == 0x20: // ID
-			l := int(t&0xf) + 1
+		case wire.ID: // ID
+			l := int(p[i] & 0x1f)
+			i++
 			i += copy(id[:l], p[i:])
-		case t&0xc0 == 0x80: // Message/Name
-			l := int(t & 0x3f)
-			if l == 0x3f {
-				var ll int
-				for p[i]&0x80 == 0x80 {
-					ll = ll<<8 | int(p[i])&0x7f
-					i++
-				}
+		case wire.Parent:
+			l := int(p[i] & 0x1f)
+			i++
+			i += copy(par[:l], p[i:])
+		case wire.Message: // Message/Name
+			var l int64
+			l, i = getint(p, i)
 
-				l += ll<<8 | int(p[i])
-				i++
+			msg = p[i : i+int(l)]
+			i += int(l)
+		case wire.Duration:
+			var v int64
+			v, i = getint(p, i)
+
+			el = time.Duration(v)
+		case wire.Labels:
+			l := int(p[i] & 0x1f)
+			i++
+
+			var q interface{}
+			for j := 0; j < l; j++ {
+				q, i = getvalue(p, i)
+
+				ls = append(ls, q.(string))
 			}
-
-			msg = p[i : i+l]
-			i += l
-		case t&0xc0 == 0xc0: // Field
-			l := int(t & 0x3f)
-			if l == 0x3f {
-				var ll int
-				for p[i]&0x80 == 0x80 {
-					ll = ll<<8 | int(p[i])&0x7f
-					i++
-				}
-
-				l += ll<<8 | int(p[i])
-				i++
-			}
-
-			i += l
+		case wire.Value:
+			val, i = getvalue(p, i)
 		default:
 			panic(t)
 		}
@@ -240,17 +274,39 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 		b = w.buildHeader(b, lv, tm, name, file, line)
 	}
 
+	st := len(b)
+
 	b = append(b, msg...)
+
+	if ls != nil {
+		b = append(b, "Labels:"...)
+
+		for _, l := range ls {
+			b = append(b, ' ')
+			b = append(b, l...)
+		}
+	}
+
+	if p[i] == wire.Map || tp != 0 || el != 0 || val != nil {
+		b, i = w.structuredFormatter(b, len(b)-st, tp, par, el, val, p, i)
+	}
+
+	if p[i] != wire.Semantic|wire.EOR {
+		panic(p[i])
+	}
+
+	i++
 
 	b.NewLine()
 
-	_, err = w.w.Write(b)
 	w.b = b
 
-	return len(p), err
+	_, err = w.w.Write(b)
+
+	return i, err
 }
 
-func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file string, line int) []byte {
+func (w *Console) buildHeader(b []byte, lv Level, tm int64, fname, file string, line int) []byte {
 	var col *ColorConfig
 	if w.Colorize {
 		col = w.ColorConfig
@@ -268,7 +324,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 
 		var Y, M, D, h, m, s int
 		if w.f&(Ldate|Ltime) != 0 {
-			Y, M, D, h, m, s = splitTime(t)
+			Y, M, D, h, m, s = low.SplitTime(t)
 		}
 
 		if col != nil && col.Time != 0 {
@@ -375,7 +431,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 		}
 
 		i := len(b)
-		b = append(b, spaces[:w.LevelWidth]...)
+		b = append(b, low.Spaces[:w.LevelWidth]...)
 
 		switch lv {
 		case Info:
@@ -387,7 +443,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 		case Fatal:
 			copy(b[i:], "FATAL")
 		default:
-			b = AppendPrintf(b[:i], "%*x", w.LevelWidth, lv)
+			b = low.AppendPrintf(b[:i], "%*x", w.LevelWidth, lv)
 		}
 
 		end := len(b)
@@ -397,7 +453,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 		}
 
 		if pad := i + w.LevelWidth + 2 - end; pad > 0 {
-			b = append(b, spaces[:pad]...)
+			b = append(b, low.Spaces[:pad]...)
 		}
 	}
 
@@ -416,7 +472,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 
 			i := len(b)
 
-			b = append(b, spaces[:w.Shortfile]...)
+			b = append(b, low.Spaces[:w.Shortfile]...)
 			b = append(b[:i], file...)
 
 			e := len(b)
@@ -474,7 +530,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 
 			if l := len(fname); l <= w.Funcname {
 				i := len(b)
-				b = append(b, spaces[:w.Funcname]...)
+				b = append(b, low.Spaces[:w.Funcname]...)
 				b = append(b[:i], fname...)
 				b = b[:i+w.Funcname]
 			} else {
@@ -503,7 +559,7 @@ func (w *ConsoleWriter) buildHeader(b []byte, lv Level, tm int64, fname, file st
 	return b
 }
 
-func (w *ConsoleWriter) spanHeader(b []byte, sid ID, lv Level, tm int64, name, file string, line int) []byte {
+func (w *Console) spanHeader(b []byte, sid ID, lv Level, tm int64, name, file string, line int) []byte {
 	b = w.buildHeader(b, lv, tm, name, file, line)
 
 	var color int
@@ -545,7 +601,7 @@ func (c *StructuredConfig) Copy() StructuredConfig {
 	}
 }
 
-// DefaultStructuredConfig is default config to format structured logs by ConsoleWriter.
+// DefaultStructuredConfig is default config to format structured logs by Console writer.
 var DefaultStructuredConfig = StructuredConfig{
 	MessageWidth:     40,
 	ValueMaxPadWidth: 20,
@@ -554,9 +610,7 @@ var DefaultStructuredConfig = StructuredConfig{
 }
 
 //nolint:gocognit
-func structuredFormatter(w *ConsoleWriter, b []byte, msgw int, tp Type, kvs []interface{}) []byte {
-	const escape = `"'`
-
+func (w *Console) structuredFormatter(b []byte, msgw int, tp Type, par ID, el time.Duration, val interface{}, kvs []byte, i int) ([]byte, int) {
 	c := w.StructuredConfig
 	if c == nil {
 		c = &DefaultStructuredConfig
@@ -574,10 +628,14 @@ func structuredFormatter(w *ConsoleWriter, b []byte, msgw int, tp Type, kvs []in
 	}
 
 	if msgw != 0 && msgw < c.MessageWidth {
-		b = append(b, spaces[:c.MessageWidth-msgw]...)
+		b = append(b, low.Spaces[:c.MessageWidth-msgw]...)
 	}
 
+	var sep bool
+
 	if tp >= 0x20 && tp < 0x80 {
+		sep = true
+
 		if colKey != nil {
 			b = append(b, colKey...)
 		}
@@ -601,19 +659,18 @@ func structuredFormatter(w *ConsoleWriter, b []byte, msgw int, tp Type, kvs []in
 		}
 	}
 
-	for i := 0; i < len(kvs); i += 2 {
-		k := kvs[i].(string)
-		v := kvs[i+1]
-
-		if i != 0 || tp >= 0x20 && tp < 0x80 {
+	if par != (ID{}) {
+		if sep {
 			b = append(b, c.PairSeparator...)
+		} else {
+			sep = true
 		}
 
 		if colKey != nil {
 			b = append(b, colKey...)
 		}
 
-		b = append(b, k...)
+		b = append(b, "parent"...)
 
 		b = append(b, c.KVSeparator...)
 
@@ -621,41 +678,143 @@ func structuredFormatter(w *ConsoleWriter, b []byte, msgw int, tp Type, kvs []in
 			b = append(b, colors[0]...)
 		}
 
-		vst := len(b)
+		if colVal != nil {
+			b = append(b, colVal...)
+		}
+
+		b = w.appendValue(b, par)
+
+		if colVal != nil {
+			b = append(b, colors[0]...)
+		}
+	}
+
+	if el != 0 {
+		if sep {
+			b = append(b, c.PairSeparator...)
+		} else {
+			sep = true
+		}
+
+		if colKey != nil {
+			b = append(b, colKey...)
+		}
+
+		b = append(b, "elapsed_ms"...)
+
+		b = append(b, c.KVSeparator...)
+
+		if colKey != nil {
+			b = append(b, colors[0]...)
+		}
 
 		if colVal != nil {
 			b = append(b, colVal...)
 		}
 
-		switch v := v.(type) {
-		case string:
-			if c.QuoteAnyValue || c.QuoteEmptyValue && v == "" || strings.Contains(v, c.KVSeparator) || strings.ContainsAny(v, escape) {
-				b = strconv.AppendQuote(b, v)
-			} else {
-				b = append(b, v...)
-			}
-		case []byte:
-			if c.QuoteAnyValue || c.QuoteEmptyValue && len(v) == 0 || bytes.Contains(v, []byte(c.KVSeparator)) || bytes.ContainsAny(v, escape) {
-				b = strconv.AppendQuote(b, string(v))
-			} else {
-				b = append(b, v...)
-			}
-		case ID:
-			i := len(b)
-			b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
-			v.FormatTo(b[i:], 'v')
+		st := len(b)
+		b = append(b, low.Spaces[:10]...)
+		b = strconv.AppendFloat(b[:st], el.Seconds()*1000, 'f', 2, 64)
+		b = b[:st+10]
+
+		if colVal != nil {
+			b = append(b, colors[0]...)
+		}
+	}
+
+	if val != nil {
+		if sep {
+			b = append(b, c.PairSeparator...)
+		} else {
+			sep = true
+		}
+
+		if colKey != nil {
+			b = append(b, colKey...)
+		}
+
+		b = append(b, "value"...)
+
+		b = append(b, c.KVSeparator...)
+
+		if colKey != nil {
+			b = append(b, colors[0]...)
+		}
+
+		if colVal != nil {
+			b = append(b, colVal...)
+		}
+
+		switch val.(type) {
+		case float64, float32:
+			b = low.AppendPrintf(b, "%11.5f", val)
 		default:
-			b = AppendPrintf(b, "%v", v)
+			b = low.AppendPrintf(b, "%11v", val)
 		}
 
 		if colVal != nil {
 			b = append(b, colors[0]...)
 		}
+	}
 
-		vend := len(b)
+	t := kvs[i] & wire.TypeMask
+	els := int(kvs[i] & wire.TypeDetMask)
+	if t != wire.Map {
+		return b, i
+	}
 
-		vw := vend - vst
+	i++
+
+	var v interface{}
+	for el := 0; i < len(kvs) && (els == 0 || el < els); el++ {
+		if els == 0 && kvs[i] == wire.Spec|wire.Break {
+			i++
+			break
+		}
+
+		if sep {
+			b = append(b, c.PairSeparator...)
+		} else {
+			sep = true
+		}
+
+		v, i = getvalue(kvs, i)
+
+		if colKey != nil {
+			b = append(b, colKey...)
+		}
+
+		kst := len(b)
+
+		b = w.appendValue(b, v)
+
+		kend := len(b)
+
+		b = append(b, c.KVSeparator...)
+
+		if colKey != nil {
+			b = append(b, colors[0]...)
+		}
+
+		v, i = getvalue(kvs, i)
+
+		if colVal != nil {
+			b = append(b, colVal...)
+		}
+
+		vst := len(b)
+
+		b = w.appendValue(b, v)
+
+		vw := len(b) - vst
+
+		if colVal != nil {
+			b = append(b, colors[0]...)
+		}
+
 		if vw < c.ValueMaxPadWidth && i+1 < len(kvs) {
+			k := low.UnsafeBytesToString(b[kst:kend])
+
 			var w int
 			iw, ok := c.structValWidth.Load(k)
 			if ok {
@@ -665,40 +824,157 @@ func structuredFormatter(w *ConsoleWriter, b []byte, msgw int, tp Type, kvs []in
 			if !ok || vw > w {
 				c.structValWidth.Store(k, vw)
 			} else if vw < w {
-				b = append(b, spaces[:w-vw]...)
+				b = append(b, low.Spaces[:w-vw]...)
 			}
 		}
+	}
+
+	return b, i
+}
+
+func (w *Console) appendValue(b []byte, v interface{}) []byte {
+	const escape = `"'`
+
+	c := w.StructuredConfig
+	if c == nil {
+		c = &DefaultStructuredConfig
+	}
+
+	switch v := v.(type) {
+	case string:
+		if c.QuoteAnyValue || c.QuoteEmptyValue && v == "" || strings.Contains(v, c.KVSeparator) || strings.ContainsAny(v, escape) {
+			b = strconv.AppendQuote(b, v)
+		} else {
+			b = append(b, v...)
+		}
+	case []byte:
+		if c.QuoteAnyValue || c.QuoteEmptyValue && len(v) == 0 || bytes.Contains(v, []byte(c.KVSeparator)) || bytes.ContainsAny(v, escape) {
+			b = strconv.AppendQuote(b, string(v))
+		} else {
+			b = append(b, v...)
+		}
+	case ID:
+		i := len(b)
+		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
+		v.FormatTo(b[i:], 'v')
+	default:
+		b = low.AppendPrintf(b, "%v", v)
 	}
 
 	return b
 }
 
-// Getbuf gets bytes buffer from a pool to reduce gc pressure.
-// buffer is at least 100 bytes long.
-// Buffer must be returned after used. Usage:
-//     b, wr := tlog.Getbuf()
-//     defer wr.Ret(&b)
-//
-//     b = append(b[:0], ...)
-func Getbuf() (_ bufWriter, wr *bwr) { //nolint:golint
-	wr = bufPool.Get().(*bwr)
-	return wr.b, wr
+func getint(b []byte, i int) (l int64, _ int) {
+	t := b[i] & wire.TypeMask
+
+	tl := int64(b[i] & wire.TypeDetMask)
+	i++
+
+	switch tl {
+	default:
+		l = tl
+	case 1<<5 - 1:
+		l |= int64(b[i]) << 56
+		i++
+		l |= int64(b[i]) << 48
+		i++
+		l |= int64(b[i]) << 40
+		i++
+		l |= int64(b[i]) << 32
+		i++
+
+		fallthrough
+	case 1<<5 - 2:
+		l |= int64(b[i]) << 24
+		i++
+		l |= int64(b[i]) << 16
+		i++
+
+		fallthrough
+	case 1<<5 - 3:
+		l |= int64(b[i]) << 8
+		i++
+
+		fallthrough
+	case 1<<5 - 4:
+		l |= int64(b[i])
+		i++
+	}
+
+	if t == wire.Neg {
+		l = -l
+	}
+
+	return l, i
 }
 
-func (wr *bwr) Ret(b *bufWriter) {
-	wr.b = *b
-	bufPool.Put(wr)
-}
+func getvalue(b []byte, i int) (val interface{}, ri int) {
+	t := b[i]
+	i++
 
-func (w *bufWriter) Write(p []byte) (int, error) {
-	*w = append(*w, p...)
+	tl := int(t & wire.TypeDetMask)
 
-	return len(p), nil
-}
+	var l int
+	switch tl {
+	default:
+		l = tl
+	case 1<<5 - 1:
+		l |= int(b[i]) << 56
+		i++
+		l |= int(b[i]) << 48
+		i++
+		l |= int(b[i]) << 40
+		i++
+		l |= int(b[i]) << 32
+		i++
 
-func (w *bufWriter) NewLine() {
-	l := len(*w)
-	if l == 0 || (*w)[l-1] != '\n' {
-		*w = append(*w, '\n')
+		fallthrough
+	case 1<<5 - 2:
+		l |= int(b[i]) << 24
+		i++
+		l |= int(b[i]) << 16
+		i++
+
+		fallthrough
+	case 1<<5 - 3:
+		l |= int(b[i]) << 8
+		i++
+
+		fallthrough
+	case 1<<5 - 4:
+		l |= int(b[i])
+		i++
+	}
+
+	//	defer func() {
+	//		fmt.Fprintf(os.Stderr, "getvalue  i %x  t %2x tl %2x l %2x  -> %T %[5]v %x\n", i-1, t, tl, l, val, ri)
+	//	}()
+
+	switch t & wire.TypeMask {
+	case wire.Int:
+		return int64(l), i
+	case wire.Neg:
+		return -int64(l), i
+	case wire.Bytes:
+		return b[i : i+l], i + l
+	case wire.String:
+		return low.UnsafeBytesToString(b[i : i+l]), i + l
+	case wire.Spec:
+		switch t & wire.TypeDetMask {
+		case wire.False:
+			return false, i
+		case wire.True:
+			return true, i
+		case wire.Float32:
+			f := math.Float32frombits(binary.BigEndian.Uint32(b[i:]))
+			return f, i + 4
+		case wire.Float64:
+			f := math.Float64frombits(binary.BigEndian.Uint64(b[i:]))
+			return f, i + 8
+		default:
+			panic(t)
+		}
+	default:
+		panic(t)
 	}
 }

@@ -31,28 +31,6 @@ type (
 	}
 )
 
-//go:linkname fastrandseed runtime.fastrandseed
-var fastrandseed uintptr
-
-//go:linkname fastrand runtime.fastrand
-func fastrand() uint32
-
-var runID string
-
-func init() {
-	const h = "0123456789abcdef"
-	var b [16]byte
-	s := int(unsafe.Sizeof(fastrandseed))
-
-	q := fastrandseed
-	for i := 2*s - 1; i >= 0; i-- {
-		b[i] = h[q&0xf]
-		q >>= 4
-	}
-
-	runID = string(b[:s])
-}
-
 var (
 	locmu sync.Mutex
 	locc  = map[PC]nfl{}
@@ -173,40 +151,4 @@ func funcnameFromNameoff(f funcInfo, nameoff int32) string
 
 func bytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
-}
-
-func UnsafeBytesToString(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
-}
-
-//go:noescape
-//go:linkname strhash runtime.strhash
-func strhash(p *string, h uintptr) uintptr
-
-//go:noescape
-//go:linkname byteshash runtime.strhash
-func byteshash(p *[]byte, h uintptr) uintptr
-
-//go:noescape
-//go:linkname memhash runtime.memhash
-func memhash(p *byte, h uintptr, s int) uintptr
-
-//go:noescape
-//go:linkname MemHash runtime.memhash
-func MemHash(p unsafe.Pointer, h, s uintptr) uintptr
-
-//go:noescape
-//go:linkname MemHash64 runtime.memhash64
-func MemHash64(p unsafe.Pointer, h uintptr) uintptr
-
-//go:noescape
-//go:linkname MemHash32 runtime.memhash32
-func MemHash32(p unsafe.Pointer, h uintptr) uintptr
-
-func StrHash(s string, h uintptr) uintptr {
-	return strhash(&s, h)
-}
-
-func BytesHash(s []byte, h uintptr) uintptr {
-	return byteshash(&s, h)
 }

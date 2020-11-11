@@ -10,15 +10,18 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/nikandfor/tlog/low"
 )
 
 const SingleThread, Parallel = "SingleThread", "Parallel"
 
 func TestLoggerSmoke(t *testing.T) {
-	var b bufWriter
+	var b low.Buf
 	l := New(&b)
 
 	l.Printf("message: %v %v", 1, "two")
+	l.Printw("message", "i", 1, "str", "two")
 
 	t.Logf("data:\n%v", hex.Dump(b))
 }

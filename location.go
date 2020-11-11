@@ -5,6 +5,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/nikandfor/tlog/low"
 )
 
 type (
@@ -16,9 +18,8 @@ type (
 	// It's quiet the same as runtime.CallerFrames but more efficient.
 	PCs []PC
 
-	//
 	locFmtState struct {
-		bufWriter
+		low.Buf
 		flags string
 	}
 )
@@ -122,7 +123,7 @@ func (l PC) Format(s fmt.State, c rune) {
 	if ok {
 		p := w - len(nn) - n
 		if p > 0 {
-			s.Write(spaces[:p])
+			s.Write(low.Spaces[:p])
 		}
 	}
 
@@ -146,7 +147,7 @@ func (t PCs) String() string {
 	for _, l := range t {
 		n, f, l := l.NameFileLine()
 		n = path.Base(n)
-		b = AppendPrintf(b, "%-60s  at %s:%d\n", n, f, l)
+		b = low.AppendPrintf(b, "%-60s  at %s:%d\n", n, f, l)
 	}
 	return string(b)
 }
@@ -160,7 +161,7 @@ func (t PCs) FormatString(flags string) string {
 
 	t.Format(&s, 'v')
 
-	return string(s.bufWriter)
+	return string(s.Buf)
 }
 
 func (t PCs) Format(s fmt.State, c rune) {

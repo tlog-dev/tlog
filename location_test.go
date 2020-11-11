@@ -44,27 +44,27 @@ func TestLocationFormat(t *testing.T) {
 	var b bytes.Buffer
 
 	fmt.Fprintf(&b, "%v", l)
-	assert.Equal(t, "location.go:30", b.String())
+	assert.Equal(t, "location.go:31", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%.3v", l)
-	assert.Equal(t, "location.go: 30", b.String())
+	assert.Equal(t, "location.go: 31", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%18.3v", l)
-	assert.Equal(t, "location.go   : 30", b.String())
+	assert.Equal(t, "location.go   : 31", b.String())
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%+v", l)
-	assert.True(t, regexp.MustCompile(`[\w./-]*location.go:30`).MatchString(b.String()))
+	assert.True(t, regexp.MustCompile(`[\w./-]*location.go:31`).MatchString(b.String()))
 
 	b.Reset()
 
 	fmt.Fprintf(&b, "%#v", l)
-	assert.Equal(t, "Caller:30", b.String())
+	assert.Equal(t, "Caller:31", b.String())
 }
 
 func TestLocationCropFileName(t *testing.T) {

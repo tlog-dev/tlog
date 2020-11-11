@@ -78,7 +78,7 @@ func SpawnFromContext(ctx context.Context) Span {
 	v := ctx.Value(ctxspankey{})
 	s, ok := v.(Span)
 	if ok {
-		return newspan(s.Logger, 0, s.ID)
+		return newspan(s.Logger, s.ID, 0, nil)
 	}
 
 	if DefaultLogger == nil {
@@ -88,7 +88,7 @@ func SpawnFromContext(ctx context.Context) Span {
 	v = ctx.Value(ctxidkey{})
 	id, ok := v.(ID)
 	if ok {
-		return newspan(DefaultLogger, 0, id)
+		return newspan(DefaultLogger, id, 0, nil)
 	}
 
 	return Span{}
@@ -100,7 +100,7 @@ func SpawnFromContextOrStart(ctx context.Context) Span {
 	v := ctx.Value(ctxspankey{})
 	s, ok := v.(Span)
 	if ok {
-		return newspan(s.Logger, 0, s.ID)
+		return newspan(s.Logger, s.ID, 0, nil)
 	}
 
 	if DefaultLogger == nil {
@@ -110,5 +110,5 @@ func SpawnFromContextOrStart(ctx context.Context) Span {
 	v = ctx.Value(ctxidkey{})
 	id, _ := v.(ID)
 
-	return newspan(DefaultLogger, 0, id)
+	return newspan(DefaultLogger, id, 0, nil)
 }
