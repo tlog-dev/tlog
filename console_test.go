@@ -3,6 +3,8 @@ package tlog
 import (
 	"encoding/hex"
 	"io"
+	"math/rand"
+	"sync"
 	"testing"
 	"time"
 	_ "unsafe"
@@ -12,6 +14,20 @@ import (
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwriter"
 )
+
+func testRandID() func() ID {
+	var mu sync.Mutex
+	rnd := rand.New(rand.NewSource(0))
+
+	return func() (id ID) {
+		mu.Lock()
+		for id == (ID{}) {
+			_, _ = rnd.Read(id[:])
+		}
+		mu.Unlock()
+		return
+	}
+}
 
 func TestConsole(t *testing.T) {
 	tm := time.Date(2020, time.November, 3, 21, 06, 20, 0, time.Local)
@@ -32,22 +48,23 @@ func TestConsole(t *testing.T) {
 		b = b[:0]
 	}
 
-	w := tlwriter.NewConsole(&b, tlwriter.LdetFlags)
+	w := tlwriter.NewConsole(&b, tlwriter.LdetFlags|tlwriter.Lspans|tlwriter.Lmessagespan)
 	l := New(io.MultiWriter(&r, w))
+	l.NewID = testRandID()
 
 	l.Printf("message: %v %v", "args", 3)
 
-	eq(`2020-11-03_21:06:21.000000  INF  .:                    message: args 3`)
+	eq(`2020-11-03_21:06:21.000000  INF  .:                    ________  message: args 3`)
 
 	l.Printw("attributes", "key", "value", "key2", 42)
 
-	eq(`2020-11-03_21:06:22.000000  INF  .:                    attributes                              key=value  key2=42`)
+	eq(`2020-11-03_21:06:22.000000  INF  .:                    ________  attributes                              key=value  key2=42`)
 
 	tr := l.Start("span_name")
 
-	eq(`2020-11-03_21:06:23.000000  INF  .:                    span_name                               T=s`)
+	eq(`2020-11-03_21:06:23.000000  INF  .:                    0194fdc2  span_name                               T=s`)
 
 	tr.Finish()
 
-	eq(`1970-01-01_03:00:00.000000  INF  .:                    T=f  elapsed_ms=1000.00   `)
+	eq(`1970-01-01_03:00:00.000000  INF  .:                    0194fdc2  T=f  elapsed_ms=1000.00   `)
 }

@@ -100,15 +100,6 @@ func appendTagVal(tags []Tag, t int, v interface{}) []Tag {
 func Event(e *Encoder, tags []Tag, kvs []interface{})
 
 func event(e *Encoder, tags []Tag, kvs []interface{}) {
-	defer func() {
-		// NOTE: since we hacked compiler and made all arguments not escaping
-		// we must zero all possible pointers to stack
-
-		for i := range tags {
-			tags[i].V = nil
-		}
-	}()
-
 	b := e.b[:0]
 
 	for _, t := range tags {

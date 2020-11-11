@@ -45,6 +45,12 @@ type (
 	Option func(l *Logger)
 )
 
+// for you not to import os if you don't want.
+var (
+	Stderr = os.Stderr
+	Stdout = os.Stdout
+)
+
 // Log Levels
 const (
 	Info = iota
@@ -85,7 +91,16 @@ func newspan(l *Logger, par ID, d int, args []interface{}) (s Span) {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	l.tags = l.tags[:0]
+	defer func() {
+		// NOTE: since we hacked compiler and made all arguments not escaping
+		// we must zero all possible pointers to stack
+
+		for i := range l.tags {
+			l.tags[i].V = nil
+		}
+
+		l.tags = l.tags[:0]
+	}()
 
 	l.tags = wire.AppendTagVal(l.tags, wire.Span, s.ID)
 
@@ -101,7 +116,10 @@ func newspan(l *Logger, par ID, d int, args []interface{}) (s Span) {
 
 	if len(args) != 0 {
 		if name, ok := args[0].(string); ok {
-			l.tags = wire.AppendTagVal(l.tags, wire.Name, name)
+			if name != "" {
+				l.tags = wire.AppendTagVal(l.tags, wire.Name, name)
+			}
+
 			args = args[1:]
 		}
 	}
@@ -119,7 +137,16 @@ func newprint(l *Logger, id ID, d int16, lv Level, msg string, args []interface{
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	l.tags = l.tags[:0]
+	defer func() {
+		// NOTE: since we hacked compiler and made all arguments not escaping
+		// we must zero all possible pointers to stack
+
+		for i := range l.tags {
+			l.tags[i].V = nil
+		}
+
+		l.tags = l.tags[:0]
+	}()
 
 	if id != (ID{}) {
 		l.tags = wire.AppendTagVal(l.tags, wire.Span, id)
@@ -154,7 +181,16 @@ func observe(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	l.tags = l.tags[:0]
+	defer func() {
+		// NOTE: since we hacked compiler and made all arguments not escaping
+		// we must zero all possible pointers to stack
+
+		for i := range l.tags {
+			l.tags[i].V = nil
+		}
+
+		l.tags = l.tags[:0]
+	}()
 
 	if id != (ID{}) {
 		l.tags = wire.AppendTagVal(l.tags, wire.Span, id)
@@ -200,6 +236,17 @@ func (s Span) Event(tags []wire.Tag, kvs []interface{}) {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
+	defer func() {
+		// NOTE: since we hacked compiler and made all arguments not escaping
+		// we must zero all possible pointers to stack
+
+		for i := range l.tags {
+			l.tags[i].V = nil
+		}
+
+		l.tags = l.tags[:0]
+	}()
+
 	l.tags = wire.AppendTagVal(l.tags[:0], wire.Span, s.ID)
 	l.tags = append(l.tags, tags...)
 
@@ -233,7 +280,7 @@ func (l *Logger) Spawn(par ID, args ...interface{}) Span {
 	return newspan(l, par, 0, args)
 }
 
-func (s Span) Finish() {
+func (s Span) Finish(args ...interface{}) {
 	l := s.Logger
 	if l == nil {
 		return
@@ -247,7 +294,16 @@ func (s Span) Finish() {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
-	l.tags = l.tags[:0]
+	defer func() {
+		// NOTE: since we hacked compiler and made all arguments not escaping
+		// we must zero all possible pointers to stack
+
+		for i := range l.tags {
+			l.tags[i].V = nil
+		}
+
+		l.tags = l.tags[:0]
+	}()
 
 	l.tags = wire.AppendTagVal(l.tags, wire.Span, s.ID)
 
@@ -426,16 +482,16 @@ func (l *Logger) Filter() string {
 	return f.f
 }
 
-func Observe(name string, v float64, args ...interface{}) {
-	observe(DefaultLogger, ID{}, name, v, args)
+func Observe(name string, v float64, kvs ...interface{}) {
+	observe(DefaultLogger, ID{}, name, v, kvs)
 }
 
-func (l *Logger) Observe(name string, v float64, args ...interface{}) {
-	observe(l, ID{}, name, v, args)
+func (l *Logger) Observe(name string, v float64, kvs ...interface{}) {
+	observe(l, ID{}, name, v, kvs)
 }
 
-func (s Span) Observe(name string, v float64, args ...interface{}) {
-	observe(s.Logger, s.ID, name, v, args)
+func (s Span) Observe(name string, v float64, kvs ...interface{}) {
+	observe(s.Logger, s.ID, name, v, kvs)
 }
 
 func RegisterMetric(name, typ, help string, kvs ...interface{}) {

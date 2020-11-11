@@ -1,43 +1,60 @@
 package main
 
 import (
-	"bytes"
-
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/tlwriter"
+	"github.com/nikandfor/tlog/wire"
 )
 
 func main() {
-	var buf bytes.Buffer
+	//	var buf bytes.Buffer
+	//	jw := tlwriter.NewJSON(&buf)
 
-	l := tlog.New(tlog.NewJSONWriter(&buf), tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags))
+	l := tlog.New(tlwriter.NewConsole(tlog.Stderr, tlwriter.LdetFlags))
 
 	// usual way
-	l.Printw("message", tlog.AInt("int", 100), tlog.AStr("str", "string"))
+	l.Printw("message", "int", 100, "str", "string")
 
 	// the same output but customizable
-	l.BuildMessage().Now().Location(tlog.Caller(0)).Int("int", 100).Str("str", "string").Printf("message")
+	l.Event([]wire.Tag{
+		{T: wire.Time, V: low.UnixNano()},
+		//	{T: wire.Location, V: tlog.PC(0)},
+		{T: wire.Message, V: "message"},
+	}, []interface{}{
+		"int", 100,
+		"str", "string",
+	})
 
 	// empty event
-	l.BuildMessage().Printf("")
+	l.Event(nil, nil)
 
 	// without time
-	tr := l.BuildSpanStart().NewID().Caller(0).Start()
+	tr := tlog.Span{Logger: l, ID: l.NewID()}
+	tr.Event([]wire.Tag{
+		//	{T: wire.Location, V: tlog.Caller(0)},
+		{T: wire.Type, V: 's'},
+	}, nil)
 
 	// without location
-	tr.BuildMessage().Now().Printf("message")
+	tr.Event([]wire.Tag{
+		{T: wire.Time, V: low.UnixNano()},
+		{T: wire.Message, V: "message"},
+	}, nil)
 
 	hotCode(tr, 300)
 
 	tr.Finish()
 
-	_, _ = buf.WriteTo(tlog.Stderr)
+	//	_, _ = buf.WriteTo(tlog.Stderr)
 }
 
 var hotCodeLoc tlog.PC
 
 func hotCode(tr tlog.Span, arg int) {
-	tr.BuildMessage().
-		Now().                      // current time
-		CallerOnce(0, &hotCodeLoc). // faster than Caller
-		Printf("arg: %v", arg)      // Printf is more efficient than Printw
+	tr.Event([]wire.Tag{
+		{T: wire.Time, V: low.UnixNano()},
+	}, []interface{}{"arg", arg})
+
+	//		CallerOnce(0, &hotCodeLoc). // faster than Caller
 }
