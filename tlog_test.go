@@ -113,10 +113,10 @@ func BenchmarkTlogLogger(b *testing.B) {
 				{"PrintBytes", func(i int) { l.Printf("message: 1000") }},
 				{"Printf", func(i int) { l.Printf("message: %d", 1000+i) }},
 				{"Printw", func(i int) {
-					l.Printw("message", KVs{
-						{K: "str", V: "string"},
-						{K: "i", V: 1000 + i},
-					})
+					l.Printw("message",
+						"str", "string",
+						"i", 1000+i,
+					)
 				}},
 			}
 

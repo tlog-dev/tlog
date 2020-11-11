@@ -1,8 +1,8 @@
 package tlog
 
 import (
-	"sync"
-	"unsafe"
+	"math"
+	_ "unsafe"
 )
 
 /*
@@ -16,9 +16,9 @@ import (
 
 	Record is terminated by `0` tag.
 
-	Record can be skipped only field by field until `0` got.
+	Record can be skipped only field-by-field until `0` got.
 
-	Tags are:
+	Tags
 
 	0 - end of record
 	r - Record Type
@@ -26,275 +26,444 @@ import (
 	t - Wall Time
 	i - Log Level (importance)
 	l - Location ID (Program Counter, maybe compressed)
-	m - Message (or name, depending on Type)
+	m - Message (or Name)
 	f - additional user defined Field data
 	v - Observation
+	e - Predefined type
 
 	Encoding
 
-	Some tags are encoded with len or value embedded.
+	0 is 0x00 byte
+	i is 0b0001_xxxx where xxxx is int4 log level
+	s is 0b0010_xxxx where xxxx is ID len - 1
+	v is 0b0011_xxxx where xxxx is int value or size of float value
+	v is 0b0100_xxxx where xxxx is uint value or size of uint value
+	v is 0b0101_xxxx where xxxx is negative int
+	e is 0b0110_xxxx where xxxx is value if v < 1<<4-4
 
-	0 is '\0' byte.
+	m is 0b10xx_xxxx where xx_xxxx is str_len
+		followed by string
+	f is 0b11xx_xxxx where xx_xxxx is key_len
+		followed by key
+		followed by value
 
-	r is 0b0xxx_xxxx where xxx_xxxx is 7 least significant bits of ascii printable character.
+	t is 0b0000_0001 followed by 8 bytes unix nano time
+	r is 0b0000_0010 followed by Type byte
 
-	i is 0b1001_xxxx where xxxx is int4 log level.
+	Value
 
-	s is 0b1010_xxxx where xxxx is ID len - 1.
+	value is inspired by CBOR
 
-	m is 0b1011_0xxx where xxx is len_strlen - 1
-		followed by 2 bytes strnum
-		if len_strlen != 111
-			followed by <len of strlen> bytes of strlen
-			followed by strlen bytes of string
+	0bxxxy_yyyy where xxx is base type, y_yyyy is additional info
 
-	f is 0b1000_0000
+	Base Types
 
-	l is 0b1000_0000
+	0b000 - positive int
+	0b001 - negative int +1 (0 means -1, 1 = -2...)
+	0b010 - byte string
+	0b011 - text string
+	0b100 - array
+	0b101 - map with keys in 0b11xx_xxxx format
+	0b110 - predefined type follows
+	0b111 - specials
 
-	t is 0b1000_0001 followed by 8 bytes unix nano time.
+	Predefined Types
 
+	0 - general object
+	1 - location
+	2 - duration
+	3 - parent ID
+	4 - func name
+	5 - file
+	6 - line
 
-	Bits
-	0	0000	4	0100	8	1000	c	1100
-	1	0001	5	0101	9	1001	c	1101
-	2	0010	6	0110	a	1010	d	1110
-	3	0011	7	0111	b	1011	f	1111
 */
 
-// taken from runtime/internal/sys
-const PtrSize = 4 << (^uintptr(0) >> 63) // unsafe.Sizeof(uintptr(0)) but an ideal const
-
+// record tags
 const (
-	idbits  = 14
-	idmask  = 1<<idbits - 1
-	idbytes = 2
+	rEnd  = 0
+	rTime = 1
+	rType = 2
+	_
 
-	ssbits = 14
-	ssmask = 1<<ssbits - 1
+	rLevel  = 0x10
+	rSpan   = 0x20
+	rValFlt = 0x30
+	rValInt = 0x40
+	rValNeg = 0x50
+	rExt    = 0x60
+	_
+
+	rMessage = 0b1000_0000
+	rField   = 0b1100_0000
+)
+
+// base types
+const (
+	tInt = iota << 5
+	tNegInt
+	tBytes
+	tString
+	tArray
+	tMap
+	tPredef
+	tSpec
+
+	tFlt4 = tSpec | 26
+	tFlt8 = tSpec | 27
+)
+
+// extension types
+const (
+	eStruct = iota
+	eLocation
+	eDuration
+	eParent
+	eFuncName
+	eFile
+	eLine
 )
 
 type (
 	encoder struct {
-		mu sync.Mutex
-
 		ls map[PC]int
-
-		id [1 << idbits]ID
-
-		ss [1 << ssbits]ssval
 
 		b []byte
 	}
 
-	idpref [2]byte
-
-	ssval struct {
-		h    uintptr
-		pref [12]byte
+	Format struct {
+		F string
+		V interface{}
 	}
-
-	bwr struct {
-		b   bufWriter
-		buf [128 - unsafe.Sizeof([]byte{})]byte
-	}
-
-	bufWriter []byte
 )
 
-var spaces = []byte("                                                                                                                                                ")
+func (e *encoder) reset() {
+	e.b = e.b[:0]
+}
 
-var bufPool = sync.Pool{New: func() interface{} { w := &bwr{}; w.b = w.buf[:]; return w }}
+func (e *encoder) eor() {
+	e.b = append(e.b, rEnd)
+}
 
-func ev(l *Logger, id ID, tm int64, pc PC, tp Type, lv Level, fmt string, args []interface{}, kv KVs) {
-	if l == nil {
+func (e *encoder) parent(id ID) {
+	e.b = append(e.b, rExt|eParent, tBytes|byte(len(id)))
+	e.b = append(e.b, id[:]...)
+}
+
+func (e *encoder) duration(d int64) {
+	e.b = append(e.b, rExt|eDuration)
+	e.b = e.appendInt(e.b, d)
+}
+
+func (e *encoder) predef(t int64) {
+	const tag = rExt
+
+	switch {
+	case t < 1<<4-4:
+		e.b = append(e.b, tag|byte(t))
+	case t <= 0xff:
+		e.b = append(e.b, tag|1<<4-4, byte(t))
+	case t <= 0xffff:
+		e.b = append(e.b, tag|1<<4-3, byte(t>>8), byte(t))
+	case t <= 0xffff_ffff:
+		e.b = append(e.b, tag|1<<4-2, byte(t>>24), byte(t>>16), byte(t>>8), byte(t))
+	default:
+		e.b = append(e.b, tag|1<<4-1, byte(t>>56), byte(t>>48), byte(t>>40), byte(t>>32), byte(t>>24), byte(t>>16), byte(t>>8), byte(t))
+	}
+}
+
+func (e *encoder) loglevel(lv Level) {
+	e.b = append(e.b, rLevel|byte(lv&0xf))
+}
+
+func (e *encoder) rectype(tp Type) {
+	e.b = append(e.b, rType, byte(tp))
+}
+
+func (e *encoder) id(id ID) {
+	e.b = append(e.b, rSpan)
+	e.b = append(e.b, id[:]...)
+}
+
+func (e *encoder) timestamp(ts int64) {
+	e.b = append(e.b,
+		rTime, // tag
+		byte(ts>>56),
+		byte(ts>>48),
+		byte(ts>>40),
+		byte(ts>>32),
+		byte(ts>>24),
+		byte(ts>>16),
+		byte(ts>>8),
+		byte(ts),
+	)
+}
+
+func (e *encoder) valueFloat(v float64) {
+	if q := int(v); q >= 0 && q <= 1<<4-2 && float64(q) == v {
+		e.b = append(e.b, rValInt|byte(q))
 		return
 	}
 
-	e := &l.enc
+	if q := float32(v); float64(q) == v {
+		bits := math.Float32bits(q)
 
-	defer e.mu.Unlock()
-	e.mu.Lock()
+		e.b = append(e.b, rValFlt|1<<4-2, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
 
-	b := e.b[:cap(e.b)]
-	if len(b) < 128 {
-		b = make([]byte, 128)
+		return
 	}
 
-	i := 0
+	bits := math.Float64bits(v)
 
-	if id != (ID{}) {
-		b = appendID(e, b[:i], id, tp == 'f')
-		i = len(b)
-		b = b[:cap(b)]
-	}
-
-	if tp != 0 {
-		b[i] = byte(tp) &^ 0x80
-		i++
-	}
-
-	if lv != 0 {
-		b[i] = 0b1001_0000 | byte(lv)&0x0f
-		i++
-	}
-
-	if tm != 0 {
-		b[i] = 0b1000_0001
-		i++
-
-		b[i] = byte(tm >> 56)
-		i++
-		b[i] = byte(tm >> 48)
-		i++
-		b[i] = byte(tm >> 40)
-		i++
-		b[i] = byte(tm >> 32)
-		i++
-		b[i] = byte(tm >> 24)
-		i++
-		b[i] = byte(tm >> 16)
-		i++
-		b[i] = byte(tm >> 8)
-		i++
-		b[i] = byte(tm)
-		i++
-	}
-
-	b = b[:i]
-
-	// be ready to b is not long enough from here
-
-	if pc != 0 {
-		// TODO
-	}
-
-	if fmt != "" || len(args) != 0 {
-		b = appendMessage(e, b, fmt, args)
-	}
-
-	b = appendKVs(e, b, kv)
-
-	e.b = append(b, 0)
-
-	_, _ = l.Writer.Write(e.b)
+	e.b = append(e.b, rValFlt|1<<4-1, byte(bits>>56), byte(bits>>48), byte(bits>>40), byte(bits>>32), byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
 }
 
-func appendID(e *encoder, b []byte, id ID, clear bool) []byte {
-	pref := *(*uint)(unsafe.Pointer(&id))
-	pref &= idmask
-
-	var short byte
-	if e.id[pref] == id {
-		short = idbytes
+func (e *encoder) valueInt(v int64) {
+	var q uint64
+	tag := byte(tInt)
+	if v >= 0 {
+		q = uint64(v)
 	} else {
-		short = byte(len(id))
-
-		e.id[pref] = id
+		tag = tNegInt
+		q = uint64(-v) + 1
 	}
 
-	b = append(b, 0b1010_0000|(short-1))
-	b = append(b, id[:short]...)
-
-	return b
-}
-
-func appendKVs(enc *encoder, b []byte, kvs KVs) []byte {
-	for _, kv := range kvs {
-		_ = kv
+	switch {
+	case q < 1<<4-4:
+		e.b = append(e.b, tag|byte(q))
+	case q <= 0xff:
+		e.b = append(e.b, tag|1<<4-4, byte(q))
+	case q <= 0xffff:
+		e.b = append(e.b, tag|1<<4-3, byte(q>>8), byte(q))
+	case q <= 0xffff_ffff:
+		e.b = append(e.b, tag|1<<4-2, byte(q>>24), byte(q>>16), byte(q>>8), byte(q))
+	default:
+		e.b = append(e.b, tag|1<<4-1, byte(q>>56), byte(q>>48), byte(q>>40), byte(q>>32), byte(q>>24), byte(q>>16), byte(q>>8), byte(q))
 	}
 
-	return b
+	return
 }
 
-func appendMessage(e *encoder, b []byte, fmt string, args []interface{}) []byte {
-	b = append(b,
-		0,    // tag
-		0, 0, // strnum
-		0, // strlen
+func (e *encoder) caller(pc PC) {
+	v, ok := e.ls[pc]
+	if !ok {
+		v = len(e.ls) + 1
+		e.ls[pc] = v
+	}
+
+	e.b = append(e.b, rExt|eLocation)
+	e.b = e.appendInt(e.b, int64(v))
+
+	if ok {
+		return
+	}
+
+	name, file, line := pc.NameFileLine()
+
+	e.b = append(e.b, rExt|eFuncName)
+	e.b = e.appendString(e.b, tString, name)
+
+	e.b = append(e.b, rExt|eFile)
+	e.b = e.appendString(e.b, tString, file)
+
+	e.b = append(e.b, rExt|eLine)
+	e.b = e.appendInt(e.b, int64(line))
+}
+
+func (e *encoder) message(f string, args []interface{}) {
+	e.b = append(e.b,
+		rMessage, // tag
 	)
 
-	st := len(b)
+	st := len(e.b)
 
-	if len(args) == 0 {
-		b = append(b, fmt...)
-	} else if fmt != "" {
-		b = AppendPrintf(b, fmt, args...)
-	} else {
-		b = AppendPrintln(b, args...)
+	switch {
+	case len(args) == 0:
+		e.b = append(e.b, f...)
+	case f == "":
+		e.b = AppendPrintln(e.b, args...)
+	default:
+		e.b = AppendPrintf(e.b, f, args...)
 	}
 
-	h := memhash(&b[st], 0, len(b)-st)
+	l := len(e.b) - st
+	l--
 
-	b[st-3], b[st-2] = byte(h>>8), byte(h)
+	if l < 1<<6-4 {
+		e.b[st-1] |= byte(l)
 
-	cv := ssval{h: h}
-	copy(cv.pref[:], b[st:])
-	if e.ss[h&ssmask] == cv {
-		b[st-4] = 0b1011_0111
-
-		return b[:st-1]
-	} else {
-		e.ss[h&ssmask] = cv
+		return
 	}
 
-	if ml := len(b) - st; ml <= 0xff {
-		b[st-4] = 0b1011_0000 | 0
-		b[st-1] = byte(ml)
-	} else {
-		overflow := 1 // we already reserved 1 byte for len. this is the second
-		if ml > 0xffff {
-			overflow++ // third
-		}
-		if ml > 0xffffff {
-			overflow++ // fourth
-		}
-		if ml > 0xffffffff {
-			overflow++ // fifth
-		}
+	e.b = e.insertLen(e.b, st, l)
+}
 
-		b[st-4] = 0b1011_0000 | byte(overflow)
+func (e *encoder) insertLen(b []byte, st, l int) []byte {
+	var sz int
 
-		b = append(b, 0, 0, 0, 0)
-		copy(b[st+overflow:], b[st:])
+	switch {
+	case l <= 0xff:
+		b[st-1] |= 1<<6 - 4
+		sz = 1
+	case l <= 0xffff:
+		b[st-1] |= 1<<6 - 3
+		sz = 2
+	case l <= 0xffff_ffff:
+		b[st-1] |= 1<<6 - 2
+		sz = 4
+	default:
+		b[st-1] |= 1<<6 - 1
+		sz = 8
+	}
 
-		b = b[:st+overflow+ml]
+	b = append(b, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}[:sz]...)
+	copy(b[st+sz:], b[st:])
 
-		for overflow >= -1 {
-			b[st+overflow] = byte(ml)
-			overflow--
-			ml >>= 8
-		}
+	for i := st + sz; i > st; i-- {
+		b[i] = byte(l)
+		l >>= 8
 	}
 
 	return b
 }
 
-// Getbuf gets bytes buffer from a pool to reduce gc pressure.
-// buffer is at least 100 bytes long.
-// Buffer must be returned after used. Usage:
-//     b, wr := tlog.Getbuf()
-//     defer wr.Ret(&b)
-//
-//     b = append(b[:0], ...)
-func Getbuf() (_ bufWriter, wr *bwr) { //nolint:golint
-	wr = bufPool.Get().(*bwr)
-	return wr.b, wr
-}
+func (e *encoder) kvs(kvs ...interface{}) {
+	i := 0
+	for i < len(kvs) {
+		k := kvs[i].(string)
+		i++
 
-func (wr *bwr) Ret(b *bufWriter) {
-	wr.b = *b
-	bufPool.Put(wr)
-}
+		if len(k) > 1<<6-4 {
+			panic(len(k))
+		}
 
-func (w *bufWriter) Write(p []byte) (int, error) {
-	*w = append(*w, p...)
-	return len(p), nil
-}
+		e.b = append(e.b, rField|byte(len(k)))
+		e.b = append(e.b, k...)
 
-func (w *bufWriter) NewLine() {
-	l := len(*w)
-	if l == 0 || (*w)[l-1] != '\n' {
-		*w = append(*w, '\n')
+		e.b = e.appendValue(e.b, kvs[i])
+		i++
 	}
+}
+
+// force noescape
+// //go:linkname appendValue github.com/nikandfor/tlog.(*encoder).appendValue1
+// //go:noescape
+// func appendValue(e *encoder, b []byte, v interface{}) []byte
+
+func (e *encoder) appendValue(b []byte, v interface{}) []byte {
+	switch v := v.(type) {
+	case string:
+		b = e.appendString(b, tString, v)
+	case []byte:
+		b = e.appendString(b, tBytes, bytesToString(v))
+	case int:
+		b = e.appendInt(b, int64(v))
+	case int64:
+		b = e.appendInt(b, int64(v))
+	case int32:
+		b = e.appendInt(b, int64(v))
+	case int16:
+		b = e.appendInt(b, int64(v))
+	case int8:
+		b = e.appendInt(b, int64(v))
+	case uint:
+		b = e.appendUint(b, uint64(v))
+	case uint64:
+		b = e.appendUint(b, uint64(v))
+	case uint32:
+		b = e.appendUint(b, uint64(v))
+	case uint16:
+		b = e.appendUint(b, uint64(v))
+	case uint8:
+		b = e.appendUint(b, uint64(v))
+	case float64:
+		b = e.appendFloat(b, v)
+	case float32:
+		b = e.appendFloat(b, float64(v))
+	case Format:
+		b = append(b, tString)
+		st := len(b)
+		b = AppendPrintf(b, v.F, v.V)
+
+		l := len(b) - st
+		if l < 1<<5-4 {
+			b[st-1] |= byte(l)
+		} else {
+			b = e.insertLen(b, st, l)
+		}
+	default:
+		panic("unsupported value type")
+	}
+
+	return b
+}
+
+func (e *encoder) appendString(b []byte, tag byte, v string) []byte {
+	b = append(b, tag)
+	st := len(b)
+	b = append(b, v...)
+
+	if len(v) < 1<<5-4 {
+		b[st-1] |= byte(len(v))
+	} else {
+		b = e.insertLen(b, st, len(v))
+	}
+
+	return b
+}
+
+func (e *encoder) appendInt(b []byte, v int64) []byte {
+	tag := byte(tInt)
+	if v < 0 {
+		tag = tNegInt
+		v = -v + 1
+	}
+
+	switch {
+	case v < 1<<5-4:
+		b = append(b, tag|byte(v))
+	case v <= 0xff:
+		b = append(b, tag|1<<5-4, byte(v))
+	case v <= 0xffff:
+		b = append(b, tag|1<<5-3, byte(v>>8), byte(v))
+	case v <= 0xffff_ffff:
+		b = append(b, tag|1<<5-2, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	default:
+		b = append(b, tag|1<<5-1, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	}
+
+	return b
+}
+
+func (e *encoder) appendUint(b []byte, v uint64) []byte {
+	switch {
+	case v < 1<<5-4:
+		b = append(b, byte(v))
+	case v <= 0xff:
+		b = append(b, 1<<5-4, byte(v))
+	case v <= 0xffff:
+		b = append(b, 1<<5-3, byte(v>>8), byte(v))
+	case v <= 0xffff_ffff:
+		b = append(b, 1<<5-2, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	default:
+		b = append(b, 1<<5-1, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	}
+
+	return b
+}
+
+func (e *encoder) appendFloat(b []byte, v float64) []byte {
+	if q := int64(v); float64(q) == v && (q <= 0xffff_ffff && q >= -0xffff_ffff) {
+		return e.appendInt(b, q)
+	}
+
+	if q := float32(v); float64(q) == v {
+		bits := math.Float32bits(q)
+
+		return append(b, tFlt4, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
+	}
+
+	bits := math.Float64bits(v)
+
+	return append(b, tFlt8, byte(bits>>56), byte(bits>>48), byte(bits>>40), byte(bits>>32), byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
 }

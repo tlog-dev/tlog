@@ -2,7 +2,6 @@ package tlog
 
 import (
 	"io"
-	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -13,14 +12,13 @@ type (
 
 	Type byte
 
-	// Level is log level.
-	// Default Level is 0. The higher level the more important the message.
-	// The lower level the less important the message.
 	Level int8
 
 	Logger struct {
+		mu sync.Mutex
+		encoder
+
 		io.Writer
-		enc encoder
 
 		NoTime   bool
 		NoCaller bool
@@ -33,35 +31,28 @@ type (
 		ID     ID
 	}
 
-	KVs []KV
-
-	KV struct {
-		K string
-		V interface{}
+	Event struct {
+		Logger *Logger
+		ID     ID
 	}
 
-	M map[string]interface{}
-
-	Option func(*Logger)
-
-	concurrentRand struct {
-		mu sync.Mutex
-		r  *rand.Rand
-	}
-
-	ReaderFunc func(p []byte) (int, error)
+	Option func(l *Logger)
 )
 
-var ( // now, rand
-	now = time.Now
+const (
+	Info = iota
+	Warn
+	Error
+	Fatal
 
-	rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))} //nolint:gosec
+	Debug = -1
 )
 
-// DefaultLogger is a package interface Logger object.
-var DefaultLogger = func() *Logger { l := New(os.Stderr); l.NoCaller = true; return l }()
+var unixnow = fastnow
 
-func newspan(*Logger, int, ID) Span { return Span{} }
+var DefaultLogger = New(os.Stderr, WithNoCaller)
+
+func newspan(l *Logger, d int, par ID) Span { return Span{} }
 
 func New(w io.Writer, ops ...Option) *Logger {
 	l := &Logger{
@@ -77,31 +68,175 @@ func New(w io.Writer, ops ...Option) *Logger {
 }
 
 func (l *Logger) Printf(f string, args ...interface{}) {
-	tm, pc := l.tmpc()
-	ev(l, ID{}, tm, pc, 0, 0, f, args, nil)
-}
+	if l == nil {
+		return
+	}
 
-func (l *Logger) Printw(f string, kvs KVs) {
-	tm, pc := l.tmpc()
-	ev(l, ID{}, tm, pc, 0, 0, f, nil, kvs)
-}
+	l.mu.Lock()
 
-func (s Span) Printf(f string, args ...interface{}) {
-	tm, pc := s.Logger.tmpc()
-	ev(s.Logger, s.ID, tm, pc, 0, 0, f, args, nil)
-}
-
-func (s Span) Printw(f string, kvs KVs) {
-	tm, pc := s.Logger.tmpc()
-	ev(s.Logger, s.ID, tm, pc, 0, 0, f, nil, kvs)
-}
-
-func (l *Logger) tmpc() (tm int64, pc PC) {
 	if !l.NoTime {
-		tm = nanotime()
+		l.timestamp(unixnow())
 	}
 	if !l.NoCaller {
-		pc = Caller(2)
+		//	var pc PC
+		//	caller1(1, &pc, 1, 1)
+		//	l.caller(pc)
+
+		//	l.caller(Caller(1))
 	}
+
+	l.message(f, args)
+
+	l.write()
+
+	l.mu.Unlock()
+}
+
+func (l *Logger) Printw(msg string, kvs ...interface{}) {
+	if l == nil {
+		return
+	}
+
+	l.mu.Lock()
+
+	if !l.NoTime {
+		l.timestamp(unixnow())
+	}
+	if !l.NoCaller {
+		//	l.caller(Caller(1))
+	}
+
+	l.message(msg, nil)
+
+	l.kvs(kvs...)
+
+	l.write()
+
+	l.mu.Unlock()
+}
+
+func (l *Logger) Start(name ...string) (s Span) {
+	if l == nil {
+		return
+	}
+
+	s.Logger = l
+	s.ID = l.NewID()
+
+	l.mu.Lock()
+
+	l.id(s.ID)
+
+	if !l.NoTime {
+		l.timestamp(unixnow())
+	}
+	if !l.NoCaller {
+		//	l.caller(Caller(1))
+	}
+
+	l.rectype('s')
+
+	if len(name) != 0 {
+		l.message(name[0], nil)
+	}
+
+	l.write()
+
+	l.mu.Unlock()
+
+	return s
+}
+
+func (l *Logger) Spawn(par ID, name ...string) (s Span) {
+	if l == nil {
+		return
+	}
+
+	s.Logger = l
+	s.ID = l.NewID()
+
+	l.mu.Lock()
+
+	l.id(s.ID)
+
+	if !l.NoTime {
+		l.timestamp(unixnow())
+	}
+	if !l.NoCaller {
+		//	l.caller(Caller(1))
+	}
+
+	l.rectype('s')
+
+	if len(name) != 0 {
+		l.message(name[0], nil)
+	}
+
+	l.parent(par)
+
+	l.write()
+
+	l.mu.Unlock()
+
+	return s
+}
+
+func (l *Logger) write() (err error) {
+	l.eor()
+
+	_, err = l.Writer.Write(l.encoder.b)
+
+	l.encoder.reset()
+
 	return
+}
+
+func (l *Logger) Event() Event {
+	if l == nil {
+		return Event{}
+	}
+
+	l.mu.Lock()
+
+	return Event{Logger: l}
+}
+
+func (ev Event) Write() (err error) {
+	if ev.Logger != nil {
+		err = ev.Logger.write()
+
+		ev.Logger.mu.Unlock()
+	}
+
+	return
+}
+
+func (l *Logger) reset() {
+	l.encoder.reset()
+
+	l.mu.Unlock()
+}
+
+func (ev Event) TimeNow() Event {
+	if ev.Logger != nil {
+		ev.Logger.timestamp(unixnow())
+	}
+
+	return ev
+}
+
+func (ev Event) Timestamp(ts int64) Event {
+	if ev.Logger != nil {
+		ev.Logger.timestamp(ts)
+	}
+
+	return ev
+}
+
+func (ev Event) Time(t time.Time) Event {
+	if ev.Logger != nil {
+		ev.Logger.timestamp(t.UnixNano())
+	}
+
+	return ev
 }

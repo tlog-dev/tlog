@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // Labels is a set of labels with optional values.
@@ -39,7 +40,7 @@ var AutoLabels = map[string]func() string{
 		return fmt.Sprintf("%d", os.Getpid())
 	},
 	"_timezone": func() (n string) {
-		n, _ = now().Zone()
+		n, _ = time.Now().Zone()
 		return
 	},
 	"_execmd5":  ExecutableMD5,

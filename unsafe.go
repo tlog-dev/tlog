@@ -31,9 +31,6 @@ type (
 	}
 )
 
-//go:linkname nanotime runtime.nanotime1
-func nanotime() int64
-
 //go:linkname fastrandseed runtime.fastrandseed
 var fastrandseed uintptr
 
@@ -64,6 +61,10 @@ var (
 //go:noescape
 //go:linkname callers runtime.callers
 func callers(skip int, pc []PC) int
+
+//go:noescape
+//go:linkname caller1 runtime.callers
+func caller1(skip int, pc *PC, len, cap int) int
 
 // NameFileLine returns function name, file and line number for location.
 //

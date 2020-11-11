@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
+	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -12,7 +15,14 @@ type (
 	ShortIDError struct {
 		N int
 	}
+
+	concurrentRand struct {
+		mu sync.Mutex
+		r  *rand.Rand
+	}
 )
+
+var rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))} //nolint:gosec
 
 // String returns short string representation.
 //

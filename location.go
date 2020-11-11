@@ -7,32 +7,38 @@ import (
 	"strings"
 )
 
-// line to not move line numbers in tests
+type (
+	// PC is a program counter alias.
+	// Function name, file name and line can be obtained from it but only in the same binary where Caller or Funcentry was called.
+	PC uintptr
 
-// PC is a program counter alias.
-// Function name, file name and line can be obtained from it but only in the same binary where Caller or Funcentry was called.
-type PC uintptr
+	// PCs is a stack trace.
+	// It's quiet the same as runtime.CallerFrames but more efficient.
+	PCs []PC
 
-// PCs is a stack trace.
-// It's quiet the same as runtime.CallerFrames but more efficient.
-type PCs []PC
+	//
+	locFmtState struct {
+		bufWriter
+		flags string
+	}
+)
 
 // Caller returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
 // It's hacked version of runtime.Caller with no allocs.
-func Caller(s int) PC {
-	var pc [1]PC
-	callers(1+s, pc[:])
-	return pc[0]
+func Caller(s int) (r PC) {
+	caller1(1+s, &r, 1, 1)
+
+	return
 }
 
 // Funcentry returns information about the calling goroutine's stack. The argument s is the number of frames to ascend, with 0 identifying the caller of Caller.
 //
 // It's hacked version of runtime.Callers -> runtime.CallersFrames -> Frames.Next -> Frame.Entry with no allocs.
-func Funcentry(s int) PC {
-	var pc [1]PC
-	callers(1+s, pc[:])
-	return pc[0].Entry()
+func Funcentry(s int) (r PC) {
+	caller1(1+s, &r, 1, 1)
+
+	return r.Entry()
 }
 
 // Callers returns callers stack trace.
@@ -145,6 +151,18 @@ func (t PCs) String() string {
 	return string(b)
 }
 
+// StringFlags formats PCs as list of type_name (file.go:line)
+//
+// Works only in the same binary where Caller of Funcentry was called.
+// Or if PC.SetCache was called.
+func (t PCs) FormatString(flags string) string {
+	s := locFmtState{flags: flags}
+
+	t.Format(&s, 'v')
+
+	return string(s.bufWriter)
+}
+
 func (t PCs) Format(s fmt.State, c rune) {
 	switch {
 	case s.Flag('+'):
@@ -180,3 +198,16 @@ again:
 	tp = tp[p+1:]
 	goto again
 }
+
+func (s *locFmtState) Flag(c int) bool {
+	for _, f := range s.flags {
+		if f == rune(c) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *locFmtState) Width() (int, bool)     { return 0, false }
+func (s *locFmtState) Precision() (int, bool) { return 0, false }

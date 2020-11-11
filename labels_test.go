@@ -3,6 +3,7 @@ package tlog
 import (
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -97,7 +98,7 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	re = regexp.MustCompile(`^_randid=[0-9a-z]{32}$`)
 	assert.True(t, re.MatchString(ll[6]), "%s is not %s ", ll[6], re)
 
-	tzn, _ := now().Zone()
+	tzn, _ := time.Now().Zone()
 	assert.NotZero(t, tzn)
 	assert.Equal(t, "_timezone="+tzn, ll[7])
 }
