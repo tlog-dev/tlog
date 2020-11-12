@@ -1,4 +1,4 @@
-package tlog
+package loc
 
 import (
 	"fmt"
@@ -39,9 +39,9 @@ func TestLocationPCsString(t *testing.T) {
 	assert.Equal(t, "location_stack_test.go:25", st[1].String())
 	assert.Equal(t, "location_stack_test.go:33", st[2].String())
 
-	re := `tlog.testLocationsInside.func1                                at [\w.-/]*location_stack_test.go:24
-tlog.testLocationsInside                                      at [\w.-/]*location_stack_test.go:25
-tlog.TestLocationPCsString.func1.1                            at [\w.-/]*location_stack_test.go:33
+	re := `loc.testLocationsInside.func1                                 at [\w.-/]*location_stack_test.go:24
+loc.testLocationsInside                                       at [\w.-/]*location_stack_test.go:25
+loc.TestLocationPCsString.func1.1                             at [\w.-/]*location_stack_test.go:33
 `
 	ok, err := regexp.MatchString(re, st.String())
 	assert.NoError(t, err)

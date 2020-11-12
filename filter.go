@@ -4,6 +4,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/nikandfor/tlog/loc"
 )
 
 type (
@@ -14,7 +16,7 @@ type (
 	}
 
 	filterkey struct {
-		l  PC
+		l  loc.PC
 		tp string
 	}
 )
@@ -30,7 +32,7 @@ func newFilter(f string) *filter {
 	}
 }
 
-func (f *filter) match(t string) bool {
+func (f *filter) match(t string, loc loc.PC) bool {
 	if f == nil || f.f == "" {
 		return false
 	}
@@ -38,9 +40,6 @@ func (f *filter) match(t string) bool {
 	if f.f == "*" {
 		return true
 	}
-
-	var loc PC
-	caller1(3, &loc, 1, 1)
 
 	k := filterkey{
 		l:  loc,
@@ -56,7 +55,7 @@ func (f *filter) match(t string) bool {
 	return en
 }
 
-func (f *filter) matchFilter(loc PC, t string) bool {
+func (f *filter) matchFilter(loc loc.PC, t string) bool {
 	topics := strings.Split(t, ",")
 	name, file, _ := loc.NameFileLine()
 

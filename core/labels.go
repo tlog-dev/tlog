@@ -1,4 +1,4 @@
-package tlt
+package core
 
 import (
 	"crypto/md5"  //nolint

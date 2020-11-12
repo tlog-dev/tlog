@@ -3,6 +3,7 @@ package tlog
 import (
 	"testing"
 
+	"github.com/nikandfor/tlog/loc"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -114,35 +115,35 @@ func TestFilterMatchType(t *testing.T) {
 }
 
 func TestFilterMatchFilter(t *testing.T) {
-	assert.True(t, newFilter("a,b").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("filter_test.go").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("tlog").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("tlog=a").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("tlog=a+b").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("=a").matchFilter(Caller(0), "a"))
-	assert.False(t, newFilter("tlog=b").matchFilter(Caller(0), "a"))
-	assert.False(t, newFilter("tlog=b,").matchFilter(Caller(0), "a"))
-	assert.False(t, newFilter("=a").matchFilter(Caller(0), "b"))
+	assert.True(t, newFilter("a,b").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("filter_test.go").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("tlog").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("tlog=a").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("tlog=a+b").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("=a").matchFilter(loc.Caller(0), "a"))
+	assert.False(t, newFilter("tlog=b").matchFilter(loc.Caller(0), "a"))
+	assert.False(t, newFilter("tlog=b,").matchFilter(loc.Caller(0), "a"))
+	assert.False(t, newFilter("=a").matchFilter(loc.Caller(0), "b"))
 
-	assert.True(t, newFilter("TestFilterMatchFilter").matchFilter(Caller(0), "a"))
-	assert.False(t, newFilter("TestFilterMatchType").matchFilter(Caller(0), "a"))
+	assert.True(t, newFilter("TestFilterMatchFilter").matchFilter(loc.Caller(0), "a"))
+	assert.False(t, newFilter("TestFilterMatchType").matchFilter(loc.Caller(0), "a"))
 
 	// include/exclude
-	assert.False(t, newFilter("a,b,!a").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("a,b,!another_file.go=a").matchFilter(Caller(0), "a,b"))
-	assert.False(t, newFilter("a,b,c,!filter_test.go=a").matchFilter(Caller(0), "a,c,d"))
-	assert.False(t, newFilter("!a").matchFilter(Caller(0), "a"))
-	assert.True(t, newFilter("!a").matchFilter(Caller(0), "b"))
+	assert.False(t, newFilter("a,b,!a").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("a,b,!another_file.go=a").matchFilter(loc.Caller(0), "a,b"))
+	assert.False(t, newFilter("a,b,c,!filter_test.go=a").matchFilter(loc.Caller(0), "a,c,d"))
+	assert.False(t, newFilter("!a").matchFilter(loc.Caller(0), "a"))
+	assert.True(t, newFilter("!a").matchFilter(loc.Caller(0), "b"))
 }
 
 func TestFilterMatchBase(t *testing.T) {
-	assert.False(t, newFilter("").match("a"))
+	assert.False(t, newFilter("").match("a", 0))
 
-	assert.True(t, newFilter("*").match(""))
+	assert.True(t, newFilter("*").match("", 0))
 
-	assert.True(t, newFilter("a,*,b=c").match("q"))
+	assert.True(t, newFilter("a,*,b=c").match("q", loc.Caller(0)))
 
-	assert.False(t, newFilter("*,!a").match("a"))
+	assert.False(t, newFilter("*,!a").match("a", loc.Caller(0)))
 }
 
 func BenchmarkMatchFilter(b *testing.B) {
@@ -150,7 +151,7 @@ func BenchmarkMatchFilter(b *testing.B) {
 
 	f := newFilter("a,b,!another_file.go=a")
 
-	c := Caller(0)
+	c := loc.Caller(0)
 
 	for i := 0; i < b.N; i++ {
 		f.matchFilter(c, "a,b")

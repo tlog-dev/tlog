@@ -1,13 +1,15 @@
 package wire
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"reflect"
+	"time"
 	_ "unsafe"
 
+	"github.com/nikandfor/tlog/core"
 	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlt"
 )
 
 // It's CBOR with some changes
@@ -135,7 +137,7 @@ func event(e *Encoder, tags []Tag, kvs []interface{}) {
 
 func appendTypedValue(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
-	case tlt.ID:
+	case core.ID:
 		return appendID(b, v, true)
 	}
 
@@ -144,7 +146,7 @@ func appendTypedValue(b []byte, v interface{}) []byte {
 
 func appendValue(b []byte, v interface{}) (rb []byte) {
 	//	defer func(st int) {
-	//		fmt.Fprintf(os.Stderr, "append value % 2x | % 2x <- %T %[3]v\n", b[:st], rb[st:], v)
+	//		fmt.Fprintf(os.Stderr, "append value % 2x <- %T %[2]v  | % x\n", rb[st:], v, b[:st])
 	//	}(len(b))
 
 	switch v := v.(type) {
@@ -152,10 +154,14 @@ func appendValue(b []byte, v interface{}) (rb []byte) {
 		panic("nil value")
 	case string:
 		return appendString(b, String, v)
-	case tlt.ID:
+	case core.ID:
 		return appendID(b, v, false)
 	case Format:
 		return appendMessage(b, v)
+	case time.Duration:
+		return appendInt(b, v.Nanoseconds())
+	case fmt.Stringer:
+		return appendString(b, String, v.String())
 	}
 
 	r := reflect.ValueOf(v)
@@ -188,7 +194,7 @@ func appendValue(b []byte, v interface{}) (rb []byte) {
 	}
 }
 
-func appendID(b []byte, id tlt.ID, typed bool) []byte {
+func appendID(b []byte, id core.ID, typed bool) []byte {
 	if typed {
 		b = append(b, Semantic|ID)
 	}

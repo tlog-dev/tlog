@@ -9,7 +9,7 @@ import (
 
 func TestTimeFastNow(t *testing.T) {
 	now := time.Now()
-	ts := fastnow()
+	ts := UnixNano()
 
 	tsnow := time.Unix(0, ts)
 
@@ -26,6 +26,6 @@ func BenchmarkTimeNow(b *testing.B) {
 
 func BenchmarkTimeFastNow(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = fastnow()
+		_ = UnixNano()
 	}
 }

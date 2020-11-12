@@ -1,4 +1,4 @@
-package tlwriter
+package writer
 
 import (
 	"bytes"
@@ -13,15 +13,15 @@ import (
 
 	"golang.org/x/crypto/ssh/terminal"
 
+	"github.com/nikandfor/tlog/core"
 	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlt"
 	"github.com/nikandfor/tlog/wire"
 )
 
 type (
-	ID    = tlt.ID
-	Type  = tlt.Type
-	Level = tlt.Level
+	ID    = core.ID
+	Type  = core.Type
+	Level = core.Level
 
 	Console struct {
 		w io.Writer
@@ -175,7 +175,7 @@ func (w *Console) Write(p []byte) (_ int, err error) {
 		tm      int64
 		pc      uint64
 		el      time.Duration
-		ls      tlt.Labels
+		ls      core.Labels
 		val     interface{}
 
 		msg []byte

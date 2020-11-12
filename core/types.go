@@ -1,8 +1,6 @@
-package tlt
+package core
 
 type (
-	ID [16]byte
-
 	Type byte
 
 	Level int8

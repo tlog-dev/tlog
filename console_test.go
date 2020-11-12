@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlwriter"
+	"github.com/nikandfor/tlog/writer"
 )
 
 func testRandID() func() ID {
@@ -48,7 +48,7 @@ func TestConsole(t *testing.T) {
 		b = b[:0]
 	}
 
-	w := tlwriter.NewConsole(&b, tlwriter.LdetFlags|tlwriter.Lspans|tlwriter.Lmessagespan)
+	w := writer.NewConsole(&b, writer.LdetFlags|writer.Lspans|writer.Lmessagespan)
 	l := New(io.MultiWriter(&r, w))
 	l.NewID = testRandID()
 

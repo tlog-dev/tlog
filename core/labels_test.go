@@ -1,4 +1,4 @@
-package tlt
+package core
 
 import (
 	"regexp"
@@ -90,7 +90,7 @@ func TestDumpLabelsWithDefault(t *testing.T) {
 	re = regexp.MustCompile(`^_execsha1=[0-9a-z]{40}$`)
 	assert.True(t, re.MatchString(ll[4]), "%s is not %s ", ll[4], re)
 
-	re = regexp.MustCompile(`^_execname=tlt.test`) // no $ (.exe)
+	re = regexp.MustCompile(`^_execname=core.test`) // no $ (.exe)
 	assert.True(t, re.MatchString(ll[5]), "%s is not %s ", ll[5], re)
 
 	re = regexp.MustCompile(`^_randid=[0-9a-z]{32}$`)

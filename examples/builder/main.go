@@ -3,15 +3,15 @@ package main
 import (
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlwriter"
 	"github.com/nikandfor/tlog/wire"
+	"github.com/nikandfor/tlog/writer"
 )
 
 func main() {
 	//	var buf bytes.Buffer
-	//	jw := tlwriter.NewJSON(&buf)
+	//	jw := writer.NewJSON(&buf)
 
-	l := tlog.New(tlwriter.NewConsole(tlog.Stderr, tlwriter.LdetFlags))
+	l := tlog.New(writer.NewConsole(tlog.Stderr, writer.LdetFlags))
 
 	// usual way
 	l.Printw("message", "int", 100, "str", "string")

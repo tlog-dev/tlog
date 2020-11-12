@@ -1,4 +1,4 @@
-package tlwriter
+package writer
 
 import (
 	"sync/atomic"

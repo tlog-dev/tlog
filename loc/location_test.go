@@ -1,4 +1,4 @@
-package tlog
+package loc
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ func TestLocation(t *testing.T) {
 func testLocationInside(t *testing.T) {
 	pc := Caller(0)
 	name, file, line := pc.NameFileLine()
-	assert.Equal(t, "tlog.testLocationInside", path.Base(name))
+	assert.Equal(t, "loc.testLocationInside", path.Base(name))
 	assert.Equal(t, "location_test.go", filepath.Base(file))
 	assert.Equal(t, 19, line)
 }

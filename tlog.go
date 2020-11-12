@@ -8,17 +8,18 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/nikandfor/tlog/core"
+	"github.com/nikandfor/tlog/loc"
 	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlt"
-	"github.com/nikandfor/tlog/tlwriter"
 	"github.com/nikandfor/tlog/wire"
+	"github.com/nikandfor/tlog/writer"
 )
 
 type (
-	ID     = tlt.ID
-	Type   = tlt.Type
-	Level  = tlt.Level
-	Labels = tlt.Labels
+	ID     = core.ID
+	Type   = core.Type
+	Level  = core.Level
+	Labels = core.Labels
 
 	Logger struct {
 		wire.Encoder
@@ -74,7 +75,7 @@ var ( // now
 	now     = time.Now
 )
 
-var DefaultLogger = New(tlwriter.NewConsole(os.Stderr, tlwriter.LstdFlags), WithNoCaller)
+var DefaultLogger = New(writer.NewConsole(os.Stderr, writer.LstdFlags), WithNoCaller)
 
 func newspan(l *Logger, par ID, d int, args []interface{}) (s Span) {
 	if l == nil {
@@ -204,7 +205,7 @@ func observe(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 
 func New(w io.Writer, ops ...Option) *Logger {
 	l := &Logger{
-		NewID: tlt.MathRandID,
+		NewID: core.MathRandID,
 	}
 
 	l.Writer = w
@@ -376,7 +377,7 @@ func (l *Logger) ifv(tp string) (ok bool) {
 		return false
 	}
 
-	return f.match(tp)
+	return f.match(tp, loc.Caller(2))
 }
 
 // V checks if one of topics in tp is enabled and returns default Logger or nil.

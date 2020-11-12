@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/tlt"
-	"github.com/nikandfor/tlog/tlwriter"
+	"github.com/nikandfor/tlog/core"
 	"github.com/nikandfor/tlog/wire"
+	"github.com/nikandfor/tlog/writer"
 )
 
 var (
@@ -22,7 +22,7 @@ func initComplexLogger() func() {
 
 	//	jw := tlog.NewJSONWriter(&buf)
 
-	cw := tlwriter.NewConsole(os.Stderr, tlwriter.LdetFlags|tlwriter.Lfuncname|tlwriter.Lspans|tlwriter.Lmessagespan)
+	cw := writer.NewConsole(os.Stderr, writer.LdetFlags|writer.Lfuncname|writer.Lspans|writer.Lmessagespan)
 	cw.Shortfile = 14
 	cw.Funcname = 14
 	cw.IDWidth = 10
@@ -43,7 +43,7 @@ func main() {
 	cl := initComplexLogger()
 	defer cl()
 
-	lab := tlt.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "label_from_flags")
+	lab := core.FillLabelsWithDefaults("_hostname", "_pid", "myown=label", "label_from_flags")
 	ll.SetLabels(lab)
 	ll.Printf("os.Args: %v", os.Args)
 

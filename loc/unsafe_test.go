@@ -1,4 +1,4 @@
-package tlog
+package loc
 
 import (
 	"testing"

@@ -1,4 +1,4 @@
-package tlt
+package core
 
 import (
 	"bytes"
@@ -11,6 +11,8 @@ import (
 )
 
 type (
+	ID [16]byte
+
 	// ShortIDError is an ID parsing error.
 	ShortIDError struct {
 		N int

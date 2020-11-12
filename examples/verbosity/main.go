@@ -5,11 +5,11 @@ import (
 	"runtime"
 
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/tlwriter"
+	"github.com/nikandfor/tlog/writer"
 )
 
 func main() {
-	tlog.DefaultLogger = tlog.New(tlwriter.NewConsole(os.Stderr, tlwriter.LstdFlags))
+	tlog.DefaultLogger = tlog.New(writer.NewConsole(os.Stderr, writer.LstdFlags))
 
 	tlog.SetFilter("topic,info") // change filter in flight
 

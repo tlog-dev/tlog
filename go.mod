@@ -13,6 +13,7 @@ require (
 	github.com/nikandfor/quantile v0.0.0-20200824213034-5a47c65eb02b
 	github.com/nikandfor/xrain v0.0.0-20200921231627-f669ab2645f2
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.6.1
