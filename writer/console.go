@@ -2,9 +2,8 @@ package writer
 
 import (
 	"bytes"
-	"encoding/binary"
+	"fmt"
 	"io"
-	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,6 +26,8 @@ type (
 		w io.Writer
 		f int
 
+		d wire.Decoder
+
 		// column widths
 		Shortfile  int
 		Funcname   int
@@ -37,6 +38,8 @@ type (
 
 		ColorConfig      *ColorConfig
 		StructuredConfig *StructuredConfig
+
+		colKey, colVal []byte
 
 		b low.Buf
 	}
@@ -65,6 +68,11 @@ type (
 		QuoteEmptyValue bool
 
 		structValWidth sync.Map // string -> int
+	}
+
+	location struct {
+		Name, File string
+		Line       int
 	}
 )
 
@@ -167,136 +175,53 @@ func NewConsole(w io.Writer, f int) *Console {
 	}
 }
 
-func (w *Console) Write(p []byte) (_ int, err error) {
-	var (
-		id, par ID
-		tp      Type
-		lv      Level
-		tm      int64
-		pc      uint64
-		el      time.Duration
-		ls      core.Labels
-		val     interface{}
+func (w *Console) Write(p []byte) (i int, err error) {
+	var ev wire.EventHeader
 
-		msg []byte
+	//	defer func() {
+	//		fmt.Fprintf(os.Stderr, "console.Write %v %v\n", i, err)
+	//	}()
 
-		name, file string
-		line       int
-	)
-
-	//	fmt.Fprintf(os.Stderr, "message\n%v", hex.Dump(p))
-
-	// decode header
-	_ = pc
-	i := 0
-loop:
-	for i < len(p) {
-		t := p[i]
-		i++
-
-		//	fmt.Fprintf(os.Stderr, "parsetag  i %3x  t %2x\n", i-1, t)
-
-		switch t & wire.TypeMask {
-		case wire.Map:
-			i--
-			break loop
-		case wire.Semantic:
-			// ok
-		default:
-			panic(t)
-		}
-
-		t &^= wire.Semantic
-
-		switch t {
-		case wire.EOR:
-			i--
-			break loop
-		case wire.Time: // time
-			if p[i]&wire.TypeDetMask != 0x1f {
-				panic(p[i])
-			}
-			i++ // int64
-			tm = int64(binary.BigEndian.Uint64(p[i:]))
-			i += 8
-		case wire.Type: // Type
-			//	fmt.Fprintf(os.Stderr, "get type %x %[1]q %x %[2]q\n", p[i], p[i+1])
-			i++ // int8
-			tp = Type(p[i])
-			i++
-		case wire.Level: // Level
-			lv = Level(p[i] & wire.TypeDetMask)
-			if p[i]&wire.TypeMask == wire.Neg {
-				lv = -lv
-			}
-			i++
-		case wire.ID: // ID
-			l := int(p[i] & 0x1f)
-			i++
-			i += copy(id[:l], p[i:])
-		case wire.Parent:
-			l := int(p[i] & 0x1f)
-			i++
-			i += copy(par[:l], p[i:])
-		case wire.Message: // Message/Name
-			var l int64
-			l, i = getint(p, i)
-
-			msg = p[i : i+int(l)]
-			i += int(l)
-		case wire.Duration:
-			var v int64
-			v, i = getint(p, i)
-
-			el = time.Duration(v)
-		case wire.Labels:
-			l := int(p[i] & 0x1f)
-			i++
-
-			var q interface{}
-			for j := 0; j < l; j++ {
-				q, i = getvalue(p, i)
-
-				ls = append(ls, q.(string))
-			}
-		case wire.Value:
-			val, i = getvalue(p, i)
-		default:
-			panic(t)
-		}
+	i, err = w.d.DecodeHeader(p, &ev)
+	if err != nil {
+		return 0, err
 	}
 
-	if (tp == 's' || tp == 'f') && w.f&Lspans == 0 {
+	//	fmt.Fprintf(os.Stderr, "event (read %x): %+v\n", i, ev)
+
+	if (ev.Type == 's' || ev.Type == 'f') && w.f&Lspans == 0 {
 		return len(p), nil
 	}
 
 	b := w.b[:0]
 
-	if w.f&Lmessagespan != 0 || w.f&Lspans != 0 && (tp == 's' || tp == 'f') {
-		b = w.spanHeader(b, id, lv, tm, name, file, line)
+	name, file, line := ev.PC.NameFileLine()
+
+	if w.f&Lmessagespan != 0 || w.f&Lspans != 0 && (ev.Type == 's' || ev.Type == 'f') {
+		b = w.spanHeader(b, ev.Span, ev.Level, ev.Time, name, file, line)
 	} else {
-		b = w.buildHeader(b, lv, tm, name, file, line)
+		b = w.buildHeader(b, ev.Level, ev.Time, name, file, line)
 	}
 
 	st := len(b)
 
-	b = append(b, msg...)
+	b = append(b, ev.Message...)
 
-	if ls != nil {
+	if len(ev.Labels) != 0 {
 		b = append(b, "Labels:"...)
 
-		for _, l := range ls {
+		for _, l := range ev.Labels {
 			b = append(b, ' ')
 			b = append(b, l...)
 		}
 	}
 
-	if p[i] == wire.Map || tp != 0 || el != 0 || val != nil {
-		b, i = w.structuredFormatter(b, len(b)-st, tp, par, el, val, p, i)
+	if i < len(p) && p[i] == wire.Semantic|wire.UserFields || ev.Type != 0 || ev.Elapsed != 0 || ev.Value != nil {
+		b, i = w.structuredFormatter(b, len(b)-st, &ev, p, i)
 	}
 
-	if p[i] != wire.Semantic|wire.EOR {
-		panic(p[i])
+	if t := w.d.Tag(p, i); t != 0xff {
+		return i, fmt.Errorf("tag %2x at %x/%x", t, i, len(p))
 	}
 
 	i++
@@ -614,164 +539,95 @@ var DefaultStructuredConfig = StructuredConfig{
 }
 
 //nolint:gocognit
-func (w *Console) structuredFormatter(b []byte, msgw int, tp Type, par ID, el time.Duration, val interface{}, kvs []byte, i int) ([]byte, int) {
-	c := w.StructuredConfig
-	if c == nil {
-		c = &DefaultStructuredConfig
+func (w *Console) structuredFormatter(b []byte, msgw int, ev *wire.EventHeader, kvs []byte, i int) ([]byte, int) {
+	const digitsx = "0123456789abcdef"
+
+	if w.StructuredConfig == nil {
+		w.StructuredConfig = &DefaultStructuredConfig
 	}
 
-	var colKey, colVal []byte
-	if w.Colorize {
-		col := w.ColorConfig
-		if col == nil {
-			col = &DefaultColorConfig
-		}
+	c := w.StructuredConfig
 
-		colKey = colors[col.AttrKey]
-		colVal = colors[col.AttrValue]
+	if w.colKey == nil {
+		if w.Colorize {
+			col := w.ColorConfig
+			if col == nil {
+				col = &DefaultColorConfig
+			}
+
+			w.colKey = colors[col.AttrKey]
+			w.colVal = colors[col.AttrValue]
+		} else {
+			w.colKey = []byte{}
+		}
 	}
 
 	if msgw != 0 && msgw < c.MessageWidth {
 		b = append(b, low.Spaces[:c.MessageWidth-msgw]...)
 	}
 
+	var buf [4]byte
+	var bufl int
 	var sep bool
 
-	if tp >= 0x20 && tp < 0x80 {
+	if ev.Type != 0 {
 		sep = true
 
-		if colKey != nil {
-			b = append(b, colKey...)
+		if ev.Type >= 0x20 && ev.Type < 0x80 {
+			buf[0] = byte(ev.Type)
+			bufl = 1
+		} else {
+			buf[0] = digitsx[ev.Type>>4]
+			buf[1] = digitsx[ev.Type&0xf]
+			bufl = 2
 		}
 
-		b = append(b, 'T')
-
-		b = append(b, c.KVSeparator...)
-
-		if colKey != nil {
-			b = append(b, colors[0]...)
-		}
-
-		if colVal != nil {
-			b = append(b, colVal...)
-		}
-
-		b = append(b, byte(tp))
-
-		if colVal != nil {
-			b = append(b, colors[0]...)
-		}
+		b = w.appendPair(b, "T", low.UnsafeBytesToString(buf[:bufl]))
 	}
 
-	if par != (ID{}) {
+	if ev.Parent != (ID{}) {
 		if sep {
 			b = append(b, c.PairSeparator...)
 		} else {
 			sep = true
 		}
 
-		if colKey != nil {
-			b = append(b, colKey...)
-		}
-
-		b = append(b, "parent"...)
-
-		b = append(b, c.KVSeparator...)
-
-		if colKey != nil {
-			b = append(b, colors[0]...)
-		}
-
-		if colVal != nil {
-			b = append(b, colVal...)
-		}
-
-		b = w.appendValue(b, par)
-
-		if colVal != nil {
-			b = append(b, colors[0]...)
-		}
+		b = w.appendPair(b, "parent", ev.Parent)
 	}
 
-	if el != 0 {
+	if ev.Elapsed != 0 {
 		if sep {
 			b = append(b, c.PairSeparator...)
 		} else {
 			sep = true
 		}
 
-		if colKey != nil {
-			b = append(b, colKey...)
-		}
-
-		b = append(b, "elapsed_ms"...)
-
-		b = append(b, c.KVSeparator...)
-
-		if colKey != nil {
-			b = append(b, colors[0]...)
-		}
-
-		if colVal != nil {
-			b = append(b, colVal...)
-		}
-
-		st := len(b)
-		b = append(b, low.Spaces[:10]...)
-		b = strconv.AppendFloat(b[:st], el.Seconds()*1000, 'f', 2, 64)
-		b = b[:st+10]
-
-		if colVal != nil {
-			b = append(b, colors[0]...)
-		}
+		b = w.appendPair(b, "elapsed_ms", ev.Elapsed.Seconds()*1000)
 	}
 
-	if val != nil {
+	if ev.Value != nil {
 		if sep {
 			b = append(b, c.PairSeparator...)
 		} else {
 			sep = true
 		}
 
-		if colKey != nil {
-			b = append(b, colKey...)
-		}
-
-		b = append(b, "value"...)
-
-		b = append(b, c.KVSeparator...)
-
-		if colKey != nil {
-			b = append(b, colors[0]...)
-		}
-
-		if colVal != nil {
-			b = append(b, colVal...)
-		}
-
-		switch val.(type) {
-		case float64, float32:
-			b = low.AppendPrintf(b, "%11.5f", val)
-		default:
-			b = low.AppendPrintf(b, "%11v", val)
-		}
-
-		if colVal != nil {
-			b = append(b, colors[0]...)
-		}
+		b = w.appendPair(b, "value", ev.Value)
 	}
 
-	t := kvs[i] & wire.TypeMask
-	els := int(kvs[i] & wire.TypeDetMask)
+	i++ // UserFields
+
+	t := w.d.Tag(kvs, i) & wire.TypeMask
 	if t != wire.Map {
 		return b, i
 	}
 
-	i++
+	els, i := w.d.NextInt(kvs, i)
 
-	var v interface{}
-	for el := 0; i < len(kvs) && (els == 0 || el < els); el++ {
-		if els == 0 && kvs[i] == wire.Spec|wire.Break {
+	var k, v interface{}
+	for el := 0; i < len(kvs) && (els == -1 || el < els); el++ {
+		//	fmt.Fprintf(os.Stderr, "parse el %x / %x  i %2x\n", el, els, i)
+		if els == -1 && kvs[i] == wire.Spec|wire.Break {
 			i++
 			break
 		}
@@ -782,58 +638,75 @@ func (w *Console) structuredFormatter(b []byte, msgw int, tp Type, par ID, el ti
 			sep = true
 		}
 
-		v, i = getvalue(kvs, i)
+		k, i = w.d.NextValue(kvs, i)
+		v, i = w.d.NextValue(kvs, i)
 
-		if colKey != nil {
-			b = append(b, colKey...)
+		var ks string
+		switch k := k.(type) {
+		case string:
+			ks = k
+		case []byte:
+			ks = low.UnsafeBytesToString(k)
+		default:
+			panic(k)
 		}
 
-		kst := len(b)
-
-		b = w.appendValue(b, v)
-
-		kend := len(b)
-
-		b = append(b, c.KVSeparator...)
-
-		if colKey != nil {
-			b = append(b, colors[0]...)
-		}
-
-		v, i = getvalue(kvs, i)
-
-		if colVal != nil {
-			b = append(b, colVal...)
-		}
-
-		vst := len(b)
-
-		b = w.appendValue(b, v)
-
-		vw := len(b) - vst
-
-		if colVal != nil {
-			b = append(b, colors[0]...)
-		}
-
-		if vw < c.ValueMaxPadWidth && i+1 < len(kvs) {
-			k := low.UnsafeBytesToString(b[kst:kend])
-
-			var w int
-			iw, ok := c.structValWidth.Load(k)
-			if ok {
-				w = iw.(int)
-			}
-
-			if !ok || vw > w {
-				c.structValWidth.Store(k, vw)
-			} else if vw < w {
-				b = append(b, low.Spaces[:w-vw]...)
-			}
-		}
+		b = w.appendPair(b, ks, v)
 	}
 
 	return b, i
+}
+
+func (w *Console) appendPair(b []byte, k string, v interface{}) []byte {
+	c := w.StructuredConfig
+
+	if len(w.colKey) != 0 {
+		b = append(b, w.colKey...)
+	}
+
+	kst := len(b)
+
+	b = append(b, k...)
+
+	b = append(b, c.KVSeparator...)
+
+	kend := len(b)
+
+	if len(w.colKey) != 0 {
+		b = append(b, colors[0]...)
+	}
+
+	if len(w.colVal) != 0 {
+		b = append(b, w.colVal...)
+	}
+
+	vst := len(b)
+
+	b = w.appendValue(b, v)
+
+	vw := len(b) - vst
+
+	if len(w.colVal) != 0 {
+		b = append(b, colors[0]...)
+	}
+
+	if vw < c.ValueMaxPadWidth {
+		k := low.UnsafeBytesToString(b[kst:kend])
+
+		var w int
+		iw, ok := c.structValWidth.Load(k)
+		if ok {
+			w = iw.(int)
+		}
+
+		if !ok || vw > w {
+			c.structValWidth.Store(k, vw)
+		} else if vw < w {
+			b = append(b, low.Spaces[:w-vw]...)
+		}
+	}
+
+	return b
 }
 
 func (w *Console) appendValue(b []byte, v interface{}) []byte {
@@ -866,119 +739,4 @@ func (w *Console) appendValue(b []byte, v interface{}) []byte {
 	}
 
 	return b
-}
-
-func getint(b []byte, i int) (l int64, _ int) {
-	t := b[i] & wire.TypeMask
-
-	tl := int64(b[i] & wire.TypeDetMask)
-	i++
-
-	switch tl {
-	default:
-		l = tl
-	case 1<<5 - 1:
-		l |= int64(b[i]) << 56
-		i++
-		l |= int64(b[i]) << 48
-		i++
-		l |= int64(b[i]) << 40
-		i++
-		l |= int64(b[i]) << 32
-		i++
-
-		fallthrough
-	case 1<<5 - 2:
-		l |= int64(b[i]) << 24
-		i++
-		l |= int64(b[i]) << 16
-		i++
-
-		fallthrough
-	case 1<<5 - 3:
-		l |= int64(b[i]) << 8
-		i++
-
-		fallthrough
-	case 1<<5 - 4:
-		l |= int64(b[i])
-		i++
-	}
-
-	if t == wire.Neg {
-		l = -l
-	}
-
-	return l, i
-}
-
-func getvalue(b []byte, i int) (val interface{}, ri int) {
-	t := b[i]
-	i++
-
-	tl := int(t & wire.TypeDetMask)
-
-	var l int
-	switch tl {
-	default:
-		l = tl
-	case 1<<5 - 1:
-		l |= int(b[i]) << 56
-		i++
-		l |= int(b[i]) << 48
-		i++
-		l |= int(b[i]) << 40
-		i++
-		l |= int(b[i]) << 32
-		i++
-
-		fallthrough
-	case 1<<5 - 2:
-		l |= int(b[i]) << 24
-		i++
-		l |= int(b[i]) << 16
-		i++
-
-		fallthrough
-	case 1<<5 - 3:
-		l |= int(b[i]) << 8
-		i++
-
-		fallthrough
-	case 1<<5 - 4:
-		l |= int(b[i])
-		i++
-	}
-
-	//	defer func() {
-	//		fmt.Fprintf(os.Stderr, "getvalue  i %x  t %2x tl %2x l %2x  -> %T %[5]v %x\n", i-1, t, tl, l, val, ri)
-	//	}()
-
-	switch t & wire.TypeMask {
-	case wire.Int:
-		return int64(l), i
-	case wire.Neg:
-		return -int64(l), i
-	case wire.Bytes:
-		return b[i : i+l], i + l
-	case wire.String:
-		return low.UnsafeBytesToString(b[i : i+l]), i + l
-	case wire.Spec:
-		switch t & wire.TypeDetMask {
-		case wire.False:
-			return false, i
-		case wire.True:
-			return true, i
-		case wire.Float32:
-			f := math.Float32frombits(binary.BigEndian.Uint32(b[i:]))
-			return f, i + 4
-		case wire.Float64:
-			f := math.Float64frombits(binary.BigEndian.Uint64(b[i:]))
-			return f, i + 8
-		default:
-			panic(t)
-		}
-	default:
-		panic(t)
-	}
 }

@@ -50,6 +50,10 @@ func caller1(skip int, pc *PC, len, cap int) int
 //
 // This functions is a little bit modified version of runtime.(*Frames).Next().
 func (l PC) NameFileLine() (name, file string, line int) {
+	if l == 0 {
+		return
+	}
+
 	locmu.Lock()
 	c, ok := locc[l]
 	locmu.Unlock()

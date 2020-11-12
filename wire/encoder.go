@@ -9,6 +9,7 @@ import (
 	_ "unsafe"
 
 	"github.com/nikandfor/tlog/core"
+	"github.com/nikandfor/tlog/loc"
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -17,6 +18,8 @@ import (
 type (
 	Encoder struct {
 		io.Writer
+
+		ls map[loc.PC]struct{}
 
 		b []byte
 	}
@@ -32,37 +35,8 @@ type (
 	}
 )
 
-const ( // record semantic types
-	EOR = iota
-	Time
-	Type
-	Level
-	Labels
-
-	Location
-	Span
-	Parent
-	Duration
-	Message
-
-	Value
-	Fields
-	Func
-	File
-	Line
-
-	ID   = Span
-	Name = Message
-
-	UserTagStart = 18
-)
-
-const ( // record types
-	Start  = 's'
-	Finish = 'f'
-)
-
-const ( // base types
+// Base types
+const (
 	Int = iota << 5
 	Neg
 	Bytes
@@ -76,7 +50,18 @@ const ( // base types
 	TypeDetMask = 0b0001_1111
 )
 
-const ( // specials
+// Lengths
+const (
+	_ = 1<<5 - iota
+	LenBreak
+	Len8
+	Len4
+	Len2
+	Len1
+)
+
+// Special values
+const (
 	False = 20 + iota
 	True
 	Null
@@ -87,6 +72,48 @@ const ( // specials
 	Float64
 
 	Break = 31
+)
+
+// Custom types
+const (
+	Time = iota
+	Duration
+	ID
+	Location
+	Labels
+
+	_
+	_
+
+	customEnd
+)
+
+// Record semantic tags
+const (
+	Type = customEnd + iota
+	Level
+	Parent
+
+	Message
+	Value
+	UserFields
+	_
+	_
+
+	_
+
+	UserSemTagStart
+
+	Name        = Message
+	SpanElapsed = Duration
+	Span        = ID
+)
+
+// Record types
+const (
+	Start      = 's'
+	Finish     = 'f'
+	MetricDesc = 'm'
 )
 
 //go:linkname AppendTagVal github.com/nikandfor/tlog/wire.appendTagVal
@@ -104,47 +131,95 @@ func Event(e *Encoder, tags []Tag, kvs []interface{})
 func event(e *Encoder, tags []Tag, kvs []interface{}) {
 	b := e.b[:0]
 
+	b = append(b, Array|LenBreak)
+
 	for _, t := range tags {
-		b = appendTag(b, Semantic, t.T)
-		b = appendValue(b, t.V)
+		switch t.T {
+		case Time:
+			b = append(b, Semantic|Time, Semantic|Time)
+			b = appendInt(b, t.V.(int64))
+		case Span:
+			id := t.V.(core.ID)
+
+			b = append(b, Semantic|Span, Semantic|ID, Bytes|byte(len(id)))
+			b = append(b, id[:]...)
+		case Message:
+			b = append(b, Semantic|Message)
+
+			switch v := t.V.(type) {
+			case string:
+				b = appendString(b, String, v)
+			case Format:
+				b = appendMessage(b, v)
+			case []byte:
+				b = appendString(b, String, low.UnsafeBytesToString(v))
+			default:
+				panic(v)
+			}
+		case Value:
+			b = append(b, Semantic|Value)
+
+			switch v := t.V.(type) {
+			case int:
+				b = appendInt(b, int64(v))
+			case int64:
+				b = appendInt(b, v)
+			case float64:
+				b = appendFloat(b, v)
+			case float32:
+				b = appendFloat(b, float64(v))
+			default:
+				b = e.appendValue(b, t.V)
+			}
+		case Type:
+			var tp byte
+			switch v := t.V.(type) {
+			case rune:
+				tp = byte(v)
+			case byte:
+				tp = byte(v)
+			case int:
+				tp = byte(v)
+			case string:
+				tp = v[0]
+			default:
+				panic(v)
+			}
+
+			b = append(b, Semantic|Type, String|1, tp)
+		default:
+			b = appendTag(b, Semantic, t.T)
+			b = e.appendValue(b, t.V)
+		}
 	}
 
 	if len(kvs) != 0 {
-		b = append(b, Map)
+		b = append(b, Semantic|UserFields, Map|LenBreak)
 
 		i := 0
 		for i < len(kvs) {
 			k := kvs[i]
 			i++
 
-			b = appendTypedValue(b, k)
+			b = e.appendValue(b, k)
 
 			v := kvs[i]
 			i++
 
-			b = appendTypedValue(b, v)
+			b = e.appendValue(b, v)
 		}
 
 		b = append(b, Spec|Break)
 	}
 
-	b = append(b, Semantic|EOR)
+	b = append(b, Spec|Break)
 
 	e.b = b
 
 	_, _ = e.Writer.Write(b)
 }
 
-func appendTypedValue(b []byte, v interface{}) []byte {
-	switch v := v.(type) {
-	case core.ID:
-		return appendID(b, v, true)
-	}
-
-	return appendValue(b, v)
-}
-
-func appendValue(b []byte, v interface{}) (rb []byte) {
+func (e *Encoder) appendValue(b []byte, v interface{}) (rb []byte) {
 	//	defer func(st int) {
 	//		fmt.Fprintf(os.Stderr, "append value % 2x <- %T %[2]v  | % x\n", rb[st:], v, b[:st])
 	//	}(len(b))
@@ -155,11 +230,14 @@ func appendValue(b []byte, v interface{}) (rb []byte) {
 	case string:
 		return appendString(b, String, v)
 	case core.ID:
-		return appendID(b, v, false)
+		return e.appendID(b, v)
 	case Format:
 		return appendMessage(b, v)
 	case time.Duration:
+		b = append(b, Semantic|Duration)
 		return appendInt(b, v.Nanoseconds())
+	case loc.PC:
+		return e.appendPC(b, v)
 	case fmt.Stringer:
 		return appendString(b, String, v.String())
 	}
@@ -185,7 +263,7 @@ func appendValue(b []byte, v interface{}) (rb []byte) {
 		b = appendTag(b, Array, l)
 
 		for i := 0; i < l; i++ {
-			b = appendValue(b, r.Index(i).Interface())
+			b = e.appendValue(b, r.Index(i).Interface())
 		}
 
 		return b
@@ -194,12 +272,41 @@ func appendValue(b []byte, v interface{}) (rb []byte) {
 	}
 }
 
-func appendID(b []byte, id core.ID, typed bool) []byte {
-	if typed {
-		b = append(b, Semantic|ID)
-	}
+func (e *Encoder) appendID(b []byte, id core.ID) []byte {
+	b = append(b, Semantic|ID)
 	b = append(b, Bytes|16)
 	b = append(b, id[:]...)
+	return b
+}
+
+func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
+	if e.ls == nil {
+		e.ls = make(map[loc.PC]struct{})
+	}
+
+	b = append(b, Semantic|Location)
+
+	_, ok := e.ls[pc]
+	if ok {
+		return appendUint(b, uint64(pc))
+	}
+
+	b = append(b, Map|4)
+
+	b = appendString(b, String, "p")
+	b = appendUint(b, uint64(pc))
+
+	name, file, line := pc.NameFileLine()
+
+	b = appendString(b, String, "n")
+	b = appendString(b, String, name)
+
+	b = appendString(b, String, "f")
+	b = appendString(b, String, file)
+
+	b = appendString(b, String, "l")
+	b = appendInt(b, int64(line))
+
 	return b
 }
 
@@ -219,7 +326,7 @@ func appendMessage(b []byte, m Format) []byte {
 
 	l := len(b) - st
 
-	if l < 1<<5-4 {
+	if l < Len1 {
 		b[st-1] |= byte(l)
 
 		return b
@@ -238,16 +345,16 @@ func appendString(b []byte, tag byte, s string) []byte {
 	v := len(s)
 
 	switch {
-	case v < 1<<5-4:
+	case v < Len1:
 		b = append(b, tag|byte(v))
 	case v <= 0xff:
-		b = append(b, tag|1<<5-4, byte(v))
+		b = append(b, tag|Len1, byte(v))
 	case v <= 0xffff:
-		b = append(b, tag|1<<5-3, byte(v>>8), byte(v))
+		b = append(b, tag|Len2, byte(v>>8), byte(v))
 	case v <= 0xffff_ffff:
-		b = append(b, tag|1<<5-2, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	default:
-		b = append(b, tag|1<<5-1, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
 
 	b = append(b, s...)
@@ -257,16 +364,16 @@ func appendString(b []byte, tag byte, s string) []byte {
 
 func appendTag(b []byte, tag byte, v int) []byte {
 	switch {
-	case v < 1<<5-4:
+	case v < Len1:
 		b = append(b, tag|byte(v))
 	case v <= 0xff:
-		b = append(b, tag|1<<5-4, byte(v))
+		b = append(b, tag|Len1, byte(v))
 	case v <= 0xffff:
-		b = append(b, tag|1<<5-3, byte(v>>8), byte(v))
+		b = append(b, tag|Len2, byte(v>>8), byte(v))
 	case v <= 0xffff_ffff:
-		b = append(b, tag|1<<5-2, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	default:
-		b = append(b, tag|1<<5-1, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
 
 	return b
@@ -282,16 +389,16 @@ func appendInt(b []byte, v int64) []byte {
 	}
 
 	switch {
-	case v < 1<<5-4:
+	case v < Len1:
 		b = append(b, tag|byte(v))
 	case v <= 0xff:
-		b = append(b, tag|1<<5-4, byte(v))
+		b = append(b, tag|Len1, byte(v))
 	case v <= 0xffff:
-		b = append(b, tag|1<<5-3, byte(v>>8), byte(v))
+		b = append(b, tag|Len2, byte(v>>8), byte(v))
 	case v <= 0xffff_ffff:
-		b = append(b, tag|1<<5-2, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	default:
-		b = append(b, tag|1<<5-1, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
 
 	return b
@@ -301,16 +408,16 @@ func appendUint(b []byte, v uint64) []byte {
 	const tag = Int
 
 	switch {
-	case v < 1<<5-4:
+	case v < Len1:
 		b = append(b, tag|byte(v))
 	case v <= 0xff:
-		b = append(b, tag|1<<5-4, byte(v))
+		b = append(b, tag|Len1, byte(v))
 	case v <= 0xffff:
-		b = append(b, tag|1<<5-3, byte(v>>8), byte(v))
+		b = append(b, tag|Len2, byte(v>>8), byte(v))
 	case v <= 0xffff_ffff:
-		b = append(b, tag|1<<5-2, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	default:
-		b = append(b, tag|1<<5-1, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		b = append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
 
 	return b
@@ -333,16 +440,16 @@ func insertLen(b []byte, st, l int) []byte {
 
 	switch {
 	case l <= 0xff:
-		b[st-1] |= 1<<5 - 4
+		b[st-1] |= Len1
 		sz = 1
 	case l <= 0xffff:
-		b[st-1] |= 1<<5 - 3
+		b[st-1] |= Len2
 		sz = 2
 	case l <= 0xffff_ffff:
-		b[st-1] |= 1<<5 - 2
+		b[st-1] |= Len4
 		sz = 4
 	default:
-		b[st-1] |= 1<<5 - 1
+		b[st-1] |= Len8
 		sz = 8
 	}
 

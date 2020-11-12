@@ -108,6 +108,9 @@ func newspan(l *Logger, par ID, d int, args []interface{}) (s Span) {
 	if !l.NoTime {
 		l.tags = wire.AppendTagVal(l.tags, wire.Time, s.StartedAt.UnixNano())
 	}
+	if !l.NoCaller {
+		l.tags = wire.AppendTagVal(l.tags, wire.Location, loc.Caller(d+2))
+	}
 
 	l.tags = wire.AppendTagVal(l.tags, wire.Type, wire.Start)
 
@@ -157,9 +160,7 @@ func newprint(l *Logger, id ID, d int16, lv Level, msg string, args []interface{
 		l.tags = wire.AppendTagVal(l.tags, wire.Time, unixnow())
 	}
 	if !l.NoCaller {
-		//	var pc PC
-		//	caller1(1, &pc, 1, 1)
-		//	tags = append(tags, Tag{R: rLocation, V: pc})
+		l.tags = wire.AppendTagVal(l.tags, wire.Location, loc.Caller(int(d)+2))
 	}
 
 	if len(args) != 0 {
@@ -311,7 +312,7 @@ func (s Span) Finish(args ...interface{}) {
 	l.tags = wire.AppendTagVal(l.tags, wire.Type, wire.Finish)
 
 	if d != 0 {
-		l.tags = wire.AppendTagVal(l.tags, wire.Duration, d)
+		l.tags = wire.AppendTagVal(l.tags, wire.SpanElapsed, d)
 	}
 
 	wire.Event(&l.Encoder, l.tags, nil)

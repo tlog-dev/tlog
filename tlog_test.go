@@ -2,7 +2,6 @@ package tlog
 
 import (
 	crand "crypto/rand"
-	"encoding/hex"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 const SingleThread, Parallel = "SingleThread", "Parallel"
@@ -23,7 +23,7 @@ func TestLoggerSmoke(t *testing.T) {
 	l.Printf("message: %v %v", 1, "two")
 	l.Printw("message", "i", 1, "str", "two")
 
-	t.Logf("data:\n%v", hex.Dump(b))
+	t.Logf("data:\n%v", wire.Dump(b))
 }
 
 func BenchmarkRand(b *testing.B) {
