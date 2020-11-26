@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/nikandfor/tlog/tlogpb"
+	"github.com/nikandfor/tlog/prev/tlogpb"
 )
 
 func TestConsoleWriterBuildHeader(t *testing.T) {
