@@ -1,12 +1,14 @@
 package tlflag
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/nikandfor/errors"
+	"github.com/nikandfor/tlog/wire"
+	"github.com/nikandfor/tlog/writer"
 
 	"github.com/nikandfor/tlog"
 )
@@ -19,23 +21,27 @@ func UpdateFlags(ff, of int, s string) (_, _ int) {
 		case '0':
 			of |= os.O_TRUNC
 		case 'd':
-			ff = tlog.LdetFlags
+			ff = writer.LdetFlags
+		case 'm':
+			ff |= writer.Lmilliseconds
+		case 'M':
+			ff |= writer.Lmicroseconds
 		case 's', 'S':
-			ff |= tlog.Lspans | tlog.Lmessagespan
+			ff |= writer.Lspans | writer.Lmessagespan
 		case 'n':
-			ff |= tlog.Lfuncname
+			ff |= writer.Lfuncname
 		case 'f':
-			ff |= tlog.Lshortfile
+			ff |= writer.Lshortfile
 		case 'F':
-			ff &^= tlog.Lshortfile
-			ff |= tlog.Llongfile
+			ff &^= writer.Lshortfile
+			ff |= writer.Llongfile
 		}
 	}
 
 	return ff, of
 }
 
-func updateConsoleLoggerOptions(w *tlog.ConsoleWriter, s string) {
+func updateConsoleLoggerOptions(w *writer.Console, s string) {
 	for _, c := range s {
 		switch c { //nolint:gocritic
 		case 'S':
@@ -44,27 +50,15 @@ func updateConsoleLoggerOptions(w *tlog.ConsoleWriter, s string) {
 	}
 }
 
-func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error) {
-	var toclose []io.Closer
-
-	cl = func() (err error) {
-		for _, f := range toclose {
-			if e := f.Close(); err == nil {
-				err = e
-			}
-		}
-
-		return
-	}
+func ParseDestination(dst string) (w io.Writer, err error) {
+	var ws writer.Tee
 
 	defer func() {
 		if err == nil {
 			return
 		}
 
-		_ = cl()
-
-		cl = nil
+		_ = ws.Close()
 	}()
 
 	for _, d := range strings.Split(dst, ",") {
@@ -73,8 +67,8 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 		}
 
 		var opts string
-		ff := tlog.LstdFlags
-		of := 0
+		ff := writer.LstdFlags
+		of := os.O_APPEND
 		if p := strings.IndexByte(d, ':'); p != -1 {
 			opts = d[p+1:]
 			d = d[:p]
@@ -85,15 +79,16 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 		ext := filepath.Ext(d)
 
 		switch ext {
-		case "", ".log", ".proto", ".json":
+		case "", ".log", ".tl", ".tlog", ".dump": //, ".proto", ".json":
 		default:
-			err = errors.New("unsupported file type: %v", ext)
+			err = fmt.Errorf("unsupported file type: %v", ext)
 			return
 		}
 
 		var fw io.Writer
+		var fc io.Closer
 
-		if fn := strings.TrimSuffix(d, ext); fn == "stderr" || fn == "" {
+		if fn := strings.TrimSuffix(d, ext); fn == "stderr" || fn == "-" || fn == "" {
 			fw = tlog.Stderr
 		} else {
 			var f *os.File
@@ -102,27 +97,37 @@ func ParseDestination(dst string) (ws []tlog.Writer, cl func() error, err error)
 				return
 			}
 
-			toclose = append(toclose, f)
-
 			fw = f
+			fc = f
 		}
 
-		var w tlog.Writer
+		var w io.Writer
 		switch ext {
+		case ".tl", ".tlog":
+			w = fw
+		case ".dump":
+			w = wire.NewDumper(fw)
 		case "", ".log":
-			cw := tlog.NewConsoleWriter(fw, ff)
+			cw := writer.NewConsole(fw, ff)
 
 			updateConsoleLoggerOptions(cw, opts)
 
 			w = cw
-		case ".proto":
-			w = tlog.NewProtoWriter(fw)
-		case ".json":
-			w = tlog.NewJSONWriter(fw)
+			//	case ".proto":
+			//		w = tlog.NewProtoWriter(fw)
+			//	case ".json":
+			//		w = tlog.NewJSONWriter(fw)
+		}
+
+		if fc != nil {
+			w = writer.WriteCloser{
+				Writer: w,
+				Closer: fc,
+			}
 		}
 
 		ws = append(ws, w)
 	}
 
-	return
+	return ws, nil
 }

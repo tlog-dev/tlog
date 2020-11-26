@@ -14,8 +14,8 @@ func UnixNano() int64 {
 //go:linkname walltime runtime.walltime1
 func walltime() (sec int64, nsec int32)
 
-//go:linkname Monotomic runtime.nanotime1
-func Monotomic() int64
+//go:linkname Monotonic runtime.nanotime1
+func Monotonic() int64
 
 func SplitTime(t time.Time) (year, month, day, hour, min, sec int) {
 	u := timeAbs(t)

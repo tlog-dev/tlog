@@ -58,11 +58,11 @@ func TestConsole(t *testing.T) {
 
 	l.Printw("attributes", "key", "value", "key2", 42)
 
-	eq(`2020-11-03_21:06:22.000000  INF  console_test.go:59    ________  attributes                              key=value  key2=42`)
+	eq(`2020-11-03_21:06:22.000000  INF  console_test.go:59    ________  attributes                    key=value  key2=42`)
 
 	tr := l.Start("span_name")
 
-	eq(`2020-11-03_21:06:23.000000  INF  console_test.go:63    0194fdc2  span_name                               T=s`)
+	eq(`2020-11-03_21:06:23.000000  INF  console_test.go:63    0194fdc2  span_name                     T=s`)
 
 	tr.Finish()
 

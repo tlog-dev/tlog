@@ -3,7 +3,6 @@ module github.com/nikandfor/tlog
 go 1.13
 
 require (
-	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/getsentry/sentry-go v0.7.0
 	github.com/gin-gonic/gin v1.5.0
 	github.com/golang/protobuf v1.4.2
@@ -11,9 +10,9 @@ require (
 	github.com/nikandfor/errors v0.3.1-0.20201013001757-3b7d42817e44
 	github.com/nikandfor/json v0.2.0
 	github.com/nikandfor/quantile v0.0.0-20200824213034-5a47c65eb02b
-	github.com/nikandfor/xrain v0.0.0-20200921231627-f669ab2645f2
+	github.com/nikandfor/xrain v0.0.0-20200921231627-f669ab2645f2 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.6.1

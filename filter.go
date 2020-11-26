@@ -4,6 +4,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/nikandfor/tlog/loc"
 )
@@ -12,7 +13,8 @@ type (
 	filter struct {
 		f string
 
-		c map[filterkey]bool
+		mu sync.RWMutex
+		c  map[filterkey]bool
 	}
 
 	filterkey struct {
@@ -46,11 +48,18 @@ func (f *filter) match(t string, loc loc.PC) bool {
 		tp: t,
 	}
 
+	f.mu.RLock()
 	en, ok := f.c[k]
-	if !ok {
-		en = f.matchFilter(loc, t)
-		f.c[k] = en
+	f.mu.RUnlock()
+
+	if ok {
+		return en
 	}
+
+	f.mu.Lock()
+	en = f.matchFilter(loc, t)
+	f.c[k] = en
+	f.mu.Unlock()
 
 	return en
 }

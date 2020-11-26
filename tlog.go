@@ -22,9 +22,9 @@ type (
 	Labels = core.Labels
 
 	Logger struct {
-		wire.Encoder
+		sync.Mutex
 
-		mu sync.Mutex
+		wire.Encoder
 
 		tags []wire.Tag
 		b    []byte
@@ -89,19 +89,10 @@ func newspan(l *Logger, par ID, d int, args []interface{}) (s Span) {
 	s.Logger = l
 	s.ID = l.NewID()
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
-	defer func() {
-		// NOTE: since we hacked compiler and made all arguments not escaping
-		// we must zero all possible pointers to stack
-
-		for i := range l.tags {
-			l.tags[i].V = nil
-		}
-
-		l.tags = l.tags[:0]
-	}()
+	defer l.clearTags()
 
 	l.tags = wire.AppendTagVal(l.tags, wire.Span, s.ID)
 
@@ -138,19 +129,10 @@ func newprint(l *Logger, id ID, d int16, lv Level, msg string, args []interface{
 		return
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
-	defer func() {
-		// NOTE: since we hacked compiler and made all arguments not escaping
-		// we must zero all possible pointers to stack
-
-		for i := range l.tags {
-			l.tags[i].V = nil
-		}
-
-		l.tags = l.tags[:0]
-	}()
+	defer l.clearTags()
 
 	if id != (ID{}) {
 		l.tags = wire.AppendTagVal(l.tags, wire.Span, id)
@@ -180,28 +162,48 @@ func observe(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 		panic("nil value")
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
-	defer func() {
-		// NOTE: since we hacked compiler and made all arguments not escaping
-		// we must zero all possible pointers to stack
-
-		for i := range l.tags {
-			l.tags[i].V = nil
-		}
-
-		l.tags = l.tags[:0]
-	}()
+	defer l.clearTags()
 
 	if id != (ID{}) {
 		l.tags = wire.AppendTagVal(l.tags, wire.Span, id)
+	}
+
+	if !l.NoTime {
+		l.tags = wire.AppendTagVal(l.tags, wire.Time, unixnow())
 	}
 
 	l.tags = wire.AppendTagVal(l.tags, wire.Name, name)
 	l.tags = wire.AppendTagVal(l.tags, wire.Value, v)
 
 	wire.Event(&l.Encoder, l.tags, kvs)
+}
+
+func (l *Logger) clearTags() {
+	// NOTE: since we hacked compiler and made all wire.Event arguments not escaping
+	// we must manually zero all possible pointers to stack
+
+	for i := range l.tags {
+		l.tags[i].V = nil
+	}
+
+	l.tags = l.tags[:0]
+}
+
+func (l *Logger) SetFlags(f int) {
+	if l == nil {
+		return
+	}
+
+	if w, ok := l.Writer.(interface {
+		SetFlags(int)
+	}); ok {
+		l.Lock()
+		w.SetFlags(f)
+		l.Unlock()
+	}
 }
 
 func New(w io.Writer, ops ...Option) *Logger {
@@ -223,8 +225,8 @@ func (l *Logger) Event(tags []wire.Tag, kvs []interface{}) {
 		return
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
 	wire.Event(&l.Encoder, tags, kvs)
 }
@@ -235,19 +237,10 @@ func (s Span) Event(tags []wire.Tag, kvs []interface{}) {
 		return
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
-	defer func() {
-		// NOTE: since we hacked compiler and made all arguments not escaping
-		// we must zero all possible pointers to stack
-
-		for i := range l.tags {
-			l.tags[i].V = nil
-		}
-
-		l.tags = l.tags[:0]
-	}()
+	defer l.clearTags()
 
 	l.tags = wire.AppendTagVal(l.tags[:0], wire.Span, s.ID)
 	l.tags = append(l.tags, tags...)
@@ -260,8 +253,8 @@ func SetLabels(ls Labels) {
 }
 
 func (l *Logger) SetLabels(ls Labels) {
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
 	wire.Event(&l.Encoder, []wire.Tag{{T: wire.Labels, V: ls}}, nil)
 }
@@ -293,19 +286,10 @@ func (s Span) Finish(args ...interface{}) {
 		d = now().Sub(s.StartedAt)
 	}
 
-	defer l.mu.Unlock()
-	l.mu.Lock()
+	defer l.Unlock()
+	l.Lock()
 
-	defer func() {
-		// NOTE: since we hacked compiler and made all arguments not escaping
-		// we must zero all possible pointers to stack
-
-		for i := range l.tags {
-			l.tags[i].V = nil
-		}
-
-		l.tags = l.tags[:0]
-	}()
+	defer l.clearTags()
 
 	l.tags = wire.AppendTagVal(l.tags, wire.Span, s.ID)
 
@@ -340,6 +324,23 @@ func (s Span) Printf(f string, args ...interface{}) {
 
 func (s Span) Printw(msg string, kvs ...interface{}) {
 	newprint(s.Logger, s.ID, 0, 0, msg, nil, kvs)
+}
+
+func Fatalf(f string, args ...interface{}) {
+	newprint(DefaultLogger, ID{}, 0, Fatal, f, args, nil)
+	os.Exit(1)
+}
+
+func Errorf(f string, args ...interface{}) {
+	newprint(DefaultLogger, ID{}, 0, Error, f, args, nil)
+}
+
+func (l *Logger) Errorf(f string, args ...interface{}) {
+	newprint(l, ID{}, 0, Error, f, args, nil)
+}
+
+func (s Span) Errorf(f string, args ...interface{}) {
+	newprint(s.Logger, s.ID, 0, Error, f, args, nil)
 }
 
 // V checks if topic tp is enabled and returns default Logger or nil.
@@ -484,15 +485,15 @@ func (l *Logger) Filter() string {
 	return f.f
 }
 
-func Observe(name string, v float64, kvs ...interface{}) {
+func Observe(name string, v interface{}, kvs ...interface{}) {
 	observe(DefaultLogger, ID{}, name, v, kvs)
 }
 
-func (l *Logger) Observe(name string, v float64, kvs ...interface{}) {
+func (l *Logger) Observe(name string, v interface{}, kvs ...interface{}) {
 	observe(l, ID{}, name, v, kvs)
 }
 
-func (s Span) Observe(name string, v float64, kvs ...interface{}) {
+func (s Span) Observe(name string, v interface{}, kvs ...interface{}) {
 	observe(s.Logger, s.ID, name, v, kvs)
 }
 

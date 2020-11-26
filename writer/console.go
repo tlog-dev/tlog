@@ -1,10 +1,11 @@
 package writer
 
 import (
-	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ type (
 		d wire.Decoder
 
 		// column widths
+		LabelsHash int
 		Shortfile  int
 		Funcname   int
 		IDWidth    int
@@ -105,6 +107,14 @@ const ( // console writer flags
 	Lnone        = 0
 )
 
+// DefaultStructuredConfig is default config to format structured logs by Console writer.
+var DefaultStructuredConfig = StructuredConfig{
+	MessageWidth:     30,
+	ValueMaxPadWidth: 24,
+	PairSeparator:    "  ",
+	KVSeparator:      "=",
+}
+
 const ( // colors
 	ColorBlack = iota + 30
 	ColorRed
@@ -167,6 +177,7 @@ func NewConsole(w io.Writer, f int) *Console {
 	return &Console{
 		w:          w,
 		f:          f,
+		LabelsHash: 3,
 		Shortfile:  20,
 		Funcname:   18,
 		IDWidth:    8,
@@ -175,8 +186,21 @@ func NewConsole(w io.Writer, f int) *Console {
 	}
 }
 
+func (w *Console) SetFlags(f int) {
+	w.f = f
+}
+
 func (w *Console) Write(p []byte) (i int, err error) {
 	var ev wire.EventHeader
+
+	defer func() {
+		perr := recover()
+		if perr == nil {
+			return
+		}
+
+		fmt.Fprintf(os.Stderr, "panic: %v\non message\n%v\nstack:\n%s\n", perr, wire.Dump(p), debug.Stack())
+	}()
 
 	//	defer func() {
 	//		fmt.Fprintf(os.Stderr, "console.Write %v %v\n", i, err)
@@ -530,17 +554,9 @@ func (c *StructuredConfig) Copy() StructuredConfig {
 	}
 }
 
-// DefaultStructuredConfig is default config to format structured logs by Console writer.
-var DefaultStructuredConfig = StructuredConfig{
-	MessageWidth:     40,
-	ValueMaxPadWidth: 20,
-	PairSeparator:    "  ",
-	KVSeparator:      "=",
-}
-
 //nolint:gocognit
 func (w *Console) structuredFormatter(b []byte, msgw int, ev *wire.EventHeader, kvs []byte, i int) ([]byte, int) {
-	const digitsx = "0123456789abcdef"
+	const digits = "0123456789abcdef"
 
 	if w.StructuredConfig == nil {
 		w.StructuredConfig = &DefaultStructuredConfig
@@ -577,8 +593,8 @@ func (w *Console) structuredFormatter(b []byte, msgw int, ev *wire.EventHeader, 
 			buf[0] = byte(ev.Type)
 			bufl = 1
 		} else {
-			buf[0] = digitsx[ev.Type>>4]
-			buf[1] = digitsx[ev.Type&0xf]
+			buf[0] = digits[ev.Type>>4]
+			buf[1] = digits[ev.Type&0xf]
 			bufl = 2
 		}
 
@@ -664,13 +680,13 @@ func (w *Console) appendPair(b []byte, k string, v interface{}) []byte {
 		b = append(b, w.colKey...)
 	}
 
-	kst := len(b)
+	//	kst := len(b)
 
 	b = append(b, k...)
 
 	b = append(b, c.KVSeparator...)
 
-	kend := len(b)
+	//	kend := len(b)
 
 	if len(w.colKey) != 0 {
 		b = append(b, colors[0]...)
@@ -690,9 +706,7 @@ func (w *Console) appendPair(b []byte, k string, v interface{}) []byte {
 		b = append(b, colors[0]...)
 	}
 
-	if vw < c.ValueMaxPadWidth {
-		k := low.UnsafeBytesToString(b[kst:kend])
-
+	{ // pad
 		var w int
 		iw, ok := c.structValWidth.Load(k)
 		if ok {
@@ -700,6 +714,10 @@ func (w *Console) appendPair(b []byte, k string, v interface{}) []byte {
 		}
 
 		if !ok || vw > w {
+			if vw > c.ValueMaxPadWidth {
+				vw = c.ValueMaxPadWidth
+			}
+
 			c.structValWidth.Store(k, vw)
 		} else if vw < w {
 			b = append(b, low.Spaces[:w-vw]...)
@@ -710,8 +728,6 @@ func (w *Console) appendPair(b []byte, k string, v interface{}) []byte {
 }
 
 func (w *Console) appendValue(b []byte, v interface{}) []byte {
-	const escape = `"'`
-
 	c := w.StructuredConfig
 	if c == nil {
 		c = &DefaultStructuredConfig
@@ -719,17 +735,13 @@ func (w *Console) appendValue(b []byte, v interface{}) []byte {
 
 	switch v := v.(type) {
 	case string:
-		if c.QuoteAnyValue || c.QuoteEmptyValue && v == "" || strings.Contains(v, c.KVSeparator) || strings.ContainsAny(v, escape) {
+		if c.QuoteAnyValue || c.QuoteEmptyValue && v == "" || needQuote(v) {
 			b = strconv.AppendQuote(b, v)
 		} else {
 			b = append(b, v...)
 		}
 	case []byte:
-		if c.QuoteAnyValue || c.QuoteEmptyValue && len(v) == 0 || bytes.Contains(v, []byte(c.KVSeparator)) || bytes.ContainsAny(v, escape) {
-			b = strconv.AppendQuote(b, string(v))
-		} else {
-			b = append(b, v...)
-		}
+		b = w.appendBytes(b, v)
 	case ID:
 		i := len(b)
 		b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
@@ -739,4 +751,27 @@ func (w *Console) appendValue(b []byte, v interface{}) []byte {
 	}
 
 	return b
+}
+
+func (w *Console) appendBytes(b, v []byte) []byte {
+	const digits = "0123456789abcdef"
+
+	for _, c := range v {
+		b = append(b, ' ', digits[c>>8], digits[c&0xf])
+	}
+
+	return b
+}
+
+func needQuote(s string) bool {
+	for _, c := range s {
+		if c == '"' || c == '`' {
+			return true
+		}
+		if !strconv.IsPrint(c) {
+			return true
+		}
+	}
+
+	return false
 }

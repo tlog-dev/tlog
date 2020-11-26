@@ -82,7 +82,7 @@ const (
 	Location
 	Labels
 
-	_
+	Error
 	_
 
 	customEnd
@@ -226,13 +226,16 @@ func (e *Encoder) appendValue(b []byte, v interface{}) (rb []byte) {
 
 	switch v := v.(type) {
 	case nil:
-		panic("nil value")
+		return append(b, Spec|Null)
 	case string:
 		return appendString(b, String, v)
 	case core.ID:
 		return e.appendID(b, v)
 	case Format:
 		return appendMessage(b, v)
+	case error:
+		b = append(b, Semantic|Error)
+		return appendString(b, String, v.Error())
 	case time.Duration:
 		b = append(b, Semantic|Duration)
 		return appendInt(b, v.Nanoseconds())
@@ -244,8 +247,24 @@ func (e *Encoder) appendValue(b []byte, v interface{}) (rb []byte) {
 
 	r := reflect.ValueOf(v)
 
-	if r.Kind() == reflect.Slice && r.Type().Elem().Kind() == reflect.Uint8 {
-		return appendString(b, Bytes, low.UnsafeBytesToString(r.Bytes()))
+	if (r.Kind() == reflect.Ptr || r.Kind() == reflect.Interface) && r.IsNil() {
+		return append(b, Spec|Null)
+	}
+
+	if (r.Kind() == reflect.Slice || r.Kind() == reflect.Array) && r.Type().Elem().Kind() == reflect.Uint8 {
+		if r.Kind() == reflect.Slice {
+			return appendString(b, Bytes, low.UnsafeBytesToString(r.Bytes()))
+		}
+
+		l := r.Len()
+
+		b = appendTag(b, Bytes, l)
+
+		for i := 0; i < l; i++ {
+			b = append(b, byte(r.Index(i).Uint()))
+		}
+
+		return b
 	}
 
 	switch r.Kind() {
@@ -257,6 +276,12 @@ func (e *Encoder) appendValue(b []byte, v interface{}) (rb []byte) {
 		return appendUint(b, r.Uint())
 	case reflect.Float64, reflect.Float32:
 		return appendFloat(b, r.Float())
+	case reflect.Bool:
+		if r.Bool() {
+			return append(b, Spec|True)
+		} else {
+			return append(b, Spec|False)
+		}
 	case reflect.Slice, reflect.Array:
 		l := r.Len()
 
@@ -267,9 +292,80 @@ func (e *Encoder) appendValue(b []byte, v interface{}) (rb []byte) {
 		}
 
 		return b
+	case reflect.Map:
+		l := r.Len()
+
+		b = appendTag(b, Map, l)
+
+		it := r.MapRange()
+
+		for it.Next() {
+			b = e.appendValue(b, it.Key().Interface())
+			b = e.appendValue(b, it.Value().Interface())
+		}
+
+		return b
+	case reflect.Struct:
+		return e.appendStruct(b, v)
+	case reflect.Ptr:
+		return e.appendValue(b, r.Elem().Interface())
 	default:
 		panic(v)
 	}
+}
+
+func (e *Encoder) appendStruct(b []byte, v interface{}) []byte {
+	r := reflect.ValueOf(v)
+	t := r.Type()
+	ff := t.NumField()
+
+	l := ff
+	for i := 0; i < ff; i++ {
+		f := t.Field(i)
+
+		if f.Anonymous || f.PkgPath != "" {
+			l = -1
+			break
+		}
+	}
+
+	if l != -1 {
+		b = appendTag(b, Map, l)
+		b = e.appendStructFields(b, t, r)
+
+		return b
+	}
+
+	b = append(b, Map|LenBreak)
+
+	b = e.appendStructFields(b, t, r)
+
+	b = append(b, Spec|Break)
+
+	return b
+}
+
+func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value) []byte {
+	ff := t.NumField()
+
+	for i := 0; i < ff; i++ {
+		f := t.Field(i)
+
+		if f.PkgPath != "" {
+			continue
+		}
+
+		if f.Anonymous {
+			b = e.appendStructFields(b, f.Type, r.Field(i))
+			continue
+		}
+
+		b = appendString(b, String, f.Name)
+
+		b = e.appendValue(b, r.Field(i).Interface())
+	}
+
+	return b
 }
 
 func (e *Encoder) appendID(b []byte, id core.ID) []byte {

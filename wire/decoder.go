@@ -2,9 +2,13 @@ package wire
 
 import (
 	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
+	"runtime/debug"
 	"time"
 
 	"github.com/nikandfor/tlog/core"
@@ -14,6 +18,7 @@ import (
 
 type (
 	Decoder struct {
+		Labels core.Labels
 	}
 
 	EventHeader struct {
@@ -31,12 +36,82 @@ type (
 		MoreTags []Tag
 	}
 
+	Dumper struct {
+		io.Writer
+
+		l int
+		d Decoder
+
+		NoGlobalOffset bool
+	}
+
 	perr error
 
 	undef struct{}
 )
 
 var UndefVal undef
+
+func NewDumper(w io.Writer) *Dumper {
+	return &Dumper{
+		Writer: w,
+	}
+}
+
+func (w *Dumper) Write(p []byte) (i int, err error) {
+	for i < len(p) {
+		off := -1
+		if !w.NoGlobalOffset {
+			off = w.l + i
+		}
+
+		i = dump(w.Writer, off, p, i, 0)
+	}
+
+	if i != len(p) && err == nil {
+		err = io.ErrUnexpectedEOF
+	}
+
+	w.l += i
+
+	return i, nil
+}
+
+func (d *Decoder) SkipRecord(b []byte, i int) (_ int, err error) {
+	//	fmt.Fprintf(os.Stderr, "message\n%v", Dump(b))
+
+	defer func() {
+		p := recover()
+		if p == nil {
+			return
+		}
+
+		if p, ok := p.(perr); ok {
+			err = p
+			return
+		}
+
+		panic(p)
+	}()
+
+	els, i := d.NextInt(b, i)
+
+	for el := 0; i < len(b) && els == -1 || el < els; el++ {
+		//	fmt.Fprintf(os.Stderr, "parsetag  i %3x  t %2x\n", i, b[i])
+
+		if els == -1 && b[i] == Spec|Break {
+			break
+		}
+
+		i = d.Skip(b, i)
+	}
+
+	return i, nil
+}
+
+func (d *Decoder) Skip(b []byte, i int) int {
+	return dump(ioutil.Discard, -1, b, i, 0)
+}
 
 func (d *Decoder) DecodeHeader(b []byte, ev *EventHeader) (i int, err error) {
 	//	fmt.Fprintf(os.Stderr, "message\n%v", Dump(b))
@@ -157,9 +232,50 @@ func (d *Decoder) NextValue(b []byte, i int) (interface{}, int) {
 		s, i = d.NextString(b, i)
 
 		return string(s), i
-	case Semantic:
-		i++
+	case Array:
+		var els int
+		els, i = d.NextInt(b, i)
 
+		var v []interface{}
+		if els != -1 {
+			v = make([]interface{}, 0, els)
+		}
+
+		var vi interface{}
+		for el := 0; els == -1 || el < els; el++ {
+			if els == -1 && b[i] == Spec|Break {
+				break
+			}
+
+			vi, i = d.NextValue(b, i)
+
+			v = append(v, vi)
+		}
+
+		return v, i
+	case Map:
+		var els int
+		els, i = d.NextInt(b, i)
+
+		var v map[string]interface{}
+		if els != -1 {
+			v = make(map[string]interface{}, els)
+		}
+
+		var ki, vi interface{}
+		for el := 0; els == -1 || el < els; el++ {
+			if els == -1 && b[i] == Spec|Break {
+				break
+			}
+
+			ki, i = d.NextValue(b, i)
+			vi, i = d.NextValue(b, i)
+
+			v[ki.(string)] = vi
+		}
+
+		return v, i
+	case Semantic:
 		switch b[i] & TypeDetMask {
 		case Time:
 			q, i = d.NextInt64(b, i)
@@ -171,11 +287,24 @@ func (d *Decoder) NextValue(b []byte, i int) (interface{}, int) {
 			return d.NextID(b, i)
 		case Location:
 			return d.NextLoc(b, i)
+		case Labels:
+			return d.NextLabels(b, i)
+		case Error:
+			var sub interface{}
+			sub, i = d.NextValue(b, i+1)
+
+			switch v := sub.(type) {
+			case []byte:
+				return errors.New(low.UnsafeBytesToString(v)), i
+			default:
+				return v, i
+			}
 		default:
-			return d.NextValue(b, i)
+			return d.NextValue(b, i+1)
 		}
 	case Spec:
-		switch b[i] & TypeDetMask {
+		i++
+		switch b[i-1] & TypeDetMask {
 		case False:
 			return false, i
 		case True:
@@ -191,7 +320,7 @@ func (d *Decoder) NextValue(b []byte, i int) (interface{}, int) {
 			f := math.Float64frombits(binary.BigEndian.Uint64(b[i:]))
 			return f, i + 8
 		default:
-			panic(perr(fmt.Errorf("unsupported special value: %2x", b[i])))
+			panic(perr(fmt.Errorf("unsupported special value: %2x", b[i-1])))
 		}
 
 	default:
@@ -345,21 +474,34 @@ func (d *Decoder) NextInt64(b []byte, i int) (v int64, _ int) {
 	return v, i
 }
 
-func Dump(b []byte) string {
+func Dump(b []byte) (r string) {
 	var w low.Buf
 
+	defer func() {
+		perr := recover()
+		if perr == nil {
+			return
+		}
+
+		r = fmt.Sprintf("panic: %v\n", perr) + hex.Dump(b) + string(w) + "\n" + string(debug.Stack()) + "\n"
+	}()
+
 	for i := 0; i < len(b); {
-		i = dump(&w, b, i, 0)
+		i = dump(&w, -1, b, i, 0)
 	}
 
 	return string(w)
 }
 
-func dump(w io.Writer, b []byte, i, d int) int {
+func dump(w io.Writer, base int, b []byte, i, d int) int {
 	st := i
 	t, l, i := decodetag(b, i)
 
 	//	fmt.Fprintf(os.Stderr, "i %3x  t %2x l %x\n", i-1, t, l)
+
+	if base != -1 {
+		fmt.Fprintf(w, "%8x  ", base+st)
+	}
 
 	fmt.Fprintf(w, "%4x  %s% x  -  ", st, low.Spaces[:d*2], b[st:i])
 
@@ -379,32 +521,28 @@ func dump(w io.Writer, b []byte, i, d int) int {
 
 		for j := 0; l == -1 || j < int(l); j++ {
 			if l == -1 && b[i] == Spec|Break {
-				i = dump(w, b, i, d+1)
+				i = dump(w, base, b, i, d+1)
 				break
 			}
 
-			i = dump(w, b, i, d+1)
+			i = dump(w, base, b, i, d+1)
 		}
 	case Map:
 		fmt.Fprintf(w, "object: len %v\n", l)
 
 		for j := 0; l == -1 || j < int(l); j++ {
 			if l == -1 && b[i] == Spec|Break {
-				i = dump(w, b, i, d+1)
+				i = dump(w, base, b, i, d+1)
 				break
 			}
 
-			i = dump(w, b, i, d+1)
-			i = dump(w, b, i, d+1)
+			i = dump(w, base, b, i, d+1)
+			i = dump(w, base, b, i, d+1)
 		}
 	case Semantic:
 		fmt.Fprintf(w, "semantic %2x\n", l)
 
-		if l == 0 {
-			break
-		}
-
-		i = dump(w, b, i, d+1)
+		i = dump(w, base, b, i, d+1)
 	case Spec:
 		switch l {
 		case False:
@@ -425,11 +563,13 @@ func dump(w io.Writer, b []byte, i, d int) int {
 			i += 4
 
 			fmt.Fprintf(w, "%v", v)
-		case -1:
-			fmt.Fprintf(w, "break\n")
+		case 0x1f:
+			fmt.Fprintf(w, "break")
 		default:
-			fmt.Fprintf(w, "special %x\n", l)
+			fmt.Fprintf(w, "special %x", l)
 		}
+
+		fmt.Fprintf(w, "\n")
 	default:
 		fmt.Fprintf(w, "unexpected type %2x\n", t)
 	}
@@ -439,8 +579,13 @@ func dump(w io.Writer, b []byte, i, d int) int {
 
 func decodetag(b []byte, i int) (t byte, l int64, _ int) {
 	t = b[i] & TypeMask
+
 	td := b[i] & TypeDetMask
 	i++
+
+	if t == Spec {
+		return t, int64(td), i
+	}
 
 	switch td {
 	default:
