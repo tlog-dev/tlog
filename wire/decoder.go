@@ -257,10 +257,11 @@ func (d *Decoder) NextValue(b []byte, i int) (interface{}, int) {
 		var els int
 		els, i = d.NextInt(b, i)
 
-		var v map[string]interface{}
-		if els != -1 {
-			v = make(map[string]interface{}, els)
+		sz := els
+		if sz == -1 {
+			sz = 4
 		}
+		v := make(map[string]interface{}, sz)
 
 		var ki, vi interface{}
 		for el := 0; els == -1 || el < els; el++ {

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/tlog/low"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 type A struct {
