@@ -21,7 +21,7 @@ func UpdateFlags(ff, of int, s string) (_, _ int) {
 		case '0':
 			of |= os.O_TRUNC
 		case 'd':
-			ff = writer.LdetFlags
+			ff |= writer.LdetFlags
 		case 'm':
 			ff |= writer.Lmilliseconds
 		case 'M':
@@ -35,6 +35,8 @@ func UpdateFlags(ff, of int, s string) (_, _ int) {
 		case 'F':
 			ff &^= writer.Lshortfile
 			ff |= writer.Llongfile
+		case 'U':
+			ff |= writer.LUTC
 		}
 	}
 
