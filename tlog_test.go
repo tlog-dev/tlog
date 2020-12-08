@@ -23,26 +23,38 @@ func TestLogger(t *testing.T) {
 	buf = buf[:0]
 }
 
+func BenchmarkLoggerPrintw(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(ioutil.Discard)
+	l.NoCaller = true
+	l.NoTime = true
+
+	for i := 0; i < b.N; i++ {
+		l.Printw("message", "a", i+1000, "b", i+1000)
+	}
+}
+
 func BenchmarkLoggerPrintf(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(ioutil.Discard)
-	//	l.NoCaller = true
-	//	l.NoTime = true
+	l.NoCaller = true
+	l.NoTime = true
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message a %v b %v", i+1000, i+1000)
 	}
 }
 
-func BenchmarkLoggerPrintw(b *testing.B) {
+func BenchmarkLoggerPrint(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(ioutil.Discard)
-	//	l.NoCaller = true
-	//	l.NoTime = true
+	l.NoCaller = true
+	l.NoTime = true
 
 	for i := 0; i < b.N; i++ {
-		l.Printw("message", "a", i+1000, "b", i+1000)
+		l.Printf("message")
 	}
 }

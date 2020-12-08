@@ -15,8 +15,8 @@ type (
 	Encoder struct {
 		io.Writer
 
-		lb Labels
-		ls map[loc.PC]struct{}
+		Labels Labels
+		ls     map[loc.PC]struct{}
 
 		b []byte
 	}
@@ -72,15 +72,21 @@ const (
 
 // semantic types
 const (
-	WTime = iota
-	WDuration
-	WError
-	WID
-	WLabels
-	WLocation
+	WireTime = iota
+	WireDuration
+	WireError
+	WireID
+	WireLabels
+	WireLocation
 )
 
 func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
+	//	old := e.Labels
+
+	if e.ls == nil {
+		e.ls = make(map[loc.PC]struct{})
+	}
+
 	e.b = e.b[:0]
 
 	e.b = append(e.b, Map|LenBreak)
@@ -103,106 +109,106 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 		panic("odd number of kvs")
 	}
 
-	for i, kv := range kvs {
-		if lb, ok := kv.(Labels); ok && i > 0 {
-			if k, ok := kvs[i].(string); ok && k == "L" {
-				e.lb = lb
-			}
-		}
+	for i := 0; i < len(kvs); {
+		e.b = e.AppendString(e.b, String, kvs[i].(string))
+		i++
 
-		e.appendValue(kv)
+		e.b = e.AppendValue(e.b, kvs[i])
+		i++
 	}
 }
 
-func (e *Encoder) appendValue(v interface{}) {
+func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
 	case nil:
-		e.b = append(e.b, Special|Null)
+		return append(b, Special|Null)
 	case string:
-		e.b = appendString(e.b, String, v)
+		return e.AppendString(b, String, v)
 	case int:
-		e.b = appendUint(e.b, Int, uint64(v))
+		return e.AppendUint(b, Int, uint64(v))
 	case float64:
-		e.b = appendFloat(e.b, v)
+		return e.AppendFloat(b, v)
 	case Timestamp:
-		e.b = append(e.b, Semantic|WTime)
-		e.b = appendUint(e.b, Int, uint64(v))
+		b = append(b, Semantic|WireTime)
+		return e.AppendUint(b, Int, uint64(v))
 	case time.Time:
-		e.b = append(e.b, Semantic|WTime)
-		e.b = appendUint(e.b, Int, uint64(v.UnixNano()))
+		b = append(b, Semantic|WireTime)
+		return e.AppendUint(b, Int, uint64(v.UnixNano()))
 	case time.Duration:
-		e.b = append(e.b, Semantic|WDuration)
-		e.b = appendUint(e.b, Int, uint64(v.Nanoseconds()))
+		b = append(b, Semantic|WireDuration)
+		return e.AppendUint(b, Int, uint64(v.Nanoseconds()))
 	case ID:
-		e.b = appendID(e.b, v)
+		return e.AppendID(b, v)
 	case loc.PC:
-		e.appendPC(v)
+		return e.AppendPC(b, v, true)
 	case Format:
-		e.b = appendFormat(e.b, v)
+		return e.AppendFormat(b, v)
+	case Labels:
+		return e.AppendLabels(b, v)
 	case error:
-		e.b = append(e.b, Semantic|WError)
-		e.b = appendString(e.b, String, v.Error())
+		b = append(b, Semantic|WireError)
+		return e.AppendString(b, String, v.Error())
 	case fmt.Stringer:
-		e.b = appendString(e.b, String, v.String())
+		return e.AppendString(b, String, v.String())
 	case []byte:
-		e.b = appendString(e.b, Bytes, low.UnsafeBytesToString(v))
+		return e.AppendString(b, Bytes, low.UnsafeBytesToString(v))
 	default:
 		r := reflect.ValueOf(v)
-		e.appendRaw(r)
+		return e.appendRaw(b, r)
 	}
 }
 
-func (e *Encoder) appendRaw(r reflect.Value) {
+func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 	switch r.Kind() {
 	case reflect.String:
-		e.b = appendString(e.b, String, r.String())
+		return e.AppendString(b, String, r.String())
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		e.b = appendInt(e.b, r.Int())
+		return e.AppendInt(b, r.Int())
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		e.b = appendUint(e.b, Int, r.Uint())
+		return e.AppendUint(b, Int, r.Uint())
 	case reflect.Float64, reflect.Float32:
-		e.b = appendFloat(e.b, r.Float())
+		return e.AppendFloat(b, r.Float())
 	case reflect.Ptr, reflect.Interface:
 		if r.IsNil() {
-			e.b = append(e.b, Special|Null)
+			return append(b, Special|Null)
 		} else {
-			e.appendValue(r.Elem().Interface())
+			return e.AppendValue(b, r.Elem().Interface())
 		}
 	case reflect.Slice, reflect.Array:
 		if r.Kind() == reflect.Slice && r.Type().Elem().Kind() == reflect.Uint8 {
-			e.b = appendString(e.b, Bytes, low.UnsafeBytesToString(r.Bytes()))
-			break
+			return e.AppendString(b, Bytes, low.UnsafeBytesToString(r.Bytes()))
 		}
 
 		l := r.Len()
 
-		e.b = appendTag(e.b, Array, l)
+		b = e.AppendTag(b, Array, l)
 
 		for i := 0; i < l; i++ {
-			e.appendValue(r.Index(i).Interface())
+			b = e.AppendValue(b, r.Index(i).Interface())
 		}
 
+		return b
 	case reflect.Map:
 		l := r.Len()
 
-		e.b = appendTag(e.b, Map, l)
+		b = e.AppendTag(b, Map, l)
 
 		it := r.MapRange()
 
 		for it.Next() {
-			e.appendValue(it.Key().Interface())
-			e.appendValue(it.Value().Interface())
+			b = e.AppendValue(b, it.Key().Interface())
+			b = e.AppendValue(b, it.Value().Interface())
 		}
 
+		return b
 	case reflect.Struct:
-		e.appendStruct(r)
-
+		return e.appendStruct(b, r)
 	default:
 		panic(r)
 	}
 }
 
-func (e *Encoder) appendStruct(r reflect.Value) {
+func (e *Encoder) appendStruct(b []byte, r reflect.Value) []byte {
 	t := r.Type()
 	ff := t.NumField()
 
@@ -217,23 +223,21 @@ func (e *Encoder) appendStruct(r reflect.Value) {
 	}
 
 	if l != -1 {
-		e.b = appendTag(e.b, Map, l)
+		b = e.AppendTag(b, Map, l)
 
-		e.appendStructFields(t, r)
-
-		return
+		return e.appendStructFields(b, t, r)
 	}
 
-	e.b = append(e.b, Map|LenBreak)
+	b = append(b, Map|LenBreak)
 
-	e.appendStructFields(t, r)
+	b = e.appendStructFields(b, t, r)
 
-	e.b = append(e.b, Special|Break)
+	b = append(b, Special|Break)
 
-	return
+	return b
 }
 
-func (e *Encoder) appendStructFields(t reflect.Type, r reflect.Value) {
+func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value) []byte {
 	ff := t.NumField()
 
 	for i := 0; i < ff; i++ {
@@ -244,74 +248,87 @@ func (e *Encoder) appendStructFields(t reflect.Type, r reflect.Value) {
 		}
 
 		if f.Anonymous {
-			e.appendStructFields(f.Type, r.Field(i))
+			b = e.appendStructFields(b, f.Type, r.Field(i))
 
 			continue
 		}
 
-		e.b = appendString(e.b, String, f.Name)
+		b = e.AppendString(b, String, f.Name)
 
-		e.appendValue(r.Field(i).Interface())
+		b = e.AppendValue(b, r.Field(i).Interface())
 	}
+
+	return b
 }
 
-func (e *Encoder) appendPC(pc loc.PC) {
-	if e.ls == nil {
-		e.ls = make(map[loc.PC]struct{})
+func (e *Encoder) AppendPC(b []byte, pc loc.PC, cache bool) []byte {
+	b = append(b, Semantic|WireLocation)
+
+	if e == nil || e.ls == nil || !cache {
+		return e.AppendUint(b, Int, uint64(pc))
 	}
 
-	e.b = append(e.b, Semantic|WLocation)
-
-	_, ok := e.ls[pc]
-	if ok {
-		e.b = appendUint(e.b, Int, uint64(pc))
-		return
+	if _, ok := e.ls[pc]; ok {
+		return e.AppendUint(b, Int, uint64(pc))
 	}
 
-	e.b = append(e.b, Map|4)
+	b = append(b, Map|4)
 
-	e.b = appendString(e.b, String, "p")
-	e.b = appendUint(e.b, Int, uint64(pc))
+	b = e.AppendString(b, String, "p")
+	b = e.AppendUint(b, Int, uint64(pc))
 
 	name, file, line := pc.NameFileLine()
 
-	e.b = appendString(e.b, String, "n")
-	e.b = appendString(e.b, String, name)
+	b = e.AppendString(b, String, "n")
+	b = e.AppendString(b, String, name)
 
-	e.b = appendString(e.b, String, "f")
-	e.b = appendString(e.b, String, file)
+	b = e.AppendString(b, String, "f")
+	b = e.AppendString(b, String, file)
 
-	e.b = appendString(e.b, String, "l")
-	e.b = appendInt(e.b, int64(line))
+	b = e.AppendString(b, String, "l")
+	b = e.AppendInt(b, int64(line))
 
 	e.ls[pc] = struct{}{}
+
+	return b
 }
 
-func appendID(b []byte, id ID) []byte {
-	b = append(b, Semantic|WID)
+func (e *Encoder) AppendLabels(b []byte, ls Labels) []byte {
+	b = append(b, Semantic|WireLabels)
+	b = e.AppendTag(b, Array, len(ls))
+
+	for _, l := range ls {
+		b = e.AppendString(b, String, l)
+	}
+
+	return b
+}
+
+func (_ *Encoder) AppendID(b []byte, id ID) []byte {
+	b = append(b, Semantic|WireID)
 	b = append(b, Bytes|16)
 	b = append(b, id[:]...)
-	return b
-}
-
-func appendString(b []byte, tag byte, s string) []byte {
-	b = appendTag(b, tag, len(s))
-	b = append(b, s...)
 
 	return b
 }
 
-func appendFormat(b []byte, m Format) []byte {
+func (e *Encoder) AppendString(b []byte, tag byte, s string) []byte {
+	b = e.AppendTag(b, tag, len(s))
+	return append(b, s...)
+}
+
+func (e *Encoder) AppendFormat(b []byte, m Format) []byte {
+	if len(m.Args) == 0 {
+		return e.AppendString(b, String, m.Fmt)
+	}
+
 	b = append(b, String)
 
 	st := len(b)
 
-	switch {
-	case len(m.Args) == 0:
-		b = append(b, m.Fmt...)
-	case m.Fmt == "":
+	if m.Fmt == "" {
 		b = low.AppendPrintln(b, m.Args...)
-	default:
+	} else {
 		b = low.AppendPrintf(b, m.Fmt, m.Args...)
 	}
 
@@ -325,26 +342,14 @@ func appendFormat(b []byte, m Format) []byte {
 
 	//	fmt.Fprintf(os.Stderr, "msg before % 2x\n", b[st-1:])
 
-	b = insertLen(b, st, l)
+	b = e.insertLen(b, st, l)
 
 	//	fmt.Fprintf(os.Stderr, "msg after  % 2x\n", b[st-1:])
 
 	return b
 }
 
-func appendFloat(b []byte, v float64) []byte {
-	if q := float32(v); float64(q) == v {
-		r := math.Float32bits(q)
-
-		return append(b, Special|Float32, byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
-	}
-
-	r := math.Float64bits(v)
-
-	return append(b, Special|Float64, byte(r>>56), byte(r>>48), byte(r>>40), byte(r>>32), byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
-}
-
-func insertLen(b []byte, st, l int) []byte {
+func (_ *Encoder) insertLen(b []byte, st, l int) []byte {
 	var sz int
 
 	switch {
@@ -373,44 +378,52 @@ func insertLen(b []byte, st, l int) []byte {
 	return b
 }
 
-func appendTag(b []byte, tag byte, v int) []byte {
-	switch {
-	case v < Len1:
-		b = append(b, tag|byte(v))
-	case v <= 0xff:
-		b = append(b, tag|Len1, byte(v))
-	case v <= 0xffff:
-		b = append(b, tag|Len2, byte(v>>8), byte(v))
-	case v <= 0xffff_ffff:
-		b = append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
-	default:
-		b = append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+func (_ *Encoder) AppendFloat(b []byte, v float64) []byte {
+	if q := float32(v); float64(q) == v {
+		r := math.Float32bits(q)
+
+		return append(b, Special|Float32, byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
 	}
 
-	return b
+	r := math.Float64bits(v)
+
+	return append(b, Special|Float64, byte(r>>56), byte(r>>48), byte(r>>40), byte(r>>32), byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
 }
 
-func appendInt(b []byte, v int64) []byte {
+func (_ *Encoder) AppendTag(b []byte, tag byte, v int) []byte {
+	switch {
+	case v < Len1:
+		return append(b, tag|byte(v))
+	case v <= 0xff:
+		return append(b, tag|Len1, byte(v))
+	case v <= 0xffff:
+		return append(b, tag|Len2, byte(v>>8), byte(v))
+	case v <= 0xffff_ffff:
+		return append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	default:
+		return append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	}
+}
+
+func (e *Encoder) AppendInt(b []byte, v int64) []byte {
 	if v < 0 {
-		return appendUint(b, Neg, uint64(-v))
+		return e.AppendUint(b, Neg, uint64(-v))
 	}
 
-	return appendUint(b, Int, uint64(v))
+	return e.AppendUint(b, Int, uint64(v))
 }
 
-func appendUint(b []byte, tag byte, v uint64) []byte {
+func (_ *Encoder) AppendUint(b []byte, tag byte, v uint64) []byte {
 	switch {
 	case v < Len1:
-		b = append(b, tag|byte(v))
+		return append(b, tag|byte(v))
 	case v <= 0xff:
-		b = append(b, tag|Len1, byte(v))
+		return append(b, tag|Len1, byte(v))
 	case v <= 0xffff:
-		b = append(b, tag|Len2, byte(v>>8), byte(v))
+		return append(b, tag|Len2, byte(v>>8), byte(v))
 	case v <= 0xffff_ffff:
-		b = append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		return append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	default:
-		b = append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+		return append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
-
-	return b
 }
