@@ -24,11 +24,6 @@ type (
 		b []byte
 	}
 
-	Tag struct {
-		T int
-		V interface{}
-	}
-
 	Format struct {
 		Fmt  string
 		Args []interface{}
@@ -54,6 +49,9 @@ const (
 const (
 	_ = 1<<5 - iota
 	LenBreak
+	_
+	_
+	_
 	Len8
 	Len4
 	Len2
@@ -70,8 +68,10 @@ const (
 	Float16
 	Float32
 	Float64
-
-	Break = 31
+	_
+	_
+	_
+	Break
 )
 
 // Custom types
@@ -83,7 +83,7 @@ const (
 	Labels
 
 	Error
-	_
+	Value
 
 	customEnd
 )
@@ -95,8 +95,8 @@ const (
 	Parent
 
 	Message
-	Value
 	UserFields
+	_
 	_
 	_
 
@@ -115,10 +115,6 @@ const (
 	Finish     = 'f'
 	MetricDesc = 'm'
 )
-
-//go:linkname AppendTagVal github.com/nikandfor/tlog/wire.appendTagVal
-//go:noescape
-func AppendTagVal(tags []Tag, t int, v interface{}) []Tag
 
 func appendTagVal(tags []Tag, t int, v interface{}) []Tag {
 	return append(tags, Tag{T: t, V: v})
