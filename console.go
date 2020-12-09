@@ -242,7 +242,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 			Y, M, D, h, m, s = low.SplitTime(t)
 		}
 
-		if len(w.TimeColor) != 0 {
+		if w.Colorize && len(w.TimeColor) != 0 {
 			b = append(b, w.TimeColor...)
 		}
 
@@ -318,7 +318,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 			}
 		}
 
-		if len(w.TimeColor) != 0 {
+		if w.Colorize && len(w.TimeColor) != 0 {
 			b = append(b, ResetColor...)
 		}
 
@@ -328,6 +328,8 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 	if w.f&Llevel != 0 {
 		var col []byte
 		switch {
+		case !w.Colorize:
+			// break
 		case lv == Info:
 			col = w.LevelColor.Info
 		case lv == Warn:
@@ -374,7 +376,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 	if w.f&(Llongfile|Lshortfile) != 0 {
 		fname, file, line = pc.NameFileLine()
 
-		if len(w.FileColor) != 0 {
+		if w.Colorize && len(w.FileColor) != 0 {
 			b = append(b, w.FileColor...)
 		}
 
@@ -421,7 +423,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 			}
 		}
 
-		if len(w.FileColor) != 0 {
+		if w.Colorize && len(w.FileColor) != 0 {
 			b = append(b, ResetColor...)
 		}
 
@@ -434,7 +436,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 		}
 		fname = filepath.Base(fname)
 
-		if len(w.FuncColor) != 0 {
+		if w.Colorize && len(w.FuncColor) != 0 {
 			b = append(b, w.FuncColor...)
 		}
 
@@ -468,7 +470,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 			b = append(b, fname...)
 		}
 
-		if len(w.FuncColor) != 0 {
+		if w.Colorize && len(w.FuncColor) != 0 {
 			b = append(b, ResetColor...)
 		}
 
@@ -476,13 +478,13 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 	}
 
 	if w.PadEmptyMessage || len(m) != 0 {
-		if len(w.MessageColor) != 0 {
+		if w.Colorize && len(w.MessageColor) != 0 {
 			b = append(b, w.MessageColor...)
 		}
 
 		b = append(b, m...)
 
-		if len(w.MessageColor) != 0 {
+		if w.Colorize && len(w.MessageColor) != 0 {
 			b = append(b, ResetColor...)
 		}
 
@@ -499,7 +501,7 @@ func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
 		b = append(b, w.PairSeparator...)
 	}
 
-	if len(w.KeyColor) != 0 {
+	if w.Colorize && len(w.KeyColor) != 0 {
 		b = append(b, w.KeyColor...)
 	}
 
@@ -507,9 +509,9 @@ func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
 
 	b = append(b, w.KVSeparator...)
 
-	if len(w.ValColor) != 0 {
+	if w.Colorize && len(w.ValColor) != 0 {
 		b = append(b, w.ValColor...)
-	} else if len(w.KeyColor) != 0 {
+	} else if w.Colorize && len(w.KeyColor) != 0 {
 		b = append(b, ResetColor...)
 	}
 
@@ -519,7 +521,7 @@ func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
 
 	vw := len(b) - st
 
-	if len(w.ValColor) != 0 {
+	if w.Colorize && len(w.ValColor) != 0 {
 		b = append(b, ResetColor...)
 	}
 
@@ -557,8 +559,8 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 	case Bytes, String:
 		var s []byte
 		tag, s, i = w.d.NextString(p, st)
-		ss := low.UnsafeBytesToString(s)
 
+		ss := low.UnsafeBytesToString(s)
 		if tag == Bytes || w.QuoteAnyValue || strings.ContainsAny(ss, w.QuoteChars) || len(s) == 0 && w.QuoteEmptyValue {
 			b = strconv.AppendQuote(b, ss)
 		} else {

@@ -220,20 +220,17 @@ func (d *Decoder) NextTime(p []byte, st int) (ts Timestamp, i int) {
 }
 
 func (d *Decoder) NextString(p []byte, st int) (tag int, s []byte, i int) {
-	if d.Err != nil {
-		return tag, nil, st
-	}
-
 	tag, l, i := d.NextTag(p, st)
 	if d.Err != nil {
 		return tag, nil, st
 	}
+
 	if tag != String && tag != Bytes {
 		d.Err = errors.New("expected string or bytes")
 		return tag, nil, st
 	}
 
-	if i+l >= len(p) {
+	if i+l > len(p) {
 		d.Err = io.ErrUnexpectedEOF
 		return tag, nil, st
 	}

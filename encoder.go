@@ -29,6 +29,8 @@ type (
 		Fmt  string
 		Args []interface{}
 	}
+
+	FormatNext string
 )
 
 // basic types
@@ -84,15 +86,24 @@ const (
 )
 
 func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
-	//	old := e.Labels
-
 	if e.ls == nil {
 		e.ls = make(map[loc.PC]struct{})
 	}
 
+	//	old := e.Labels
+
 	e.b = e.b[:0]
 
-	e.b = append(e.b, Map|LenBreak)
+	l := e.calcLen(hdr)
+	for _, kvs := range kvs {
+		l += e.calcLen(kvs)
+	}
+
+	if l == 0 {
+		return nil
+	}
+
+	e.b = e.AppendTag(e.b, Map, l)
 
 	if len(hdr) != 0 {
 		encodeKVs0(e, hdr...)
@@ -104,24 +115,49 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 		}
 	}
 
-	e.b = append(e.b, Special|Break)
-
 	_, err = e.Write(e.b)
 
 	return err
 }
 
-func (e *Encoder) encodeKVs(kvs ...interface{}) {
-	if len(kvs)&1 != 0 {
-		panic("odd number of kvs")
+func (e *Encoder) calcLen(kvs []interface{}) (l int) {
+	for i := 0; i < len(kvs); i++ {
+		if _, ok := kvs[i].(string); !ok {
+			panic("key must be string")
+		}
+
+		if i == len(kvs) {
+			panic("no value for key")
+		}
+
+		i++
+
+		if _, ok := kvs[i].(FormatNext); ok {
+			if i == len(kvs) {
+				panic("no argument for FormatNext")
+			}
+			i++
+		}
+
+		l++
 	}
 
+	return
+}
+
+func (e *Encoder) encodeKVs(kvs ...interface{}) {
 	for i := 0; i < len(kvs); {
 		e.b = e.AppendString(e.b, String, kvs[i].(string))
 		i++
 
-		e.b = e.AppendValue(e.b, kvs[i])
-		i++
+		switch v := kvs[i].(type) {
+		case FormatNext:
+			e.b = e.AppendFormat(e.b, string(v), kvs[i+1])
+			i += 2
+		default:
+			e.b = e.AppendValue(e.b, kvs[i])
+			i++
+		}
 	}
 }
 
@@ -152,7 +188,7 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	case loc.PC:
 		return e.AppendLoc(b, v, true)
 	case Format:
-		return e.AppendFormat(b, v)
+		return e.AppendFormat(b, v.Fmt, v.Args...)
 	case Labels:
 		return e.AppendLabels(b, v)
 	case error:
@@ -338,19 +374,19 @@ func (e *Encoder) AppendString(b []byte, tag byte, s string) []byte {
 	return append(b, s...)
 }
 
-func (e *Encoder) AppendFormat(b []byte, m Format) []byte {
-	if len(m.Args) == 0 {
-		return e.AppendString(b, String, m.Fmt)
+func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
+	if len(args) == 0 {
+		return e.AppendString(b, String, fmt)
 	}
 
 	b = append(b, String)
 
 	st := len(b)
 
-	if m.Fmt == "" {
-		b = low.AppendPrintln(b, m.Args...)
+	if fmt == "" {
+		b = low.AppendPrintln(b, args...)
 	} else {
-		b = low.AppendPrintf(b, m.Fmt, m.Args...)
+		b = low.AppendPrintf(b, fmt, args...)
 	}
 
 	l := len(b) - st

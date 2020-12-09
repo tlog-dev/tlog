@@ -42,6 +42,12 @@ type (
 	}
 )
 
+// for you not to import os
+var (
+	Stdout = os.Stdout
+	Stderr = os.Stderr
+)
+
 // Log levels
 const (
 	Info = iota
@@ -507,6 +513,15 @@ func (l *Logger) Observe(name string, v interface{}, kvs ...interface{}) {
 
 func (s Span) Observe(name string, v interface{}, kvs ...interface{}) {
 	newvalue(s.Logger, s.ID, name, v, kvs)
+}
+
+func RegisterMetric(name, typ, help string, kvs ...interface{}) {
+	DefaultLogger.Event2([]interface{}{
+		KeyType, "m",
+		"name", name,
+		"type", typ,
+		"help", help,
+	}, kvs)
 }
 
 func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
