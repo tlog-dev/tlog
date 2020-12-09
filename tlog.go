@@ -77,7 +77,10 @@ const (
 	MetricSummary = "summary"
 )
 
-var now = time.Now
+var ( //time
+	now  = time.Now
+	nano = low.UnixNano
+)
 
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags))
 
@@ -101,7 +104,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 
 	var t Timestamp
 	if !l.NoTime {
-		t = Timestamp(low.UnixNano())
+		t = Timestamp(nano())
 	}
 
 	var lc loc.PC
@@ -182,7 +185,7 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 
 	var t Timestamp
 	if !l.NoTime {
-		t = Timestamp(low.UnixNano())
+		t = Timestamp(nano())
 	}
 
 	defer l.Unlock()
