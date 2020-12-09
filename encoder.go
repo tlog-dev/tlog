@@ -23,6 +23,8 @@ type (
 
 	Timestamp int64
 
+	Hex uint64
+
 	Format struct {
 		Fmt  string
 		Args []interface{}
@@ -78,6 +80,7 @@ const (
 	WireID
 	WireLabels
 	WireLocation
+	WireHex
 )
 
 func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
@@ -91,10 +94,14 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 
 	e.b = append(e.b, Map|LenBreak)
 
-	encodeKVs0(e, hdr...)
+	if len(hdr) != 0 {
+		encodeKVs0(e, hdr...)
+	}
 
 	for _, kvs := range kvs {
-		encodeKVs0(e, kvs...)
+		if len(kvs) != 0 {
+			encodeKVs0(e, kvs...)
+		}
 	}
 
 	e.b = append(e.b, Special|Break)
@@ -128,6 +135,9 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 		return e.AppendUint(b, Int, uint64(v))
 	case float64:
 		return e.AppendFloat(b, v)
+	case Hex:
+		b = append(b, Semantic|WireHex)
+		return e.AppendUint(b, Int, uint64(v))
 	case Timestamp:
 		b = append(b, Semantic|WireTime)
 		return e.AppendUint(b, Int, uint64(v))
@@ -140,7 +150,7 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	case ID:
 		return e.AppendID(b, v)
 	case loc.PC:
-		return e.AppendPC(b, v, true)
+		return e.AppendLoc(b, v, true)
 	case Format:
 		return e.AppendFormat(b, v)
 	case Labels:
@@ -154,6 +164,7 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 		return e.AppendString(b, Bytes, low.UnsafeBytesToString(v))
 	default:
 		r := reflect.ValueOf(v)
+
 		return e.appendRaw(b, r)
 	}
 }
@@ -203,6 +214,14 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 		return b
 	case reflect.Struct:
 		return e.appendStruct(b, r)
+	case reflect.Bool:
+		if r.Bool() {
+			return append(b, Special|True)
+		} else {
+			return append(b, Special|False)
+		}
+	case reflect.Func:
+		return append(b, Special|Undefined)
 	default:
 		panic(r)
 	}
@@ -222,22 +241,24 @@ func (e *Encoder) appendStruct(b []byte, r reflect.Value) []byte {
 		}
 	}
 
-	if l != -1 {
+	if l == -1 {
+		b = append(b, Map|LenBreak)
+	} else {
 		b = e.AppendTag(b, Map, l)
-
-		return e.appendStructFields(b, t, r)
 	}
-
-	b = append(b, Map|LenBreak)
 
 	b = e.appendStructFields(b, t, r)
 
-	b = append(b, Special|Break)
+	if l == -1 {
+		b = append(b, Special|Break)
+	}
 
 	return b
 }
 
 func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value) []byte {
+	//	fmt.Fprintf(os.Stderr, "appendStructFields: %v\n", t)
+
 	ff := t.NumField()
 
 	for i := 0; i < ff; i++ {
@@ -247,7 +268,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value) 
 			continue
 		}
 
-		if f.Anonymous {
+		if f.Anonymous && f.Type.Kind() == reflect.Struct {
 			b = e.appendStructFields(b, f.Type, r.Field(i))
 
 			continue
@@ -261,7 +282,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value) 
 	return b
 }
 
-func (e *Encoder) AppendPC(b []byte, pc loc.PC, cache bool) []byte {
+func (e *Encoder) AppendLoc(b []byte, pc loc.PC, cache bool) []byte {
 	b = append(b, Semantic|WireLocation)
 
 	if e == nil || e.ls == nil || !cache {
@@ -378,7 +399,11 @@ func (_ *Encoder) insertLen(b []byte, st, l int) []byte {
 	return b
 }
 
-func (_ *Encoder) AppendFloat(b []byte, v float64) []byte {
+func (e *Encoder) AppendFloat(b []byte, v float64) []byte {
+	if q := int32(v); float64(q) == v {
+		return e.AppendInt(b, int64(v))
+	}
+
 	if q := float32(v); float64(q) == v {
 		r := math.Float32bits(q)
 
