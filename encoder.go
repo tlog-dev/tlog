@@ -452,3 +452,11 @@ func (_ *Encoder) AppendUint(b []byte, tag byte, v uint64) []byte {
 		return append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 	}
 }
+
+func (ts Timestamp) Time() (t time.Time) {
+	if ts != 0 {
+		t = time.Unix(0, int64(ts))
+	}
+
+	return
+}
