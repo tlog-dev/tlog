@@ -178,13 +178,14 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 		return 0, errors.New("expected map")
 	}
 
+	var sub int
 	var k []byte
 	for el := 0; els == -1 || el < els && el < 8; el++ {
 		if els == -1 && w.d.NextBreak(p, &i) {
 			break
 		}
 
-		tag, k, i = w.d.NextString(p, i)
+		_, k, i = w.d.NextString(p, i)
 		if w.d.Err != nil {
 			return 0, w.d.Err
 		}
@@ -193,19 +194,36 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 			return 0, errors.New("empty key")
 		}
 
-		ks := low.UnsafeBytesToString(k)
-		switch ks {
-		case KeyTime:
-			ts, i = w.d.NextTime(p, i)
-		case KeyMessage:
-			_, m, i = w.d.NextString(p, i)
-		case KeyLogLevel:
-			_, lv, i = w.d.NextTag(p, i)
-		case KeyLocation:
-			pc, i = w.d.NextLoc(p, i)
-		default:
-			b, i = w.appendPair(b, k, p, i)
+		tag, sub, _ = w.d.NextTag(p, i)
+
+		if tag == Semantic {
+			ks := low.UnsafeBytesToString(k)
+
+			switch {
+			case ks == KeyTime && sub == WireTime:
+				ts, i = w.d.NextTime(p, i)
+
+				continue
+			case ks == KeyMessage && sub == WireMessage:
+				i++
+
+				_, m, i = w.d.NextString(p, i)
+
+				continue
+			case ks == KeyLogLevel && sub == WireLogLevel:
+				i++
+
+				_, lv, i = w.d.NextTag(p, i)
+
+				continue
+			case ks == KeyLocation && sub == WireLocation:
+				pc, i = w.d.NextLoc(p, i)
+
+				continue
+			}
 		}
+
+		b, i = w.appendPair(b, k, p, i)
 	}
 
 	h := w.h

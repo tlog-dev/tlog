@@ -21,16 +21,17 @@ type (
 		b []byte
 	}
 
+	Message   string
+	LogLevel  int
 	Timestamp int64
+	Hex       uint64
 
-	Hex uint64
+	FormatNext string
 
 	Format struct {
 		Fmt  string
 		Args []interface{}
 	}
-
-	FormatNext string
 )
 
 // basic types
@@ -64,7 +65,7 @@ const (
 	True
 	Null
 	Undefined
-	_
+	FloatInt8
 	Float16
 	Float32
 	Float64
@@ -78,11 +79,13 @@ const (
 const (
 	WireTime = iota
 	WireDuration
+	WireMessage
 	WireError
 	WireID
 	WireLabels
 	WireLocation
 	WireHex
+	WireLogLevel
 )
 
 func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
@@ -94,9 +97,9 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 
 	e.b = e.b[:0]
 
-	l := e.calcLen(hdr)
+	l := e.calcMapLen(hdr)
 	for _, kvs := range kvs {
-		l += e.calcLen(kvs)
+		l += e.calcMapLen(kvs)
 	}
 
 	if l == 0 {
@@ -120,7 +123,7 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 	return err
 }
 
-func (e *Encoder) calcLen(kvs []interface{}) (l int) {
+func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 	for i := 0; i < len(kvs); i++ {
 		if _, ok := kvs[i].(string); !ok {
 			panic("key must be string")
@@ -165,6 +168,9 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
 	case nil:
 		return append(b, Special|Null)
+	case Message:
+		b = append(b, Semantic|WireMessage)
+		return e.AppendString(b, String, string(v))
 	case string:
 		return e.AppendString(b, String, v)
 	case int:
@@ -191,6 +197,9 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 		return e.AppendFormat(b, v.Fmt, v.Args...)
 	case Labels:
 		return e.AppendLabels(b, v)
+	case LogLevel:
+		b = append(b, Semantic|WireLogLevel)
+		return e.AppendUint(b, Int, uint64(v))
 	case error:
 		b = append(b, Semantic|WireError)
 		return e.AppendString(b, String, v.Error())
@@ -375,6 +384,8 @@ func (e *Encoder) AppendString(b []byte, tag byte, s string) []byte {
 }
 
 func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
+	b = append(b, Semantic|WireMessage)
+
 	if len(args) == 0 {
 		return e.AppendString(b, String, fmt)
 	}
@@ -436,8 +447,8 @@ func (_ *Encoder) insertLen(b []byte, st, l int) []byte {
 }
 
 func (e *Encoder) AppendFloat(b []byte, v float64) []byte {
-	if q := int32(v); float64(q) == v {
-		return e.AppendInt(b, int64(v))
+	if q := int8(v); float64(q) == v {
+		return append(b, Special|FloatInt8, byte(q))
 	}
 
 	if q := float32(v); float64(q) == v {

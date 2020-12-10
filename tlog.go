@@ -304,7 +304,7 @@ func Printf(f string, args ...interface{}) {
 
 //go:noinline
 func Printw(msg string, kvs ...interface{}) {
-	newmessage(DefaultLogger, ID{}, 0, msg, kvs)
+	newmessage(DefaultLogger, ID{}, 0, Message(msg), kvs)
 }
 
 //go:noinline
@@ -314,7 +314,7 @@ func (l *Logger) Printf(f string, args ...interface{}) {
 
 //go:noinline
 func (l *Logger) Printw(msg string, kvs ...interface{}) {
-	newmessage(l, ID{}, 0, msg, kvs)
+	newmessage(l, ID{}, 0, Message(msg), kvs)
 }
 
 //go:noinline
@@ -324,7 +324,7 @@ func (s Span) Printf(f string, args ...interface{}) {
 
 //go:noinline
 func (s Span) Printw(msg string, kvs ...interface{}) {
-	newmessage(s.Logger, s.ID, 0, msg, kvs)
+	newmessage(s.Logger, s.ID, 0, Message(msg), kvs)
 }
 
 func Start(n string, kvs ...interface{}) Span {

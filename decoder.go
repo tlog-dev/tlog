@@ -16,7 +16,12 @@ import (
 
 type (
 	Decoder struct {
+		io.Reader
+
 		Err error
+
+		b   []byte
+		pos int
 	}
 
 	Dumper struct {
@@ -29,8 +34,26 @@ type (
 	}
 )
 
-func NewDecoder() *Decoder {
-	return &Decoder{}
+func NewDecoder(r io.Reader) *Decoder {
+	return &Decoder{
+		Reader: r,
+	}
+}
+
+func NewDecoderBytes(b []byte) *Decoder {
+	return &Decoder{
+		b: b,
+	}
+}
+
+func (d *Decoder) Reset(r io.Reader) {
+	d.Reader = r
+	d.pos = 0
+}
+
+func (d *Decoder) ResetBytes(b []byte) {
+	d.b = b
+	d.pos = 0
 }
 
 func (d *Decoder) SkipNext(p []byte, st int) int {
@@ -374,6 +397,11 @@ func (d *Decoder) NextFloat(p []byte, st int) (v float64, i int) {
 		d.Err = errors.New("expected float (tag)")
 
 		return 0, st
+	case sub == FloatInt8:
+		q := int8(p[i])
+		i++
+
+		return float64(q), i
 	case sub == Float32:
 		if i+4 > len(p) {
 			d.Err = io.ErrUnexpectedEOF
@@ -513,6 +541,11 @@ func dump(w io.Writer, base int, b []byte, i, d int) int {
 			fmt.Fprintf(w, "null")
 		case Undefined:
 			fmt.Fprintf(w, "undefined")
+		case FloatInt8:
+			v := int8(b[i])
+			i++
+
+			fmt.Fprintf(w, "%v", v)
 		case Float64:
 			v := math.Float64frombits(binary.BigEndian.Uint64(b[i:]))
 			i += 8
@@ -527,6 +560,7 @@ func dump(w io.Writer, base int, b []byte, i, d int) int {
 			fmt.Fprintf(w, "break")
 		default:
 			fmt.Fprintf(w, "special %x", l)
+			panic("unsupported special")
 		}
 
 		fmt.Fprintf(w, "\n")
