@@ -7,7 +7,7 @@ import (
 	"github.com/nikandfor/tlog/low"
 )
 
-func TestLogger(t *testing.T) {
+func TestLoggerSmoke(t *testing.T) {
 	var buf low.Buf
 
 	l := New(&buf)
@@ -17,7 +17,7 @@ func TestLogger(t *testing.T) {
 	t.Logf("dump:\n%v", Dump(buf))
 	buf = buf[:0]
 
-	l.Printw("message", "a", 1, "b", "two")
+	l.Printw("message", "a", -1, "b", "two")
 
 	t.Logf("dump:\n%v", Dump(buf))
 	buf = buf[:0]

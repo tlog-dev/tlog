@@ -14,6 +14,7 @@ import (
 type (
 	Encoder struct {
 		io.Writer
+		pos int
 
 		Labels Labels
 		ls     map[loc.PC]struct{}
@@ -77,7 +78,8 @@ const (
 
 // semantic types
 const (
-	WireTime = iota
+	WireMeta = iota
+	WireTime
 	WireDuration
 	WireMessage
 	WireError
@@ -118,7 +120,8 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 		}
 	}
 
-	_, err = e.Write(e.b)
+	l, err = e.Write(e.b)
+	e.pos += l
 
 	return err
 }
@@ -174,7 +177,7 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	case string:
 		return e.AppendString(b, String, v)
 	case int:
-		return e.AppendUint(b, Int, uint64(v))
+		return e.AppendInt(b, int64(v))
 	case float64:
 		return e.AppendFloat(b, v)
 	case Hex:
@@ -220,7 +223,8 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 		return e.AppendString(b, String, r.String())
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
 		return e.AppendInt(b, r.Int())
-	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
+	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8,
+		reflect.Uintptr:
 		return e.AppendUint(b, Int, r.Uint())
 	case reflect.Float64, reflect.Float32:
 		return e.AppendFloat(b, r.Float())

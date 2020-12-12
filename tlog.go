@@ -71,6 +71,7 @@ var (
 	KeyLogLevel = "i"
 )
 
+// Metric types
 const (
 	MetricGauge   = "gauge"
 	MetricCounter = "counter"

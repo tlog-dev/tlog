@@ -22,7 +22,8 @@ type (
 
 		d Decoder
 
-		b, h low.Buf
+		addpad int     // padding for the next pair
+		b, h   low.Buf // buf, header
 
 		ls Labels
 
@@ -36,7 +37,9 @@ type (
 		Funcname     int
 		MaxValPad    int
 
-		TimeFormat string
+		TimeFormat     string
+		DurationFormat string
+		DurationDiv    time.Duration
 
 		PairSeparator string
 		KVSeparator   string
@@ -113,7 +116,8 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		IDWidth:      8,
 		MaxValPad:    24,
 
-		TimeFormat: "2006-01-02_15:04:05.000",
+		TimeFormat:     "2006-01-02_15:04:05.000",
+		DurationFormat: "%v",
 
 		PairSeparator: "  ",
 		KVSeparator:   "=",
@@ -164,70 +168,67 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 		fmt.Fprintf(w.Writer, "%s", s)
 	}()
 
-	w.d.Err = nil
+	w.d.ResetBytes(p)
+	w.addpad = 0
 
 	var ts Timestamp
 	var pc loc.PC
 	var m []byte
 	var lv int
-
 	b := w.b
 
-	tag, els, i := w.d.NextTag(p, i)
+	tag, els, i := w.d.Tag(i)
+	if err = w.d.Err(); err != nil {
+		return
+	}
 	if tag != Map {
 		return 0, errors.New("expected map")
 	}
 
-	var sub int
 	var k []byte
-	for el := 0; els == -1 || el < els && el < 8; el++ {
-		if els == -1 && w.d.NextBreak(p, &i) {
+	var sub int
+	for el := 0; els == -1 || el < els; el++ {
+		if els == -1 && w.d.Break(&i) {
 			break
 		}
 
-		_, k, i = w.d.NextString(p, i)
-		if w.d.Err != nil {
-			return 0, w.d.Err
+		k, i = w.d.String(i)
+		if err = w.d.Err(); err != nil {
+			return 0, err
 		}
-
 		if len(k) == 0 {
 			return 0, errors.New("empty key")
 		}
 
-		tag, sub, _ = w.d.NextTag(p, i)
+		st := i
 
-		if tag == Semantic {
-			ks := low.UnsafeBytesToString(k)
-
-			switch {
-			case ks == KeyTime && sub == WireTime:
-				ts, i = w.d.NextTime(p, i)
-
-				continue
-			case ks == KeyMessage && sub == WireMessage:
-				i++
-
-				_, m, i = w.d.NextString(p, i)
-
-				continue
-			case ks == KeyLogLevel && sub == WireLogLevel:
-				i++
-
-				_, lv, i = w.d.NextTag(p, i)
-
-				continue
-			case ks == KeyLocation && sub == WireLocation:
-				pc, i = w.d.NextLoc(p, i)
-
-				continue
-			}
+		tag, sub, i = w.d.Tag(i)
+		if tag != Semantic {
+			b, i = w.appendPair(b, k, st)
+			continue
 		}
 
-		b, i = w.appendPair(b, k, p, i)
+		ks := low.UnsafeBytesToString(k)
+		switch {
+		case ks == KeyTime && sub == WireTime:
+			ts, i = w.d.Time(st)
+		case ks == KeyMessage && sub == WireMessage:
+			m, i = w.d.String(i)
+		case ks == KeyLogLevel && sub == WireLogLevel:
+			_, lv, i = w.d.Tag(i)
+		case ks == KeyLocation && sub == WireLocation:
+			pc, i = w.d.Location(st)
+		default:
+			b, i = w.appendPair(b, k, st)
+		}
+	}
+
+	if err = w.d.Err(); err != nil {
+		return
 	}
 
 	h := w.h
-	h = w.appendHeader(h, ts, lv, pc, m, len(b))
+	h = w.appendHeader(w.h, ts, lv, pc, m, len(b))
 
 	h = append(h, b...)
 
@@ -495,7 +496,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 		b = append(b, ' ', ' ')
 	}
 
-	if w.PadEmptyMessage || len(m) != 0 {
+	if len(m) != 0 {
 		if w.Colorize && len(w.MessageColor) != 0 {
 			b = append(b, w.MessageColor...)
 		}
@@ -506,15 +507,22 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 			b = append(b, ResetColor...)
 		}
 
-		if len(m) < w.MessageWidth && blen != 0 {
-			b = append(b, low.Spaces[:w.MessageWidth-len(m)]...)
-		}
+	}
+	if (w.PadEmptyMessage || len(m) != 0) && len(m) < w.MessageWidth && blen != 0 {
+		b = append(b, low.Spaces[:w.MessageWidth-len(m)]...)
 	}
 
 	return b
 }
 
-func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
+func (w *ConsoleWriter) appendPair(b []byte, k []byte, st int) (_ []byte, i int) {
+	i = st
+
+	if w.addpad != 0 {
+		b = append(b, low.Spaces[:w.addpad]...)
+		w.addpad = 0
+	}
+
 	if len(b) != 0 {
 		b = append(b, w.PairSeparator...)
 	}
@@ -533,9 +541,9 @@ func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
 		b = append(b, ResetColor...)
 	}
 
-	st := len(b)
+	st = len(b)
 
-	b, i = w.convertValue(b, p, i)
+	b, i = w.convertValue(b, i)
 
 	vw := len(b) - st
 
@@ -545,8 +553,8 @@ func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
 
 	nw := w.pad[low.UnsafeBytesToString(k)]
 
-	if vw < nw && i+1 < len(p) {
-		b = append(b, low.Spaces[:nw-vw]...)
+	if vw < nw {
+		w.addpad = nw - vw
 	}
 
 	if nw < vw && nw < w.MaxValPad {
@@ -560,23 +568,23 @@ func (w *ConsoleWriter) appendPair(b, k, p []byte, i int) ([]byte, int) {
 	return b, i
 }
 
-func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
-	tag, sub, i := w.d.NextTag(p, st)
+func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
+	tag, sub, i := w.d.Tag(st)
 
 	switch tag {
 	case Int:
 		var v int64
-		tag, v, i = w.d.NextInt(p, st)
+		v, i = w.d.Int(st)
 
 		b = strconv.AppendUint(b, uint64(v), 10)
 	case Neg:
 		var v int64
-		tag, v, i = w.d.NextInt(p, st)
+		v, i = w.d.Int(st)
 
 		b = strconv.AppendInt(b, v, 10)
 	case Bytes, String:
 		var s []byte
-		tag, s, i = w.d.NextString(p, st)
+		s, i = w.d.String(st)
 
 		ss := low.UnsafeBytesToString(s)
 		if tag == Bytes || w.QuoteAnyValue || strings.ContainsAny(ss, w.QuoteChars) || len(s) == 0 && w.QuoteEmptyValue {
@@ -588,7 +596,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 		b = append(b, '[')
 
 		for el := 0; sub == -1 || el < sub; el++ {
-			if sub == -1 && w.d.NextBreak(p, &i) {
+			if sub == -1 && w.d.Break(&i) {
 				break
 			}
 
@@ -596,7 +604,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 				b = append(b, ' ')
 			}
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, i)
 		}
 
 		b = append(b, ']')
@@ -604,7 +612,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 		b = append(b, '{')
 
 		for el := 0; sub == -1 || el < sub; el++ {
-			if sub == -1 && w.d.NextBreak(p, &i) {
+			if sub == -1 && w.d.Break(&i) {
 				break
 			}
 
@@ -612,11 +620,11 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 				b = append(b, ' ')
 			}
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, i)
 
 			b = append(b, ':')
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, i)
 		}
 
 		b = append(b, '}')
@@ -632,7 +640,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 			b = append(b, "<undef>"...)
 		case Float32, Float64:
 			var f float64
-			f, i = w.d.NextFloat(p, st)
+			f, i = w.d.Float(st)
 
 			b = strconv.AppendFloat(b, f, 'f', 5, 64)
 		default:
@@ -646,47 +654,52 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) ([]byte, int) {
 			}
 
 			var ts Timestamp
-
-			ts, i = w.d.NextTime(p, st)
+			ts, i = w.d.Time(st)
 
 			t := time.Unix(0, int64(ts))
 			if w.f&LUTC != 0 {
 				t = t.UTC()
 			}
 			b = t.AppendFormat(b, w.TimeFormat)
+		case WireDuration:
+			var v int64
+			v, i = w.d.Int(i)
 
-			return b, i
+			switch {
+			case w.DurationFormat != "" && w.DurationDiv != 0:
+				b = low.AppendPrintf(b, w.DurationFormat, float64(time.Duration(v)/w.DurationDiv))
+			case w.DurationFormat != "":
+				b = low.AppendPrintf(b, w.DurationFormat, time.Duration(v))
+			default:
+				b = strconv.AppendInt(b, v, 10)
+			}
 		case WireID:
 			var id ID
-			id, i = w.d.NextID(p, st)
+			id, i = w.d.ID(st)
 
 			st := len(b)
 			b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 			id.FormatTo(b[st:], 'v')
-
-			return b, i
 		case WireHex:
-			tag, sub, _ = w.d.NextTag(p, i)
+			tag, sub, _ = w.d.Tag(i)
 
 			switch tag {
 			case Int, Neg:
 				var v int64
-				_, v, i = w.d.NextInt(p, i)
+				v, i = w.d.Int(i)
 
-				b = low.AppendPrintf(b, "%x", uint64(v))
-
-				return b, i
+				b = strconv.AppendUint(b, uint64(v), 16)
 			case Bytes, String:
 				var s []byte
-				_, s, i = w.d.NextString(p, i)
+				s, i = w.d.String(i)
 
 				b = low.AppendPrintf(b, "%x", s)
-
-				return b, i
+			default:
+				b, i = w.convertValue(b, i)
 			}
+		default:
+			b, i = w.convertValue(b, i)
 		}
-
-		b, i = w.convertValue(b, p, i)
 	default:
 		panic(tag)
 	}
