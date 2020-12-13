@@ -23,6 +23,7 @@ type (
 	}
 
 	Message   string
+	Name      string
 	LogLevel  int
 	Timestamp int64
 	Hex       uint64
@@ -82,6 +83,7 @@ const (
 	WireTime
 	WireDuration
 	WireMessage
+	WireName
 	WireError
 	WireID
 	WireLabels
@@ -174,6 +176,9 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	case Message:
 		b = append(b, Semantic|WireMessage)
 		return e.AppendString(b, String, string(v))
+	case Name:
+		b = append(b, Semantic|WireName)
+		return e.AppendString(b, String, string(v))
 	case string:
 		return e.AppendString(b, String, v)
 	case int:
@@ -213,11 +218,11 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	default:
 		r := reflect.ValueOf(v)
 
-		return e.appendRaw(b, r)
+		return e.appendRaw(b, r, false)
 	}
 }
 
-func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
+func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 	switch r.Kind() {
 	case reflect.String:
 		return e.AppendString(b, String, r.String())
@@ -231,6 +236,8 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 	case reflect.Ptr, reflect.Interface:
 		if r.IsNil() {
 			return append(b, Special|Null)
+		} else if private {
+			return e.appendRaw(b, r.Elem(), private)
 		} else {
 			return e.AppendValue(b, r.Elem().Interface())
 		}
@@ -244,7 +251,11 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 		b = e.AppendTag(b, Array, l)
 
 		for i := 0; i < l; i++ {
-			b = e.AppendValue(b, r.Index(i).Interface())
+			if private {
+				b = e.appendRaw(b, r.Index(i), private)
+			} else {
+				b = e.AppendValue(b, r.Index(i).Interface())
+			}
 		}
 
 		return b
@@ -256,13 +267,18 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 		it := r.MapRange()
 
 		for it.Next() {
-			b = e.AppendValue(b, it.Key().Interface())
-			b = e.AppendValue(b, it.Value().Interface())
+			if private {
+				b = e.appendRaw(b, it.Key(), private)
+				b = e.appendRaw(b, it.Value(), private)
+			} else {
+				b = e.AppendValue(b, it.Key().Interface())
+				b = e.AppendValue(b, it.Value().Interface())
+			}
 		}
 
 		return b
 	case reflect.Struct:
-		return e.appendStruct(b, r)
+		return e.appendStruct(b, r, private)
 	case reflect.Bool:
 		if r.Bool() {
 			return append(b, Special|True)
@@ -276,56 +292,45 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value) []byte {
 	}
 }
 
-func (e *Encoder) appendStruct(b []byte, r reflect.Value) []byte {
+func (e *Encoder) appendStruct(b []byte, r reflect.Value, private bool) []byte {
 	t := r.Type()
-	ff := t.NumField()
 
-	l := ff
-	for i := 0; i < ff; i++ {
-		f := t.Field(i)
+	b = append(b, Map|LenBreak)
 
-		if f.Anonymous || f.PkgPath != "" {
-			l = -1
-			break
-		}
-	}
+	b = e.appendStructFields(b, t, r, private)
 
-	if l == -1 {
-		b = append(b, Map|LenBreak)
-	} else {
-		b = e.AppendTag(b, Map, l)
-	}
-
-	b = e.appendStructFields(b, t, r)
-
-	if l == -1 {
-		b = append(b, Special|Break)
-	}
+	b = append(b, Special|Break)
 
 	return b
 }
 
-func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value) []byte {
+func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, private bool) []byte {
 	//	fmt.Fprintf(os.Stderr, "appendStructFields: %v\n", t)
 
-	ff := t.NumField()
+	s := parseStruct(t)
 
-	for i := 0; i < ff; i++ {
-		f := t.Field(i)
+	for _, fc := range s.fs {
+		fv := r.Field(fc.I)
 
-		if f.PkgPath != "" {
+		if fc.OmitEmpty && fv.IsZero() {
 			continue
 		}
 
-		if f.Anonymous && f.Type.Kind() == reflect.Struct {
-			b = e.appendStructFields(b, f.Type, r.Field(i))
+		ft := fv.Type()
+
+		if fc.Embed && ft.Kind() == reflect.Struct {
+			b = e.appendStructFields(b, ft, fv, private)
 
 			continue
 		}
 
-		b = e.AppendString(b, String, f.Name)
+		b = e.AppendString(b, String, fc.Name)
 
-		b = e.AppendValue(b, r.Field(i).Interface())
+		if fc.Unexported || private {
+			b = e.appendRaw(b, fv, true)
+		} else {
+			b = e.AppendValue(b, fv.Interface())
+		}
 	}
 
 	return b

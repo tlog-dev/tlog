@@ -1,7 +1,7 @@
 package tlog
 
 import (
-	_ "unsafe"
+	"unsafe"
 
 	"github.com/nikandfor/loc"
 )
@@ -17,3 +17,7 @@ func encodeKVs0(e *Encoder, kvs ...interface{})
 //go:noescape
 //go:linkname caller1 runtime.callers
 func caller1(skip int, pc *loc.PC, len, cap int) int
+
+func stringToBytes(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&s))
+}

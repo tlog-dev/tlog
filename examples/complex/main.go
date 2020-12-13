@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -25,7 +26,11 @@ func initComplexLogger() func() {
 	cw.Funcname = 14
 	cw.IDWidth = 10
 
-	logger = tlog.New(cw)
+	w := tlog.NewTeeWriter(
+		cw,
+	)
+
+	logger = tlog.New(w)
 
 	tlog.DefaultLogger = logger // needed for sub package. It uses package interface (tlog.Printf)
 
@@ -46,11 +51,11 @@ func main() {
 
 	logger.SetLabels(ll)
 
-	logger.Printf("os.Args: %v", os.Args)
+	logger.Printf("os.Args: %q", os.Args)
 
 	logger.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MetricGauge, "help message for metric that describes it")
 
-	logger.Printf("main: %d", *f)
+	logger.Printw("main", "flag", *f)
 
 	work()
 }
@@ -62,29 +67,18 @@ func work() {
 	tr.Printw("work", "argument", *str)
 
 	var a A
-	a.func1(tr.ID)
+	a.func1(tlog.ContextWithSpan(context.Background(), tr))
 
 	tr.Observe("fully_qualified_metric_name_with_units", 123.456)
 }
 
 type A struct{}
 
-func (*A) func1(id tlog.ID) {
-	tr := logger.Spawn(id, "subtask")
+func (*A) func1(ctx context.Context) {
+	tr := tlog.SpawnFromContext(ctx, "subtask")
 	defer tr.Finish()
 
-	tr.Event(tlog.KeyLogLevel, tlog.Warn,
-		tlog.KeyMessage, tlog.Format{
-			Fmt:  "func1: %v",
-			Args: []interface{}{"some warning"}},
-		"user_attribute", "value",
-	)
-
-	func() {
-		tr.Event(tlog.KeyLogLevel, tlog.Error,
-			tlog.KeyMessage, tlog.Format{
-				Fmt:  "func1: %v - %v",
-				Args: []interface{}{"some error", 3}},
-		)
-	}()
+	tr.Printw("some warning",
+		"user_attribute", "attr_value",
+		tlog.KeyLogLevel, tlog.Warn)
 }

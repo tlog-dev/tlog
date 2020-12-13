@@ -1,11 +1,21 @@
 package tlog
 
-import "context"
+import (
+	"context"
+)
 
 type (
-	ctxidkey   struct{}
-	ctxspankey struct{}
+	ctxloggerkey struct{}
+	ctxidkey     struct{}
+	ctxspankey   struct{}
 )
+
+func ContextWithLogger(ctx context.Context, l *Logger) context.Context {
+	if l == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxloggerkey{}, l)
+}
 
 // ContextWithID creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
@@ -81,14 +91,20 @@ func SpawnFromContext(ctx context.Context, name string, kvs ...interface{}) Span
 		return newspan(s.Logger, s.ID, 0, name, kvs)
 	}
 
-	if DefaultLogger == nil {
+	v = ctx.Value(ctxloggerkey{})
+	l, ok := v.(*Logger)
+	if !ok {
+		l = DefaultLogger
+	}
+
+	if l == nil {
 		return Span{}
 	}
 
 	v = ctx.Value(ctxidkey{})
 	id, ok := v.(ID)
 	if ok {
-		return newspan(DefaultLogger, id, 0, name, kvs)
+		return newspan(l, id, 0, name, kvs)
 	}
 
 	return Span{}
@@ -96,19 +112,25 @@ func SpawnFromContext(ctx context.Context, name string, kvs ...interface{}) Span
 
 // SpawnFromContextOrStart loads saved by ContextWithSpan Span from Context.
 // It starts new trace if no ID found.
-func SpawnFromContextOrStart(ctx context.Context, name string, kvs ...interface{}) Span {
+func SpawnOrStartFromContext(ctx context.Context, name string, kvs ...interface{}) Span {
 	v := ctx.Value(ctxspankey{})
 	s, ok := v.(Span)
 	if ok {
 		return newspan(s.Logger, s.ID, 0, name, kvs)
 	}
 
-	if DefaultLogger == nil {
+	v = ctx.Value(ctxloggerkey{})
+	l, ok := v.(*Logger)
+	if !ok {
+		l = DefaultLogger
+	}
+
+	if l == nil {
 		return Span{}
 	}
 
 	v = ctx.Value(ctxidkey{})
 	id, _ := v.(ID)
 
-	return newspan(DefaultLogger, id, 0, name, kvs)
+	return newspan(l, id, 0, name, kvs)
 }

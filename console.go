@@ -40,6 +40,7 @@ type (
 		TimeFormat     string
 		DurationFormat string
 		DurationDiv    time.Duration
+		LocationFormat string
 
 		PairSeparator string
 		KVSeparator   string
@@ -118,6 +119,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 
 		TimeFormat:     "2006-01-02_15:04:05.000",
 		DurationFormat: "%v",
+		LocationFormat: "%v",
 
 		PairSeparator: "  ",
 		KVSeparator:   "=",
@@ -173,8 +175,9 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 
 	var ts Timestamp
 	var pc loc.PC
-	var m []byte
-	var lv int
+	var lv LogLevel
+	var m, n []byte
+	var nst int
 	b := w.b
 
 	tag, els, i := w.d.Tag(i)
@@ -214,8 +217,11 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 			ts, i = w.d.Time(st)
 		case ks == KeyMessage && sub == WireMessage:
 			m, i = w.d.String(i)
+		case ks == KeyName && sub == WireName && m == nil:
+			nst = i
+			n, i = w.d.String(i)
 		case ks == KeyLogLevel && sub == WireLogLevel:
-			_, lv, i = w.d.Tag(i)
+			lv, i = w.d.LogLevel(st)
 		case ks == KeyLocation && sub == WireLocation:
 			pc, i = w.d.Location(st)
 		default:
@@ -225,6 +231,15 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 
 	if err = w.d.Err(); err != nil {
 		return
+	}
+
+	if m == nil {
+		m = n
+		n = nil
+	}
+
+	if n != nil {
+		b, _ = w.appendPair(b, stringToBytes(KeyName), nst)
 	}
 
 	h := w.h
@@ -242,7 +257,7 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 	return len(p), err
 }
 
-func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, m []byte, blen int) []byte {
+func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc.PC, m []byte, blen int) []byte {
 	var fname, file string
 	line := -1
 
@@ -506,8 +521,12 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv int, pc loc.PC, 
 		if w.Colorize && len(w.MessageColor) != 0 {
 			b = append(b, ResetColor...)
 		}
-
 	}
+
+	if len(m) >= w.MessageWidth {
+		b = append(b, ' ', ' ')
+	}
+
 	if (w.PadEmptyMessage || len(m) != 0) && len(m) < w.MessageWidth && blen != 0 {
 		b = append(b, low.Spaces[:w.MessageWidth-len(m)]...)
 	}
@@ -688,6 +707,7 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 				var v int64
 				v, i = w.d.Int(i)
 
+				b = append(b, "0x"...)
 				b = strconv.AppendUint(b, uint64(v), 16)
 			case Bytes, String:
 				var s []byte
@@ -697,6 +717,11 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 			default:
 				b, i = w.convertValue(b, i)
 			}
+		case WireLocation:
+			var pc loc.PC
+			pc, i = w.d.Location(st)
+
+			b = low.AppendPrintf(b, w.LocationFormat, pc)
 		default:
 			b, i = w.convertValue(b, i)
 		}

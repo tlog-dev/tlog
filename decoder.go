@@ -236,6 +236,22 @@ func (d *Decoder) Time(st int) (ts Timestamp, i int) {
 	return Timestamp(v), i
 }
 
+func (d *Decoder) LogLevel(st int) (lv LogLevel, i int) {
+	tag, sub, i := d.Tag(st)
+	if d.err != nil {
+		return
+	}
+
+	if tag != Semantic || sub != WireLogLevel {
+		d.newErr(st, "expected time")
+		return
+	}
+
+	v, i := d.Int(i)
+
+	return LogLevel(v), i
+}
+
 func (d *Decoder) String(st int) (s []byte, i int) {
 	tag, l, i := d.Tag(st)
 
@@ -346,6 +362,10 @@ func (d *Decoder) Int(st int) (v int64, i int) {
 		v = int64(d.b[i])<<56 | int64(d.b[i+1])<<48 | int64(d.b[i+2])<<40 | int64(d.b[i+3])<<32 |
 			int64(d.b[i+4])<<24 | int64(d.b[i+5])<<16 | int64(d.b[i+6])<<8 | int64(d.b[i+7])
 		i += 8
+	}
+
+	if tag == Neg {
+		v = -v
 	}
 
 	return

@@ -18,7 +18,7 @@ type (
 
 		Encoder
 
-		NewID func() ID
+		NewID func() ID // must be threadsafe
 
 		NoTime   bool
 		NoCaller bool
@@ -50,7 +50,7 @@ var (
 
 // Log levels
 const (
-	Info = iota
+	Info LogLevel = iota
 	Warn
 	Error
 	Fatal
@@ -64,6 +64,7 @@ var (
 	KeySpan     = "s"
 	KeyParent   = "p"
 	KeyMessage  = "m"
+	KeyName     = "n"
 	KeyElapsed  = "e"
 	KeyLocation = "l"
 	KeyLabels   = "L"
@@ -171,7 +172,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	}
 
 	if n != "" {
-		l.appendBuf(KeyMessage, n)
+		l.appendBuf(KeyName, Name(n))
 	}
 
 	_ = l.Encoder.Encode(l.buf, kvs)
@@ -337,11 +338,29 @@ func (l *Logger) Start(n string, kvs ...interface{}) Span {
 }
 
 func (l *Logger) Spawn(par ID, n string, kvs ...interface{}) Span {
+	if par == (ID{}) {
+		return Span{}
+	}
 	return newspan(l, par, 0, n, kvs)
 }
 
 func (s Span) Spawn(n string, kvs ...interface{}) Span {
+	if s.ID == (ID{}) {
+		return Span{}
+	}
 	return newspan(s.Logger, s.ID, 0, n, kvs)
+}
+
+func (l *Logger) SpawnOrStart(par ID, n string, kvs ...interface{}) Span {
+	return newspan(l, par, 0, n, kvs)
+}
+
+func (s Span) SpawnOrStart(n string, kvs ...interface{}) Span {
+	return newspan(s.Logger, s.ID, 0, n, kvs)
+}
+
+func (l *Logger) NewSpan(d int, par ID, name string, kvs ...interface{}) Span {
+	return newspan(l, par, d, name, kvs)
 }
 
 func (l *Logger) ifv(tp string) (ok bool) {
@@ -520,18 +539,13 @@ func (s Span) Observe(name string, v interface{}, kvs ...interface{}) {
 }
 
 func RegisterMetric(name, typ, help string, kvs ...interface{}) {
-	DefaultLogger.Event2([]interface{}{
-		KeyType, "m",
-		"name", name,
-		"type", typ,
-		"help", help,
-	}, kvs)
+	DefaultLogger.RegisterMetric(name, typ, help, kvs...)
 }
 
 func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 	l.Event2([]interface{}{
 		KeyType, "m",
-		"name", name,
+		KeyName, Name(name),
 		"type", typ,
 		"help", help,
 	}, kvs)
