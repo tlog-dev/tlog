@@ -1,7 +1,9 @@
 package compress
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"unsafe"
 
 	"github.com/nikandfor/tlog"
@@ -13,13 +15,13 @@ type (
 		io.Writer
 
 		b       []byte
-		written int
+		written int64
 
 		block []byte
-		pos   int
-		mask  int
+		pos   int64
+		mask  int64
 
-		ht    []int32
+		ht    []uint32
 		hmask uintptr
 	}
 )
@@ -79,8 +81,8 @@ func newEncoder(w io.Writer, bs, ss int) *Encoder {
 	return &Encoder{
 		Writer: w,
 		block:  make([]byte, bs),
-		mask:   bs - 1,
-		ht:     make([]int32, hlen),
+		mask:   int64(bs - 1),
+		ht:     make([]uint32, hlen),
 		hmask:  uintptr(hlen - 1),
 	}
 }
@@ -96,34 +98,34 @@ func (w *Encoder) Reset(wr io.Writer) {
 	}
 }
 
-func (w *Encoder) Write(d []byte) (done int, err error) {
+func (w *Encoder) Write(d []byte) (_ int, err error) {
 	if w.pos == 0 {
 		w.b = w.appendHeader(w.b)
 	}
 
 	msgst := w.pos
-	i := 0
+	var done, i int64 = 0, 0
 
-	for i+4 <= len(d) {
+	for i+4 <= int64(len(d)) {
 		h := low.MemHash32(unsafe.Pointer(&d[i]), 0)
 		h &= w.hmask
 
-		p := int(w.ht[h])
-		w.ht[h] = int32(msgst + i)
+		p := int64(w.ht[h])
+		w.ht[h] = uint32(msgst + i)
 
-		if w.pos-p > len(w.block) || w.pos-(p+(i-done)) < 0 {
+		wposwas := w.pos
+		p1 := p
+		g := i - done
+
+		danger := i - done
+
+		if uint32(w.pos-p) > uint32(len(w.block)) || p+danger > w.pos || p+int64(len(w.block)) < w.pos+danger { // range is more than block size or copy in a danger zone (near w.pos&w.mask)
 			//		tl.Printw("skip hash", "p", tlog.Hex(p), "w.pos", tlog.Hex(w.pos), "diff", tlog.Hex(w.pos-p), "block", tlog.Hex(len(w.block)))
 			i++
 			continue
 		}
 
-		/*
-			p &= w.mask
-			p += w.pos &^ w.mask
-			if p > w.pos {
-				p -= len(w.block)
-			}
-		*/
+		p = w.pos - int64(uint32(w.pos-p))
 
 		//	tl.Printw("hash", "p", tlog.Hex(p), "i_", tlog.Hex(i), "len", tlog.Hex(len(d)), "newp", tlog.Hex((w.pos+i)&w.mask), "h", tlog.Hex(h),
 		//		"data", tlog.FormatNext("%.8s"), d[i:],
@@ -145,26 +147,31 @@ func (w *Encoder) Write(d []byte) (done int, err error) {
 			w.appendLiteral(d, done, i)
 		}
 
+		if w.pos-st > int64(len(w.block)) {
+			fmt.Fprintf(os.Stderr, "offset is out of range  wpos %x (%x)  st %x  end %x  block %x  p %x (%x)  offst %x  offend %x  size %x  g %x\n", w.pos, wposwas, st, end, len(w.block), p, p1, w.pos-st, w.pos-end, end-st, g)
+			//	panic("offset is out of range")
+		}
+
 		w.appendCopy(st, end)
 		i += end - st
 
 		done = i
 	}
 
-	if done < len(d) {
-		w.appendLiteral(d, done, len(d))
-		done = len(d)
+	if done < int64(len(d)) {
+		w.appendLiteral(d, done, int64(len(d)))
+		done = int64(len(d))
 	}
 
 	n, err := w.Writer.Write(w.b)
-	w.written += n
+	w.written += int64(n)
 
 	w.b = w.b[:0]
 
 	//	tl.Printf("ht\n%x", w.ht)
 	//	tl.Printf("block\n%v", hex.Dump(w.block))
 
-	return done, err
+	return int(done), err
 }
 
 func (w *Encoder) appendHeader(b []byte) []byte {
@@ -180,20 +187,20 @@ func (w *Encoder) appendHeader(b []byte) []byte {
 	return b
 }
 
-func (w *Encoder) appendLiteral(d []byte, s, e int) {
+func (w *Encoder) appendLiteral(d []byte, s, e int64) {
 	//	tl.Printw("literal", "st", tlog.Hex(s), "end", tlog.Hex(e), "size", tlog.Hex(e-s), "w.pos", tlog.Hex(w.pos), "caller", loc.Caller(1))
 
 	w.b = w.appendTag(w.b, Literal, e-s)
 	w.b = append(w.b, d[s:e]...)
 
 	for s < e {
-		n := copy(w.block[w.pos&w.mask:], d[s:e])
+		n := int64(copy(w.block[w.pos&w.mask:], d[s:e]))
 		s += n
 		w.pos += n
 	}
 }
 
-func (w *Encoder) appendCopy(st, end int) {
+func (w *Encoder) appendCopy(st, end int64) {
 	w.b = w.appendTag(w.b, Copy, end-st)
 	w.b = w.appendOff(w.b, w.pos-end)
 
@@ -206,18 +213,18 @@ func (w *Encoder) appendCopy(st, end int) {
 		} else {
 			n = copy(w.block[w.pos&w.mask:], w.block[st&w.mask:])
 		}
-		w.pos += n
-		st += n
+		w.pos += int64(n)
+		st += int64(n)
 	}
 }
 
-func (w *Encoder) compare(d []byte, i, p int) (st, end int) {
+func (w *Encoder) compare(d []byte, i, p int64) (st, end int64) {
 	// move end
 	end = p & w.mask
 	base := p - end
 
 moreend:
-	for i+8 <= len(d) && end+8 <= len(w.block) {
+	for i+8 <= int64(len(d)) && end+8 <= int64(len(w.block)) {
 		if *(*uint64)(unsafe.Pointer(&d[i])) != *(*uint64)(unsafe.Pointer(&w.block[end])) {
 			break
 		}
@@ -226,7 +233,7 @@ moreend:
 		i += 8
 	}
 
-	for i < len(d) && end < len(w.block) {
+	for i < int64(len(d)) && end < int64(len(w.block)) {
 		if d[i] != w.block[end] {
 			break
 		}
@@ -235,8 +242,8 @@ moreend:
 		i++
 	}
 
-	if end == len(w.block) && i != len(d) {
-		base += len(w.block)
+	if end == int64(len(w.block)) && i != int64(len(d)) {
+		base += int64(len(w.block))
 		end = 0
 
 		goto moreend
@@ -270,8 +277,8 @@ morest:
 	}
 
 	if st == 0 && i != 0 {
-		base -= len(w.block)
-		st = len(w.block)
+		base -= int64(len(w.block))
+		st = int64(len(w.block))
 
 		goto morest
 	}
@@ -281,7 +288,7 @@ morest:
 	return st, end
 }
 
-func (w *Encoder) appendTag(b []byte, tag byte, l int) []byte {
+func (w *Encoder) appendTag(b []byte, tag byte, l int64) []byte {
 	switch {
 	case l < TagLen1:
 		return append(b, tag|byte(l))
@@ -296,7 +303,7 @@ func (w *Encoder) appendTag(b []byte, tag byte, l int) []byte {
 	}
 }
 
-func (w *Encoder) appendOff(b []byte, l int) []byte {
+func (w *Encoder) appendOff(b []byte, l int64) []byte {
 	switch {
 	case l < Off1:
 		return append(b, byte(l))

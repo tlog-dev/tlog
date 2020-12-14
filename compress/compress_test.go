@@ -27,35 +27,35 @@ func TestCompare(t *testing.T) {
 	w := newEncoder(nil, B, 0)
 
 	st, end := w.compare([]byte("1234567890"), 0, 0)
-	assert.Equal(t, 0, st)
-	assert.Equal(t, 0, end)
+	assert.Equal(t, int64(0), st)
+	assert.Equal(t, int64(0), end)
 
 	copy(w.block, "12345678901234567890")
-	w.pos = len(w.block) + 2
+	w.pos = int64(len(w.block)) + 2
 
 	t.Logf("block: %d %q", len(w.block), w.block)
 
 	st, end = w.compare([]byte("1234567890"), 0, 0)
-	assert.Equal(t, 0, st)
-	assert.Equal(t, 10, end)
+	assert.Equal(t, int64(0), st)
+	assert.Equal(t, int64(10), end)
 
 	st, end = w.compare([]byte("123456789012"), 2, 2)
-	assert.Equal(t, 0, st)
-	assert.Equal(t, 12, end)
+	assert.Equal(t, int64(0), st)
+	assert.Equal(t, int64(12), end)
 
 	copy(w.block, "4567890             ")
 	copy(w.block[B-3:], "123")
 
 	st, end = w.compare([]byte("1234567890"), 1, B-2)
-	assert.Equal(t, B-3, st)
-	assert.Equal(t, B+7, end)
+	assert.Equal(t, int64(B-3), st)
+	assert.Equal(t, int64(B+7), end)
 
 	copy(w.block, "890             ")
 	copy(w.block[B-len("bcdef1234567"):], "bcdef1234567")
 
-	st, end = w.compare([]byte("++++abcdef1234567890qw"), len("++++abcdef12345678"), B+1)
-	assert.Equal(t, B-len("bcdef1234567"), st)
-	assert.Equal(t, B+3, end)
+	st, end = w.compare([]byte("++++abcdef1234567890qw"), int64(len("++++abcdef12345678")), B+1)
+	assert.Equal(t, int64(B-len("bcdef1234567")), st)
+	assert.Equal(t, int64(B+3), end)
 }
 
 func TestLiteral(t *testing.T) {
@@ -80,7 +80,7 @@ func TestLiteral(t *testing.T) {
 
 	r := &Decoder{
 		b:   buf,
-		end: len(buf),
+		end: int64(len(buf)),
 	}
 
 	p := make([]byte, 100)
@@ -128,7 +128,7 @@ func TestCopy(t *testing.T) {
 
 	r := &Decoder{
 		b:   buf,
-		end: len(buf),
+		end: int64(len(buf)),
 	}
 
 	p := make([]byte, 100)
