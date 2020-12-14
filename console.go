@@ -605,8 +605,24 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 		var s []byte
 		s, i = w.d.String(st)
 
-		ss := low.UnsafeBytesToString(s)
-		if tag == Bytes || w.QuoteAnyValue || strings.ContainsAny(ss, w.QuoteChars) || len(s) == 0 && w.QuoteEmptyValue {
+		quote := tag == Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
+		if !quote {
+			for _, c := range s {
+				if c < 0x20 || c >= 0x80 {
+					quote = true
+					break
+				}
+				for _, q := range w.QuoteChars {
+					if byte(q) == c {
+						quote = true
+						break
+					}
+				}
+			}
+		}
+
+		if quote {
+			ss := low.UnsafeBytesToString(s)
 			b = strconv.AppendQuote(b, ss)
 		} else {
 			b = append(b, s...)
@@ -708,10 +724,10 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 				v, i = w.d.Int(i)
 
 				if v < 0 {
-					b = append(b, "-0x"...)
+					b = append(b, "-x"...)
 					v = -v
 				} else {
-					b = append(b, " 0x"...)
+					b = append(b, "0x"...)
 				}
 
 				b = strconv.AppendInt(b, v, 16)

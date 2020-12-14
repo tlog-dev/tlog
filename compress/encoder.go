@@ -4,7 +4,6 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 )
@@ -71,7 +70,7 @@ func NewEncoder(w io.Writer, bs int) *Encoder {
 		panic(bs)
 	}
 
-	return newEncoder(w, bs, 2)
+	return newEncoder(w, bs, 6)
 }
 
 func newEncoder(w io.Writer, bs, ss int) *Encoder {
@@ -102,6 +101,7 @@ func (w *Encoder) Write(d []byte) (done int, err error) {
 		w.b = w.appendHeader(w.b)
 	}
 
+	msgst := w.pos
 	i := 0
 
 	for i+4 <= len(d) {
@@ -109,23 +109,32 @@ func (w *Encoder) Write(d []byte) (done int, err error) {
 		h &= w.hmask
 
 		p := int(w.ht[h])
-		w.ht[h] = int32((w.pos + i) & w.mask)
+		w.ht[h] = int32(msgst + i)
 
-		p += w.pos &^ w.mask
-		if p > w.pos {
-			p -= len(w.block)
+		if w.pos-p > len(w.block) || w.pos-(p+(i-done)) < 0 {
+			//		tl.Printw("skip hash", "p", tlog.Hex(p), "w.pos", tlog.Hex(w.pos), "diff", tlog.Hex(w.pos-p), "block", tlog.Hex(len(w.block)))
+			i++
+			continue
 		}
 
-		tl.Printw("hash", "p", tlog.Hex(p), "i_", tlog.Hex(i), "len", tlog.Hex(len(d)), "newp", tlog.Hex((w.pos+i)&w.mask), "h", tlog.Hex(h),
-			"data", tlog.FormatNext("%.8s"), d[i:],
-			"block", tlog.FormatNext("%.8s"), w.block[p&w.mask:])
+		/*
+			p &= w.mask
+			p += w.pos &^ w.mask
+			if p > w.pos {
+				p -= len(w.block)
+			}
+		*/
+
+		//	tl.Printw("hash", "p", tlog.Hex(p), "i_", tlog.Hex(i), "len", tlog.Hex(len(d)), "newp", tlog.Hex((w.pos+i)&w.mask), "h", tlog.Hex(h),
+		//		"data", tlog.FormatNext("%.8s"), d[i:],
+		//		"block", tlog.FormatNext("%.8s"), w.block[p&w.mask:])
 
 		st, end := w.compare(d[done:], i-done, p)
 		if end > w.pos {
 			end = w.pos
 		}
 		//	tl.Printw("compare", "p", tlog.Hex(p), "st", tlog.Hex(st), "end", tlog.Hex(end), "size", tlog.Hex(end-st), "w.pos", tlog.Hex(w.pos))
-		if end-st <= 4 {
+		if end-st <= 6 {
 			i++
 			continue
 		}
@@ -152,6 +161,9 @@ func (w *Encoder) Write(d []byte) (done int, err error) {
 
 	w.b = w.b[:0]
 
+	//	tl.Printf("ht\n%x", w.ht)
+	//	tl.Printf("block\n%v", hex.Dump(w.block))
+
 	return done, err
 }
 
@@ -161,7 +173,7 @@ func (w *Encoder) appendHeader(b []byte) []byte {
 		bs++
 	}
 
-	tl.Printw("meta", "sub", tlog.Hex(MetaReset), "sub_name", "reset", "block_size", bs)
+	//	tl.Printw("meta", "sub", tlog.Hex(MetaReset), "sub_name", "reset", "block_size", bs)
 
 	b = append(b, Meta|MetaReset, byte(bs))
 
@@ -169,7 +181,7 @@ func (w *Encoder) appendHeader(b []byte) []byte {
 }
 
 func (w *Encoder) appendLiteral(d []byte, s, e int) {
-	tl.Printw("literal", "st", tlog.Hex(s), "end", tlog.Hex(e), "size", tlog.Hex(e-s), "w.pos", tlog.Hex(w.pos), "caller", loc.Caller(1))
+	//	tl.Printw("literal", "st", tlog.Hex(s), "end", tlog.Hex(e), "size", tlog.Hex(e-s), "w.pos", tlog.Hex(w.pos), "caller", loc.Caller(1))
 
 	w.b = w.appendTag(w.b, Literal, e-s)
 	w.b = append(w.b, d[s:e]...)
@@ -185,7 +197,7 @@ func (w *Encoder) appendCopy(st, end int) {
 	w.b = w.appendTag(w.b, Copy, end-st)
 	w.b = w.appendOff(w.b, w.pos-end)
 
-	tl.Printw("copy", "st", tlog.Hex(st), "end", tlog.Hex(end), "size", tlog.Hex(end-st), "w.pos", tlog.Hex(w.pos), "off", tlog.Hex(w.pos-st))
+	//	tl.Printw("copy", "st", tlog.Hex(st), "end", tlog.Hex(end), "size", tlog.Hex(end-st), "w.pos", tlog.Hex(w.pos), "off", tlog.Hex(w.pos-st))
 
 	var n int
 	for st < end {

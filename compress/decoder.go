@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -77,6 +76,8 @@ func (r *Decoder) Read(p []byte) (i int, err error) {
 more:
 	switch r.state {
 	case 0:
+		//	tl.Printw("stream pos", "ref+i", r.ref+r.i, "prefix", tlog.FormatNext("%.10s"), r.b[r.i:])
+
 		tag, l := r.tag()
 		if r.err != nil {
 			return i, r.err
@@ -84,7 +85,7 @@ more:
 
 		switch tag {
 		case Literal:
-			tl.Printw("tag", "name", "literal", "tag", tlog.Hex(tag), "len", tlog.Hex(l))
+			//	tl.Printw("tag", "name", "literal", "tag", tlog.Hex(tag), "len", tlog.Hex(l))
 
 			r.state = 'l'
 			r.len = l
@@ -96,7 +97,7 @@ more:
 
 			r.off = r.pos - r.off - l
 
-			tl.Printw("tag", "name", "copy", "tag", tlog.Hex(tag), "len", tlog.Hex(l), "off", tlog.Hex(r.off))
+			//	tl.Printw("tag", "name", "copy", "tag", tlog.Hex(tag), "len", tlog.Hex(l), "off", tlog.Hex(r.off))
 
 			r.state = 'c'
 			r.len = l
@@ -108,13 +109,23 @@ more:
 					return i, r.err
 				}
 
-				r.block = make([]byte, 1<<bslog)
+				bs := 1 << bslog
+
+				if bs > len(r.block) {
+					r.block = make([]byte, 1<<bslog)
+				} else {
+					r.block = r.block[:bs]
+
+					for i := 0; i < bs; {
+						i += copy(r.block[i:], zeros)
+					}
+				}
 				r.pos = 0
 				r.mask = 1<<bslog - 1
 
 				r.state = 0
 
-				tl.Printw("tag", "name", "meta", "tag", tlog.Hex(tag), "sub", tlog.Hex(l), "sub_name", "block_size", "block_size", len(r.block))
+			//	tl.Printw("tag", "name", "meta", "tag", tlog.Hex(tag), "sub", tlog.Hex(l), "sub_name", "block_size", "block_size", len(r.block))
 			default:
 				return i, r.newErr("unsupported meta tag: %x", l)
 			}
@@ -131,7 +142,7 @@ more:
 			return i, r.err
 		}
 
-		tl.Printw("literal", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.i", tlog.Hex(r.i), "r.pos", tlog.Hex(r.pos))
+		//	tl.Printw("literal", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.i", tlog.Hex(r.i), "r.pos", tlog.Hex(r.pos))
 
 		n := copy(p[i:end], r.b[r.i:])
 		i += n
@@ -140,6 +151,7 @@ more:
 		end = r.i + n
 		for r.i < end {
 			m := copy(r.block[r.pos&r.mask:], r.b[r.i:end])
+			//	tl.Printw("looop", "r.i", r.i, "end", end, "n", n, "m", m, "r.pos&r.mask", r.pos&r.mask, "block", len(r.block))
 			r.i += m
 			r.pos += m
 		}
@@ -149,9 +161,9 @@ more:
 			end = i + r.len
 		}
 
-		tl.Printw("copy", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.off", tlog.Hex(r.off), "r.pos", tlog.Hex(r.pos))
+		//	tl.Printw("copy", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.off", tlog.Hex(r.off), "r.pos", tlog.Hex(r.pos))
 
-		n := copy(p[i:end], r.block[r.off:])
+		n := copy(p[i:end], r.block[r.off&r.mask:])
 		r.off += n
 		r.len -= n
 
@@ -278,7 +290,7 @@ func (r *Decoder) more(l int) bool {
 		return true
 	}
 
-	tl.Printw("more", "r.i", r.i, "r.end", r.end, "len", l)
+	//	tl.Printw("more", "r.i", r.i, "r.end", r.end, "len", l)
 
 	if r.Reader == nil {
 		if r.i == r.end {
@@ -308,7 +320,7 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 			w.b = low.AppendPrintf(w.b, "%8x  ", w.ref+w.d.i)
 		}
 
-		st := w.d.i
+		w.b = low.AppendPrintf(w.b, "%4x  ", w.d.i)
 
 		tag, l := w.d.tag()
 		if w.d.err != nil {
@@ -317,16 +329,16 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 
 		switch tag {
 		case Literal:
-			w.b = low.AppendPrintf(w.b, "%4x  %4x literal        %q\n", st, l, p[w.d.i:w.d.i+l])
+			w.b = low.AppendPrintf(w.b, "%4x  literal        %q\n", l, p[w.d.i:w.d.i+l])
 			w.d.i += l
 		case Copy:
 			off := w.d.readOff()
 			off += l
 
-			w.b = low.AppendPrintf(w.b, "%4x  %4x copy off %4x\n", st, l, off)
+			w.b = low.AppendPrintf(w.b, "%4x  copy off %4x\n", l, off)
 		case Meta:
 			arg := w.d.readOff()
-			w.b = low.AppendPrintf(w.b, "%4x  %4x meta %x\n", st, 2, arg)
+			w.b = low.AppendPrintf(w.b, "%4x  meta %x\n", 2, arg)
 		default:
 			return w.d.i, w.d.newErr("impossible tag: %x", tag)
 		}
