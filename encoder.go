@@ -26,7 +26,7 @@ type (
 	Name      string
 	LogLevel  int
 	Timestamp int64
-	Hex       uint64
+	Hex       int64
 
 	FormatNext string
 
@@ -187,7 +187,7 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 		return e.AppendFloat(b, v)
 	case Hex:
 		b = append(b, Semantic|WireHex)
-		return e.AppendUint(b, Int, uint64(v))
+		return e.AppendInt(b, int64(v))
 	case Timestamp:
 		b = append(b, Semantic|WireTime)
 		return e.AppendUint(b, Int, uint64(v))

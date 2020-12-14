@@ -68,7 +68,7 @@ func (d *Decoder) Skip(st int) (i int) {
 	case Bytes, String:
 		_, i = d.String(st)
 	case Array, Map:
-		for i := 0; sub == -1 || i < sub; i++ {
+		for el := 0; sub == -1 || el < sub; el++ {
 			if sub == -1 && d.Break(&i) {
 				break
 			}
@@ -600,7 +600,7 @@ func (w *Dumper) dump(st, d int) (i int) {
 			w.d.newErr(st, "unsupported special")
 		}
 	default:
-		w.d.newErr(st, "unsupported tag")
+		w.d.newErr(st, "read impossible tag")
 	}
 
 	return

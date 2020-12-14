@@ -707,8 +707,14 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 				var v int64
 				v, i = w.d.Int(i)
 
-				b = append(b, "0x"...)
-				b = strconv.AppendUint(b, uint64(v), 16)
+				if v < 0 {
+					b = append(b, "-0x"...)
+					v = -v
+				} else {
+					b = append(b, " 0x"...)
+				}
+
+				b = strconv.AppendInt(b, v, 16)
 			case Bytes, String:
 				var s []byte
 				s, i = w.d.String(i)
