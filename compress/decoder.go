@@ -12,14 +12,15 @@ type (
 		io.Reader
 
 		block []byte
+		mask  int
 		pos   int64
-		mask  int64
 
 		state    byte
-		off, len int64
+		off, len int
 
-		b           []byte
-		ref, i, end int64
+		b      []byte
+		i, end int
+		ref    int64
 
 		err error
 	}
@@ -45,7 +46,7 @@ func NewDecoder(r io.Reader) *Decoder {
 func NewDecoderBytes(b []byte) *Decoder {
 	return &Decoder{
 		b:   b,
-		end: int64(len(b)),
+		end: len(b),
 	}
 }
 
@@ -61,19 +62,17 @@ func (r *Decoder) ResetBytes(b []byte) {
 		r.b = b
 	}
 	r.i = 0
-	r.end = int64(len(b))
+	r.end = len(b)
 	r.ref = 0
 
 	r.state = 0
 	r.err = nil
 }
 
-func (r *Decoder) Read(p []byte) (_ int, err error) {
+func (r *Decoder) Read(p []byte) (i int, err error) {
 	if r.err != nil {
 		return 0, r.err
 	}
-
-	var i int64
 
 more:
 	switch r.state {
@@ -97,7 +96,7 @@ more:
 				return int(i), r.err
 			}
 
-			r.off = r.pos - r.off - l
+			r.off = int(r.pos) - r.off - l
 
 			//	tl.Printw("tag", "name", "copy", "tag", tlog.Hex(tag), "len", tlog.Hex(l), "off", tlog.Hex(r.off))
 
@@ -135,7 +134,7 @@ more:
 			return int(i), r.newErr("impossible tag: %x", tag)
 		}
 	case 'l':
-		end := int64(len(p))
+		end := len(p)
 		if end > i+r.len {
 			end = i + r.len
 		}
@@ -146,34 +145,34 @@ more:
 
 		//	tl.Printw("literal", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.i", tlog.Hex(r.i), "r.pos", tlog.Hex(r.pos))
 
-		n := int64(copy(p[i:end], r.b[r.i:]))
+		n := copy(p[i:end], r.b[r.i:])
 		i += n
 		r.len -= n
 
 		end = r.i + n
 		for r.i < end {
-			m := int64(copy(r.block[r.pos&r.mask:], r.b[r.i:end]))
+			m := copy(r.block[int(r.pos)&r.mask:], r.b[r.i:end])
 			//	tl.Printw("looop", "r.i", r.i, "end", end, "n", n, "m", m, "r.pos&r.mask", r.pos&r.mask, "block", len(r.block))
 			r.i += m
-			r.pos += m
+			r.pos += int64(m)
 		}
 	case 'c':
-		end := int64(len(p))
+		end := len(p)
 		if end > i+r.len {
 			end = i + r.len
 		}
 
 		//	tl.Printw("copy", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.off", tlog.Hex(r.off), "r.pos", tlog.Hex(r.pos))
 
-		n := int64(copy(p[i:end], r.block[r.off&r.mask:]))
+		n := copy(p[i:end], r.block[r.off&r.mask:])
 		r.off += n
 		r.len -= n
 
 		end = i + n
 		for i < end {
-			m := int64(copy(r.block[r.pos&r.mask:], p[i:end]))
+			m := copy(r.block[int(r.pos)&r.mask:], p[i:end])
 			i += m
-			r.pos += m
+			r.pos += int64(m)
 		}
 	}
 
@@ -181,11 +180,11 @@ more:
 		r.state = 0
 	}
 
-	if i < int64(len(p)) {
+	if i < len(p) {
 		goto more
 	}
 
-	return int(i), r.err
+	return i, r.err
 }
 
 func (r *Decoder) newErr(f string, args ...interface{}) error {
@@ -196,12 +195,12 @@ func (r *Decoder) newErr(f string, args ...interface{}) error {
 	return r.err
 }
 
-func (r *Decoder) readOff() (l int64) {
+func (r *Decoder) readOff() (l int) {
 	if !r.more(1) {
 		return
 	}
 
-	l = int64(r.b[r.i])
+	l = int(r.b[r.i])
 	r.i++
 
 	switch l {
@@ -210,42 +209,42 @@ func (r *Decoder) readOff() (l int64) {
 			return
 		}
 
-		l = int64(r.b[r.i])
+		l = int(r.b[r.i])
 		r.i++
 	case Off2:
 		if !r.more(2) {
 			return
 		}
 
-		l = int64(r.b[r.i])<<8 | int64(r.b[r.i+1])
+		l = int(r.b[r.i])<<8 | int(r.b[r.i+1])
 		r.i += 2
 	case Off4:
 		if !r.more(4) {
 			return
 		}
 
-		l = int64(r.b[r.i])<<24 | int64(r.b[r.i+1])<<16 | int64(r.b[r.i+2])<<8 | int64(r.b[r.i+3])
+		l = int(r.b[r.i])<<24 | int(r.b[r.i+1])<<16 | int(r.b[r.i+2])<<8 | int(r.b[r.i+3])
 		r.i += 4
 	case Off8:
 		if !r.more(8) {
 			return
 		}
 
-		l = int64(r.b[r.i])<<56 | int64(r.b[r.i+1])<<48 | int64(r.b[r.i+2])<<40 | int64(r.b[r.i+3])<<32 |
-			int64(r.b[r.i+4])<<24 | int64(r.b[r.i+5])<<16 | int64(r.b[r.i+6])<<8 | int64(r.b[r.i+7])
+		l = int(r.b[r.i])<<56 | int(r.b[r.i+1])<<48 | int(r.b[r.i+2])<<40 | int(r.b[r.i+3])<<32 |
+			int(r.b[r.i+4])<<24 | int(r.b[r.i+5])<<16 | int(r.b[r.i+6])<<8 | int(r.b[r.i+7])
 		r.i += 8
 	}
 
 	return
 }
 
-func (r *Decoder) tag() (tag int, l int64) {
+func (r *Decoder) tag() (tag, l int) {
 	if !r.more(1) {
 		return
 	}
 
 	tag = int(r.b[r.i]) & TagMask
-	l = int64(r.b[r.i]) & TagLenMask
+	l = int(r.b[r.i]) & TagLenMask
 	r.i++
 
 	switch l {
@@ -254,36 +253,36 @@ func (r *Decoder) tag() (tag int, l int64) {
 			return
 		}
 
-		l = int64(r.b[r.i])
+		l = int(r.b[r.i])
 		r.i++
 	case TagLen2:
 		if !r.more(2) {
 			return
 		}
 
-		l = int64(r.b[r.i])<<8 | int64(r.b[r.i+1])
+		l = int(r.b[r.i])<<8 | int(r.b[r.i+1])
 		r.i += 2
 	case TagLen4:
 		if !r.more(4) {
 			return
 		}
 
-		l = int64(r.b[r.i])<<24 | int64(r.b[r.i+1])<<16 | int64(r.b[r.i+2])<<8 | int64(r.b[r.i+3])
+		l = int(r.b[r.i])<<24 | int(r.b[r.i+1])<<16 | int(r.b[r.i+2])<<8 | int(r.b[r.i+3])
 		r.i += 4
 	case TagLen8:
 		if !r.more(8) {
 			return
 		}
 
-		l = int64(r.b[r.i])<<56 | int64(r.b[r.i+1])<<48 | int64(r.b[r.i+2])<<40 | int64(r.b[r.i+3])<<32 |
-			int64(r.b[r.i+4])<<24 | int64(r.b[r.i+5])<<16 | int64(r.b[r.i+6])<<8 | int64(r.b[r.i+7])
+		l = int(r.b[r.i])<<56 | int(r.b[r.i+1])<<48 | int(r.b[r.i+2])<<40 | int(r.b[r.i+3])<<32 |
+			int(r.b[r.i+4])<<24 | int(r.b[r.i+5])<<16 | int(r.b[r.i+6])<<8 | int(r.b[r.i+7])
 		r.i += 8
 	}
 
 	return
 }
 
-func (r *Decoder) more(l int64) bool {
+func (r *Decoder) more(l int) bool {
 	if r.err != nil {
 		return false
 	}
@@ -314,12 +313,16 @@ func NewDumper(w io.Writer) *Dumper {
 }
 
 func (w *Dumper) Write(p []byte) (n int, err error) {
-	w.d.ResetBytes(p)
+	w.d.b = p
+	w.d.i = 0
+	w.d.end = len(p)
 	w.b = w.b[:0]
 
 	for w.d.i < w.d.end {
+		w.b = low.AppendPrintf(w.b, "%6x  ", w.d.pos)
+
 		if !w.NoGlobalOffset {
-			w.b = low.AppendPrintf(w.b, "%8x  ", w.ref+w.d.i)
+			w.b = low.AppendPrintf(w.b, "%6x  ", int(w.ref)+w.d.i)
 		}
 
 		w.b = low.AppendPrintf(w.b, "%4x  ", w.d.i)
@@ -332,14 +335,18 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 		switch tag {
 		case Literal:
 			w.b = low.AppendPrintf(w.b, "%4x  literal        %q\n", l, p[w.d.i:w.d.i+l])
+
 			w.d.i += l
+			w.d.pos += int64(l)
 		case Copy:
 			off := w.d.readOff()
 			off += l
+			w.d.pos += int64(l)
 
 			w.b = low.AppendPrintf(w.b, "%4x  copy off %4x\n", l, off)
 		case Meta:
 			arg := w.d.readOff()
+
 			w.b = low.AppendPrintf(w.b, "%4x  meta %x\n", 2, arg)
 		default:
 			return int(w.d.i), w.d.newErr("impossible tag: %x", tag)
@@ -350,7 +357,7 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 		return 0, w.d.err
 	}
 
-	w.ref += w.d.i
+	w.ref += int64(w.d.i)
 
 	if w.Writer != nil {
 		return w.Writer.Write(w.b)

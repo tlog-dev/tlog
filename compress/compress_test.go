@@ -3,6 +3,7 @@ package compress
 import (
 	"bytes"
 	"encoding/hex"
+	"flag"
 	"io"
 	"io/ioutil"
 	"os"
@@ -15,48 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var fileFlag = flag.String("test-file", "../log.tlog", "file with tlog logs")
+
 var (
 	testData   []byte
 	testOff    []int
 	testsCount int
 )
-
-func TestCompare(t *testing.T) {
-	const B = 32
-
-	w := newEncoder(nil, B, 0)
-
-	st, end := w.compare([]byte("1234567890"), 0, 0)
-	assert.Equal(t, int64(0), st)
-	assert.Equal(t, int64(0), end)
-
-	copy(w.block, "12345678901234567890")
-	w.pos = int64(len(w.block)) + 2
-
-	t.Logf("block: %d %q", len(w.block), w.block)
-
-	st, end = w.compare([]byte("1234567890"), 0, 0)
-	assert.Equal(t, int64(0), st)
-	assert.Equal(t, int64(10), end)
-
-	st, end = w.compare([]byte("123456789012"), 2, 2)
-	assert.Equal(t, int64(0), st)
-	assert.Equal(t, int64(12), end)
-
-	copy(w.block, "4567890             ")
-	copy(w.block[B-3:], "123")
-
-	st, end = w.compare([]byte("1234567890"), 1, B-2)
-	assert.Equal(t, int64(B-3), st)
-	assert.Equal(t, int64(B+7), end)
-
-	copy(w.block, "890             ")
-	copy(w.block[B-len("bcdef1234567"):], "bcdef1234567")
-
-	st, end = w.compare([]byte("++++abcdef1234567890qw"), int64(len("++++abcdef12345678")), B+1)
-	assert.Equal(t, int64(B-len("bcdef1234567")), st)
-	assert.Equal(t, int64(B+3), end)
-}
 
 func TestLiteral(t *testing.T) {
 	const B = 32
@@ -80,7 +46,7 @@ func TestLiteral(t *testing.T) {
 
 	r := &Decoder{
 		b:   buf,
-		end: int64(len(buf)),
+		end: len(buf),
 	}
 
 	p := make([]byte, 100)
@@ -128,7 +94,7 @@ func TestCopy(t *testing.T) {
 
 	r := &Decoder{
 		b:   buf,
-		end: int64(len(buf)),
+		end: len(buf),
 	}
 
 	p := make([]byte, 100)
@@ -156,23 +122,23 @@ func TestCopy(t *testing.T) {
 
 	tl.Printf("buf  pos %x\n%v", r.pos, hex.Dump(r.block))
 
-	tl.Printw("compression", "ratio", float64(len(buf))/float64(18+17))
+	tl.Printw("compression", "ratio", float64(18+17)/float64(len(buf)))
 }
 
 func TestDumpFile(t *testing.T) {
-	const MaxEvents = 100000
+	const MaxEvents = 800
 
 	f, err := os.Create("/tmp/seen.log")
 	require.NoError(t, err)
 
 	tl = nil
-	tl = tlog.NewTestLogger(t, "",
+	tl = tlog.NewTestLogger(t, "hash",
 		//	tlog.Stderr,
 		//	nil,
 		f,
 	)
 
-	data, err := ioutil.ReadFile("../log.tlog")
+	data, err := ioutil.ReadFile(*fileFlag)
 	if err != nil {
 		t.Skipf("open test data: %v", err)
 	}
@@ -182,7 +148,7 @@ func TestDumpFile(t *testing.T) {
 	var dump, encoded low.Buf
 
 	d := NewDumper(&dump)
-	w := newEncoder(tlog.NewTeeWriter(&encoded, d), 32*1024, 6)
+	w := newEncoder(tlog.NewTeeWriter(&encoded, d), 16*1024, 6)
 
 	st := 0
 	for n := 0; n < MaxEvents && st < len(data); n++ {
@@ -259,7 +225,7 @@ func BenchmarkLogCompressOneline(b *testing.B) {
 
 	b.SetBytes(c.Bytes / int64(b.N))
 
-	b.ReportMetric(float64(len(buf))/float64(c.Bytes), "ratio")
+	b.ReportMetric(float64(c.Bytes)/float64(len(buf)), "ratio")
 }
 
 func BenchmarkLogCompressOnelineText(b *testing.B) {
@@ -286,14 +252,14 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 
 	b.SetBytes(c.Bytes / int64(b.N))
 
-	b.ReportMetric(float64(len(buf))/float64(c.Bytes), "ratio")
+	b.ReportMetric(float64(c.Bytes)/float64(len(buf)), "ratio")
 }
 
 func BenchmarkEncodeFile(b *testing.B) {
 	tl = nil
 	//	tl = tlog.NewTestLogger(b, "", os.Stderr)
 
-	err := loadTestFile(b, "../log.tlog")
+	err := loadTestFile(b, *fileFlag)
 	if err != nil {
 		b.Skipf("loading data: %v", err)
 	}
@@ -324,7 +290,7 @@ func BenchmarkEncodeFile(b *testing.B) {
 
 	//	b.Logf("total written: %x  %x", w.pos, w.pos/len(w.block))
 
-	b.ReportMetric(float64(c.Bytes)/float64(written), "ratio")
+	b.ReportMetric(float64(written)/float64(c.Bytes), "ratio")
 	//	b.ReportMetric(float64(c.Operations)/float64(b.N), "writes/op")
 	b.SetBytes(int64(written / b.N))
 }
