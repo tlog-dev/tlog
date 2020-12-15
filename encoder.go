@@ -228,8 +228,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 		return e.AppendString(b, String, r.String())
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
 		return e.AppendInt(b, r.Int())
-	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8,
-		reflect.Uintptr:
+	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
 		return e.AppendUint(b, Int, r.Uint())
 	case reflect.Float64, reflect.Float32:
 		return e.AppendFloat(b, r.Float())
@@ -287,6 +286,12 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 		}
 	case reflect.Func:
 		return append(b, Special|Undefined)
+	case reflect.Uintptr:
+		b = append(b, Semantic|WireHex)
+		return e.AppendUint(b, Int, uint64(r.Uint()))
+	case reflect.UnsafePointer:
+		b = append(b, Semantic|WireHex)
+		return e.AppendUint(b, Int, uint64(r.Pointer()))
 	default:
 		panic(r)
 	}

@@ -78,10 +78,10 @@ const ( // console writer flags
 	Ltypefunc // pkg.(*Type).Func
 	Lfuncname // Func
 	LUTC
-	Llevel // log level
+	Lloglevel // log level
 
 	LstdFlags = Ldate | Ltime
-	LdetFlags = Ldate | Ltime | Lmicroseconds | Lshortfile | Llevel
+	LdetFlags = Ldate | Ltime | Lmicroseconds | Lshortfile | Lloglevel
 
 	Lnone = 0
 )
@@ -215,15 +215,15 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 		switch {
 		case ks == KeyTime && sub == WireTime:
 			ts, i = w.d.Time(st)
+		case ks == KeyLocation && sub == WireLocation:
+			pc, i = w.d.Location(st)
 		case ks == KeyMessage && sub == WireMessage:
 			m, i = w.d.String(i)
 		case ks == KeyName && sub == WireName && m == nil:
 			nst = i
 			n, i = w.d.String(i)
-		case ks == KeyLogLevel && sub == WireLogLevel:
+		case ks == KeyLogLevel && sub == WireLogLevel && w.f&Lloglevel != 0:
 			lv, i = w.d.LogLevel(st)
-		case ks == KeyLocation && sub == WireLocation:
-			pc, i = w.d.Location(st)
 		default:
 			b, i = w.appendPair(b, k, st)
 		}
@@ -359,7 +359,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 		b = append(b, ' ', ' ')
 	}
 
-	if w.f&Llevel != 0 {
+	if w.f&Lloglevel != 0 {
 		var col []byte
 		switch {
 		case !w.Colorize:
@@ -673,7 +673,7 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 			b = append(b, "<nil>"...)
 		case Undefined:
 			b = append(b, "<undef>"...)
-		case Float32, Float64:
+		case Float64, Float32, FloatInt8:
 			var f float64
 			f, i = w.d.Float(st)
 
@@ -723,14 +723,17 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 				var v int64
 				v, i = w.d.Int(i)
 
-				if v < 0 {
-					b = append(b, "-x"...)
-					v = -v
+				if tag == Neg {
+					b = append(b, "-0x"...)
 				} else {
 					b = append(b, "0x"...)
 				}
 
-				b = strconv.AppendInt(b, v, 16)
+				if v < 0 {
+					v = -v
+				}
+
+				b = strconv.AppendUint(b, uint64(v), 16)
 			case Bytes, String:
 				var s []byte
 				s, i = w.d.String(i)
