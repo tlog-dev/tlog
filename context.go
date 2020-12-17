@@ -17,6 +17,32 @@ func ContextWithLogger(ctx context.Context, l *Logger) context.Context {
 	return context.WithValue(ctx, ctxloggerkey{}, l)
 }
 
+func LoggerFromContext(ctx context.Context) (l *Logger) {
+	v := ctx.Value(ctxspankey{})
+	s, ok := v.(Span)
+	if ok {
+		return s.Logger
+	}
+
+	v = ctx.Value(ctxloggerkey{})
+	l, ok = v.(*Logger)
+	if ok {
+		return l
+	}
+
+	return nil
+}
+
+func LoggerOrDefaultFromContext(ctx context.Context) (l *Logger) {
+	l = LoggerFromContext(ctx)
+
+	if l == nil {
+		l = DefaultLogger
+	}
+
+	return
+}
+
 // ContextWithID creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
 func ContextWithID(ctx context.Context, id ID) context.Context {
@@ -51,7 +77,7 @@ func ContextWithIDOrRandom(ctx context.Context, id ID) context.Context {
 // ContextWithSpan creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
 func ContextWithSpan(ctx context.Context, s Span) context.Context {
-	if s.ID == (ID{}) {
+	if s.Logger == nil {
 		return ctx
 	}
 	return context.WithValue(ctx, ctxspankey{}, s)
@@ -91,12 +117,7 @@ func SpawnFromContext(ctx context.Context, name string, kvs ...interface{}) Span
 		return newspan(s.Logger, s.ID, 0, name, kvs)
 	}
 
-	v = ctx.Value(ctxloggerkey{})
-	l, ok := v.(*Logger)
-	if !ok {
-		l = DefaultLogger
-	}
-
+	l := LoggerOrDefaultFromContext(ctx)
 	if l == nil {
 		return Span{}
 	}
@@ -119,12 +140,7 @@ func SpawnOrStartFromContext(ctx context.Context, name string, kvs ...interface{
 		return newspan(s.Logger, s.ID, 0, name, kvs)
 	}
 
-	v = ctx.Value(ctxloggerkey{})
-	l, ok := v.(*Logger)
-	if !ok {
-		l = DefaultLogger
-	}
-
+	l := LoggerOrDefaultFromContext(ctx)
 	if l == nil {
 		return Span{}
 	}

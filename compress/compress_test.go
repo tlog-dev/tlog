@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -57,7 +57,6 @@ func (w TeeWriter) Close() (err error) {
 		}
 
 		e := c.Close()
-
 		if err == nil {
 			err = e
 		}

@@ -60,16 +60,16 @@ const (
 
 // Predefined keys
 var (
-	KeyTime     = "t"
-	KeySpan     = "s"
-	KeyParent   = "p"
-	KeyMessage  = "m"
-	KeyName     = "n"
-	KeyElapsed  = "e"
-	KeyLocation = "l"
-	KeyLabels   = "L"
-	KeyType     = "T"
-	KeyLogLevel = "i"
+	KeyTime      = "t"
+	KeySpan      = "s"
+	KeyParent    = "p"
+	KeyMessage   = "m"
+	KeyName      = "n"
+	KeyElapsed   = "e"
+	KeyLocation  = "l"
+	KeyLabels    = "L"
+	KeyEventType = "T"
+	KeyLogLevel  = "i"
 )
 
 // Metric types
@@ -130,7 +130,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		l.appendBuf(KeyLocation, lc)
 	}
 
-	if msg != nil {
+	if msg != nil && msg != Message("") {
 		l.appendBuf(KeyMessage, msg)
 	}
 
@@ -165,7 +165,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		l.appendBuf(KeyLocation, lc)
 	}
 
-	l.appendBuf(KeyType, "s")
+	l.appendBuf(KeyEventType, EventType("s"))
 
 	if par != (ID{}) {
 		l.appendBuf(KeyParent, par)
@@ -203,7 +203,7 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 		l.appendBuf(KeyTime, t)
 	}
 
-	l.appendBuf(KeyType, "v")
+	l.appendBuf(KeyEventType, EventType("v"))
 
 	l.appendBuf(name, v)
 
@@ -226,7 +226,7 @@ func (s Span) Finish(kvs ...interface{}) {
 	defer s.Logger.clearBuf()
 
 	s.Logger.appendBuf(KeySpan, s.ID)
-	s.Logger.appendBuf(KeyType, "f")
+	s.Logger.appendBuf(KeyEventType, EventType("f"))
 
 	if el != 0 {
 		s.Logger.appendBuf(KeyElapsed, el)
@@ -544,7 +544,7 @@ func RegisterMetric(name, typ, help string, kvs ...interface{}) {
 
 func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 	l.Event2([]interface{}{
-		KeyType, "m",
+		KeyEventType, EventType("m"),
 		KeyName, Name(name),
 		"type", typ,
 		"help", help,

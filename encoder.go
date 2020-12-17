@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 )
@@ -14,16 +15,19 @@ import (
 type (
 	Encoder struct {
 		io.Writer
-		pos int
+		pos int64
 
 		Labels Labels
 		ls     map[loc.PC]struct{}
+
+		newLabels Labels
 
 		b []byte
 	}
 
 	Message   string
 	Name      string
+	EventType string
 	LogLevel  int
 	Timestamp int64
 	Hex       int64
@@ -33,6 +37,10 @@ type (
 	Format struct {
 		Fmt  string
 		Args []interface{}
+	}
+
+	RotatedError interface {
+		IsRotated() bool
 	}
 )
 
@@ -79,27 +87,34 @@ const (
 
 // semantic types
 const (
-	WireMeta = iota
+	WireHeader = iota
 	WireTime
 	WireDuration
 	WireMessage
 	WireName
+
 	WireError
 	WireID
 	WireLabels
 	WireLocation
+	WireEventType
+
 	WireHex
 	WireLogLevel
 )
+
+func (e *Encoder) resetRotated() {
+	e.pos = 0
+
+	for l := range e.ls {
+		delete(e.ls, l)
+	}
+}
 
 func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 	if e.ls == nil {
 		e.ls = make(map[loc.PC]struct{})
 	}
-
-	//	old := e.Labels
-
-	e.b = e.b[:0]
 
 	l := e.calcMapLen(hdr)
 	for _, kvs := range kvs {
@@ -108,6 +123,13 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 
 	if l == 0 {
 		return nil
+	}
+
+again:
+	e.b = e.b[:0]
+
+	if e.pos == 0 {
+		e.b = e.appendHeader(e.b)
 	}
 
 	e.b = e.AppendTag(e.b, Map, l)
@@ -122,10 +144,45 @@ func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
 		}
 	}
 
-	l, err = e.Write(e.b)
-	e.pos += l
+	n, err := e.Write(e.b)
+	e.pos += int64(n)
+
+	if err == nil {
+		return nil
+	}
+
+	var rot RotatedError
+	if errors.As(err, &rot) && rot.IsRotated() {
+		e.resetRotated()
+
+		goto again
+	}
+
+	if e.newLabels != nil {
+		e.Labels = e.newLabels
+		e.newLabels = nil
+	}
 
 	return err
+}
+
+func (e *Encoder) appendHeader(b []byte) []byte {
+	//	b = append(b, Semantic|WireHeader, Map|1)
+	//	b = e.AppendString(b, String, "tlog")
+	//	b = e.AppendString(b, String, "v0")
+
+	// labels as usual event
+
+	if len(e.Labels) == 0 {
+		return b
+	}
+
+	b = e.AppendTag(b, Map, 1)
+
+	b = e.AppendString(b, String, KeyLabels)
+	b = e.AppendLabels(b, e.Labels)
+
+	return b
 }
 
 func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
@@ -155,8 +212,16 @@ func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 
 func (e *Encoder) encodeKVs(kvs ...interface{}) {
 	for i := 0; i < len(kvs); {
-		e.b = e.AppendString(e.b, String, kvs[i].(string))
+		k := kvs[i].(string)
 		i++
+
+		e.b = e.AppendString(e.b, String, k)
+
+		if k == KeyLabels {
+			if ls, ok := kvs[i].(Labels); ok {
+				e.newLabels = ls
+			}
+		}
 
 		switch v := kvs[i].(type) {
 		case FormatNext:
@@ -185,6 +250,8 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 		return e.AppendInt(b, int64(v))
 	case float64:
 		return e.AppendFloat(b, v)
+	case ID:
+		return e.AppendID(b, v)
 	case Hex:
 		b = append(b, Semantic|WireHex)
 		return e.AppendInt(b, int64(v))
@@ -197,12 +264,13 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	case time.Duration:
 		b = append(b, Semantic|WireDuration)
 		return e.AppendUint(b, Int, uint64(v.Nanoseconds()))
-	case ID:
-		return e.AppendID(b, v)
 	case loc.PC:
 		return e.AppendLoc(b, v, true)
 	case Format:
 		return e.AppendFormat(b, v.Fmt, v.Args...)
+	case EventType:
+		b = append(b, Semantic|WireEventType)
+		return e.AppendString(b, String, string(v))
 	case Labels:
 		return e.AppendLabels(b, v)
 	case LogLevel:

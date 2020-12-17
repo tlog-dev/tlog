@@ -1,7 +1,7 @@
 package tlog
 
 import (
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 	"golang.org/x/crypto/ssh/terminal"
@@ -165,6 +166,7 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 			fmt.Fprintf(w.Writer, "parse error: %v (pos %x)\n", err, i)
 		}
 		fmt.Fprintf(w.Writer, "dump\n%v", Dump(p))
+		fmt.Fprintf(w.Writer, "hex dump\n%v", hex.Dump(p))
 
 		s := debug.Stack()
 		fmt.Fprintf(w.Writer, "%s", s)
@@ -180,10 +182,17 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 	var nst int
 	b := w.b
 
+again:
 	tag, els, i := w.d.Tag(i)
 	if err = w.d.Err(); err != nil {
 		return
 	}
+
+	if tag == Semantic && els == WireHeader {
+		i = w.d.Skip(i)
+		goto again
+	}
+
 	if tag != Map {
 		return 0, errors.New("expected map")
 	}

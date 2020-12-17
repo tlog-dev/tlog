@@ -4,6 +4,7 @@ import (
 	"io"
 	"unsafe"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 )
@@ -22,6 +23,10 @@ type (
 		ht    []uint32
 		hmask uintptr
 		hsh   uint
+	}
+
+	RotatedError interface {
+		IsRotated() bool
 	}
 )
 
@@ -94,6 +99,11 @@ func newEncoder(w io.Writer, bs, ss int) *Encoder {
 
 func (w *Encoder) Reset(wr io.Writer) {
 	w.Writer = wr
+
+	w.reset()
+}
+
+func (w *Encoder) reset() {
 	w.pos = 0
 	for i := 0; i < len(w.block); {
 		i += copy(w.block[i:], zeros)
@@ -104,12 +114,14 @@ func (w *Encoder) Reset(wr io.Writer) {
 }
 
 func (w *Encoder) Write(p []byte) (done int, err error) {
+	ht := (*[1 << 20]uint32)(unsafe.Pointer(&w.ht[0]))[:]
+	const hmask = 1<<20 - 1
+
+	w.b = w.b[:0]
+
 	if w.pos == 0 {
 		w.b = w.appendHeader(w.b)
 	}
-
-	ht := (*[1 << 20]uint32)(unsafe.Pointer(&w.ht[0]))[:]
-	const hmask = 1<<20 - 1
 
 	start := int(w.pos)
 
@@ -208,9 +220,16 @@ func (w *Encoder) Write(p []byte) (done int, err error) {
 	n, err := w.Writer.Write(w.b)
 	w.written += int64(n)
 
-	w.b = w.b[:0]
+	var rot RotatedError
+	if errors.As(err, &rot) && rot.IsRotated() {
+		w.reset()
+	}
 
 	if err != nil {
+		if n == len(w.b) {
+			return done, err
+		}
+
 		return 0, err
 	}
 

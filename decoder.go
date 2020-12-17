@@ -1,10 +1,10 @@
 package tlog
 
 import (
-	"fmt"
 	"io"
 	"math"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 )
@@ -445,7 +445,7 @@ func (d *Decoder) more(st, end int) bool {
 	}
 
 	if d.Reader == nil {
-		d.newErr(st, "short buffer, no reader")
+		d.wrapErr(st, io.ErrUnexpectedEOF, "short buffer, no reader")
 		return false
 	}
 
@@ -483,12 +483,22 @@ more:
 	goto more
 }
 
+func (d *Decoder) wrapErr(i int, err error, f string, args ...interface{}) {
+	if d.err != nil {
+		return
+	}
+
+	d.err = errors.Wrap(err, f, args...)
+	d.err = errors.Wrap(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
+}
+
 func (d *Decoder) newErr(i int, f string, args ...interface{}) {
 	if d.err != nil {
 		return
 	}
 
-	d.err = fmt.Errorf("%w (pos %x (%x) of %x) (%v)", fmt.Errorf(f, args...), i, (d.ref + i), len(d.b), loc.Callers(2, 3))
+	d.err = errors.New(f, args...)
+	d.err = errors.Wrap(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
 }
 
 func (d *Decoder) Err() error {
@@ -608,6 +618,8 @@ func (w *Dumper) dump(st, d int) (i int) {
 
 func Dump(p []byte) string {
 	var d Dumper
+	d.NoGlobalOffset = true
+
 	d.Write(p)
 
 	return string(d.b)
