@@ -1,13 +1,26 @@
 package tlflag
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/compress"
+)
+
+type (
+	nopCloser struct {
+		io.Reader
+		io.Writer
+	}
+
+	readCloser struct {
+		io.Reader
+		io.Closer
+	}
 )
 
 var OpenFile = os.OpenFile
@@ -47,7 +60,7 @@ func updateConsoleLoggerOptions(w *tlog.ConsoleWriter, s string) {
 	}
 }
 
-func ParseDestination(dst string) (w io.Writer, err error) {
+func OpenWriter(dst string) (w io.WriteCloser, err error) {
 	var ws tlog.TeeWriter
 
 	defer func() {
@@ -65,7 +78,7 @@ func ParseDestination(dst string) (w io.Writer, err error) {
 
 		var opts string
 		ff := tlog.LstdFlags
-		of := os.O_APPEND
+		of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
 		if p := strings.IndexByte(d, ':'); p != -1 {
 			opts = d[p+1:]
 			d = d[:p]
@@ -73,62 +86,135 @@ func ParseDestination(dst string) (w io.Writer, err error) {
 			ff, of = UpdateFlags(ff, of, opts)
 		}
 
-		ext := filepath.Ext(d)
-
-		switch ext {
-		case "", ".log", ".tl", ".tlog", ".dump": //, ".proto", ".json":
-		default:
-			err = fmt.Errorf("unsupported file type: %v", ext)
-			return
-		}
-
-		var fw io.Writer
-		var fc io.Closer
-
-		if fn := strings.TrimSuffix(d, ext); fn == "stderr" || fn == "-" || fn == "" {
-			fw = tlog.Stderr
-		} else {
-			var f *os.File
-			f, err = OpenFile(d, os.O_CREATE|os.O_WRONLY|of, 0644)
-			if err != nil {
-				return
-			}
-
-			fw = f
-			fc = f
-		}
-
-		var w io.Writer
-		switch ext {
-		case ".tl", ".tlog":
-			w = fw
-		case ".dump":
-			w = tlog.NewDumper(fw)
-		case "", ".log":
-			cw := tlog.NewConsoleWriter(fw, ff)
-
-			updateConsoleLoggerOptions(cw, opts)
-
-			w = cw
-			//	case ".proto":
-			//		w = tlog.NewProtoWriter(fw)
-			//	case ".json":
-			//		w = tlog.NewJSONWriter(fw)
-		}
-
-		if fc != nil {
-			w = tlog.WriteCloser{
-				Writer: w,
-				Closer: fc,
-			}
+		w, err = openw(d, d, ff, of, 0644)
+		if err != nil {
+			return nil, errors.Wrap(err, "%v", d)
 		}
 
 		ws = append(ws, w)
 	}
 
 	if len(ws) == 1 {
-		return ws[0], nil
+		var ok bool
+		if w, ok = ws[0].(io.WriteCloser); ok {
+			return w, nil
+		}
+
+		return nopCloser{
+			Writer: ws[0],
+		}, nil
 	}
 
 	return ws, nil
+}
+
+func openw(fn, fmt string, ff, of int, mode os.FileMode) (w io.WriteCloser, err error) {
+	ext := filepath.Ext(fmt)
+
+	switch ext {
+	case ".tlog", ".tl", ".dump", ".log", "":
+		switch strings.TrimSuffix(fmt, ext) {
+		case "", "stderr":
+			w = nopCloser{Writer: os.Stderr}
+		case "-", "stdout":
+			w = nopCloser{Writer: os.Stdout}
+		default:
+			w, err = OpenFile(fn, of, mode)
+		}
+	case ".ez":
+		w, err = openw(fn, strings.TrimSuffix(fmt, ext), ff, of, mode)
+	default:
+		err = errors.New("unsupported file ext: %v", ext)
+	}
+
+	if err != nil {
+		return
+	}
+
+	cl, _ := w.(io.Closer)
+
+	var ww io.Writer
+	switch ext {
+	case ".tlog", ".tl":
+	case ".dump":
+		ww = tlog.NewDumper(w)
+	case ".ez":
+		ww = compress.NewEncoder(w, 1<<20)
+	case ".log", "":
+		ww = tlog.NewConsoleWriter(w, ff)
+	}
+
+	if ww != nil {
+		w = tlog.WriteCloser{
+			Writer: ww,
+			Closer: cl,
+		}
+	}
+
+	return w, nil
+}
+
+func OpenReader(src string) (r io.ReadCloser, err error) {
+	return openr(src, src)
+}
+
+func openr(fn, fmt string) (r io.ReadCloser, err error) {
+	ext := filepath.Ext(fmt)
+
+	switch ext {
+	case ".tlog", ".tl", "":
+		switch strings.TrimSuffix(fmt, ext) {
+		case "", "-", "stdin":
+			r = nopCloser{Reader: os.Stdin}
+		default:
+			r, err = OpenFile(fn, os.O_RDONLY, 0)
+		}
+	case ".ez":
+		r, err = openr(fn, strings.TrimSuffix(fmt, ext))
+	default:
+		err = errors.New("unsupported file ext: %v", ext)
+	}
+
+	if err != nil {
+		return
+	}
+
+	cl, _ := r.(io.Closer)
+
+	var rr io.Reader
+	switch ext {
+	case ".tlog", ".tl", "":
+	case ".ez":
+		rr = compress.NewDecoder(r)
+	}
+
+	if rr != nil {
+		r = readCloser{
+			Reader: rr,
+			Closer: cl,
+		}
+	}
+
+	return
+}
+
+func (nopCloser) Close() error { return nil }
+
+func (c nopCloser) Fd() uintptr {
+	if c.Writer == nil {
+		return 1<<64 - 1
+	}
+
+	switch f := c.Writer.(type) {
+	case interface {
+		Fd() uintptr
+	}:
+		return f.Fd()
+	case interface {
+		Fd() int
+	}:
+		return uintptr(f.Fd())
+	}
+
+	return 1<<64 - 1
 }
