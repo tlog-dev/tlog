@@ -148,10 +148,6 @@ again:
 	n, err := e.Write(e.b)
 	e.pos += int64(n)
 
-	if err == nil {
-		return nil
-	}
-
 	var rot RotatedError
 	if errors.As(err, &rot) && rot.IsRotated() {
 		e.resetRotated()
@@ -159,12 +155,16 @@ again:
 		goto again
 	}
 
+	if err != nil {
+		return err
+	}
+
 	if e.newLabels != nil {
 		e.Labels = e.newLabels
 		e.newLabels = nil
 	}
 
-	return err
+	return nil
 }
 
 func (e *Encoder) appendHeader(b []byte) []byte {
@@ -221,6 +221,7 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 		if k == KeyLabels {
 			if ls, ok := kvs[i].(Labels); ok {
 				e.newLabels = ls
+				e.Labels = nil
 			}
 		}
 

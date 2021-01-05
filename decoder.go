@@ -450,7 +450,7 @@ func (d *Decoder) more(st, end int) bool {
 	}
 
 	if d.Reader == nil {
-		d.wrapErr(st, io.ErrUnexpectedEOF, "short buffer, no reader")
+		d.wrapErr(st, io.ErrUnexpectedEOF, "short buffer, no reader (end %x)", end)
 		return false
 	}
 

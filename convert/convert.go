@@ -50,7 +50,15 @@ file:
 
 			err = d.Err()
 			if errors.Is(err, io.ErrUnexpectedEOF) {
-				i = copy(b, b[i:n])
+				if i == 0 {
+					q := make([]byte, len(b)*2)
+					copy(q, b)
+					b = q
+
+					i = n
+				} else {
+					i = copy(b, b[i:n])
+				}
 
 				continue file
 			}

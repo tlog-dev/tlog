@@ -291,7 +291,7 @@ func (r *Decoder) more(l int) bool {
 		return true
 	}
 
-	//	tl.Printw("more", "r.i", r.i, "r.end", r.end, "len", l)
+	//	tl.PrintwDepth(1, "more", "r.i", r.i, "r.end", r.end, "len", l)
 
 	if r.Reader == nil {
 		if r.i == r.end {
