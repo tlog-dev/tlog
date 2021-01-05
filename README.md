@@ -258,7 +258,7 @@ Then you may get function name, file name and file line for each frame.
 ```go
 funcName, fileName, fileLine := l.NameFileLine()
 funcName, fileName, fileLine = s[2].NameFileLine()
-tlog.Printf("called from here: %#v", l.String())
+tlog.Printf("called from here: %#v", l)
 tlog.Printf("crashed\n%v", tlog.Callers(0, 10))
 ```
 
@@ -274,7 +274,7 @@ to process data, send it to external services or serve requests as part of distr
 It supports the same flags as stdlib `log` plus some extra.
 ```go
 var w io.Writer = os.Stderr // could be any writer
-tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(w, tlog.LstdFlags | tlog.Milliseconds))
+tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(w, tlog.LstdFlags | tlog.Lmilliseconds))
 ```
 
 ## JSONWriter
@@ -284,14 +284,14 @@ Encodes logs in a compact way to analyze them later. It only needs `io.Writer`.
 file, err := // ...
 // if err ...
 var w io.Writer = file // could be os.Stderr or net.Conn...
-tlog.DefailtLogger = tlog.New(recoder.NewJSON(w))
+tlog.DefailtLogger = tlog.New(convert.NewJSON(w))
 ```
 
 ## ProtoWriter
 
 Ptotobuf encoding is compact and fast.
 ```go
-_ = recored.NewProto(w)
+_ = convert.NewProto(w)
 ```
 
 ## TeeWriter
@@ -301,7 +301,7 @@ It works similar to `io.MultiWriter` but writes to all writers regardless of err
 
 ```go
 cw := tlog.NewConsoleWriter(os.Stderr, tlog.LdetFlags)
-jw := recoder.NewJSON(file)
+jw := convert.NewJSON(file)
 w := tlog.NewTeeWriter(cw, jw) // order is important. In that order messages will be passed to writers.
 l := tlog.New(w)
 ```

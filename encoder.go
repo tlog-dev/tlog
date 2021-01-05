@@ -26,7 +26,6 @@ type (
 	}
 
 	Message   string
-	Name      string
 	EventType string
 	LogLevel  int
 	Timestamp int64
@@ -61,12 +60,14 @@ const (
 
 // len
 const (
-	_ = 1<<5 - iota
-	LenBreak
-	Len8
-	Len4
+	Len1 = 24 + iota
 	Len2
-	Len1
+	Len4
+	Len8
+	_
+	_
+	_
+	LenBreak
 )
 
 // specials
@@ -75,6 +76,7 @@ const (
 	True
 	Null
 	Undefined
+
 	FloatInt8
 	Float16
 	Float32
@@ -91,16 +93,15 @@ const (
 	WireTime
 	WireDuration
 	WireMessage
-	WireName
+	WireID
 
 	WireError
-	WireID
 	WireLabels
 	WireLocation
 	WireEventType
+	WireLogLevel
 
 	WireHex
-	WireLogLevel
 )
 
 func (e *Encoder) resetRotated() {
@@ -240,9 +241,6 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 		return append(b, Special|Null)
 	case Message:
 		b = append(b, Semantic|WireMessage)
-		return e.AppendString(b, String, string(v))
-	case Name:
-		b = append(b, Semantic|WireName)
 		return e.AppendString(b, String, string(v))
 	case string:
 		return e.AppendString(b, String, v)

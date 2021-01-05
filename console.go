@@ -178,8 +178,7 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 	var ts Timestamp
 	var pc loc.PC
 	var lv LogLevel
-	var m, n []byte
-	var nst int
+	var m []byte
 	b := w.b
 
 again:
@@ -228,9 +227,6 @@ again:
 			pc, i = w.d.Location(st)
 		case ks == KeyMessage && sub == WireMessage:
 			m, i = w.d.String(i)
-		case ks == KeyName && sub == WireName && m == nil:
-			nst = i
-			n, i = w.d.String(i)
 		case ks == KeyLogLevel && sub == WireLogLevel && w.f&Lloglevel != 0:
 			lv, i = w.d.LogLevel(st)
 		default:
@@ -240,15 +236,6 @@ again:
 
 	if err = w.d.Err(); err != nil {
 		return
-	}
-
-	if m == nil {
-		m = n
-		n = nil
-	}
-
-	if n != nil {
-		b, _ = w.appendPair(b, stringToBytes(KeyName), nst)
 	}
 
 	h := w.h
@@ -532,7 +519,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 		}
 	}
 
-	if len(m) >= w.MessageWidth {
+	if len(m) >= w.MessageWidth && blen != 0 {
 		b = append(b, ' ', ' ')
 	}
 

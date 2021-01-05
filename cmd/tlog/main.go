@@ -30,7 +30,7 @@ func main() {
 			cli.HelpFlag,
 		},
 		Commands: []*cli.Command{{
-			Name:   "convert",
+			Name:   "convert,conv,c",
 			Action: conv,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
@@ -74,6 +74,17 @@ func conv(c *cli.Command) error {
 			err = e
 		}
 	}()
+
+	/*
+		if q := c.String("clickhouse"); q != "" {
+			db, err := tldb.OpenClickhouse(q)
+			if err != nil {
+				return errors.Wrap(err, "clickhouse")
+			}
+
+			w = tlog.NewTeeWriter(w, db)
+		}
+	*/
 
 	//	tlog.Printf("writer: %T %[1]v", w)
 

@@ -9,6 +9,7 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
+	"github.com/nikandfor/tlog/rotated"
 )
 
 type (
@@ -119,7 +120,15 @@ func openw(fn, fmt string, ff, of int, mode os.FileMode) (w io.WriteCloser, err 
 		case "-", "stdout":
 			w = nopCloser{Writer: os.Stdout}
 		default:
-			w, err = OpenFile(fn, of, mode)
+			if strings.ContainsRune(fn, rotated.SubstChar) {
+				f := rotated.Create(fn)
+				f.Flags = of
+				f.MaxSize = 128 * rotated.MB
+
+				w = f
+			} else {
+				w, err = OpenFile(fn, of, mode)
+			}
 		}
 	case ".ez":
 		w, err = openw(fn, strings.TrimSuffix(fmt, ext), ff, of, mode)

@@ -23,19 +23,20 @@ func Copy(w io.Writer, r io.Reader) (err error) {
 
 file:
 	for { // loop over the file
-		if i != 0 {
-			i = copy(b, b[i:])
-		}
-
 		n, err := r.Read(b[i:])
 		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
+			if n == 0 {
+				if i == 0 {
+					return nil
+				} else {
+					return io.ErrUnexpectedEOF
+				}
+			}
+		} else if err != nil {
 			return errors.Wrap(err, "read")
 		}
 
-		//	tlog.Printf("read from %x another %x byte", i, n)
+		//	tlog.Printf("read from %4x another %4x bytes [% .6x]", i, n, b[i:])
 
 		n += i
 		i = 0
@@ -45,10 +46,12 @@ file:
 		for i < n { // loop over the buffer
 			end := d.Skip(i)
 
-			//	tlog.Printf("skip %x to end %x  of %x  err %v", i, end, n, d.Err())
+			//	tlog.Printf("skip from %4x to end %4x  of %4x  err %v", i, end, n, d.Err())
 
-			e := d.Err()
-			if errors.Is(e, io.ErrUnexpectedEOF) {
+			err = d.Err()
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				i = copy(b, b[i:n])
+
 				continue file
 			}
 
@@ -56,12 +59,14 @@ file:
 				return errors.Wrap(err, "parse")
 			}
 
-			_, e = w.Write(b[i:end])
-			if e != nil {
-				return errors.Wrap(e, "write")
+			_, err = w.Write(b[i:end])
+			if err != nil {
+				return errors.Wrap(err, "write")
 			}
 
 			i = end
 		}
+
+		i = 0
 	}
 }

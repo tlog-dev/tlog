@@ -280,7 +280,7 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 
 	switch sub {
 	case FloatInt8:
-		if !d.more(st, 1) {
+		if !d.more(st, i+1) {
 			return
 		}
 
@@ -289,7 +289,7 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 
 		return float64(q), i
 	case Float32:
-		if !d.more(st, 4) {
+		if !d.more(st, i+4) {
 			return
 		}
 
@@ -298,7 +298,7 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 
 		return float64(math.Float32frombits(q)), i
 	case Float64:
-		if !d.more(st, 8) {
+		if !d.more(st, i+8) {
 			return
 		}
 
@@ -307,7 +307,6 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 		i += 8
 
 		return math.Float64frombits(q), i
-	case -1:
 	default:
 		d.newErr(st, "unsupported float specials: %x", sub)
 	}
@@ -330,31 +329,31 @@ func (d *Decoder) Int(st int) (v int64, i int) {
 	v = int64(d.b[i] & TypeDetMask)
 	i++
 
-	switch v {
-	case LenBreak:
-		d.newErr(st, "unsupported break in int")
-	case Len1:
+	switch {
+	case v < Len1:
+		// v = v
+	case v == Len1:
 		if !d.more(st, i+1) {
 			return -1, i
 		}
 
 		v = int64(d.b[i])
 		i++
-	case Len2:
+	case v == Len2:
 		if !d.more(st, i+2) {
 			return -1, i
 		}
 
 		v = int64(d.b[i])<<8 | int64(d.b[i+1])
 		i += 2
-	case Len4:
+	case v == Len4:
 		if !d.more(st, i+4) {
 			return -1, i
 		}
 
 		v = int64(d.b[i])<<24 | int64(d.b[i+1])<<16 | int64(d.b[i+2])<<8 | int64(d.b[i+3])
 		i += 4
-	case Len8:
+	case v == Len8:
 		if !d.more(st, i+8) {
 			return -1, i
 		}
@@ -362,6 +361,8 @@ func (d *Decoder) Int(st int) (v int64, i int) {
 		v = int64(d.b[i])<<56 | int64(d.b[i+1])<<48 | int64(d.b[i+2])<<40 | int64(d.b[i+3])<<32 |
 			int64(d.b[i+4])<<24 | int64(d.b[i+5])<<16 | int64(d.b[i+6])<<8 | int64(d.b[i+7])
 		i += 8
+	default:
+		d.newErr(st, "unsupported int len: %v", v)
 	}
 
 	if tag == Neg {
@@ -385,37 +386,41 @@ func (d *Decoder) Tag(st int) (tag, sub, i int) {
 		return
 	}
 
-	switch sub {
-	case LenBreak:
-		sub = -1
-	case Len1:
+	switch {
+	case sub < Len1:
+		// sub = sub
+	case sub == Len1:
 		if !d.more(st, i+1) {
 			return -1, -1, i
 		}
 
 		sub = int(d.b[i])
 		i++
-	case Len2:
+	case sub == Len2:
 		if !d.more(st, i+2) {
 			return -1, -1, i
 		}
 
 		sub = int(d.b[i])<<8 | int(d.b[i+1])
 		i += 2
-	case Len4:
+	case sub == Len4:
 		if !d.more(st, i+4) {
 			return -1, -1, i
 		}
 
 		sub = int(d.b[i])<<24 | int(d.b[i+1])<<16 | int(d.b[i+2])<<8 | int(d.b[i+3])
 		i += 4
-	case Len8:
+	case sub == Len8:
 		if !d.more(st, i+8) {
 			return -1, -1, i
 		}
 
 		sub = int(d.b[i])<<56 | int(d.b[i+1])<<48 | int(d.b[i+2])<<40 | int(d.b[i+3])<<32 | int(d.b[i+4])<<24 | int(d.b[i+5])<<16 | int(d.b[i+6])<<8 | int(d.b[i+7])
 		i += 8
+	case sub == LenBreak:
+		sub = -1
+	default:
+		d.newErr(st, "unsupported int len: %v", sub)
 	}
 
 	return
@@ -488,8 +493,8 @@ func (d *Decoder) wrapErr(i int, err error, f string, args ...interface{}) {
 		return
 	}
 
-	d.err = errors.Wrap(err, f, args...)
-	d.err = errors.Wrap(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
+	d.err = errors.WrapDepth(err, 1, f, args...)
+	d.err = errors.WrapNoLoc(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
 }
 
 func (d *Decoder) newErr(i int, f string, args ...interface{}) {
@@ -497,8 +502,8 @@ func (d *Decoder) newErr(i int, f string, args ...interface{}) {
 		return
 	}
 
-	d.err = errors.New(f, args...)
-	d.err = errors.Wrap(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
+	d.err = errors.NewDepth(1, f, args...)
+	d.err = errors.WrapNoLoc(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
 }
 
 func (d *Decoder) Err() error {

@@ -114,9 +114,6 @@ func (w *Encoder) reset() {
 }
 
 func (w *Encoder) Write(p []byte) (done int, err error) {
-	ht := (*[1 << 20]uint32)(unsafe.Pointer(&w.ht[0]))[:]
-	const hmask = 1<<20 - 1
-
 	w.b = w.b[:0]
 
 	if w.pos == 0 {
@@ -131,8 +128,8 @@ func (w *Encoder) Write(p []byte) (done int, err error) {
 		//	h &= w.hmask
 		h := *(*uint32)(unsafe.Pointer(&p[i])) * 0x1e35a7bd >> w.hsh
 
-		pos := int(ht[h&hmask])
-		ht[h&hmask] = uint32(start + i)
+		pos := int(w.ht[h])
+		w.ht[h] = uint32(start + i)
 
 		if int(w.pos)-pos > len(w.block) || pos-int(w.pos) > 0 {
 			i++
@@ -205,7 +202,7 @@ func (w *Encoder) Write(p []byte) (done int, err error) {
 		w.appendCopy(st, end)
 
 		h = *(*uint32)(unsafe.Pointer(&p[i+1])) * 0x1e35a7bd >> w.hsh
-		ht[h&hmask] = uint32(start + i + 1)
+		w.ht[h] = uint32(start + i + 1)
 
 		i = iend
 		done = iend

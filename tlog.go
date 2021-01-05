@@ -64,7 +64,6 @@ var (
 	KeySpan      = "s"
 	KeyParent    = "p"
 	KeyMessage   = "m"
-	KeyName      = "n"
 	KeyElapsed   = "e"
 	KeyLocation  = "l"
 	KeyLabels    = "L"
@@ -117,7 +116,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	defer l.clearBuf()
+	// TODO l.clearBuf
 
 	if id != (ID{}) {
 		l.appendBuf(KeySpan, id)
@@ -135,6 +134,8 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	}
 
 	_ = l.Encoder.Encode(l.buf, kvs)
+
+	l.clearBuf()
 }
 
 func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
@@ -172,7 +173,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	}
 
 	if n != "" {
-		l.appendBuf(KeyName, Name(n))
+		l.appendBuf(KeyMessage, Message(n))
 	}
 
 	_ = l.Encoder.Encode(l.buf, kvs)
@@ -310,6 +311,11 @@ func Printw(msg string, kvs ...interface{}) {
 }
 
 //go:noinline
+func PrintwDepth(d int, msg string, kvs ...interface{}) {
+	newmessage(DefaultLogger, ID{}, d, Message(msg), kvs)
+}
+
+//go:noinline
 func (l *Logger) Printf(f string, args ...interface{}) {
 	newmessage(l, ID{}, 0, Format{Fmt: f, Args: args}, nil)
 }
@@ -320,6 +326,11 @@ func (l *Logger) Printw(msg string, kvs ...interface{}) {
 }
 
 //go:noinline
+func (l *Logger) PrintwDepth(d int, msg string, kvs ...interface{}) {
+	newmessage(l, ID{}, d, Message(msg), kvs)
+}
+
+//go:noinline
 func (s Span) Printf(f string, args ...interface{}) {
 	newmessage(s.Logger, s.ID, 0, Format{Fmt: f, Args: args}, nil)
 }
@@ -327,6 +338,11 @@ func (s Span) Printf(f string, args ...interface{}) {
 //go:noinline
 func (s Span) Printw(msg string, kvs ...interface{}) {
 	newmessage(s.Logger, s.ID, 0, Message(msg), kvs)
+}
+
+//go:noinline
+func (s Span) PrintwDepth(d int, msg string, kvs ...interface{}) {
+	newmessage(s.Logger, s.ID, d, Message(msg), kvs)
 }
 
 func Start(n string, kvs ...interface{}) Span {
@@ -545,7 +561,7 @@ func RegisterMetric(name, typ, help string, kvs ...interface{}) {
 func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 	l.Event2([]interface{}{
 		KeyEventType, EventType("m"),
-		KeyName, Name(name),
+		KeyMessage, name,
 		"type", typ,
 		"help", help,
 	}, kvs)
@@ -565,4 +581,9 @@ func (l *Logger) clearBuf() {
 	}
 
 	l.buf = l.buf[:0]
+}
+
+func TestSetTime(t func() time.Time, ts func() int64) {
+	now = t
+	nano = ts
 }

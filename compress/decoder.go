@@ -303,7 +303,37 @@ func (r *Decoder) more(l int) bool {
 		return false
 	}
 
-	panic("implement")
+	copy(r.b, r.b[r.i:r.end])
+
+	r.ref += int64(r.i)
+	r.end -= r.i
+	r.i = 0
+
+	if len(r.b) == 0 {
+		r.b = make([]byte, 1<<16)
+	}
+
+	for r.end+l > len(r.b) {
+		r.b = append(r.b[:cap(r.b)], 0, 0, 0, 0, 0, 0, 0, 0)
+		r.b = r.b[:cap(r.b)]
+	}
+
+	var err error
+	for r.i+l > r.end && err == nil {
+		var n int
+		n, err = r.Reader.Read(r.b[r.end:])
+		r.end += n
+	}
+
+	if r.i+l <= r.end {
+		err = nil
+	} else if r.i != r.end && err == io.EOF {
+		err = io.ErrUnexpectedEOF
+	}
+
+	r.err = err
+
+	return r.i+l <= r.end
 }
 
 func NewDumper(w io.Writer) *Dumper {

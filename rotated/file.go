@@ -31,16 +31,26 @@ type (
 	RotatedError struct{}
 )
 
-var TimeFormat = "2006-01-02_15-04-05.000"
+const (
+	B = 1 << (iota * 10)
+	KB
+	MB
+	GB
+)
+
+var (
+	SubstChar  = '@'
+	TimeFormat = "2006-01-02_15-04-05.000"
+)
 
 func Create(name string) (f *File) {
 	f = &File{
 		name:          name,
-		MaxSize:       1 << 29, // 128MB
+		MaxSize:       128 * MB,
 		ErrorOnRotate: RotatedError{},
 
 		Flags:    os.O_CREATE | os.O_APPEND | os.O_WRONLY,
-		Mode:     0544,
+		Mode:     0644,
 		OpenFile: OpenFileTimeSubst,
 	}
 
@@ -94,6 +104,20 @@ func (f *File) rotate() (err error) {
 	return
 }
 
+func (f *File) Close() (err error) {
+	defer f.mu.Unlock()
+	f.mu.Lock()
+
+	c, ok := f.w.(io.Closer)
+	if ok {
+		err = c.Close()
+	}
+
+	f.w = nil
+
+	return err
+}
+
 func OpenFileOS(n string, f int, mode os.FileMode) (io.Writer, error) {
 	return os.OpenFile(n, f, mode)
 }
@@ -109,7 +133,7 @@ func OpenFileTimeSubst(base string, f int, mode os.FileMode) (io.Writer, error) 
 func fnameTime(name string, now time.Time) string {
 	uniq := now.Format(TimeFormat)
 
-	if p := strings.LastIndexByte(name, '@'); p != -1 {
+	if p := strings.LastIndexByte(name, byte(SubstChar)); p != -1 {
 		return name[:p] + uniq + name[p+1:]
 	}
 

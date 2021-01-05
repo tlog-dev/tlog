@@ -26,6 +26,14 @@ type (
 )
 
 func NewTeeWriter(ws ...io.Writer) TeeWriter {
+	if len(ws) == 0 {
+		return TeeWriter{}
+	}
+
+	if t, ok := ws[0].(TeeWriter); ok {
+		return append(t, ws[1:]...)
+	}
+
 	return TeeWriter(ws)
 }
 
