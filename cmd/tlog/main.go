@@ -8,14 +8,21 @@ import (
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/ext/tlflag"
+	"github.com/nikandfor/tlog/rotated"
 )
 
 type (
 	ReadCloser struct {
 		io.Reader
 		io.Closer
+	}
+
+	filereader struct {
+		n string
+		f *os.File
 	}
 )
 
@@ -30,16 +37,30 @@ func main() {
 			cli.HelpFlag,
 		},
 		Commands: []*cli.Command{{
-			Name:   "convert,conv,c",
+			Name:   "convert,conv,cat,c",
 			Action: conv,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
 				cli.NewFlag("output,out,o", "-", "output file (empty is stderr, - is stdout)"),
 			},
 		}, {
-			Name:        "seen",
+			Name:        "tlz",
 			Description: "logs compressor/decompressor",
-			Action:      seen,
+			Flags: []*cli.Flag{
+				cli.NewFlag("output,o", "-", "output file (or stdout)"),
+			},
+			Commands: []*cli.Command{{
+				Name:   "compress,c",
+				Action: tlz,
+				Args:   cli.Args{},
+				Flags: []*cli.Flag{
+					cli.NewFlag("block,b", 1*rotated.MB, "compression block size"),
+				},
+			}, {
+				Name:   "decompress,d",
+				Action: tlz,
+				Args:   cli.Args{},
+			}},
 		}},
 	}
 
@@ -120,6 +141,72 @@ func conv(c *cli.Command) error {
 	return nil
 }
 
-func seen(c *cli.Command) error {
+func tlz(c *cli.Command) (err error) {
+	var rs []io.Reader
+	for _, a := range c.Args {
+		if a == "-" {
+			rs = append(rs, os.Stdin)
+		} else {
+			rs = append(rs, &filereader{n: a})
+		}
+	}
+
+	if len(rs) == 0 {
+		rs = append(rs, os.Stdin)
+	}
+
+	var w io.Writer
+	if q := c.String("output"); q == "" || q == "-" {
+		w = os.Stdout
+	} else {
+		f, err := os.Create(q)
+		if err != nil {
+			return errors.Wrap(err, "open output")
+		}
+		defer func() {
+			e := f.Close()
+			if err == nil {
+				err = e
+			}
+		}()
+
+		w = f
+	}
+
+	if c.MainName() == "compress" {
+		e := compress.NewEncoder(w, c.Int("block"))
+
+		for _, r := range rs {
+			_, err = io.Copy(e, r)
+			if err != nil {
+				return errors.Wrap(err, "copy")
+			}
+		}
+	} else {
+		d := compress.NewDecoder(io.MultiReader(rs...))
+
+		_, err = io.Copy(w, d)
+		if err != nil {
+			return errors.Wrap(err, "copy")
+		}
+	}
+
 	return nil
+}
+
+func (f *filereader) Read(p []byte) (n int, err error) {
+	if f.f == nil {
+		f.f, err = os.Open(f.n)
+		if err != nil {
+			return 0, errors.Wrap(err, "open %v", f.n)
+		}
+	}
+
+	n, err = f.f.Read(p)
+
+	if err != nil {
+		_ = f.f.Close()
+	}
+
+	return
 }
