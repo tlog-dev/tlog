@@ -9,6 +9,7 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
+	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/rotated"
 )
 
@@ -113,7 +114,7 @@ func openw(fn, fmt string, ff, of int, mode os.FileMode) (w io.WriteCloser, err 
 	ext := filepath.Ext(fmt)
 
 	switch ext {
-	case ".tlog", ".tl", ".dump", ".log", "":
+	case ".tlog", ".tl", ".dump", ".log", "", ".json":
 		switch strings.TrimSuffix(fmt, ext) {
 		case "", "stderr":
 			w = nopCloser{Writer: os.Stderr}
@@ -151,6 +152,8 @@ func openw(fn, fmt string, ff, of int, mode os.FileMode) (w io.WriteCloser, err 
 		ww = compress.NewEncoder(w, 1<<20)
 	case ".log", "":
 		ww = tlog.NewConsoleWriter(w, ff)
+	case ".json":
+		ww = convert.NewJSONWriter(w)
 	}
 
 	if ww != nil {

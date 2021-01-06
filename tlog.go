@@ -24,6 +24,7 @@ type (
 		NoCaller bool
 
 		buf []interface{}
+		//	bufptr []uintptr // TODO
 
 		filter *filter // accessed by atomic operations
 	}
@@ -116,7 +117,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	// TODO l.clearBuf
+	defer l.clearBuf()
 
 	if id != (ID{}) {
 		l.appendBuf(KeySpan, id)
@@ -135,7 +136,6 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 
 	_ = l.Encoder.Encode(l.buf, kvs)
 
-	l.clearBuf()
 }
 
 func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
@@ -569,6 +569,14 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 
 func (l *Logger) appendBuf(vals ...interface{}) {
 	l.buf = append0(l.buf, vals...)
+
+	/*
+		for _, v := range vals {
+			e := *(*eface)(unsafe.Pointer(&v))
+
+			l.bufptr = append(l.bufptr, e.data)
+		}
+	*/
 }
 
 func append1(b []interface{}, v ...interface{}) []interface{} {
@@ -576,11 +584,22 @@ func append1(b []interface{}, v ...interface{}) []interface{} {
 }
 
 func (l *Logger) clearBuf() {
+	/*
+		for i, v := range l.buf {
+			e := *(*eface)(unsafe.Pointer(&v))
+
+			if e.data != l.bufptr[i] {
+				println("l.buf link changed", i, len(l.buf), fmt.Sprintf("%x %x  %x  %T %[4]v", e.data, l.bufptr[i], e.data-l.bufptr[i], v))
+			}
+		}
+	*/
+
 	for i := 0; i < len(l.buf); {
 		i += copy(l.buf[i:], zeroBuf)
 	}
 
 	l.buf = l.buf[:0]
+	//	l.bufptr = l.bufptr[:0]
 }
 
 func TestSetTime(t func() time.Time, ts func() int64) {

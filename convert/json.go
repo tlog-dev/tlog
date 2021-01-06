@@ -69,6 +69,8 @@ func (w *JSON) appendValue(b []byte, st int) (_ []byte, i int) {
 	case tlog.Bytes:
 		s, i = w.d.String(st)
 
+		b = append(b, '"')
+
 		m := base64.StdEncoding.EncodedLen(len(s))
 		d := len(b)
 
@@ -79,6 +81,8 @@ func (w *JSON) appendValue(b []byte, st int) (_ []byte, i int) {
 		b = b[:d+m]
 
 		base64.StdEncoding.Encode(b[d:], s)
+
+		b = append(b, '"')
 	case tlog.String:
 		s, i = w.d.String(st)
 

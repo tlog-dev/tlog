@@ -1,6 +1,7 @@
 package main
 
 import (
+	"debug/elf"
 	"fmt"
 	"io"
 	"os"
@@ -61,6 +62,11 @@ func main() {
 				Action: tlz,
 				Args:   cli.Args{},
 			}},
+		}, {
+			Name:        "core",
+			Description: "core dump memory dumper",
+			Args:        cli.Args{},
+			Action:      coredump,
 		}},
 	}
 
@@ -189,6 +195,28 @@ func tlz(c *cli.Command) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "copy")
 		}
+	}
+
+	return nil
+}
+
+func coredump(c *cli.Command) (err error) {
+	if c.Args.Len() != 1 {
+		return errors.New("one arg expected")
+	}
+
+	f, err := elf.Open(c.Args.First())
+	if err != nil {
+		return errors.Wrap(err, "open")
+	}
+
+	sym, err := f.Symbols()
+	if err != nil {
+		return errors.Wrap(err, "get symbols")
+	}
+
+	for _, sym := range sym {
+		tlog.Printw("symbol", "sym", sym)
 	}
 
 	return nil
