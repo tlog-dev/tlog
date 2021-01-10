@@ -39,6 +39,33 @@ func TestFileExtWriter(t *testing.T) {
 		convert.NewJSONWriter(tlog.Stderr),
 	}, w)
 
+	w, err = OpenWriter("stderr.json:TU")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		func() *convert.JSON {
+			w := convert.NewJSONWriter(tlog.Stderr)
+
+			w.TimeInUTC = true
+			w.TimeFormat = JSONDefaultTimeFormat
+
+			return w
+		}(),
+	}, w)
+
+	w, err = OpenWriter("stderr.json:T(150405)LU")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		func() *convert.JSON {
+			w := convert.NewJSONWriter(tlog.Stderr)
+
+			w.AttachLabels = true
+			w.TimeInUTC = true
+			w.TimeFormat = "150405"
+
+			return w
+		}(),
+	}, w)
+
 	w, err = OpenWriter("stderr:dm,stderr.json")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{

@@ -23,13 +23,23 @@ var (
 	}
 
 	CompressorBlockSize = compress.MB
+
+	JSONDefaultTimeFormat = "2006-01-02T15:04:05.999999Z07:00"
 )
 
-func UpdateFlags(ff, of int, s string) (_, _ int) {
+func updateFileFlags(of int, s string) int {
+	for _, c := range s {
+		if c == '0' {
+			of |= os.O_TRUNC
+		}
+	}
+
+	return of
+}
+
+func updateConsoleFlags(ff int, s string) int {
 	for _, c := range s {
 		switch c {
-		case '0':
-			of |= os.O_TRUNC
 		case 'd':
 			ff |= tlog.LdetFlags
 		case 'm':
@@ -39,6 +49,7 @@ func UpdateFlags(ff, of int, s string) (_, _ int) {
 		case 'n':
 			ff |= tlog.Lfuncname
 		case 'f':
+			ff &^= tlog.Llongfile
 			ff |= tlog.Lshortfile
 		case 'F':
 			ff &^= tlog.Lshortfile
@@ -48,14 +59,53 @@ func UpdateFlags(ff, of int, s string) (_, _ int) {
 		}
 	}
 
-	return ff, of
+	return ff
 }
 
-func updateConsoleLoggerOptions(w *tlog.ConsoleWriter, s string) {
+func updateConsoleOptions(w *tlog.ConsoleWriter, s string) {
 	for _, c := range s {
 		switch c { //nolint:gocritic
 		case 'S':
 			w.IDWidth = 2 * len(tlog.ID{})
+		}
+	}
+}
+
+func updateJSONOptions(w *convert.JSON, s string) {
+	for i := 0; i < len(s); i++ {
+	out:
+		switch s[i] { //nolint:gocritic
+		case 'L':
+			w.AttachLabels = true
+		case 'U':
+			w.TimeInUTC = true
+		case 't':
+			w.TimeFormat = ""
+		case 'T':
+			w.TimeFormat = JSONDefaultTimeFormat
+
+			if i+1 == len(s) {
+				break
+			}
+
+			cl := byte(')')
+			switch s[i+1] {
+			case '[', '{':
+				cl = s[i+1] + 2
+			case '(':
+			default:
+				break out
+			}
+
+			i += 2
+			p := strings.IndexByte(s[i:], cl)
+			if p == -1 {
+				break
+			}
+
+			w.TimeFormat = s[i : i+p]
+
+			i += p
 		}
 	}
 }
@@ -77,17 +127,16 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 		}
 
 		var opts string
-		ff := tlog.LstdFlags
-		of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
+		//	of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
 		if p := strings.IndexByte(d, ':'); p != -1 {
 			opts = d[p+1:]
 			d = d[:p]
 
-			ff, of = UpdateFlags(ff, of, opts)
+			//		ff, of = updateFlags(ff, of, opts)
 		}
 
 		var w io.Writer
-		w, err = openw(d, ff, of, 0644)
+		w, err = openw(d, opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "%v", d)
 		}
@@ -105,7 +154,7 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 	return ws, nil
 }
 
-func openw(fn string, ff, of int, mode os.FileMode) (wc io.Writer, err error) {
+func openw(fn string, opts string) (wc io.Writer, err error) {
 	// r = openFile(fn)
 	// r = newDecompressor(r)
 	// r = newJSONReader(r)
@@ -115,6 +164,11 @@ func openw(fn string, ff, of int, mode os.FileMode) (wc io.Writer, err error) {
 	// w = newCompressor(w)
 	// w = newJSONWriter(w)
 	// write w
+
+	of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
+	of = updateFileFlags(of, opts)
+
+	mode := os.FileMode(0644)
 
 	var w io.Writer
 	var c io.Closer
@@ -131,8 +185,8 @@ func openw(fn string, ff, of int, mode os.FileMode) (wc io.Writer, err error) {
 			default:
 				if strings.ContainsRune(fn, rotated.SubstChar) {
 					f := rotated.Create(fn)
-					//	f.Flags = of
-					//	f.MaxSize = 128 * rotated.MB
+					f.Flags = of
+					f.MaxSize = 128 * rotated.MB
 
 					w = f
 					c = f
@@ -168,9 +222,20 @@ loop2:
 		case ".ez":
 			w = compress.NewEncoder(w, CompressorBlockSize)
 		case ".log", "":
-			w = tlog.NewConsoleWriter(w, ff)
+			ff := tlog.LstdFlags
+			ff = updateConsoleFlags(ff, opts)
+
+			cw := tlog.NewConsoleWriter(w, ff)
+
+			updateConsoleOptions(cw, opts)
+
+			w = cw
 		case ".json":
-			w = convert.NewJSONWriter(w)
+			jw := convert.NewJSONWriter(w)
+
+			updateJSONOptions(jw, opts)
+
+			w = jw
 		default:
 			panic("missed extension switch case")
 		}

@@ -29,9 +29,8 @@ type (
 
 func NewJSONWriter(w io.Writer) *JSON {
 	return &JSON{
-		Writer:       w,
-		AttachLabels: true,
-		TimeFormat:   "2006-01-02T15:04:05.999999Z07:00",
+		Writer: w,
+		//	TimeFormat: "2006-01-02T15:04:05.999999Z07:00",
 	}
 }
 
@@ -177,8 +176,13 @@ func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
 			var ts tlog.Timestamp
 			ts, i = w.d.Time(st)
 
+			t := time.Unix(0, int64(ts))
+			if w.TimeInUTC {
+				t = t.UTC()
+			}
+
 			b = append(b, '"')
-			b = time.Unix(0, int64(ts)).AppendFormat(b, w.TimeFormat)
+			b = t.AppendFormat(b, w.TimeFormat)
 			b = append(b, '"')
 		case sub == tlog.WireID:
 			var id tlog.ID
