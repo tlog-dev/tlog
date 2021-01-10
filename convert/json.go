@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"io"
 	"strconv"
+	"time"
 
+	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 )
@@ -13,7 +15,13 @@ type (
 	JSON struct {
 		io.Writer
 
+		TimeFormat   string
+		TimeInUTC    bool
+		AttachLabels bool
+
 		d tlog.Decoder
+
+		ls, tmpls tlog.Labels
 
 		b low.Buf
 	}
@@ -21,7 +29,9 @@ type (
 
 func NewJSONWriter(w io.Writer) *JSON {
 	return &JSON{
-		Writer: w,
+		Writer:       w,
+		AttachLabels: true,
+		TimeFormat:   "2006-01-02T15:04:05.999999Z07:00",
 	}
 }
 
@@ -32,22 +42,31 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 	i := 0
 
 	for i < len(p) {
-		b, i = w.appendValue(b, i)
+		b, i = w.appendValue(b, i, 0, nil)
 
 		b = append(b, '\n')
 	}
 
 	w.b = b[:0]
 
+	if err = w.d.Err(); err != nil {
+		return 0, err
+	}
+
 	_, err = w.Writer.Write(b)
 	if err != nil {
 		return 0, err
 	}
 
+	if w.tmpls != nil {
+		w.ls = w.tmpls
+		w.tmpls = nil
+	}
+
 	return len(p), nil
 }
 
-func (w *JSON) appendValue(b []byte, st int) (_ []byte, i int) {
+func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(st)
 	if w.d.Err() != nil {
 		return
@@ -86,7 +105,7 @@ func (w *JSON) appendValue(b []byte, st int) (_ []byte, i int) {
 	case tlog.String:
 		s, i = w.d.String(st)
 
-		b = strconv.AppendQuote(b, low.UnsafeBytesToString(s))
+		b = low.AppendQuote(b, low.UnsafeBytesToString(s))
 
 	case tlog.Array:
 		b = append(b, '[')
@@ -100,7 +119,7 @@ func (w *JSON) appendValue(b []byte, st int) (_ []byte, i int) {
 				b = append(b, ',')
 			}
 
-			b, i = w.appendValue(b, i)
+			b, i = w.appendValue(b, i, d+1, nil)
 		}
 
 		b = append(b, ']')
@@ -116,16 +135,76 @@ func (w *JSON) appendValue(b []byte, st int) (_ []byte, i int) {
 				b = append(b, ',')
 			}
 
-			b, i = w.appendValue(b, i)
+			kst := len(b)
+			b, i = w.appendValue(b, i, d+1, nil)
+
+			var key []byte
+			if l := len(b) - 1; b[kst] == '"' && b[l] == '"' && kst+1 < l {
+				key = b[kst+1 : l]
+			}
 
 			b = append(b, ':')
 
-			b, i = w.appendValue(b, i)
+			b, i = w.appendValue(b, i, d+1, key)
+		}
+
+		if d == 0 && len(w.ls) != 0 && w.AttachLabels {
+			if i != st {
+				b = append(b, ',')
+			}
+			b = append(b, `"L":[`...)
+			for el, l := range w.ls {
+				if el != 0 {
+					b = append(b, ',')
+				}
+
+				b = low.AppendQuote(b, l)
+			}
+			b = append(b, ']')
 		}
 
 		b = append(b, '}')
 	case tlog.Semantic:
-		b, i = w.appendValue(b, i)
+		if key == nil {
+			b, i = w.appendValue(b, i, d+1, key)
+			break
+		}
+
+		ks := low.UnsafeBytesToString(key)
+
+		switch {
+		case sub == tlog.WireTime && w.TimeFormat != "" && ks == tlog.KeyTime:
+			var ts tlog.Timestamp
+			ts, i = w.d.Time(st)
+
+			b = append(b, '"')
+			b = time.Unix(0, int64(ts)).AppendFormat(b, w.TimeFormat)
+			b = append(b, '"')
+		case sub == tlog.WireID:
+			var id tlog.ID
+			id, i = w.d.ID(st)
+
+			bst := len(b) + 1
+			b = append(b, `"123456789_123456789_123456789_12"`...)
+
+			id.FormatTo(b[bst:], 'x')
+		case sub == tlog.WireLocation:
+			var pc loc.PC
+			pc, i = w.d.Location(st)
+
+			b = low.AppendQuote(b, pc.String())
+		case sub == tlog.WireLabels && ks == tlog.KeyLabels:
+			vst := i
+
+			var ls tlog.Labels
+			ls, i = w.d.Labels(st)
+
+			w.tmpls = ls
+
+			b, i = w.appendValue(b, vst, d+1, key)
+		default:
+			b, i = w.appendValue(b, i, d+1, key)
+		}
 	case tlog.Special:
 		switch sub {
 		case tlog.False:

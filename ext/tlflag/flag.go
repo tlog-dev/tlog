@@ -13,19 +13,17 @@ import (
 	"github.com/nikandfor/tlog/rotated"
 )
 
-type (
-	nopCloser struct {
-		io.Reader
-		io.Writer
+var (
+	OpenFileWriter = func(n string, f int, m os.FileMode) (io.Writer, error) {
+		return os.OpenFile(n, f, m)
 	}
 
-	readCloser struct {
-		io.Reader
-		io.Closer
+	OpenFileReader = func(n string, f int, m os.FileMode) (io.Reader, error) {
+		return os.OpenFile(n, f, m)
 	}
+
+	CompressorBlockSize = compress.MB
 )
-
-var OpenFile = os.OpenFile
 
 func UpdateFlags(ff, of int, s string) (_, _ int) {
 	for _, c := range s {
@@ -62,7 +60,7 @@ func updateConsoleLoggerOptions(w *tlog.ConsoleWriter, s string) {
 	}
 }
 
-func OpenWriter(dst string) (w io.WriteCloser, err error) {
+func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 	var ws tlog.TeeWriter
 
 	defer func() {
@@ -88,7 +86,8 @@ func OpenWriter(dst string) (w io.WriteCloser, err error) {
 			ff, of = UpdateFlags(ff, of, opts)
 		}
 
-		w, err = openw(d, d, ff, of, 0644)
+		var w io.Writer
+		w, err = openw(d, ff, of, 0644)
 		if err != nil {
 			return nil, errors.Wrap(err, "%v", d)
 		}
@@ -98,135 +97,174 @@ func OpenWriter(dst string) (w io.WriteCloser, err error) {
 
 	if len(ws) == 1 {
 		var ok bool
-		if w, ok = ws[0].(io.WriteCloser); ok {
-			return w, nil
+		if wc, ok = ws[0].(io.WriteCloser); ok {
+			return wc, nil
 		}
-
-		return nopCloser{
-			Writer: ws[0],
-		}, nil
 	}
 
 	return ws, nil
 }
 
-func openw(fn, fmt string, ff, of int, mode os.FileMode) (w io.WriteCloser, err error) {
-	ext := filepath.Ext(fmt)
+func openw(fn string, ff, of int, mode os.FileMode) (wc io.Writer, err error) {
+	// r = openFile(fn)
+	// r = newDecompressor(r)
+	// r = newJSONReader(r)
+	// read r
 
-	switch ext {
-	case ".tlog", ".tl", ".dump", ".log", "", ".json":
-		switch strings.TrimSuffix(fmt, ext) {
-		case "", "stderr":
-			w = nopCloser{Writer: os.Stderr}
-		case "-", "stdout":
-			w = nopCloser{Writer: os.Stdout}
-		default:
-			if strings.ContainsRune(fn, rotated.SubstChar) {
-				f := rotated.Create(fn)
-				f.Flags = of
-				f.MaxSize = 128 * rotated.MB
+	// w = openFile(fn)
+	// w = newCompressor(w)
+	// w = newJSONWriter(w)
+	// write w
 
-				w = f
-			} else {
-				w, err = OpenFile(fn, of, mode)
+	var w io.Writer
+	var c io.Closer
+
+	fmt := fn
+	for { // pop extensions to find out if it's a file or stderr
+		switch ext := filepath.Ext(fmt); ext {
+		case ".tlog", ".tl", ".dump", ".log", "", ".json":
+			switch strings.TrimSuffix(fmt, ext) {
+			case "", "stderr":
+				w = tlog.Stderr
+			case "-", "stdout":
+				w = tlog.Stdout
+			default:
+				if strings.ContainsRune(fn, rotated.SubstChar) {
+					f := rotated.Create(fn)
+					//	f.Flags = of
+					//	f.MaxSize = 128 * rotated.MB
+
+					w = f
+					c = f
+				} else {
+					w, err = OpenFileWriter(fn, of, mode)
+
+					c, _ = w.(io.Closer)
+				}
 			}
+		case ".ez":
+			fmt = strings.TrimSuffix(fmt, ext)
+
+			continue
+		default:
+			err = errors.New("unsupported file ext: %v", ext)
 		}
-	case ".ez":
-		w, err = openw(fn, strings.TrimSuffix(fmt, ext), ff, of, mode)
-	default:
-		err = errors.New("unsupported file ext: %v", ext)
-	}
 
+		break
+	}
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	cl, _ := w.(io.Closer)
+	fmt = fn
+loop2:
+	for {
+		ext := filepath.Ext(fmt)
 
-	var ww io.Writer
-	switch ext {
-	case ".tlog", ".tl":
-	case ".dump":
-		ww = tlog.NewDumper(w)
-	case ".ez":
-		ww = compress.NewEncoder(w, 1<<20)
-	case ".log", "":
-		ww = tlog.NewConsoleWriter(w, ff)
-	case ".json":
-		ww = convert.NewJSONWriter(w)
+		switch ext {
+		case ".tlog", ".tl":
+		case ".dump":
+			w = tlog.NewDumper(w)
+		case ".ez":
+			w = compress.NewEncoder(w, CompressorBlockSize)
+		case ".log", "":
+			w = tlog.NewConsoleWriter(w, ff)
+		case ".json":
+			w = convert.NewJSONWriter(w)
+		default:
+			panic("missed extension switch case")
+		}
+
+		switch ext {
+		case ".ez":
+		default:
+			break loop2
+		}
+
+		fmt = strings.TrimSuffix(fmt, ext)
 	}
 
-	if ww != nil {
-		w = tlog.WriteCloser{
-			Writer: ww,
-			Closer: cl,
+	if c != nil && w.(interface{}) != c.(interface{}) {
+		return tlog.WriteCloser{
+			Writer: w,
+			Closer: c,
+		}, nil
+	}
+
+	if c == nil {
+		if _, ok := w.(io.Closer); ok {
+			return tlog.NopCloser{
+				Writer: w,
+			}, nil
 		}
 	}
 
 	return w, nil
 }
 
-func OpenReader(src string) (r io.ReadCloser, err error) {
-	return openr(src, src)
-}
-
-func openr(fn, fmt string) (r io.ReadCloser, err error) {
-	ext := filepath.Ext(fmt)
-
-	switch ext {
-	case ".tlog", ".tl", "":
-		switch strings.TrimSuffix(fmt, ext) {
-		case "", "-", "stdin":
-			r = nopCloser{Reader: os.Stdin}
-		default:
-			r, err = OpenFile(fn, os.O_RDONLY, 0)
-		}
-	case ".ez":
-		r, err = openr(fn, strings.TrimSuffix(fmt, ext))
-	default:
-		err = errors.New("unsupported file ext: %v", ext)
+func OpenReader(src string) (rc io.ReadCloser, err error) {
+	r, err := openr(src)
+	if err != nil {
+		return nil, err
 	}
 
+	var ok bool
+	if rc, ok = r.(io.ReadCloser); ok {
+		return rc, nil
+	}
+
+	return tlog.NopCloser{
+		Reader: r,
+	}, nil
+}
+
+func openr(fn string) (rc io.Reader, err error) {
+	var r io.Reader
+	var c io.Closer
+
+	fmt := fn
+	for {
+		switch ext := filepath.Ext(fmt); ext {
+		case ".tlog", ".tl", "":
+			switch strings.TrimSuffix(fmt, ext) {
+			case "", "-", "stdin":
+				r = tlog.Stdin
+			default:
+				r, err = OpenFileReader(fn, os.O_RDONLY, 0)
+				c, _ = r.(io.Closer)
+			}
+		case ".ez":
+			fmt = strings.TrimSuffix(fmt, ext)
+
+			continue
+		default:
+			err = errors.New("unsupported file ext: %v", ext)
+		}
+
+		break
+	}
 	if err != nil {
 		return
 	}
 
-	cl, _ := r.(io.Closer)
-
-	var rr io.Reader
-	switch ext {
-	case ".tlog", ".tl", "":
-	case ".ez":
-		rr = compress.NewDecoder(r)
+	if ext := filepath.Ext(fn); ext == ".ez" {
+		r = compress.NewDecoder(r)
 	}
 
-	if rr != nil {
-		r = readCloser{
-			Reader: rr,
-			Closer: cl,
+	if c != nil && r.(interface{}) != c.(interface{}) {
+		return tlog.ReadCloser{
+			Reader: r,
+			Closer: c,
+		}, nil
+	}
+
+	if c == nil {
+		if _, ok := r.(io.Closer); ok {
+			return tlog.NopCloser{
+				Reader: r,
+			}, nil
 		}
 	}
 
-	return
-}
-
-func (nopCloser) Close() error { return nil }
-
-func (c nopCloser) Fd() uintptr {
-	if c.Writer == nil {
-		return 1<<64 - 1
-	}
-
-	switch f := c.Writer.(type) {
-	case interface {
-		Fd() uintptr
-	}:
-		return f.Fd()
-	case interface {
-		Fd() int
-	}:
-		return uintptr(f.Fd())
-	}
-
-	return 1<<64 - 1
+	return r, nil
 }

@@ -10,7 +10,13 @@ type (
 	TeeWriter []io.Writer
 
 	NopCloser struct {
+		io.Reader
 		io.Writer
+	}
+
+	ReadCloser struct {
+		io.Reader
+		io.Closer
 	}
 
 	WriteCloser struct {
@@ -74,6 +80,27 @@ func (w TeeWriter) Close() (err error) {
 }
 
 func (NopCloser) Close() error { return nil }
+
+func (c NopCloser) Fd() uintptr {
+	const ffff = ^uintptr(0)
+
+	if c.Writer == nil {
+		return ffff
+	}
+
+	switch f := c.Writer.(type) {
+	case interface {
+		Fd() uintptr
+	}:
+		return f.Fd()
+	case interface {
+		Fd() int
+	}:
+		return uintptr(f.Fd())
+	}
+
+	return ffff
+}
 
 func (w *CountableIODiscard) ReportDisk(b *testing.B) {
 	b.ReportMetric(float64(w.Bytes)/float64(b.N), "disk_B/op")

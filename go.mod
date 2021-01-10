@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/ClickHouse/clickhouse-go v1.4.3
+	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.11.3 // indirect
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.4.2 // indirect
@@ -12,6 +13,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747
 	github.com/nikandfor/errors v0.3.1-0.20201212142705-56fda2c0e8b3
+	github.com/nikandfor/json v0.2.0 // indirect
 	github.com/nikandfor/loc v0.0.0-20201209201630-39582039abc5
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/stretchr/testify v1.6.1

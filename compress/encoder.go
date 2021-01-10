@@ -30,11 +30,18 @@ type (
 	}
 )
 
+const (
+	B = 1 << (iota * 10)
+	KB
+	MB
+	GB
+)
+
 // tags
 const (
 	Literal = iota << 6
 	Copy
-	Entropy
+	_
 	Meta
 
 	TagMask    = 0b1100_0000
@@ -72,16 +79,18 @@ var zeros = make([]byte, 1024)
 var tl *tlog.Logger
 
 func NewEncoder(w io.Writer, bs int) *Encoder {
-	if bs&(bs-1) != 0 || bs < 1<<16 {
-		panic(bs)
+	if bs&(bs-1) != 0 || bs < 256 {
+		panic("block size must be power of two and at least 1KB")
 	}
 
-	return newEncoder(w, bs, 6)
+	return NewEncoderHTSize(w, bs, bs>>6)
 }
 
 func newEncoder(w io.Writer, bs, ss int) *Encoder {
-	hlen := bs >> ss
+	return NewEncoderHTSize(w, bs, bs>>ss)
+}
 
+func NewEncoderHTSize(w io.Writer, bs, hlen int) *Encoder {
 	hsh := uint(2)
 	for 1<<(32-hsh) != hlen {
 		hsh++

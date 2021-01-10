@@ -204,12 +204,13 @@ func (d *Decoder) Labels(st int) (ls Labels, i int) {
 		return
 	}
 
+	var s []byte
 	for el := 0; sub == -1 || el < sub; el++ {
 		if sub == -1 && d.Break(&i) {
 			break
 		}
 
-		s, i := d.String(i)
+		s, i = d.String(i)
 		if d.err != nil {
 			return nil, i
 		}

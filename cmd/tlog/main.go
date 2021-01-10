@@ -45,7 +45,7 @@ func main() {
 				cli.NewFlag("output,out,o", "-", "output file (empty is stderr, - is stdout)"),
 			},
 		}, {
-			Name:        "tlz",
+			Name:        "seen,tlz",
 			Description: "logs compressor/decompressor",
 			Flags: []*cli.Flag{
 				cli.NewFlag("output,o", "-", "output file (or stdout)"),

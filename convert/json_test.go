@@ -12,12 +12,14 @@ import (
 )
 
 func TestJSON(t *testing.T) {
-	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.Local)
+	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.FixedZone("Europe/Moscow", int(3*time.Hour/time.Second)))
 	tlog.TestSetTime(func() time.Time { return tm }, tm.UnixNano)
 
 	var b low.Buf
 
 	j := NewJSONWriter(&b)
+	j.AttachLabels = true
+	j.TimeFormat = time.RFC3339Nano
 
 	l := tlog.New(j)
 
@@ -33,7 +35,7 @@ func TestJSON(t *testing.T) {
 	})
 
 	exp := `{"L":\["a=b","c"\]}
-{"t":\d+,"l":{"p":\d+,"n":"github.com/nikandfor/tlog/convert.TestJSON","f":"github.com/nikandfor/tlog/convert/json_test.go","l":26},"m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9}}
+{"t":"2020-12-25T22:08:13\+03:00","l":"json_test.go:28","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
 `
 
 	exps := strings.Split(exp, "\n")

@@ -112,15 +112,13 @@ func (e *Encoder) resetRotated() {
 	}
 }
 
-func (e *Encoder) Encode(hdr []interface{}, kvs ...[]interface{}) (err error) {
+func (e *Encoder) Encode(hdr []interface{}, kvs []interface{}) (err error) {
 	if e.ls == nil {
 		e.ls = make(map[loc.PC]struct{})
 	}
 
 	l := e.calcMapLen(hdr)
-	for _, kvs := range kvs {
-		l += e.calcMapLen(kvs)
-	}
+	l += e.calcMapLen(kvs)
 
 	if l == 0 {
 		return nil
@@ -139,10 +137,8 @@ again:
 		encodeKVs0(e, hdr...)
 	}
 
-	for _, kvs := range kvs {
-		if len(kvs) != 0 {
-			encodeKVs0(e, kvs...)
-		}
+	if len(kvs) != 0 {
+		encodeKVs0(e, kvs...)
 	}
 
 	n, err := e.Write(e.b)
@@ -188,24 +184,31 @@ func (e *Encoder) appendHeader(b []byte) []byte {
 
 func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 	for i := 0; i < len(kvs); i++ {
-		if _, ok := kvs[i].(string); !ok {
-			panic("key must be string")
-		}
+		l++
 
-		if i == len(kvs) {
-			panic("no value for key")
+		// key
+		switch kvs[i].(type) {
+		case string:
+		case LogLevel, ID, EventType, Labels:
+			i-- // implicit key
+		default:
+			i-- // missing key
 		}
-
 		i++
+
+		// value
+		if i == len(kvs) {
+			//	panic("no value for last key")
+			break
+		}
 
 		if _, ok := kvs[i].(FormatNext); ok {
 			if i == len(kvs) {
-				panic("no argument for FormatNext")
+				//	panic("no argument for FormatNext")
+				break
 			}
 			i++
 		}
-
-		l++
 	}
 
 	return
@@ -213,26 +216,54 @@ func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 
 func (e *Encoder) encodeKVs(kvs ...interface{}) {
 	for i := 0; i < len(kvs); {
-		k := kvs[i].(string)
+		var k string
+
+		switch q := kvs[i].(type) {
+		case string:
+			k = q
+		case LogLevel:
+			k = KeyLogLevel
+			i--
+		case ID:
+			k = KeySpan
+			i--
+		case EventType:
+			k = KeyEventType
+			i--
+		case Labels:
+			k = KeyLabels
+			i--
+		default:
+			k = "MISSING_KEY"
+			i--
+		}
 		i++
 
 		e.b = e.AppendString(e.b, String, k)
 
-		if k == KeyLabels {
-			if ls, ok := kvs[i].(Labels); ok {
-				e.newLabels = ls
-				e.Labels = nil
-			}
+		if i == len(kvs) {
+			e.b = append(e.b, Special|Undefined)
+			break
+		}
+
+		if ls, ok := kvs[i].(Labels); ok && k == KeyLabels {
+			e.newLabels = ls
+			e.Labels = nil
 		}
 
 		switch v := kvs[i].(type) {
 		case FormatNext:
-			e.b = e.AppendFormat(e.b, string(v), kvs[i+1])
-			i += 2
+			i++
+			if i == len(kvs) {
+				e.b = append(e.b, Special|Undefined)
+				break
+			}
+
+			e.b = e.AppendFormat(e.b, string(v), kvs[i])
 		default:
 			e.b = e.AppendValue(e.b, kvs[i])
-			i++
 		}
+		i++
 	}
 }
 

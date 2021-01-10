@@ -45,6 +45,7 @@ type (
 
 // for you not to import os
 var (
+	Stdin  = os.Stdin
 	Stdout = os.Stdout
 	Stderr = os.Stderr
 )
@@ -84,7 +85,7 @@ var ( //time
 	nano = low.UnixNano
 )
 
-var DefaultLogger = New(NewConsoleWriter(os.Stderr, LstdFlags))
+var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))
 
 var zeroBuf = make([]interface{}, 30)
 
@@ -135,7 +136,6 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	}
 
 	_ = l.Encoder.Encode(l.buf, kvs)
-
 }
 
 func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
@@ -236,34 +236,6 @@ func (s Span) Finish(kvs ...interface{}) {
 	_ = s.Logger.Encoder.Encode(s.Logger.buf, kvs)
 }
 
-func (l *Logger) Event2(kvs ...[]interface{}) error {
-	if l == nil {
-		return nil
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	return l.Encoder.Encode(nil, kvs...)
-}
-
-func (s Span) Event2(kvs ...[]interface{}) error {
-	if s.Logger == nil {
-		return nil
-	}
-
-	defer s.Logger.Unlock()
-	s.Logger.Lock()
-
-	defer s.Logger.clearBuf()
-
-	if s.ID != (ID{}) {
-		s.Logger.appendBuf(KeySpan, s.ID)
-	}
-
-	return s.Logger.Encoder.Encode(s.Logger.buf, kvs...)
-}
-
 func (l *Logger) Event(kvs ...interface{}) error {
 	if l == nil {
 		return nil
@@ -297,7 +269,7 @@ func SetLabels(ls Labels) {
 }
 
 func (l *Logger) SetLabels(ls Labels) {
-	l.Event2([]interface{}{KeyLabels, ls})
+	l.Event(KeyLabels, ls)
 }
 
 //go:noinline
@@ -559,12 +531,32 @@ func RegisterMetric(name, typ, help string, kvs ...interface{}) {
 }
 
 func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
-	l.Event2([]interface{}{
-		KeyEventType, EventType("m"),
-		KeyMessage, name,
-		"type", typ,
-		"help", help,
-	}, kvs)
+	if l == nil {
+		return
+	}
+
+	if name == "" {
+		panic("empty name")
+	}
+
+	if name == "" {
+		panic("empty type")
+	}
+
+	defer l.Unlock()
+	l.Lock()
+
+	defer l.clearBuf()
+
+	l.appendBuf(KeyEventType, EventType("m"))
+	l.appendBuf(KeyMessage, name)
+	l.appendBuf("type", typ)
+
+	if help != "" {
+		l.appendBuf("help", help)
+	}
+
+	_ = l.Encoder.Encode(l.buf, kvs)
 }
 
 func (l *Logger) appendBuf(vals ...interface{}) {
