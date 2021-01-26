@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/nikandfor/errors"
@@ -63,10 +64,43 @@ func updateConsoleFlags(ff int, s string) int {
 }
 
 func updateConsoleOptions(w *tlog.ConsoleWriter, s string) {
-	for _, c := range s {
-		switch c { //nolint:gocritic
+	for i := 0; i < len(s); i++ {
+	out:
+		switch s[i] { //nolint:gocritic
+		case 's':
+			w.IDWidth = len(tlog.ID{})
+
+			if i+1 == len(s) {
+				break
+			}
+
+			cl := byte(')')
+			switch s[i+1] {
+			case '[', '{':
+				cl = s[i+1] + 2
+			case '(':
+			default:
+				break out
+			}
+
+			i += 2
+			p := strings.IndexByte(s[i:], cl)
+			if p == -1 {
+				break
+			}
+
+			width, err := strconv.ParseInt(string(s[i:i+p]), 10, 8)
+			if err == nil {
+				w.IDWidth = int(width)
+			}
+
+			i += p
 		case 'S':
 			w.IDWidth = 2 * len(tlog.ID{})
+		case 'c':
+			w.Colorize = true
+		case 'C':
+			w.Colorize = false
 		}
 	}
 }

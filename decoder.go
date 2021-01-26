@@ -441,10 +441,14 @@ func (d *Decoder) Break(i *int) bool {
 	return true
 }
 
-func (d *Decoder) more(st, end int) bool {
+func (d *Decoder) more(st, end int) (res bool) {
 	if d.err != nil {
 		return false
 	}
+
+	//	defer func(ref int, b []byte) {
+	//		fmt.Fprintln(Stderr, "more", "st", st, "end", end, "res", res, "ref", d.ref, "blen", len(d.b), "bcap", cap(d.b), "oldref", ref, "oldblen", len(b), "oldbcap", cap(b), loc.Callers(2, 2))
+	//	}(d.ref, d.b)
 
 	if end <= len(d.b) {
 		return true
@@ -478,6 +482,7 @@ more:
 
 	if err != nil {
 		d.err = err
+		d.b = d.b[:read]
 		return false
 	}
 

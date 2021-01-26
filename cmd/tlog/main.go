@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
@@ -42,7 +43,7 @@ func main() {
 			Action: conv,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("output,out,o", "-", "output file (empty is stderr, - is stdout)"),
+				cli.NewFlag("output,out,o", "-:dm", "output file (empty is stderr, - is stdout)"),
 			},
 		}, {
 			Name:        "seen,tlz",
@@ -62,6 +63,17 @@ func main() {
 				Action: tlz,
 				Args:   cli.Args{},
 			}},
+		}, {
+			Name:   "agent",
+			Action: agent,
+			Args:   cli.Args{},
+		}, {
+			Name:   "ticker",
+			Action: ticker,
+			Flags: []*cli.Flag{
+				cli.NewFlag("output,o", "-", "output file (or stdout)"),
+				cli.NewFlag("interval,int,i", time.Second, "interval to tick on"),
+			},
 		}, {
 			Name:        "core",
 			Description: "core dump memory dumper",
@@ -86,6 +98,66 @@ func before(c *cli.Command) error {
 	tlog.DefaultLogger = tlog.New(w)
 
 	tlog.SetFilter(c.String("verbosity"))
+
+	return nil
+}
+
+func agent(c *cli.Command) error {
+	if c.Args.Len() == 0 {
+		return errors.New("arguments expected")
+	}
+
+	f := c.Args.First()
+
+	r, err := tlflag.OpenReader(f)
+	if err != nil {
+		return errors.Wrap(err, "open: %v", f)
+	}
+
+	d := tlog.NewDecoder(r)
+	i := 0
+	cnt := 0
+
+	for {
+		end := d.Skip(i)
+		if errors.Is(d.Err(), io.EOF) {
+			tlog.Printw("EOF. wait...")
+			time.Sleep(500 * time.Millisecond)
+
+			d.ResetErr()
+
+			continue
+		}
+		if err = d.Err(); err != nil {
+			return errors.Wrap(err, "reading event")
+		}
+
+		cnt++
+
+		tlog.Printw("read event", "events", cnt, "st", i, "end", end)
+
+		i = end
+
+		if false && cnt%3 == 0 {
+			tlog.Printw("truncate file", "events", cnt, "st", i)
+		}
+	}
+}
+
+func ticker(c *cli.Command) error {
+	w, err := tlflag.OpenWriter(c.String("output"))
+	if err != nil {
+		return errors.Wrap(err, "open output")
+	}
+
+	l := tlog.New(w)
+
+	t := time.NewTicker(c.Duration("interval"))
+	defer t.Stop()
+
+	for t := range t.C {
+		l.Printw("current time", "time", t)
+	}
 
 	return nil
 }

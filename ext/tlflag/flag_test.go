@@ -110,6 +110,41 @@ func TestFileExtWriter(t *testing.T) {
 	}
 }
 
+func TestConsoleWidth(t *testing.T) {
+	w, err := OpenWriter("stderr:s")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		func() *tlog.ConsoleWriter {
+			w := tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags)
+			w.IDWidth = len(tlog.ID{})
+
+			return w
+		}(),
+	}, w)
+
+	w, err = OpenWriter("stderr:S")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		func() *tlog.ConsoleWriter {
+			w := tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags)
+			w.IDWidth = 2 * len(tlog.ID{})
+
+			return w
+		}(),
+	}, w)
+
+	w, err = OpenWriter("stderr:s[10]")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		func() *tlog.ConsoleWriter {
+			w := tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags)
+			w.IDWidth = 10
+
+			return w
+		}(),
+	}, w)
+}
+
 func TestFileExtReader(t *testing.T) {
 	OpenFileReader = func(n string, f int, m os.FileMode) (io.Reader, error) {
 		return testFile(n), nil

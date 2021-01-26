@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"time"
+	"unsafe"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
@@ -25,6 +26,8 @@ type (
 		b []byte
 	}
 
+	KeyAuto string
+
 	Message   string
 	EventType string
 	LogLevel  int
@@ -41,6 +44,8 @@ type (
 	RotatedError interface {
 		IsRotated() bool
 	}
+
+	deepCtx map[unsafe.Pointer]struct{}
 )
 
 // basic types
@@ -189,6 +194,7 @@ func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 		// key
 		switch kvs[i].(type) {
 		case string:
+		case KeyAuto:
 		case LogLevel, ID, EventType, Labels:
 			i-- // implicit key
 		default:
@@ -220,7 +226,14 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 
 		switch q := kvs[i].(type) {
 		case string:
+			if q == "" {
+				k = e.autoKey(kvs[i:])
+				break
+			}
+
 			k = q
+		case KeyAuto:
+			k = e.autoKey(kvs[i:])
 		case LogLevel:
 			k = KeyLogLevel
 			i--
@@ -261,13 +274,38 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 
 			e.b = e.AppendFormat(e.b, string(v), kvs[i])
 		default:
-			e.b = e.AppendValue(e.b, kvs[i])
+			e.b = e.appendValue(e.b, kvs[i], nil)
 		}
 		i++
 	}
 }
 
+func (e *Encoder) autoKey(kvs []interface{}) (k string) {
+	if len(kvs) == 1 {
+		return "MISSING_VALUE"
+	}
+
+	switch kvs[1].(type) {
+	case LogLevel:
+		k = KeyLogLevel
+	case ID:
+		k = KeySpan
+	case EventType:
+		k = KeyEventType
+	case Labels:
+		k = KeyLabels
+	default:
+		k = "UNSUPPORTED_AUTO_KEY"
+	}
+
+	return
+}
+
 func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
+	return e.appendValue(b, v, nil)
+}
+
+func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
 	switch v := v.(type) {
 	case nil:
 		return append(b, Special|Null)
@@ -316,11 +354,15 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	default:
 		r := reflect.ValueOf(v)
 
-		return e.appendRaw(b, r, false)
+		return e.appendRaw(b, r, false, visited)
 	}
 }
 
-func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
+func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool, visited deepCtx) []byte {
+	if visited == nil {
+		visited = make(deepCtx)
+	}
+
 	switch r.Kind() {
 	case reflect.String:
 		return e.AppendString(b, String, r.String())
@@ -333,10 +375,22 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 	case reflect.Ptr, reflect.Interface:
 		if r.IsNil() {
 			return append(b, Special|Null)
-		} else if private {
-			return e.appendRaw(b, r.Elem(), private)
+		}
+
+		if r.Kind() == reflect.Ptr {
+			ptr := unsafe.Pointer(r.Pointer())
+
+			if _, ok := visited[ptr]; ok {
+				return append(b, Special|Undefined)
+			}
+
+			visited[ptr] = struct{}{}
+		}
+
+		if private {
+			return e.appendRaw(b, r.Elem(), private, visited)
 		} else {
-			return e.AppendValue(b, r.Elem().Interface())
+			return e.appendValue(b, r.Elem().Interface(), visited)
 		}
 	case reflect.Slice, reflect.Array:
 		if r.Kind() == reflect.Slice && r.Type().Elem().Kind() == reflect.Uint8 {
@@ -349,9 +403,9 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 
 		for i := 0; i < l; i++ {
 			if private {
-				b = e.appendRaw(b, r.Index(i), private)
+				b = e.appendRaw(b, r.Index(i), private, visited)
 			} else {
-				b = e.AppendValue(b, r.Index(i).Interface())
+				b = e.appendValue(b, r.Index(i).Interface(), visited)
 			}
 		}
 
@@ -365,17 +419,17 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 
 		for it.Next() {
 			if private {
-				b = e.appendRaw(b, it.Key(), private)
-				b = e.appendRaw(b, it.Value(), private)
+				b = e.appendRaw(b, it.Key(), private, visited)
+				b = e.appendRaw(b, it.Value(), private, visited)
 			} else {
-				b = e.AppendValue(b, it.Key().Interface())
-				b = e.AppendValue(b, it.Value().Interface())
+				b = e.appendValue(b, it.Key().Interface(), visited)
+				b = e.appendValue(b, it.Value().Interface(), visited)
 			}
 		}
 
 		return b
 	case reflect.Struct:
-		return e.appendStruct(b, r, private)
+		return e.appendStruct(b, r, private, visited)
 	case reflect.Bool:
 		if r.Bool() {
 			return append(b, Special|True)
@@ -395,20 +449,20 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool) []byte {
 	}
 }
 
-func (e *Encoder) appendStruct(b []byte, r reflect.Value, private bool) []byte {
+func (e *Encoder) appendStruct(b []byte, r reflect.Value, private bool, visited deepCtx) []byte {
 	t := r.Type()
 
 	b = append(b, Map|LenBreak)
 
-	b = e.appendStructFields(b, t, r, private)
+	b = e.appendStructFields(b, t, r, private, visited)
 
 	b = append(b, Special|Break)
 
 	return b
 }
 
-func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, private bool) []byte {
-	//	fmt.Fprintf(os.Stderr, "appendStructFields: %v\n", t)
+func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, private bool, visited deepCtx) []byte {
+	//	fmt.Fprintf(os.Stderr, "appendStructFields: %v  ctx %p %d\n", t, visited, len(visited))
 
 	s := parseStruct(t)
 
@@ -422,7 +476,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 		ft := fv.Type()
 
 		if fc.Embed && ft.Kind() == reflect.Struct {
-			b = e.appendStructFields(b, ft, fv, private)
+			b = e.appendStructFields(b, ft, fv, private, visited)
 
 			continue
 		}
@@ -430,9 +484,9 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 		b = e.AppendString(b, String, fc.Name)
 
 		if fc.Unexported || private {
-			b = e.appendRaw(b, fv, true)
+			b = e.appendRaw(b, fv, true, visited)
 		} else {
-			b = e.AppendValue(b, fv.Interface())
+			b = e.appendValue(b, fv.Interface(), visited)
 		}
 	}
 

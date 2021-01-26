@@ -26,6 +26,7 @@ type Labels []string
 //     _user - current user
 //     _pid - process pid
 //     _timezone - local timezone code (UTC, MSK)
+//     _goversion - go version
 //     _execmd5 - this binary md5 hash
 //     _execsha1 - this binary sha1 hash
 //     _execname - executable base name (project name)
