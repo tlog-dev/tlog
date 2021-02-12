@@ -51,7 +51,7 @@ func Create(name string) (f *File) {
 
 		Flags:    os.O_CREATE | os.O_APPEND | os.O_WRONLY,
 		Mode:     0644,
-		OpenFile: OpenFileTimeSubst,
+		OpenFile: OpenFileTimeSubstWithSymlink,
 	}
 
 	return f
@@ -122,25 +122,45 @@ func OpenFileOS(n string, f int, mode os.FileMode) (io.Writer, error) {
 	return os.OpenFile(n, f, mode)
 }
 
-func OpenFileTimeSubst(base string, f int, mode os.FileMode) (io.Writer, error) {
+func OpenFileTimeSubst(base string, f int, mode os.FileMode) (w io.Writer, err error) {
 	now := time.Now()
 
-	name := fnameTime(base, now)
+	name, _ := fnameTime(base, now)
 
 	return os.OpenFile(name, f, mode)
 }
 
-func fnameTime(name string, now time.Time) string {
+func OpenFileTimeSubstWithSymlink(base string, f int, mode os.FileMode) (w io.Writer, err error) {
+	now := time.Now()
+
+	name, link := fnameTime(base, now)
+
+	w, err = os.OpenFile(name, f, mode)
+	if err != nil {
+		return
+	}
+
+	_ = os.Remove(link)
+	_ = os.Symlink(name, link)
+
+	return
+}
+
+func fnameTime(name string, now time.Time) (f, l string) {
 	uniq := now.Format(TimeFormat)
 
 	if p := strings.LastIndexByte(name, byte(SubstChar)); p != -1 {
-		return name[:p] + uniq + name[p+1:]
+		f = name[:p] + uniq + name[p+1:]
+		l = name[:p] + "LATEST" + name[p+1:]
+		return
 	}
 
 	ext := filepath.Ext(name)
 	name = strings.TrimSuffix(name, ext)
 
-	return name + "_" + uniq + ext
+	f = name + "_" + uniq + ext
+	l = name + "_" + "LATEST" + ext
+	return
 }
 
 func (RotatedError) Error() string { return "file rotated" }
