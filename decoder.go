@@ -113,7 +113,7 @@ func (d *Decoder) ID(st int) (id ID, i int) {
 	return
 }
 
-func (d *Decoder) Location(st int) (pc loc.PC, i int) {
+func (d *Decoder) Location(st int) (pc loc.PC, pcs loc.PCs, i int) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -126,6 +126,24 @@ func (d *Decoder) Location(st int) (pc loc.PC, i int) {
 
 	st = i
 	tag, sub, i = d.Tag(i)
+	if d.err != nil {
+		return
+	}
+
+	if tag == Array {
+		pcs, i = d.locationStack(st)
+
+		return
+	}
+
+	pc, i = d.location(st)
+
+	return
+
+}
+
+func (d *Decoder) location(st int) (pc loc.PC, i int) {
+	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
 	}
@@ -179,6 +197,31 @@ func (d *Decoder) Location(st int) (pc loc.PC, i int) {
 	}
 
 	pc.SetCache(name, file, line)
+
+	return
+}
+
+func (d *Decoder) locationStack(st int) (pcs loc.PCs, i int) {
+	tag, els, i := d.Tag(st)
+	if d.err != nil {
+		return
+	}
+
+	if tag != Array {
+		d.newErr(st, "expected location (array)")
+		return
+	}
+
+	if els != -1 {
+		pcs = make(loc.PCs, 0, els)
+	}
+
+	var pc loc.PC
+	for el := 0; els == -1 || el < els; el++ {
+		pc, i = d.location(i)
+
+		pcs = append(pcs, pc)
+	}
 
 	return
 }

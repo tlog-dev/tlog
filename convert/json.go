@@ -194,9 +194,23 @@ func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
 			id.FormatTo(b[bst:], 'x')
 		case sub == tlog.WireLocation:
 			var pc loc.PC
-			pc, i = w.d.Location(st)
+			var pcs loc.PCs
 
-			b = low.AppendQuote(b, pc.String())
+			pc, pcs, i = w.d.Location(st)
+
+			if pcs == nil {
+				b = low.AppendQuote(b, pc.String())
+			} else {
+				b = append(b, '[')
+				for i, pc := range pcs {
+					if i != 0 {
+						b = append(b, ',')
+					}
+
+					b = low.AppendQuote(b, pc.String())
+				}
+				b = append(b, ']')
+			}
 		case sub == tlog.WireLabels && ks == tlog.KeyLabels:
 			vst := i
 

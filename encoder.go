@@ -26,7 +26,7 @@ type (
 		b []byte
 	}
 
-	KeyAuto string
+	keyAuto string
 
 	Message   string
 	EventType string
@@ -47,6 +47,8 @@ type (
 
 	deepCtx map[unsafe.Pointer]struct{}
 )
+
+var KeyAuto keyAuto
 
 // basic types
 const (
@@ -194,7 +196,7 @@ func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 		// key
 		switch kvs[i].(type) {
 		case string:
-		case KeyAuto:
+		case keyAuto:
 		case LogLevel, ID, EventType, Labels:
 			i-- // implicit key
 		default:
@@ -232,7 +234,7 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 			}
 
 			k = q
-		case KeyAuto:
+		case keyAuto:
 			k = e.autoKey(kvs[i:])
 		case LogLevel:
 			k = KeyLogLevel
@@ -334,6 +336,8 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
 		return e.AppendUint(b, Int, uint64(v.Nanoseconds()))
 	case loc.PC:
 		return e.AppendLoc(b, v, true)
+	case loc.PCs:
+		return e.AppendLocStack(b, v, true)
 	case Format:
 		return e.AppendFormat(b, v.Fmt, v.Args...)
 	case EventType:
@@ -493,15 +497,28 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 	return b
 }
 
+func (e *Encoder) AppendLocStack(b []byte, pcs loc.PCs, cache bool) []byte {
+	b = append(b, Semantic|WireLocation)
+	b = e.AppendTag(b, Array, len(pcs))
+
+	for _, pc := range pcs {
+		b = e.appendLoc(b, pc, cache)
+	}
+
+	return b
+}
+
 func (e *Encoder) AppendLoc(b []byte, pc loc.PC, cache bool) []byte {
 	b = append(b, Semantic|WireLocation)
 
-	if e == nil || e.ls == nil || !cache {
-		return e.AppendUint(b, Int, uint64(pc))
-	}
+	return e.appendLoc(b, pc, cache)
+}
 
-	if _, ok := e.ls[pc]; ok {
-		return e.AppendUint(b, Int, uint64(pc))
+func (e *Encoder) appendLoc(b []byte, pc loc.PC, cache bool) []byte {
+	if cache {
+		if _, ok := e.ls[pc]; ok {
+			return e.AppendUint(b, Int, uint64(pc))
+		}
 	}
 
 	b = append(b, Map|4)
@@ -520,7 +537,9 @@ func (e *Encoder) AppendLoc(b []byte, pc loc.PC, cache bool) []byte {
 	b = e.AppendString(b, String, "l")
 	b = e.AppendInt(b, int64(line))
 
-	e.ls[pc] = struct{}{}
+	if cache {
+		e.ls[pc] = struct{}{}
+	}
 
 	return b
 }

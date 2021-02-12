@@ -160,10 +160,15 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 			return
 		}
 
+		var rot RotatedError
+		if errors.As(err, &rot) && rot.IsRotated() {
+			return
+		}
+
 		if perr != nil {
 			fmt.Fprintf(w.Writer, "panic: %v (pos %x)\n", perr, i)
 		} else {
-			fmt.Fprintf(w.Writer, "parse error: %v (pos %x)\n", err, i)
+			fmt.Fprintf(w.Writer, "parse error: %+v (pos %x)\n", err, i)
 		}
 		fmt.Fprintf(w.Writer, "dump\n%v", Dump(p))
 		fmt.Fprintf(w.Writer, "hex dump\n%v", hex.Dump(p))
@@ -177,6 +182,7 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 
 	var ts Timestamp
 	var pc loc.PC
+	var pcs loc.PCs
 	var lv LogLevel
 	var m []byte
 	b := w.b
@@ -224,7 +230,11 @@ again:
 		case ks == KeyTime && sub == WireTime:
 			ts, i = w.d.Time(st)
 		case ks == KeyLocation && sub == WireLocation:
-			pc, i = w.d.Location(st)
+			pc, pcs, i = w.d.Location(st)
+
+			if pcs != nil && len(pcs) != 0 {
+				pc = pcs[0]
+			}
 		case ks == KeyMessage && sub == WireMessage:
 			m, i = w.d.String(i)
 		case ks == KeyLogLevel && sub == WireLogLevel && w.f&Lloglevel != 0:
@@ -740,9 +750,23 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 			}
 		case WireLocation:
 			var pc loc.PC
-			pc, i = w.d.Location(st)
+			var pcs loc.PCs
 
-			b = low.AppendPrintf(b, w.LocationFormat, pc)
+			pc, pcs, i = w.d.Location(st)
+
+			if pcs == nil {
+				b = low.AppendPrintf(b, w.LocationFormat, pc)
+			} else {
+				b = append(b, '[')
+				for i, pc := range pcs {
+					if i != 0 {
+						b = append(b, ',', ' ')
+					}
+
+					b = low.AppendPrintf(b, w.LocationFormat, pc)
+				}
+				b = append(b, ']')
+			}
 		default:
 			b, i = w.convertValue(b, i)
 		}
