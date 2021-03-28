@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
@@ -44,6 +47,7 @@ func main() {
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
 				cli.NewFlag("output,out,o", "-:dm", "output file (empty is stderr, - is stdout)"),
+				cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			},
 		}, {
 			Name:        "seen,tlz",
@@ -174,49 +178,79 @@ func conv(c *cli.Command) error {
 		}
 	}()
 
-	/*
-		if q := c.String("clickhouse"); q != "" {
-			db, err := tldb.OpenClickhouse(q)
-			if err != nil {
-				return errors.Wrap(err, "clickhouse")
-			}
+	var fs *fsnotify.Watcher
 
-			w = tlog.NewTeeWriter(w, db)
+	if c.Bool("follow") {
+		fs, err = fsnotify.NewWatcher()
+		if err != nil {
+			return errors.Wrap(err, "create fs watcher")
 		}
-	*/
 
-	//	tlog.Printf("writer: %T %[1]v", w)
-
-	for _, a := range c.Args {
-		err = func() (err error) {
-			r, err := tlflag.OpenReader(a)
-			if err != nil {
-				return errors.Wrap(err, a)
+		defer func() {
+			e := fs.Close()
+			if err == nil {
+				err = errors.Wrap(e, "close watcher")
 			}
-			defer func() {
+		}()
+	}
+
+	rs := make(map[string]io.ReadCloser, c.Args.Len())
+	defer func() {
+		for name, r := range rs {
+			if r != nil {
 				e := r.Close()
 				if err == nil {
-					err = e
+					err = errors.Wrap(e, "close: %v", name)
 				}
-			}()
-
-			//	tlog.Printf("reader: %T %[1]v", r)
-
-			err = convert.Copy(w, r)
-			if err != nil {
-				return errors.Wrap(err, "copy")
 			}
+		}
+	}()
 
-			return nil
-		}()
+	for _, a := range c.Args {
+		fs.Add(a)
+
+		rs[a], err = tlflag.OpenReader(a)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "open: %v", a)
+		}
+
+		err = convert.Copy(w, rs[a])
+		if err != nil {
+			return errors.Wrap(err, "copy: %v", a)
 		}
 	}
 
-	//	tlog.Printf("copied")
+	if !c.Bool("follow") {
+		return nil
+	}
 
-	return nil
+	sigc := make(chan os.Signal, 3)
+	signal.Notify(sigc, os.Interrupt)
+
+	var ev fsnotify.Event
+	for {
+		select {
+		case ev = <-fs.Events:
+		case <-sigc:
+			return nil
+		case err = <-fs.Errors:
+			return errors.Wrap(err, "watch")
+		}
+
+		//	tlog.Printw("fs event", "name", ev.Name, "op", ev.Op)
+
+		if ev.Op&fsnotify.Write != 0 {
+			rc, ok := rs[ev.Name]
+			if !ok {
+				return errors.New("unexpected event: %v", ev.Name)
+			}
+
+			err = convert.Copy(w, rc)
+			if err != nil {
+				return errors.Wrap(err, "copy: %v", ev.Name)
+			}
+		}
+	}
 }
 
 func tlz(c *cli.Command) (err error) {

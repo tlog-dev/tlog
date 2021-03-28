@@ -7,13 +7,6 @@ import (
 	"github.com/nikandfor/tlog"
 )
 
-type (
-	Convertor struct {
-		d tlog.Decoder
-		b []byte
-	}
-)
-
 func Copy(w io.Writer, r io.Reader) (err error) {
 	var d tlog.Decoder
 

@@ -332,7 +332,7 @@ func openr(fn string) (rc io.Reader, err error) {
 				r, err = OpenFileReader(fn, os.O_RDONLY, 0)
 				c, _ = r.(io.Closer)
 			}
-		case ".ez":
+		case ".ez", ".seen":
 			fmt = strings.TrimSuffix(fmt, ext)
 
 			continue
@@ -346,7 +346,7 @@ func openr(fn string) (rc io.Reader, err error) {
 		return
 	}
 
-	if ext := filepath.Ext(fn); ext == ".ez" {
+	if ext := filepath.Ext(fn); ext == ".ez" || ext == ".seen" {
 		r = compress.NewDecoder(r)
 	}
 

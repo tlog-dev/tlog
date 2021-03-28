@@ -23,3 +23,13 @@ func init() {
 
 	RunID = string(b[:s])
 }
+
+type eface struct {
+	t, p unsafe.Pointer
+}
+
+func IsNil(v interface{}) bool {
+	e := *(*eface)(unsafe.Pointer(&v))
+
+	return e.t == nil || e.p == nil
+}
