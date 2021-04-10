@@ -269,7 +269,18 @@ func SetLabels(ls Labels) {
 }
 
 func (l *Logger) SetLabels(ls Labels) {
-	l.Event(KeyLabels, ls)
+	if l == nil {
+		return
+	}
+
+	if l.NoTime {
+		l.Event(KeyLabels, ls)
+		return
+	}
+
+	t := Timestamp(nano())
+
+	l.Event(KeyTime, t, KeyLabels, ls)
 }
 
 //go:noinline
@@ -513,7 +524,7 @@ func (s Span) IOWriter(d int) io.Writer {
 }
 
 func (w writeWrapper) Write(p []byte) (int, error) {
-	newmessage(w.Logger, w.ID, w.d, low.UnsafeBytesToString(p), nil)
+	newmessage(w.Logger, w.ID, w.d, Message(low.UnsafeBytesToString(p)), nil)
 
 	return len(p), nil
 }
