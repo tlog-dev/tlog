@@ -449,13 +449,14 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 			}
 		} else {
 			b = append(b, file...)
-			i := len(b)
-			b = append(b, ":           "...)
 
 			n := 1
 			for q := line; q != 0; q /= 10 {
 				n++
 			}
+
+			i := len(b)
+			b = append(b, ":           "[:n]...)
 
 			for q, j := line, n-1; j >= 1; j-- {
 				b[i+j] = byte(q%10) + '0'

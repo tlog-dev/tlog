@@ -1,13 +1,18 @@
 package main
 
 import (
+	"database/sql"
 	"debug/elf"
 	"fmt"
 	"io"
+	"net/http"
+	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go"
 	"github.com/fsnotify/fsnotify"
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
@@ -15,6 +20,7 @@ import (
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/ext/tlclickhouse"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/rotated"
 )
@@ -38,6 +44,7 @@ func main() {
 		Flags: []*cli.Flag{
 			cli.NewFlag("log", "stderr", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
+			cli.NewFlag("debug", "", "debug address", cli.Hidden),
 			cli.FlagfileFlag,
 			cli.HelpFlag,
 		},
@@ -48,6 +55,7 @@ func main() {
 			Flags: []*cli.Flag{
 				cli.NewFlag("output,out,o", "-:dm", "output file (empty is stderr, - is stdout)"),
 				cli.NewFlag("follow,f", false, "wait for changes until terminated"),
+				cli.NewFlag("clickhouse", "", "additional clickhouse writer"),
 			},
 		}, {
 			Name:        "seen,tlz",
@@ -83,6 +91,9 @@ func main() {
 			Description: "core dump memory dumper",
 			Args:        cli.Args{},
 			Action:      coredump,
+		}, {
+			Name:   "test",
+			Action: test,
 		}},
 	}
 
@@ -102,6 +113,18 @@ func before(c *cli.Command) error {
 	tlog.DefaultLogger = tlog.New(w)
 
 	tlog.SetFilter(c.String("verbosity"))
+
+	if q := c.String("debug"); q != "" {
+		go func() {
+			tlog.Printw("start debug interface", "addr", q)
+
+			err := http.ListenAndServe(q, nil)
+			if err != nil {
+				tlog.Printw("debug", "addr", q, "err", err, "", tlog.Fatal)
+				os.Exit(1)
+			}
+		}()
+	}
 
 	return nil
 }
@@ -166,11 +189,34 @@ func ticker(c *cli.Command) error {
 	return nil
 }
 
-func conv(c *cli.Command) error {
-	w, err := tlflag.OpenWriter(c.String("out"))
+func conv(c *cli.Command) (err error) {
+	var w io.WriteCloser
+
+	w, err = tlflag.OpenWriter(c.String("out"))
 	if err != nil {
 		return err
 	}
+
+	if q := c.String("clickhouse"); q != "" {
+		clickhouse.SetLogOutput(tlog.DefaultLogger.IOWriter(2))
+
+		u, err := url.Parse(q)
+		if err != nil {
+			return errors.Wrap(err, "clickhouse url")
+		}
+
+		table := u.Query().Get("table")
+
+		db, err := sql.Open("clickhouse", q)
+		if err != nil {
+			return errors.Wrap(err, "connect to clickhouse")
+		}
+
+		cw := tlclickhouse.New(db, table)
+
+		w = tlog.NewTeeWriter(w, cw)
+	}
+
 	defer func() {
 		e := w.Close()
 		if err == nil {
@@ -207,7 +253,9 @@ func conv(c *cli.Command) error {
 	}()
 
 	for _, a := range c.Args {
-		fs.Add(a)
+		if fs != nil {
+			fs.Add(a)
+		}
 
 		rs[a], err = tlflag.OpenReader(a)
 		if err != nil {
@@ -343,4 +391,46 @@ func (f *filereader) Read(p []byte) (n int, err error) {
 	}
 
 	return
+}
+
+func test(c *cli.Command) (err error) {
+	clickhouse.SetLogOutput(tlog.DefaultLogger.IOWriter(2))
+
+	db, err := sql.Open("clickhouse", "tcp://localhost:9000?debug=1")
+	if err != nil {
+		return errors.Wrap(err, "connect to clickhouse")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin")
+	}
+	defer tx.Rollback()
+
+	s1, err := tx.Prepare("INSERT INTO tlog (t_time)")
+	if err != nil {
+		return errors.Wrap(err, "prepare 1")
+	}
+
+	s2, err := tx.Prepare("INSERT INTO tlog (L)")
+	if err != nil {
+		return errors.Wrap(err, "prepare 2")
+	}
+
+	_, err = s1.Exec(time.Now())
+	if err != nil {
+		return errors.Wrap(err, "exec 1")
+	}
+
+	_, err = s2.Exec([]string{"a=b", "c"})
+	if err != nil {
+		return errors.Wrap(err, "exec 2")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit")
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@ module github.com/nikandfor/tlog
 go 1.15
 
 require (
+	github.com/ClickHouse/clickhouse-go v1.4.3
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.4.2 // indirect
