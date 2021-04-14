@@ -487,6 +487,12 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 
 		b = e.AppendString(b, String, fc.Name)
 
+		if k := fv.Kind(); (k == reflect.Ptr || k == reflect.Interface) && fv.IsNil() {
+			b = append(b, Special|Null)
+
+			continue
+		}
+
 		if fc.Unexported || private {
 			b = e.appendRaw(b, fv, true, visited)
 		} else {
