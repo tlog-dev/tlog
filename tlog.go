@@ -216,8 +216,10 @@ func (s Span) Finish(kvs ...interface{}) {
 		return
 	}
 
+	var t Timestamp
 	var el time.Duration
 	if !s.Logger.NoTime {
+		t = Timestamp(nano())
 		el = now().Sub(s.StartedAt)
 	}
 
@@ -227,6 +229,11 @@ func (s Span) Finish(kvs ...interface{}) {
 	defer s.Logger.clearBuf()
 
 	s.Logger.appendBuf(KeySpan, s.ID)
+
+	if !s.Logger.NoTime {
+		s.Logger.appendBuf(KeyTime, t)
+	}
+
 	s.Logger.appendBuf(KeyEventType, EventType("f"))
 
 	if el != 0 {
