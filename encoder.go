@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 )
@@ -26,7 +25,7 @@ type (
 		b []byte
 	}
 
-	keyAuto string
+	keyAuto struct{}
 
 	Message   string
 	EventType string
@@ -39,10 +38,6 @@ type (
 	Format struct {
 		Fmt  string
 		Args []interface{}
-	}
-
-	RotatedError interface {
-		IsRotated() bool
 	}
 
 	deepCtx map[unsafe.Pointer]struct{}
@@ -131,7 +126,6 @@ func (e *Encoder) Encode(hdr []interface{}, kvs []interface{}) (err error) {
 		return nil
 	}
 
-again:
 	e.b = e.b[:0]
 
 	if e.pos == 0 {
@@ -150,14 +144,6 @@ again:
 
 	n, err := e.Write(e.b)
 	e.pos += int64(n)
-
-	var rot RotatedError
-	if errors.As(err, &rot) && rot.IsRotated() {
-		e.resetRotated()
-
-		goto again
-	}
-
 	if err != nil {
 		return err
 	}

@@ -335,8 +335,14 @@ func (s Span) PrintwDepth(d int, msg string, kvs ...interface{}) {
 	newmessage(s.Logger, s.ID, d, Message(msg), kvs)
 }
 
+//go:noinline
 func Start(n string, kvs ...interface{}) Span {
 	return newspan(DefaultLogger, ID{}, 0, n, kvs)
+}
+
+//go:noinline
+func Spawn(p ID, n string, kvs ...interface{}) Span {
+	return newspan(DefaultLogger, p, 0, n, kvs)
 }
 
 func (l *Logger) Start(n string, kvs ...interface{}) Span {
@@ -604,9 +610,10 @@ func (l *Logger) clearBuf() {
 		}
 	*/
 
-	for i := 0; i < len(l.buf); {
-		i += copy(l.buf[i:], zeroBuf)
-	}
+	//	for i := 0; i < len(l.buf); {
+	//		i += copy(l.buf[i:], zeroBuf)
+	//	}
+	copy(l.buf, zeroBuf) // we know l.buf is always shorter
 
 	l.buf = l.buf[:0]
 	//	l.bufptr = l.bufptr[:0]

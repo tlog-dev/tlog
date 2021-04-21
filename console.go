@@ -41,6 +41,9 @@ type (
 		TimeFormat     string
 		DurationFormat string
 		DurationDiv    time.Duration
+		FloatFormat    string
+		FloatChar      byte
+		FloatPrecision int
 		LocationFormat string
 
 		PairSeparator string
@@ -120,6 +123,8 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 
 		TimeFormat:     "2006-01-02_15:04:05.000",
 		DurationFormat: "%v",
+		FloatChar:      'f',
+		FloatPrecision: 5,
 		LocationFormat: "%v",
 
 		PairSeparator: "  ",
@@ -157,11 +162,6 @@ func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
 		perr := recover()
 
 		if err == nil && perr == nil {
-			return
-		}
-
-		var rot RotatedError
-		if errors.As(err, &rot) && rot.IsRotated() {
 			return
 		}
 
@@ -684,7 +684,11 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 			var f float64
 			f, i = w.d.Float(st)
 
-			b = strconv.AppendFloat(b, f, 'f', 5, 64)
+			if w.FloatFormat != "" {
+				b = low.AppendPrintf(b, w.FloatFormat, f)
+			} else {
+				b = strconv.AppendFloat(b, f, w.FloatChar, w.FloatPrecision, 64)
+			}
 		default:
 			panic(sub)
 		}
