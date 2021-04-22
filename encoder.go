@@ -124,11 +124,11 @@ func (e *Encoder) Encode(hdr, kvs []interface{}) (err error) {
 	e.b = e.AppendTag(e.b, Map, l)
 
 	if len(hdr) != 0 {
-		encodeKVs0(e, hdr...)
+		encodeKVs0(e, hdr)
 	}
 
 	if len(kvs) != 0 {
-		encodeKVs0(e, kvs...)
+		encodeKVs0(e, kvs)
 	}
 
 	_, err = e.Write(e.b)
@@ -164,7 +164,7 @@ func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 	return
 }
 
-func (e *Encoder) encodeKVs(kvs ...interface{}) {
+func (e *Encoder) encodeKVs(kvs []interface{}) {
 	for i := 0; i < len(kvs); {
 		var k string
 
@@ -229,9 +229,11 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 }
 
 func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
-	switch v := v.(type) {
-	case nil:
+	if low.IsNil(v) {
 		return append(b, Special|Null)
+	}
+
+	switch v := v.(type) {
 	case string:
 		return e.AppendString(b, String, v)
 	case int:

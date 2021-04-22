@@ -81,8 +81,6 @@ var ( //time
 
 var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))
 
-var zeroBuf = make([]interface{}, 30)
-
 func New(w io.Writer) *Logger {
 	l := &Logger{
 		Encoder: Encoder{
