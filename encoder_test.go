@@ -30,24 +30,24 @@ func TestEncoder(t *testing.T) {
 	err = e.Encode(nil, []interface{}{Error, "error", errors.New("some error")})
 	assert.NoError(t, err)
 	assert.Equal(t, `   0  a2  -  map: len 2
-   1    61  -  "i"
-   3    c9  -  semantic  9
-   4      02  -  int          2
-   5    65  -  "error"
-   b    c5  -  semantic  5
-   c      6a  -  "some error"
+   1    6b  -  "MISSING_KEY"
+   d    c9  -  semantic  9
+   e      02  -  int          2
+   f    65  -  "error"
+  15    c5  -  semantic  5
+  16      6a  -  "some error"
 `, Dump(buf))
 
 	buf = buf[:0]
 
-	err = e.Encode(nil, []interface{}{3, typedString("key"), "val"})
+	err = e.Encode(nil, []interface{}{3, typedString("typed_str"), "val"})
 	assert.NoError(t, err)
 	assert.Equal(t, `   0  a3  -  map: len 3
    1    6b  -  "MISSING_KEY"
    d    03  -  int          3
    e    6b  -  "MISSING_KEY"
-  1a    63  -  "key"
-  1e    63  -  "val"
-  22    f7  -  undefined
+  1a    69  -  "typed_str"
+  24    63  -  "val"
+  28    f7  -  undefined
 `, Dump(buf))
 }

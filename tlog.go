@@ -3,7 +3,6 @@ package tlog
 import (
 	"io"
 	"os"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -14,17 +13,12 @@ import (
 
 type (
 	Logger struct {
-		sync.Mutex
-
 		Encoder
 
 		NewID func() ID // must be threadsafe
 
 		NoTime   bool
 		NoCaller bool
-
-		buf []interface{}
-		//	bufptr []uintptr // TODO
 
 		filter *filter // accessed by atomic operations
 	}
@@ -57,7 +51,7 @@ const (
 	Error
 	Fatal
 
-	Debug = -1
+	Debug LogLevel = -1
 )
 
 // Predefined keys
@@ -105,37 +99,46 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		return
 	}
 
-	var t Timestamp
-	if !l.NoTime {
-		t = Timestamp(nano())
-	}
-
-	var lc loc.PC
-	if !l.NoCaller && d >= 0 {
-		caller1(2+d, &lc, 1, 1)
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	defer l.clearBuf()
+	var hdr [8]interface{}
+	i := 0
 
 	if id != (ID{}) {
-		l.appendBuf(KeySpan, id)
+		hdr[i] = KeySpan
+		i++
+
+		hdr[i] = id
+		i++
 	}
 
 	if !l.NoTime {
-		l.appendBuf(KeyTime, t)
+		hdr[i] = KeyTime
+		i++
+
+		hdr[i] = Timestamp(nano())
+		i++
 	}
-	if !l.NoCaller {
-		l.appendBuf(KeyLocation, lc)
+
+	if !l.NoCaller && d >= 0 {
+		var lc loc.PC
+
+		caller1(2+d, &lc, 1, 1)
+
+		hdr[i] = KeyLocation
+		i++
+
+		hdr[i] = lc
+		i++
 	}
 
 	if msg != nil && msg != Message("") {
-		l.appendBuf(KeyMessage, msg)
+		hdr[i] = KeyMessage
+		i++
+
+		hdr[i] = msg
+		i++
 	}
 
-	_ = l.Encoder.Encode(l.buf, kvs)
+	_ = l.Encoder.Encode(hdr[:i], kvs)
 }
 
 func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
@@ -147,36 +150,62 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	s.ID = l.NewID()
 	s.StartedAt = now()
 
-	var lc loc.PC
-	if !l.NoCaller && d >= 0 {
-		caller1(2+d, &lc, 1, 1)
+	var hdr [12]interface{}
+	i := 0
+
+	{
+		hdr[i] = KeySpan
+		i++
+
+		hdr[i] = s.ID
+		i++
 	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	defer l.clearBuf()
-
-	l.appendBuf(KeySpan, s.ID)
 
 	if !l.NoTime {
-		l.appendBuf(KeyTime, Timestamp(s.StartedAt.UnixNano()))
-	}
-	if !l.NoCaller {
-		l.appendBuf(KeyLocation, lc)
+		hdr[i] = KeyTime
+		i++
+
+		hdr[i] = Timestamp(nano())
+		i++
 	}
 
-	l.appendBuf(KeyEventType, EventType("s"))
+	if !l.NoCaller && d >= 0 {
+		var lc loc.PC
+
+		caller1(2+d, &lc, 1, 1)
+
+		hdr[i] = KeyLocation
+		i++
+
+		hdr[i] = lc
+		i++
+	}
+
+	{
+		hdr[i] = KeyEventType
+		i++
+
+		hdr[i] = EventType("s")
+		i++
+	}
 
 	if par != (ID{}) {
-		l.appendBuf(KeyParent, par)
+		hdr[i] = KeyParent
+		i++
+
+		hdr[i] = par
+		i++
 	}
 
 	if n != "" {
-		l.appendBuf(KeyMessage, Message(n))
+		hdr[i] = KeyMessage
+		i++
+
+		hdr[i] = Message(n)
+		i++
 	}
 
-	_ = l.Encoder.Encode(l.buf, kvs)
+	_ = l.Encoder.Encode(hdr[:i], kvs)
 
 	return
 }
@@ -186,29 +215,42 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 		return
 	}
 
-	var t Timestamp
-	if !l.NoTime {
-		t = Timestamp(nano())
-	}
-
-	defer l.Unlock()
-	l.Lock()
-
-	defer l.clearBuf()
+	var hdr [8]interface{}
+	i := 0
 
 	if id != (ID{}) {
-		l.appendBuf(KeySpan, id)
+		hdr[i] = KeySpan
+		i++
+
+		hdr[i] = id
+		i++
 	}
 
 	if !l.NoTime {
-		l.appendBuf(KeyTime, t)
+		hdr[i] = KeyTime
+		i++
+
+		hdr[i] = Timestamp(nano())
+		i++
 	}
 
-	l.appendBuf(KeyEventType, EventType("v"))
+	{
+		hdr[i] = KeyEventType
+		i++
 
-	l.appendBuf(name, v)
+		hdr[i] = EventType("v")
+		i++
+	}
 
-	_ = l.Encoder.Encode(l.buf, kvs)
+	{
+		hdr[i] = name
+		i++
+
+		hdr[i] = v
+		i++
+	}
+
+	_ = l.Encoder.Encode(hdr[:i], kvs)
 }
 
 func (s Span) Finish(kvs ...interface{}) {
@@ -216,40 +258,50 @@ func (s Span) Finish(kvs ...interface{}) {
 		return
 	}
 
-	var t Timestamp
-	var el time.Duration
-	if !s.Logger.NoTime {
-		t = Timestamp(nano())
-		el = now().Sub(s.StartedAt)
+	var hdr [8]interface{}
+	i := 0
+
+	if s.ID != (ID{}) {
+		hdr[i] = KeySpan
+		i++
+
+		hdr[i] = s.ID
+		i++
 	}
-
-	defer s.Logger.Unlock()
-	s.Logger.Lock()
-
-	defer s.Logger.clearBuf()
-
-	s.Logger.appendBuf(KeySpan, s.ID)
 
 	if !s.Logger.NoTime {
-		s.Logger.appendBuf(KeyTime, t)
+		now := now()
+
+		hdr[i] = KeyTime
+		i++
+
+		hdr[i] = Timestamp(now.UnixNano())
+		i++
+
+		if s.StartedAt != (time.Time{}) && s.StartedAt.UnixNano() != 0 {
+			hdr[i] = KeyElapsed
+			i++
+
+			hdr[i] = now.Sub(s.StartedAt)
+			i++
+		}
 	}
 
-	s.Logger.appendBuf(KeyEventType, EventType("f"))
+	{
+		hdr[i] = KeyEventType
+		i++
 
-	if el != 0 {
-		s.Logger.appendBuf(KeyElapsed, el)
+		hdr[i] = EventType("f")
+		i++
 	}
 
-	_ = s.Logger.Encoder.Encode(s.Logger.buf, kvs)
+	_ = s.Logger.Encoder.Encode(hdr[:i], kvs)
 }
 
 func (l *Logger) Event(kvs ...interface{}) error {
 	if l == nil {
 		return nil
 	}
-
-	defer l.Unlock()
-	l.Lock()
 
 	return l.Encoder.Encode(nil, kvs)
 }
@@ -259,16 +311,18 @@ func (s Span) Event(kvs ...interface{}) error {
 		return nil
 	}
 
-	defer s.Logger.Unlock()
-	s.Logger.Lock()
-
-	defer s.Logger.clearBuf()
+	var hdr [2]interface{}
+	i := 0
 
 	if s.ID != (ID{}) {
-		s.Logger.appendBuf(KeySpan, s.ID)
+		hdr[i] = KeySpan
+		i++
+
+		hdr[i] = s.ID
+		i++
 	}
 
-	return s.Logger.Encoder.Encode(s.Logger.buf, kvs)
+	return s.Logger.Encoder.Encode(hdr[:i], kvs)
 }
 
 func SetLabels(ls Labels) {
@@ -563,60 +617,46 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 		panic("empty name")
 	}
 
-	if name == "" {
+	if typ == "" {
 		panic("empty type")
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	var hdr [8]interface{}
+	i := 0
 
-	defer l.clearBuf()
+	{
+		hdr[i] = KeyEventType
+		i++
 
-	l.appendBuf(KeyEventType, EventType("m"))
-	l.appendBuf(KeyMessage, name)
-	l.appendBuf("type", typ)
-
-	if help != "" {
-		l.appendBuf("help", help)
+		hdr[i] = EventType("m")
+		i++
 	}
 
-	_ = l.Encoder.Encode(l.buf, kvs)
-}
+	{
+		hdr[i] = KeyMessage
+		i++
 
-func (l *Logger) appendBuf(vals ...interface{}) {
-	l.buf = append0(l.buf, vals...)
+		hdr[i] = name
+		i++
+	}
 
-	/*
-		for _, v := range vals {
-			e := *(*eface)(unsafe.Pointer(&v))
+	{
+		hdr[i] = "type"
+		i++
 
-			l.bufptr = append(l.bufptr, e.data)
-		}
-	*/
-}
+		hdr[i] = typ
+		i++
+	}
 
-func append1(b []interface{}, v ...interface{}) []interface{} {
-	return append(b, v...)
-}
+	if help != "" {
+		hdr[i] = "help"
+		i++
 
-func (l *Logger) clearBuf() {
-	/*
-		for i, v := range l.buf {
-			e := *(*eface)(unsafe.Pointer(&v))
+		hdr[i] = help
+		i++
+	}
 
-			if e.data != l.bufptr[i] {
-				println("l.buf link changed", i, len(l.buf), fmt.Sprintf("%x %x  %x  %T %[4]v", e.data, l.bufptr[i], e.data-l.bufptr[i], v))
-			}
-		}
-	*/
-
-	//	for i := 0; i < len(l.buf); {
-	//		i += copy(l.buf[i:], zeroBuf)
-	//	}
-	copy(l.buf, zeroBuf) // we know l.buf is always shorter
-
-	l.buf = l.buf[:0]
-	//	l.bufptr = l.bufptr[:0]
+	_ = l.Encoder.Encode(hdr[:i], kvs)
 }
 
 func TestSetTime(t func() time.Time, ts func() int64) {

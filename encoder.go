@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -15,17 +16,14 @@ import (
 type (
 	Encoder struct {
 		io.Writer
-		pos int64
+		//	pos int64
 
-		Labels Labels
-		ls     map[loc.PC]struct{}
+		mu sync.Mutex
 
-		newLabels Labels
+		ls map[loc.PC]struct{}
 
 		b []byte
 	}
-
-	keyAuto struct{}
 
 	Message   string
 	EventType string
@@ -43,7 +41,7 @@ type (
 	deepCtx map[unsafe.Pointer]struct{}
 )
 
-var KeyAuto keyAuto
+var KeyAuto = ""
 
 // basic types
 const (
@@ -106,19 +104,7 @@ const (
 	WireHex
 )
 
-func (e *Encoder) resetRotated() {
-	e.pos = 0
-
-	for l := range e.ls {
-		delete(e.ls, l)
-	}
-}
-
-func (e *Encoder) Encode(hdr []interface{}, kvs []interface{}) (err error) {
-	if e.ls == nil {
-		e.ls = make(map[loc.PC]struct{})
-	}
-
+func (e *Encoder) Encode(hdr, kvs []interface{}) (err error) {
 	l := e.calcMapLen(hdr)
 	l += e.calcMapLen(kvs)
 
@@ -126,11 +112,14 @@ func (e *Encoder) Encode(hdr []interface{}, kvs []interface{}) (err error) {
 		return nil
 	}
 
-	e.b = e.b[:0]
+	defer e.mu.Unlock()
+	e.mu.Lock()
 
-	if e.pos == 0 {
-		e.b = e.appendHeader(e.b)
+	if e.ls == nil {
+		e.ls = make(map[loc.PC]struct{})
 	}
+
+	e.b = e.b[:0]
 
 	e.b = e.AppendTag(e.b, Map, l)
 
@@ -142,67 +131,34 @@ func (e *Encoder) Encode(hdr []interface{}, kvs []interface{}) (err error) {
 		encodeKVs0(e, kvs...)
 	}
 
-	n, err := e.Write(e.b)
-	e.pos += int64(n)
+	_, err = e.Write(e.b)
+	//	e.pos += int64(n)
 	if err != nil {
 		return err
-	}
-
-	if e.newLabels != nil {
-		e.Labels = e.newLabels
-		e.newLabels = nil
 	}
 
 	return nil
 }
 
-func (e *Encoder) appendHeader(b []byte) []byte {
-	//	b = append(b, Semantic|WireHeader, Map|1)
-	//	b = e.AppendString(b, String, "tlog")
-	//	b = e.AppendString(b, String, "v0")
-
-	// labels as usual event
-
-	if len(e.Labels) == 0 {
-		return b
-	}
-
-	b = e.AppendTag(b, Map, 1)
-
-	b = e.AppendString(b, String, KeyLabels)
-	b = e.AppendLabels(b, e.Labels)
-
-	return b
-}
-
 func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
-	for i := 0; i < len(kvs); i++ {
+	for i := 0; i < len(kvs); {
 		l++
 
 		// key
-		switch kvs[i].(type) {
-		case string:
-		case keyAuto:
-		case LogLevel, ID, EventType, Labels:
-			i-- // implicit key
-		default:
-			i-- // missing key
+		if _, ok := kvs[i].(string); ok {
+			i++
 		}
-		i++
 
 		// value
 		if i == len(kvs) {
-			//	panic("no value for last key")
 			break
 		}
 
 		if _, ok := kvs[i].(FormatNext); ok {
-			if i == len(kvs) {
-				//	panic("no argument for FormatNext")
-				break
-			}
 			i++
 		}
+
+		i++
 	}
 
 	return
@@ -212,44 +168,22 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 	for i := 0; i < len(kvs); {
 		var k string
 
-		switch q := kvs[i].(type) {
-		case string:
-			if q == "" {
+		k, ok := kvs[i].(string)
+		if !ok {
+			k = "MISSING_KEY"
+		} else {
+			if k == KeyAuto {
 				k = e.autoKey(kvs[i:])
-				break
 			}
 
-			k = q
-		case keyAuto:
-			k = e.autoKey(kvs[i:])
-		case LogLevel:
-			k = KeyLogLevel
-			i--
-		case ID:
-			k = KeySpan
-			i--
-		case EventType:
-			k = KeyEventType
-			i--
-		case Labels:
-			k = KeyLabels
-			i--
-		default:
-			k = "MISSING_KEY"
-			i--
+			i++
 		}
-		i++
 
 		e.b = e.AppendString(e.b, String, k)
 
 		if i == len(kvs) {
 			e.b = append(e.b, Special|Undefined)
 			break
-		}
-
-		if ls, ok := kvs[i].(Labels); ok && k == KeyLabels {
-			e.newLabels = ls
-			e.Labels = nil
 		}
 
 		switch v := kvs[i].(type) {
@@ -264,6 +198,7 @@ func (e *Encoder) encodeKVs(kvs ...interface{}) {
 		default:
 			e.b = e.appendValue(e.b, kvs[i], nil)
 		}
+
 		i++
 	}
 }
@@ -274,10 +209,10 @@ func (e *Encoder) autoKey(kvs []interface{}) (k string) {
 	}
 
 	switch kvs[1].(type) {
-	case LogLevel:
-		k = KeyLogLevel
 	case ID:
 		k = KeySpan
+	case LogLevel:
+		k = KeyLogLevel
 	case EventType:
 		k = KeyEventType
 	case Labels:
@@ -297,13 +232,13 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
 	switch v := v.(type) {
 	case nil:
 		return append(b, Special|Null)
-	case Message:
-		b = append(b, Semantic|WireMessage)
-		return e.AppendString(b, String, string(v))
 	case string:
 		return e.AppendString(b, String, v)
 	case int:
 		return e.AppendInt(b, int64(v))
+	case Message:
+		b = append(b, Semantic|WireMessage)
+		return e.AppendString(b, String, string(v))
 	case float64:
 		return e.AppendFloat(b, v)
 	case ID:

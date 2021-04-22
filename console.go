@@ -19,7 +19,7 @@ import (
 type (
 	ConsoleWriter struct {
 		io.Writer
-		f int
+		Flags int
 
 		d Decoder
 
@@ -109,7 +109,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 
 	return &ConsoleWriter{
 		Writer: w,
-		f:      f,
+		Flags:  f,
 
 		Colorize:        colorize,
 		PadEmptyMessage: true,
@@ -237,7 +237,7 @@ again:
 			}
 		case ks == KeyMessage && sub == WireMessage:
 			m, i = w.d.String(i)
-		case ks == KeyLogLevel && sub == WireLogLevel && w.f&Lloglevel != 0:
+		case ks == KeyLogLevel && sub == WireLogLevel && w.Flags&Lloglevel != 0:
 			lv, i = w.d.LogLevel(st)
 		default:
 			b, i = w.appendPair(b, k, st)
@@ -267,18 +267,18 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 	var fname, file string
 	line := -1
 
-	if w.f&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
+	if w.Flags&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
 		var t time.Time
 		if ts != 0 {
 			t = time.Unix(0, int64(ts))
 		}
 
-		if w.f&LUTC != 0 {
+		if w.Flags&LUTC != 0 {
 			t = t.UTC()
 		}
 
 		var Y, M, D, h, m, s int
-		if w.f&(Ldate|Ltime) != 0 {
+		if w.Flags&(Ldate|Ltime) != 0 {
 			Y, M, D, h, m, s = low.SplitTime(t)
 		}
 
@@ -286,7 +286,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 			b = append(b, w.TimeColor...)
 		}
 
-		if w.f&Ldate != 0 {
+		if w.Flags&Ldate != 0 {
 			i := len(b)
 			b = append(b, "0000-00-00"...)
 
@@ -303,7 +303,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 			D /= 10
 			b[i+8] = byte(D) + '0'
 		}
-		if w.f&Ltime != 0 {
+		if w.Flags&Ltime != 0 {
 			if len(b) != 0 {
 				b = append(b, '_')
 			}
@@ -323,13 +323,13 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 			s /= 10
 			b[i+6] = byte(s) + '0'
 		}
-		if w.f&(Lmilliseconds|Lmicroseconds) != 0 {
+		if w.Flags&(Lmilliseconds|Lmicroseconds) != 0 {
 			if len(b) != 0 {
 				b = append(b, '.')
 			}
 
 			ns := t.Nanosecond() / 1e3
-			if w.f&Lmilliseconds != 0 {
+			if w.Flags&Lmilliseconds != 0 {
 				ns /= 1000
 
 				i := len(b)
@@ -365,7 +365,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 		b = append(b, ' ', ' ')
 	}
 
-	if w.f&Lloglevel != 0 {
+	if w.Flags&Lloglevel != 0 {
 		var col []byte
 		switch {
 		case !w.Colorize:
@@ -413,14 +413,14 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 		}
 	}
 
-	if w.f&(Llongfile|Lshortfile) != 0 {
+	if w.Flags&(Llongfile|Lshortfile) != 0 {
 		fname, file, line = pc.NameFileLine()
 
 		if w.Colorize && len(w.FileColor) != 0 {
 			b = append(b, w.FileColor...)
 		}
 
-		if w.f&Lshortfile != 0 {
+		if w.Flags&Lshortfile != 0 {
 			file = filepath.Base(file)
 
 			n := 1
@@ -471,7 +471,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 		b = append(b, ' ', ' ')
 	}
 
-	if w.f&(Ltypefunc|Lfuncname) != 0 {
+	if w.Flags&(Ltypefunc|Lfuncname) != 0 {
 		if line == -1 {
 			fname, _, _ = pc.NameFileLine()
 		}
@@ -481,7 +481,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 			b = append(b, w.FuncColor...)
 		}
 
-		if w.f&Lfuncname != 0 {
+		if w.Flags&Lfuncname != 0 {
 			p := strings.Index(fname, ").")
 			if p == -1 {
 				p = strings.IndexByte(fname, '.')
@@ -703,7 +703,7 @@ func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
 			ts, i = w.d.Time(st)
 
 			t := time.Unix(0, int64(ts))
-			if w.f&LUTC != 0 {
+			if w.Flags&LUTC != 0 {
 				t = t.UTC()
 			}
 			b = t.AppendFormat(b, w.TimeFormat)
