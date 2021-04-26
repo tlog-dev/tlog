@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
@@ -45,8 +46,8 @@ func TestFileExtWriter(t *testing.T) {
 		func() *convert.JSON {
 			w := convert.NewJSONWriter(tlog.Stderr)
 
-			w.TimeInUTC = true
 			w.TimeFormat = JSONDefaultTimeFormat
+			w.TimeZone = time.UTC
 
 			return w
 		}(),
@@ -59,8 +60,8 @@ func TestFileExtWriter(t *testing.T) {
 			w := convert.NewJSONWriter(tlog.Stderr)
 
 			w.AttachLabels = true
-			w.TimeInUTC = true
 			w.TimeFormat = "150405"
+			w.TimeZone = time.UTC
 
 			return w
 		}(),

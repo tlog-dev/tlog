@@ -72,7 +72,7 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 
 	w.d.ResetBytes(p)
 
-	i := 0
+	var i int64
 
 	defer w.resetVals()
 
@@ -82,7 +82,7 @@ again:
 		return
 	}
 
-	if tag == tlog.Semantic && els == tlog.WireHeader {
+	if tag == tlog.Semantic && els == tlog.WireMeta {
 		i = w.d.Skip(i)
 		goto again
 	}
@@ -158,7 +158,7 @@ func (w *Writer) resetVals() {
 	}
 }
 
-func (w *Writer) appendPair(st int) (i int, err error) {
+func (w *Writer) appendPair(st int64) (i int64, err error) {
 	tlog.V("pairs").Printw("append pair", "st", tlog.Hex(st))
 
 	k, i := w.d.String(st)
@@ -270,7 +270,7 @@ func (w *Writer) appendPair(st int) (i int, err error) {
 				return i, errors.Wrap(err, "read id")
 			}
 
-			v = id.FullString()
+			v = id.StringFull()
 		case tlog.WireError:
 			tp = "String"
 			suff = "_err"
@@ -338,7 +338,7 @@ func (w *Writer) appendPair(st int) (i int, err error) {
 	return i, nil
 }
 
-func (w *Writer) appendJSONValue(b []byte, st int) (_ []byte, i int) {
+func (w *Writer) appendJSONValue(b []byte, st int64) (_ []byte, i int64) {
 	tag, sub, i := w.d.Tag(st)
 	if w.d.Err() != nil {
 		return

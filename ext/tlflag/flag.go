@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
@@ -114,7 +115,7 @@ func updateJSONOptions(w *convert.JSON, s string) {
 		case 'L':
 			w.AttachLabels = true
 		case 'U':
-			w.TimeInUTC = true
+			w.TimeZone = time.UTC
 		case 't':
 			w.TimeFormat = ""
 		case 'T':
