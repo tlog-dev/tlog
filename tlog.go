@@ -427,6 +427,10 @@ func (l *Logger) NewSpan(d int, par ID, name string, kvs ...interface{}) Span {
 	return newspan(l, par, d, name, kvs)
 }
 
+func (l *Logger) NewMessage(d int, id ID, msg interface{}, kvs ...interface{}) {
+	newmessage(l, id, d, msg, kvs)
+}
+
 func (l *Logger) ifv(tp string) (ok bool) {
 	if l == nil {
 		return false

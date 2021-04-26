@@ -15,8 +15,9 @@ type (
 
 		err error
 
-		b   []byte
-		ref int
+		b         []byte
+		ref, keep int64
+		//	pos       int64
 	}
 
 	Dumper struct {
@@ -26,7 +27,7 @@ type (
 
 		NoGlobalOffset bool
 
-		ref int
+		ref int64
 		b   low.Buf
 	}
 )
@@ -34,29 +35,42 @@ type (
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
 		Reader: r,
+		keep:   -1,
 	}
 }
 
 func NewDecoderBytes(b []byte) *Decoder {
 	return &Decoder{
-		b: b,
+		b:    b,
+		keep: -1,
 	}
 }
 
 func (d *Decoder) Reset(r io.Reader) {
 	d.Reader = r
-	d.b = d.b[:0]
-	d.ref = 0
-	d.err = nil
+	d.ResetBytes(d.b[:0])
 }
 
 func (d *Decoder) ResetBytes(b []byte) {
 	d.b = b
 	d.ref = 0
+	d.keep = -1
 	d.err = nil
 }
 
-func (d *Decoder) Skip(st int) (i int) {
+func (d *Decoder) Keep(st int64) {
+	d.keep = st
+}
+
+func (d *Decoder) Bytes(st, end int64) []byte {
+	if !d.more(st, end) {
+		return nil
+	}
+
+	return d.b[st-d.ref : end-d.ref]
+}
+
+func (d *Decoder) Skip(st int64) (i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -96,7 +110,7 @@ func (d *Decoder) Skip(st int) (i int) {
 	return
 }
 
-func (d *Decoder) ID(st int) (id ID, i int) {
+func (d *Decoder) ID(st int64) (id ID, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -113,7 +127,7 @@ func (d *Decoder) ID(st int) (id ID, i int) {
 	return
 }
 
-func (d *Decoder) Location(st int) (pc loc.PC, pcs loc.PCs, i int) {
+func (d *Decoder) Location(st int64) (pc loc.PC, pcs loc.PCs, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -142,7 +156,7 @@ func (d *Decoder) Location(st int) (pc loc.PC, pcs loc.PCs, i int) {
 
 }
 
-func (d *Decoder) location(st int) (pc loc.PC, i int) {
+func (d *Decoder) location(st int64) (pc loc.PC, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -201,7 +215,7 @@ func (d *Decoder) location(st int) (pc loc.PC, i int) {
 	return
 }
 
-func (d *Decoder) locationStack(st int) (pcs loc.PCs, i int) {
+func (d *Decoder) locationStack(st int64) (pcs loc.PCs, i int64) {
 	tag, els, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -226,7 +240,7 @@ func (d *Decoder) locationStack(st int) (pcs loc.PCs, i int) {
 	return
 }
 
-func (d *Decoder) Labels(st int) (ls Labels, i int) {
+func (d *Decoder) Labels(st int64) (ls Labels, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -264,7 +278,7 @@ func (d *Decoder) Labels(st int) (ls Labels, i int) {
 	return
 }
 
-func (d *Decoder) Time(st int) (ts Timestamp, i int) {
+func (d *Decoder) Time(st int64) (ts Timestamp, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -280,7 +294,7 @@ func (d *Decoder) Time(st int) (ts Timestamp, i int) {
 	return Timestamp(v), i
 }
 
-func (d *Decoder) LogLevel(st int) (lv LogLevel, i int) {
+func (d *Decoder) LogLevel(st int64) (lv LogLevel, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
@@ -296,7 +310,7 @@ func (d *Decoder) LogLevel(st int) (lv LogLevel, i int) {
 	return LogLevel(v), i
 }
 
-func (d *Decoder) String(st int) (s []byte, i int) {
+func (d *Decoder) String(st int64) (s []byte, i int64) {
 	tag, l, i := d.Tag(st)
 
 	if tag != String && tag != Bytes {
@@ -304,17 +318,17 @@ func (d *Decoder) String(st int) (s []byte, i int) {
 		return
 	}
 
-	if !d.more(st, i+l) {
+	if !d.more(st, i+int64(l)) {
 		return
 	}
 
-	s = d.b[i : i+l]
-	i += l
+	s = d.b[i-d.ref : i-d.ref+int64(l)]
+	i += int64(l)
 
-	return
+	return s, i
 }
 
-func (d *Decoder) Float(st int) (v float64, i int) {
+func (d *Decoder) Float(st int64) (v float64, i int64) {
 	tag, sub, i := d.Tag(st)
 
 	if tag != Special {
@@ -328,7 +342,7 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 			return
 		}
 
-		q := int8(d.b[i])
+		q := int8(d.b[i-d.ref])
 		i++
 
 		return float64(q), i
@@ -337,7 +351,7 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 			return
 		}
 
-		q := uint32(d.b[i])<<24 | uint32(d.b[i+1])<<16 | uint32(d.b[i+2])<<8 | uint32(d.b[i+3])
+		q := uint32(d.b[i-d.ref])<<24 | uint32(d.b[i+1-d.ref])<<16 | uint32(d.b[i+2-d.ref])<<8 | uint32(d.b[i+3-d.ref])
 		i += 4
 
 		return float64(math.Float32frombits(q)), i
@@ -346,8 +360,8 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 			return
 		}
 
-		q := uint64(d.b[i])<<56 | uint64(d.b[i+1])<<48 | uint64(d.b[i+2])<<40 | uint64(d.b[i+3])<<32 |
-			uint64(d.b[i+4])<<24 | uint64(d.b[i+5])<<16 | uint64(d.b[i+6])<<8 | uint64(d.b[i+7])
+		q := uint64(d.b[i-d.ref])<<56 | uint64(d.b[i+1-d.ref])<<48 | uint64(d.b[i+2-d.ref])<<40 | uint64(d.b[i+3-d.ref])<<32 |
+			uint64(d.b[i+4-d.ref])<<24 | uint64(d.b[i+5-d.ref])<<16 | uint64(d.b[i+6-d.ref])<<8 | uint64(d.b[i+7-d.ref])
 		i += 8
 
 		return math.Float64frombits(q), i
@@ -358,19 +372,20 @@ func (d *Decoder) Float(st int) (v float64, i int) {
 	return
 }
 
-func (d *Decoder) Int(st int) (v int64, i int) {
-	if !d.more(st, st+1) {
+func (d *Decoder) Int(st int64) (v int64, i int64) {
+	i = st
+
+	if !d.more(i, i+1) {
 		return -1, st
 	}
 
-	i = st
-	tag := int(d.b[i] & TypeMask)
+	tag := int(d.b[i-d.ref] & TypeMask)
 	if tag != Int && tag != Neg {
 		d.newErr(st, "expected int: got %x", tag)
 		return
 	}
 
-	v = int64(d.b[i] & TypeDetMask)
+	v = int64(d.b[i-d.ref] & TypeDetMask)
 	i++
 
 	switch {
@@ -381,29 +396,29 @@ func (d *Decoder) Int(st int) (v int64, i int) {
 			return -1, i
 		}
 
-		v = int64(d.b[i])
+		v = int64(d.b[i-d.ref])
 		i++
 	case v == Len2:
 		if !d.more(st, i+2) {
 			return -1, i
 		}
 
-		v = int64(d.b[i])<<8 | int64(d.b[i+1])
+		v = int64(d.b[i-d.ref])<<8 | int64(d.b[i+1-d.ref])
 		i += 2
 	case v == Len4:
 		if !d.more(st, i+4) {
 			return -1, i
 		}
 
-		v = int64(d.b[i])<<24 | int64(d.b[i+1])<<16 | int64(d.b[i+2])<<8 | int64(d.b[i+3])
+		v = int64(d.b[i-d.ref])<<24 | int64(d.b[i+1-d.ref])<<16 | int64(d.b[i+2-d.ref])<<8 | int64(d.b[i+3-d.ref])
 		i += 4
 	case v == Len8:
 		if !d.more(st, i+8) {
 			return -1, i
 		}
 
-		v = int64(d.b[i])<<56 | int64(d.b[i+1])<<48 | int64(d.b[i+2])<<40 | int64(d.b[i+3])<<32 |
-			int64(d.b[i+4])<<24 | int64(d.b[i+5])<<16 | int64(d.b[i+6])<<8 | int64(d.b[i+7])
+		v = int64(d.b[i-d.ref])<<56 | int64(d.b[i+1-d.ref])<<48 | int64(d.b[i+2-d.ref])<<40 | int64(d.b[i+3-d.ref])<<32 |
+			int64(d.b[i+4-d.ref])<<24 | int64(d.b[i+5-d.ref])<<16 | int64(d.b[i+6-d.ref])<<8 | int64(d.b[i+7-d.ref])
 		i += 8
 	default:
 		d.newErr(st, "unsupported int len: %v", v)
@@ -416,14 +431,19 @@ func (d *Decoder) Int(st int) (v int64, i int) {
 	return
 }
 
-func (d *Decoder) Tag(st int) (tag, sub, i int) {
-	if !d.more(st, st+1) {
+func (d *Decoder) Tag(st int64) (tag, sub int, i int64) {
+	i = st
+
+	//	defer func() {
+	//		fmt.Fprintf(Stderr, "Tag %3x -> %3x : %2x %2x  at %#v\n", st, i, tag, sub, loc.Callers(2, 4))
+	//	}()
+
+	if !d.more(st, i+1) {
 		return -1, -1, st
 	}
 
-	i = st
-	tag = int(d.b[i] & TypeMask)
-	sub = int(d.b[i] & TypeDetMask)
+	tag = int(d.b[i-d.ref] & TypeMask)
+	sub = int(d.b[i-d.ref] & TypeDetMask)
 	i++
 
 	if tag == Special {
@@ -435,31 +455,32 @@ func (d *Decoder) Tag(st int) (tag, sub, i int) {
 		// sub = sub
 	case sub == Len1:
 		if !d.more(st, i+1) {
-			return -1, -1, i
+			return -1, -1, st
 		}
 
-		sub = int(d.b[i])
+		sub = int(d.b[i-d.ref])
 		i++
 	case sub == Len2:
 		if !d.more(st, i+2) {
-			return -1, -1, i
+			return -1, -1, st
 		}
 
-		sub = int(d.b[i])<<8 | int(d.b[i+1])
+		sub = int(d.b[i-d.ref])<<8 | int(d.b[i+1-d.ref])
 		i += 2
 	case sub == Len4:
 		if !d.more(st, i+4) {
-			return -1, -1, i
+			return -1, -1, st
 		}
 
-		sub = int(d.b[i])<<24 | int(d.b[i+1])<<16 | int(d.b[i+2])<<8 | int(d.b[i+3])
+		sub = int(d.b[i-d.ref])<<24 | int(d.b[i+1-d.ref])<<16 | int(d.b[i+2-d.ref])<<8 | int(d.b[i+3-d.ref])
 		i += 4
 	case sub == Len8:
 		if !d.more(st, i+8) {
-			return -1, -1, i
+			return -1, -1, st
 		}
 
-		sub = int(d.b[i])<<56 | int(d.b[i+1])<<48 | int(d.b[i+2])<<40 | int(d.b[i+3])<<32 | int(d.b[i+4])<<24 | int(d.b[i+5])<<16 | int(d.b[i+6])<<8 | int(d.b[i+7])
+		sub = int(d.b[i-d.ref])<<56 | int(d.b[i+1-d.ref])<<48 | int(d.b[i+2-d.ref])<<40 | int(d.b[i+3-d.ref])<<32 |
+			int(d.b[i+4-d.ref])<<24 | int(d.b[i+5-d.ref])<<16 | int(d.b[i+6-d.ref])<<8 | int(d.b[i+7-d.ref])
 		i += 8
 	case sub == LenBreak:
 		sub = -1
@@ -470,12 +491,12 @@ func (d *Decoder) Tag(st int) (tag, sub, i int) {
 	return
 }
 
-func (d *Decoder) Break(i *int) bool {
+func (d *Decoder) Break(i *int64) bool {
 	if !d.more(*i, *i+1) {
 		return true
 	}
 
-	if d.b[*i] != Special|Break {
+	if d.b[*i-d.ref] != Special|Break {
 		return false
 	}
 
@@ -484,43 +505,49 @@ func (d *Decoder) Break(i *int) bool {
 	return true
 }
 
-func (d *Decoder) more(st, end int) (res bool) {
+func (d *Decoder) more(st, end int64) (res bool) {
 	if d.err != nil {
 		return false
 	}
 
-	//	defer func(ref int, b []byte) {
-	//		fmt.Fprintln(Stderr, "more", "st", st, "end", end, "res", res, "ref", d.ref, "blen", len(d.b), "bcap", cap(d.b), "oldref", ref, "oldblen", len(b), "oldbcap", cap(b), loc.Callers(2, 2))
-	//	}(d.ref, d.b)
-
-	if end <= len(d.b) {
+	if int(end-d.ref) <= len(d.b) {
 		return true
 	}
 
+	//	defer func(ref int64, b []byte) {
+	//		fmt.Fprintf(Stderr, "more st %3x - %3x res %v  ref %3x <- %3x len %3x/%3x <- %3x/%3x  at %#v\n", st, end, res, d.ref, ref, len(d.b), cap(d.b), len(b), cap(b), loc.Callers(2, 4))
+	//	}(d.ref, d.b)
+
 	if d.Reader == nil {
-		d.wrapErr(st, io.ErrUnexpectedEOF, "short buffer, no reader (end %x)", end)
+		d.wrapErr(st, io.ErrUnexpectedEOF, "short buffer, no reader")
 		return false
 	}
 
 	// [0] already-used [st] not-used [len(d.b)] free-space [cap(d.b)]
-	// d.ref = start of d.b position in stream
+	// d.ref is start of d.b position in stream
+	// d.keep is start of protected zone
+
+	keep := st
+	if d.keep != -1 && d.keep < keep {
+		keep = d.keep
+	}
+
+	keep -= d.ref
+
+	if keep != 0 {
+		n := copy(d.b, d.b[keep:])
+		d.b = d.b[:n]
+		d.ref += keep
+		keep = 0
+	}
 
 	read := len(d.b)
 
-	if cap(d.b) < end {
-		c := cap(d.b) * 5 / 4
-		if c < end {
-			c = end
-		}
-		b := make([]byte, c)
-		copy(b, d.b)
-		d.b = b
-	}
-
-	d.b = d.b[:cap(d.b)]
+	d.grow(int(end - d.ref))
 
 more:
-	n, err := d.Reader.Read(d.b[read:end])
+	n, err := d.Reader.Read(d.b[read:])
+	//	println("more", d.keep, st, end, "read", read, cap(d.b), n)
 	read += n
 
 	if err != nil {
@@ -529,7 +556,7 @@ more:
 		return false
 	}
 
-	if end <= read {
+	if end <= d.ref+int64(read) {
 		d.b = d.b[:read]
 		return true
 	}
@@ -537,22 +564,45 @@ more:
 	goto more
 }
 
-func (d *Decoder) wrapErr(i int, err error, f string, args ...interface{}) {
+func (d *Decoder) grow(l int) {
+	n := cap(d.b)
+
+	for n < l {
+		switch {
+		case n == 0:
+			n = 1
+		case n < 1024:
+			n *= 2
+		default:
+			n = n * 5 / 4
+		}
+	}
+
+	if cap(d.b) < n {
+		b := make([]byte, n)
+		copy(b, d.b)
+		d.b = b
+	}
+
+	d.b = d.b[:cap(d.b)]
+}
+
+func (d *Decoder) wrapErr(i int64, err error, f string, args ...interface{}) {
 	if d.err != nil {
 		return
 	}
 
 	d.err = errors.WrapDepth(err, 1, f, args...)
-	d.err = errors.WrapNoLoc(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
+	d.err = errors.WrapNoLoc(d.err, "(pos %x)", i)
 }
 
-func (d *Decoder) newErr(i int, f string, args ...interface{}) {
+func (d *Decoder) newErr(i int64, f string, args ...interface{}) {
 	if d.err != nil {
 		return
 	}
 
 	d.err = errors.NewDepth(1, f, args...)
-	d.err = errors.WrapNoLoc(d.err, "(pos %x (%x) of %x)", i, (d.ref + i), len(d.b))
+	d.err = errors.WrapNoLoc(d.err, "(pos %x)", i)
 }
 
 func (d *Decoder) Err() error {
@@ -571,8 +621,8 @@ func (w *Dumper) Write(p []byte) (int, error) {
 	w.d.ResetBytes(p)
 	w.b = w.b[:0]
 
-	i := 0
-	for i < len(p) {
+	var i int64
+	for int(i) < len(p) {
 		i = w.dump(i, 0)
 	}
 
@@ -589,7 +639,7 @@ func (w *Dumper) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (w *Dumper) dump(st, d int) (i int) {
+func (w *Dumper) dump(st int64, d int) (i int64) {
 	tag, sub, i := w.d.Tag(st)
 	if w.d.err != nil {
 		return
@@ -625,9 +675,8 @@ func (w *Dumper) dump(st, d int) (i int) {
 		w.b = low.AppendPrintf(w.b, "%v: len %v\n", tg, sub)
 
 		for el := 0; sub == -1 || el < sub; el++ {
-			st := i
 			if sub == -1 && w.d.Break(&i) {
-				i = w.dump(st, d+1)
+				i = w.dump(i-1, d+1)
 				break
 			}
 

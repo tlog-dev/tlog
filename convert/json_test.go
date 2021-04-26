@@ -19,6 +19,7 @@ func TestJSON(t *testing.T) {
 
 	j := NewJSONWriter(&b)
 	j.AttachLabels = true
+	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
 	l := tlog.New(j)
@@ -34,8 +35,8 @@ func TestJSON(t *testing.T) {
 		B: 9,
 	})
 
-	exp := `{"L":\["a=b","c"\]}
-{"t":"2020-12-25T22:08:13\+03:00","l":"json_test.go:28","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
+	exp := `{"t":"2020-12-25T22:08:13\+03:00","L":\["a=b","c"\]}
+{"t":"2020-12-25T22:08:13\+03:00","l":"[\w./-]*json_test.go:29","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
 `
 
 	exps := strings.Split(exp, "\n")

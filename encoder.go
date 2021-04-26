@@ -89,7 +89,7 @@ const (
 
 // semantic types
 const (
-	WireHeader = iota
+	WireMeta = iota
 	WireTime
 	WireDuration
 	WireMessage
@@ -245,9 +245,6 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
 		return e.AppendFloat(b, v)
 	case ID:
 		return e.AppendID(b, v)
-	case Hex:
-		b = append(b, Semantic|WireHex)
-		return e.AppendInt(b, int64(v))
 	case Timestamp:
 		b = append(b, Semantic|WireTime)
 		return e.AppendUint(b, Int, uint64(v))
@@ -271,6 +268,9 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
 	case LogLevel:
 		b = append(b, Semantic|WireLogLevel)
 		return e.AppendUint(b, Int, uint64(v))
+	case Hex:
+		b = append(b, Semantic|WireHex)
+		return e.AppendInt(b, int64(v))
 	case error:
 		b = append(b, Semantic|WireError)
 		return e.AppendString(b, String, v.Error())

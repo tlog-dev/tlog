@@ -52,7 +52,7 @@ var AutoLabels = map[string]func() string{
 		return filepath.Base(os.Args[0])
 	},
 	"_randid": func() string {
-		return MathRandID().FullString()
+		return MathRandID().StringFull()
 	},
 	"_runid": func() string {
 		return low.RunID

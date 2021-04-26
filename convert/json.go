@@ -15,9 +15,9 @@ type (
 	JSON struct {
 		io.Writer
 
-		TimeFormat   string
-		TimeInUTC    bool
 		AttachLabels bool
+		TimeFormat   string
+		TimeZone     *time.Location
 
 		d tlog.Decoder
 
@@ -31,16 +31,18 @@ func NewJSONWriter(w io.Writer) *JSON {
 	return &JSON{
 		Writer: w,
 		//	TimeFormat: "2006-01-02T15:04:05.999999Z07:00",
+		TimeZone: time.Local,
 	}
 }
 
 func (w *JSON) Write(p []byte) (n int, err error) {
+	defer w.d.ResetBytes(nil)
 	w.d.ResetBytes(p)
 
+	var i int64
 	b := w.b[:0]
-	i := 0
 
-	for i < len(p) {
+	for int(i) < len(p) {
 		b, i = w.appendValue(b, i, 0, nil)
 
 		b = append(b, '\n')
@@ -65,7 +67,7 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
+func (w *JSON) appendValue(b []byte, st int64, d int, key []byte) (_ []byte, i int64) {
 	tag, sub, i := w.d.Tag(st)
 	if w.d.Err() != nil {
 		return
@@ -147,7 +149,7 @@ func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
 			b, i = w.appendValue(b, i, d+1, key)
 		}
 
-		if d == 0 && len(w.ls) != 0 && w.AttachLabels {
+		if d == 0 && len(w.tmpls) == 0 && len(w.ls) != 0 && w.AttachLabels {
 			if i != st {
 				b = append(b, ',')
 			}
@@ -172,13 +174,13 @@ func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
 		ks := low.UnsafeBytesToString(key)
 
 		switch {
-		case sub == tlog.WireTime && w.TimeFormat != "" && ks == tlog.KeyTime:
+		case sub == tlog.WireTime && w.TimeFormat != "":
 			var ts tlog.Timestamp
 			ts, i = w.d.Time(st)
 
 			t := time.Unix(0, int64(ts))
-			if w.TimeInUTC {
-				t = t.UTC()
+			if w.TimeZone != nil {
+				t = t.In(w.TimeZone)
 			}
 
 			b = append(b, '"')
@@ -212,14 +214,12 @@ func (w *JSON) appendValue(b []byte, st, d int, key []byte) (_ []byte, i int) {
 				b = append(b, ']')
 			}
 		case sub == tlog.WireLabels && ks == tlog.KeyLabels:
-			vst := i
-
 			var ls tlog.Labels
-			ls, i = w.d.Labels(st)
+			ls, _ = w.d.Labels(st)
 
 			w.tmpls = ls
 
-			b, i = w.appendValue(b, vst, d+1, key)
+			b, i = w.appendValue(b, i, d+1, key)
 		default:
 			b, i = w.appendValue(b, i, d+1, key)
 		}

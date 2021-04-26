@@ -35,8 +35,8 @@ func (i ID) String() string {
 	return string(b[:])
 }
 
-// FullString returns full id represented as string.
-func (i ID) FullString() string {
+// StringFull returns full id represented as string.
+func (i ID) StringFull() string {
 	var b [32]byte
 	i.FormatTo(b[:], 'v')
 	return string(b[:])

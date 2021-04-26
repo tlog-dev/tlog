@@ -156,7 +156,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 }
 
 func (w *ConsoleWriter) Write(p []byte) (_ int, err error) {
-	i := 0
+	i := int64(0)
 
 	defer func() {
 		perr := recover()
@@ -193,7 +193,7 @@ again:
 		return
 	}
 
-	if tag == Semantic && els == WireHeader {
+	if tag == Semantic && els == WireMeta {
 		i = w.d.Skip(i)
 		goto again
 	}
@@ -541,7 +541,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, ts Timestamp, lv LogLevel, pc loc
 	return b
 }
 
-func (w *ConsoleWriter) appendPair(b []byte, k []byte, st int) (_ []byte, i int) {
+func (w *ConsoleWriter) appendPair(b []byte, k []byte, st int64) (_ []byte, i int64) {
 	i = st
 
 	if w.addpad != 0 {
@@ -567,11 +567,11 @@ func (w *ConsoleWriter) appendPair(b []byte, k []byte, st int) (_ []byte, i int)
 		b = append(b, ResetColor...)
 	}
 
-	st = len(b)
+	vst := len(b)
 
 	b, i = w.convertValue(b, i)
 
-	vw := len(b) - st
+	vw := len(b) - vst
 
 	if w.Colorize && len(w.ValColor) != 0 {
 		b = append(b, ResetColor...)
@@ -594,7 +594,7 @@ func (w *ConsoleWriter) appendPair(b []byte, k []byte, st int) (_ []byte, i int)
 	return b, i
 }
 
-func (w *ConsoleWriter) convertValue(b []byte, st int) (_ []byte, i int) {
+func (w *ConsoleWriter) convertValue(b []byte, st int64) (_ []byte, i int64) {
 	tag, sub, i := w.d.Tag(st)
 
 	switch tag {
