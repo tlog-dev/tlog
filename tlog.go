@@ -353,11 +353,6 @@ func Printw(msg string, kvs ...interface{}) {
 }
 
 //go:noinline
-func PrintwDepth(d int, msg string, kvs ...interface{}) {
-	newmessage(DefaultLogger, ID{}, d, Message(msg), kvs)
-}
-
-//go:noinline
 func (l *Logger) Printf(f string, args ...interface{}) {
 	newmessage(l, ID{}, 0, Format{Fmt: f, Args: args}, nil)
 }
@@ -368,11 +363,6 @@ func (l *Logger) Printw(msg string, kvs ...interface{}) {
 }
 
 //go:noinline
-func (l *Logger) PrintwDepth(d int, msg string, kvs ...interface{}) {
-	newmessage(l, ID{}, d, Message(msg), kvs)
-}
-
-//go:noinline
 func (s Span) Printf(f string, args ...interface{}) {
 	newmessage(s.Logger, s.ID, 0, Format{Fmt: f, Args: args}, nil)
 }
@@ -380,11 +370,6 @@ func (s Span) Printf(f string, args ...interface{}) {
 //go:noinline
 func (s Span) Printw(msg string, kvs ...interface{}) {
 	newmessage(s.Logger, s.ID, 0, Message(msg), kvs)
-}
-
-//go:noinline
-func (s Span) PrintwDepth(d int, msg string, kvs ...interface{}) {
-	newmessage(s.Logger, s.ID, d, Message(msg), kvs)
 }
 
 //go:noinline
@@ -427,11 +412,12 @@ func (l *Logger) NewSpan(d int, par ID, name string, kvs ...interface{}) Span {
 	return newspan(l, par, d, name, kvs)
 }
 
+//go:noinline
 func (l *Logger) NewMessage(d int, id ID, msg interface{}, kvs ...interface{}) {
 	newmessage(l, id, d, msg, kvs)
 }
 
-func (l *Logger) ifv(tp string) (ok bool) {
+func (l *Logger) ifv(d int, tp string) (ok bool) {
 	if l == nil {
 		return false
 	}
@@ -442,7 +428,7 @@ func (l *Logger) ifv(tp string) (ok bool) {
 	}
 
 	var loc loc.PC
-	caller1(2, &loc, 1, 1)
+	caller1(2+d, &loc, 1, 1)
 
 	return f.match(tp, loc)
 }
@@ -461,7 +447,7 @@ func (l *Logger) ifv(tp string) (ok bool) {
 //         l.Printf("use result: %d")
 //     }
 func V(tp string) *Logger {
-	if !DefaultLogger.ifv(tp) {
+	if !DefaultLogger.ifv(0, tp) {
 		return nil
 	}
 
@@ -470,7 +456,7 @@ func V(tp string) *Logger {
 
 // If does the same checks as V but only returns bool.
 func If(tp string) bool {
-	return DefaultLogger.ifv(tp)
+	return DefaultLogger.ifv(0, tp)
 }
 
 // V checks if one of topics in tp is enabled and returns default Logger or nil.
@@ -479,7 +465,7 @@ func If(tp string) bool {
 //
 // Multiple comma separated topics could be provided. Logger will be non-nil if at least one of these topics is enabled.
 func (l *Logger) V(tp string) *Logger {
-	if !l.ifv(tp) {
+	if !l.ifv(0, tp) {
 		return nil
 	}
 
@@ -488,7 +474,11 @@ func (l *Logger) V(tp string) *Logger {
 
 // If checks if some of topics enabled.
 func (l *Logger) If(tp string) bool {
-	return l.ifv(tp)
+	return l.ifv(0, tp)
+}
+
+func (l *Logger) IfDepth(d int, tp string) bool {
+	return l.ifv(d, tp)
 }
 
 // V checks if one of topics in tp is enabled and returns the same Span or empty overwise.
@@ -497,7 +487,7 @@ func (l *Logger) If(tp string) bool {
 //
 // Multiple comma separated topics could be provided. Span will be Valid if at least one of these topics is enabled.
 func (s Span) V(tp string) Span {
-	if !s.Logger.ifv(tp) {
+	if !s.Logger.ifv(0, tp) {
 		return Span{}
 	}
 
@@ -506,7 +496,11 @@ func (s Span) V(tp string) Span {
 
 // If does the same checks as V but only returns bool.
 func (s Span) If(tp string) bool {
-	return s.Logger.ifv(tp)
+	return s.Logger.ifv(0, tp)
+}
+
+func (s Span) IfDepth(d int, tp string) bool {
+	return s.Logger.ifv(d, tp)
 }
 
 // SetFilter sets filter to use in V.
