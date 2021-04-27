@@ -164,12 +164,13 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 		}
 
 		var opts string
-		//	of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
-		if p := strings.IndexByte(d, ':'); p != -1 {
+		p := strings.IndexByte(d, ';')
+		if p == -1 {
+			p = strings.IndexByte(d, '^')
+		}
+		if p != -1 {
 			opts = d[p+1:]
 			d = d[:p]
-
-			//		ff, of = updateFlags(ff, of, opts)
 		}
 
 		var w io.Writer
@@ -237,6 +238,10 @@ func openw(fn string, opts string) (wc io.Writer, err error) {
 			fmt = strings.TrimSuffix(fmt, ext)
 
 			continue
+		case ".tlz":
+			fmt = strings.TrimSuffix(fmt, "z")
+
+			continue
 		default:
 			err = errors.New("unsupported file ext: %v", ext)
 		}
@@ -256,7 +261,7 @@ loop2:
 		case ".tlog", ".tl":
 		case ".dump":
 			w = tlog.NewDumper(w)
-		case ".ez":
+		case ".ez", ".tlz":
 			w = compress.NewEncoder(w, CompressorBlockSize)
 		case ".log", "":
 			ff := tlog.LstdFlags
@@ -279,11 +284,12 @@ loop2:
 
 		switch ext {
 		case ".ez":
+			fmt = strings.TrimSuffix(fmt, ext)
+		case ".tlz":
+			fmt = strings.TrimSuffix(fmt, "z")
 		default:
 			break loop2
 		}
-
-		fmt = strings.TrimSuffix(fmt, ext)
 	}
 
 	if c != nil && w.(interface{}) != c.(interface{}) {

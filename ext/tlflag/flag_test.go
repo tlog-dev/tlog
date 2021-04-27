@@ -28,7 +28,13 @@ func TestFileExtWriter(t *testing.T) {
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags),
 	}, w)
 
-	w, err = OpenWriter("stderr:dm")
+	w, err = OpenWriter("stderr;dm")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
+	}, w)
+
+	w, err = OpenWriter("stderr^dm")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
@@ -40,7 +46,7 @@ func TestFileExtWriter(t *testing.T) {
 		convert.NewJSONWriter(tlog.Stderr),
 	}, w)
 
-	w, err = OpenWriter("stderr.json:TU")
+	w, err = OpenWriter("stderr.json;TU")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *convert.JSON {
@@ -53,7 +59,7 @@ func TestFileExtWriter(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr.json:T(150405)LU")
+	w, err = OpenWriter("stderr.json;T(150405)LU")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *convert.JSON {
@@ -67,14 +73,14 @@ func TestFileExtWriter(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr:dm,stderr.json")
+	w, err = OpenWriter("stderr;dm,stderr.json")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
 		convert.NewJSONWriter(tlog.Stderr),
 	}, w)
 
-	w, err = OpenWriter("stderr:dm,./stderr.json")
+	w, err = OpenWriter("stderr;dm,./stderr.json")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
@@ -98,6 +104,19 @@ func TestFileExtWriter(t *testing.T) {
 		Closer: testFile("file.json.ez"),
 	}, w)
 
+	w, err = OpenWriter(".tlz")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.TeeWriter{
+		compress.NewEncoder(tlog.Stderr, CompressorBlockSize),
+	}, w)
+
+	w, err = OpenWriter("file.tlz")
+	assert.NoError(t, err)
+	assert.Equal(t, tlog.WriteCloser{
+		Writer: compress.NewEncoder(testFile("file.tlz"), CompressorBlockSize),
+		Closer: testFile("file.tlz"),
+	}, w)
+
 	w, err = OpenWriter("file_@.tlog")
 	assert.NoError(t, err)
 	f, ok := w.(*rotated.File)
@@ -112,7 +131,7 @@ func TestFileExtWriter(t *testing.T) {
 }
 
 func TestConsoleWidth(t *testing.T) {
-	w, err := OpenWriter("stderr:s")
+	w, err := OpenWriter("stderr;s")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *tlog.ConsoleWriter {
@@ -123,7 +142,7 @@ func TestConsoleWidth(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr:S")
+	w, err = OpenWriter("stderr;S")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *tlog.ConsoleWriter {
@@ -134,7 +153,7 @@ func TestConsoleWidth(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr:s[10]")
+	w, err = OpenWriter("stderr;s[10]")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *tlog.ConsoleWriter {
