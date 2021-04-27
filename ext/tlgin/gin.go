@@ -54,7 +54,7 @@ func tracer(l *tlog.Logger, c *gin.Context) {
 	c.Set("tlog.span", tr)
 	c.Set("tlog.id", tr.ID)
 
-	c.Header(tlhttp.XTraceIDKey, tr.ID.FullString())
+	c.Header(tlhttp.XTraceIDKey, tr.ID.StringFull())
 
 	c.Next()
 }

@@ -141,8 +141,8 @@ func agent(c *cli.Command) error {
 		return errors.Wrap(err, "open: %v", f)
 	}
 
+	var i int64
 	d := tlog.NewDecoder(r)
-	i := 0
 	cnt := 0
 
 	for {
