@@ -1,6 +1,7 @@
 package tlbolt
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -25,7 +26,7 @@ func TestSmoke(t *testing.T) {
 
 	tl = tlog.NewTestLogger(t, "", nil)
 
-	db := New(bdb)
+	db := NewWriter(bdb)
 
 	l := tlog.New(db)
 	l.NoCaller = true
@@ -49,6 +50,8 @@ func TestSmoke(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, next)
 	assert.Equal(t, 5, len(evs), "number of elements")
+
+	fmt.Fprintf(tlog.Stderr, "dump events (%d)\n", len(evs))
 
 	d := tlog.NewDumper(tlog.Stderr)
 

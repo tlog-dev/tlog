@@ -22,6 +22,11 @@ func TestLoggerSmoke(t *testing.T) {
 
 	t.Logf("dump:\n%v", Dump(buf))
 	buf = buf[:0]
+
+	l.NewMessage(0, ID{}, "")
+
+	t.Logf("dump:\n%v", Dump(buf))
+	buf = buf[:0]
 }
 
 func TestLoggerSmokeConcurrent(t *testing.T) {

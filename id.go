@@ -206,12 +206,13 @@ func FastRandID() (id ID) {
 */
 
 // UUID creates ID generation function.
-// r is a random source. Function panics on Read error.
+// read is a random Read method. Function panics on Read error.
+// read must be safe for concurrent use.
 //
 // It's got from github.com/google/uuid.
-func UUID(f func(p []byte) (int, error)) func() ID {
+func UUID(read func(p []byte) (int, error)) func() ID {
 	return func() (uuid ID) {
-		n, err := f(uuid[:])
+		n, err := read(uuid[:])
 		if err != nil {
 			panic(err)
 		}

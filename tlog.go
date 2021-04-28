@@ -128,6 +128,10 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		i++
 	}
 
+	if s, ok := msg.(string); ok {
+		msg = Message(s)
+	}
+
 	if msg != nil && msg != Message("") {
 		hdr[i] = KeyMessage
 		i++

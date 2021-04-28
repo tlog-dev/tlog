@@ -10,17 +10,20 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/convert"
 	"go.etcd.io/bbolt"
 )
 
 /*
-	key ::= ts labels_id
+	key ::= ts | labels_id
 
-	"e" -> key => data
+	"events" -> key => data
 
-	"v" -> field_name -> field_value -> key => ""
+	"kv" -> field_name -> field_value -> key => ""
 
-	"L" -> label -> key => ""
+	"labels" -> label -> key => ""
+
+	"L" -> labels_id => labels
 */
 
 /*
@@ -52,6 +55,11 @@ type (
 	header struct {
 		ls tlog.Labels
 		ts tlog.Timestamp
+
+		lssum  []byte
+		labels []byte
+
+		b [12]byte
 	}
 
 	bucket interface {
@@ -62,7 +70,7 @@ type (
 
 var tl *tlog.Logger
 
-func New(db *bbolt.DB) (w *Writer) {
+func NewWriter(db *bbolt.DB) (w *Writer) {
 	w = &Writer{
 		db: db,
 	}
@@ -88,10 +96,10 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 	}
 
 	h := w.findLabels(els, i)
-	key := w.key(h)
+	key := w.key(&h)
 
 	err = w.db.Update(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte("e"))
+		b, err := tx.CreateBucketIfNotExists([]byte("events"))
 		if err != nil {
 			return errors.Wrap(err, "create bucket")
 		}
@@ -109,7 +117,19 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 			return errors.Wrap(err, "put data")
 		}
 
-		b, err = tx.CreateBucketIfNotExists([]byte("L"))
+		if h.labels != nil {
+			b, err = tx.CreateBucketIfNotExists([]byte("L"))
+			if err != nil {
+				return errors.Wrap(err, "create bucket")
+			}
+
+			err = b.Put(h.lssum, h.labels)
+			if err != nil {
+				return errors.Wrap(err, "put labels")
+			}
+		}
+
+		b, err = tx.CreateBucketIfNotExists([]byte("labels"))
 		if err != nil {
 			return errors.Wrap(err, "create bucket")
 		}
@@ -126,7 +146,7 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 			}
 		}
 
-		b, err = tx.CreateBucketIfNotExists([]byte("v"))
+		b, err = tx.CreateBucketIfNotExists([]byte("kv"))
 		if err != nil {
 			return errors.Wrap(err, "create bucket")
 		}
@@ -210,7 +230,7 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 }
 
 func (w *Writer) Events(q string, n int, token, buf []byte) (res [][]byte, next []byte, err error) {
-	reverse := n >= 0
+	reverse := n <= 0
 	if n < 0 {
 		n = -n
 	}
@@ -218,7 +238,9 @@ func (w *Writer) Events(q string, n int, token, buf []byte) (res [][]byte, next 
 	buf = buf[:0]
 
 	err = w.db.View(func(tx *bbolt.Tx) (err error) {
-		b := tx.Bucket([]byte("e"))
+		L := tx.Bucket([]byte("L"))
+
+		b := tx.Bucket([]byte("events"))
 		if b == nil {
 			return nil
 		}
@@ -243,7 +265,17 @@ func (w *Writer) Events(q string, n int, token, buf []byte) (res [][]byte, next 
 		st := 0
 		for k != nil {
 			st = len(buf)
-			buf = append(buf, v...)
+
+			var labels []byte
+			if len(k) >= 12 && L != nil {
+				labels = L.Get(k[8:12])
+			}
+
+			if labels != nil {
+				buf = convert.Set(buf, v, labels)
+			} else {
+				buf = append(buf, v...)
+			}
 
 			res = append(res, buf[st:])
 
@@ -310,6 +342,8 @@ func (w *Writer) findLabels(els int, i int64) (h header) {
 			break
 		}
 
+		kst := i
+
 		k, i = w.d.String(i)
 
 		tag, sub, _ := w.d.Tag(i)
@@ -321,6 +355,8 @@ func (w *Writer) findLabels(els int, i int64) (h header) {
 		switch {
 		case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
 			h.ls, i = w.d.Labels(i)
+
+			h.labels = w.d.Bytes(kst, i)
 		case sub == tlog.WireTime && string(k) == tlog.KeyTime:
 			h.ts, i = w.d.Time(i)
 		default:
@@ -331,17 +367,17 @@ func (w *Writer) findLabels(els int, i int64) (h header) {
 	return
 }
 
-func (w *Writer) key(h header) []byte {
-	var b [12]byte
-
-	binary.BigEndian.PutUint64(b[:], uint64(h.ts))
+func (w *Writer) key(h *header) []byte {
+	binary.BigEndian.PutUint64(h.b[:], uint64(h.ts))
 
 	var sum uint32
-	for _, l := range w.ls {
+	for _, l := range h.ls {
 		sum = crc32.Update(sum, crc32.IEEETable, []byte(l))
 	}
 
-	binary.BigEndian.PutUint32(b[8:], sum)
+	binary.BigEndian.PutUint32(h.b[8:], sum)
 
-	return b[:]
+	h.lssum = h.b[8:]
+
+	return h.b[:]
 }

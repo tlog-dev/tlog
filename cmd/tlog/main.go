@@ -3,37 +3,42 @@ package main
 import (
 	"database/sql"
 	"debug/elf"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gin-gonic/gin"
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
+	"go.etcd.io/bbolt"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/ext/tlbolt"
 	"github.com/nikandfor/tlog/ext/tlclickhouse"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/rotated"
 )
 
 type (
-	ReadCloser struct {
-		io.Reader
-		io.Closer
-	}
-
 	filereader struct {
 		n string
 		f *os.File
+	}
+
+	perrWriter struct {
+		io.WriteCloser
 	}
 )
 
@@ -78,6 +83,17 @@ func main() {
 		}, {
 			Name:   "agent",
 			Action: agent,
+			Flags: []*cli.Flag{
+				cli.NewFlag("http", ":8000", "http listen address"),
+				cli.NewFlag("http-net", "tcp", "http listen network"),
+				cli.NewFlag("listen,l", "/var/log/tlog.tl", "listen address"),
+				cli.NewFlag("db", "/var/log/tlog.db", "db address"),
+				cli.NewFlag("db-max-size", "1G", "max db size"),
+				cli.NewFlag("db-max-age", 30*24*time.Hour, "max logs age"),
+			},
+		}, {
+			Name:   "testreader",
+			Action: agent0,
 			Args:   cli.Args{},
 		}, {
 			Name:   "ticker",
@@ -129,7 +145,138 @@ func before(c *cli.Command) error {
 	return nil
 }
 
-func agent(c *cli.Command) error {
+func agent(c *cli.Command) (err error) {
+	db, err := bbolt.Open(c.String("db"), 0644, nil)
+	if err != nil {
+		return errors.Wrap(err, "open db")
+	}
+
+	if q := c.String("http"); q != "" {
+		err = setupHTTPDB(c, db)
+		if err != nil {
+			return errors.Wrap(err, "setup http")
+		}
+
+		l, err := net.Listen(c.String("http-net"), q)
+		if err != nil {
+			return errors.Wrap(err, "listen http: %v", q)
+		}
+
+		tlog.Printw("listen http", "addr", l.Addr())
+
+		go func() {
+			err := http.Serve(l, nil)
+			if err != nil {
+				tlog.Printw("serve http", "err", err)
+				os.Exit(1)
+			}
+		}()
+	}
+
+	addr := c.String("listen")
+
+	lock, err := os.Create(addr + ".lock")
+	if err != nil {
+		return errors.Wrap(err, "open lock")
+	}
+	defer lock.Close()
+
+	err = flock(lock)
+	if err != nil {
+		return errors.Wrap(err, "lock file")
+	}
+
+	if inf, err := os.Stat(addr); os.IsNotExist(err) {
+		// ok: all clear
+	} else if err == nil && inf.Mode().Type() == os.ModeSocket {
+		tlog.Printw("remove old socket file", "addr", addr)
+
+		err = os.Remove(addr)
+		if err != nil {
+			return errors.Wrap(err, "remove socket file")
+		}
+	} else if err != nil {
+		return errors.Wrap(err, "socket file info")
+	} else {
+		return errors.Wrap(err, "bad socket file type: %v", inf.Mode().Type())
+	}
+
+	l, err := net.Listen("unix", addr)
+	if err != nil {
+		return errors.Wrap(err, "listen: %v", addr)
+	}
+
+	defer os.Remove(addr)
+
+	tlog.Printw("listen", "addr", l.Addr())
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			return errors.Wrap(err, "accept")
+		}
+
+		go func() (err error) {
+			tr := tlog.Start("accept", "remote_addr", c.RemoteAddr(), "local_addr", c.LocalAddr())
+			defer func() {
+				tr.Finish("err", err)
+			}()
+
+			w := tlbolt.NewWriter(db)
+
+			err = convert.Copy(w, c)
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+			if err != nil {
+				err = errors.Wrap(err, "convert")
+			}
+
+			return
+		}()
+	}
+
+	return nil
+}
+
+func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {
+	tldb := tlbolt.NewWriter(db)
+
+	h := func(c *gin.Context) {
+		evs, next, err := tldb.Events("", -10, nil, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Header("X-Token-Next", hex.EncodeToString(next))
+		c.Header("Content-Type", "application/json")
+
+		w := convert.NewJSONWriter(c.Writer)
+
+		w.TimeFormat = time.RFC3339Nano
+
+		for _, ev := range evs {
+			_, err = w.Write(ev)
+			if err != nil {
+				break
+			}
+		}
+	}
+
+	r := gin.New()
+
+	v1 := r.Group("/v1/")
+
+	v1.GET("/*path", h)
+	v1.POST("/*path", h)
+
+	http.Handle("/v1/", r)
+
+	return nil
+}
+
+func agent0(c *cli.Command) error {
 	if c.Args.Len() == 0 {
 		return errors.New("arguments expected")
 	}
@@ -175,6 +322,10 @@ func ticker(c *cli.Command) error {
 	w, err := tlflag.OpenWriter(c.String("output"))
 	if err != nil {
 		return errors.Wrap(err, "open output")
+	}
+
+	w = perrWriter{
+		WriteCloser: w,
 	}
 
 	l := tlog.New(w)
@@ -433,4 +584,28 @@ func test(c *cli.Command) (err error) {
 	}
 
 	return nil
+}
+
+func flock(f *os.File) (err error) {
+	return syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+}
+
+func (w perrWriter) Write(p []byte) (n int, err error) {
+	n, err = w.WriteCloser.Write(p)
+
+	if err != nil {
+		tlog.Printw("write", "err", err)
+	}
+
+	return
+}
+
+func (w perrWriter) Close() (err error) {
+	err = w.WriteCloser.Close()
+
+	if err != nil {
+		tlog.Printw("close", "err", err)
+	}
+
+	return
 }

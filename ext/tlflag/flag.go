@@ -2,6 +2,7 @@ package tlflag
 
 import (
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -221,18 +222,7 @@ func openw(fn string, opts string) (wc io.Writer, err error) {
 			case "-", "stdout":
 				w = tlog.Stdout
 			default:
-				if strings.ContainsRune(fn, rotated.SubstChar) {
-					f := rotated.Create(fn)
-					f.Flags = of
-					f.MaxSize = 128 * rotated.MB
-
-					w = f
-					c = f
-				} else {
-					w, err = OpenFileWriter(fn, of, mode)
-
-					c, _ = w.(io.Closer)
-				}
+				w, c, err = openwfile(fn, of, mode)
 			}
 		case ".ez":
 			fmt = strings.TrimSuffix(fmt, ext)
@@ -308,6 +298,40 @@ loop2:
 	}
 
 	return w, nil
+}
+
+func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, err error) {
+	inf, err := os.Stat(fn)
+	if err == nil && inf.Mode().Type() == os.ModeSocket {
+		var conn net.Conn
+		conn, err = net.Dial("unix", fn)
+		if err != nil {
+			err = errors.Wrap(err, "dial")
+			return
+		}
+
+		w = conn
+		c = conn
+
+		return
+	} else {
+		err = nil
+	}
+
+	if strings.ContainsRune(fn, rotated.SubstChar) {
+		f := rotated.Create(fn)
+		f.Flags = of
+		f.MaxSize = 128 * rotated.MB
+
+		w = f
+		c = f
+	} else {
+		w, err = OpenFileWriter(fn, of, mode)
+
+		c, _ = w.(io.Closer)
+	}
+
+	return
 }
 
 func OpenReader(src string) (rc io.ReadCloser, err error) {

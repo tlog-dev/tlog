@@ -459,7 +459,7 @@ func (w *Writer) begin() (err error) {
 	q := buf.String()
 
 	w.s, err = w.tx.Prepare(q)
-	tlog.V("query").PrintwDepth(1, "prepare", "q", q, "err", err)
+	tlog.V("query").NewMessage(1, tlog.ID{}, "prepare", "q", q, "err", err)
 	if err != nil {
 		return errors.Wrap(err, "prepare")
 	}
@@ -577,7 +577,7 @@ func (w *Writer) addColumn(tp, name string) (err error) {
 
 func (w *Writer) addRow() (err error) {
 	_, err = w.s.Exec(w.vals...)
-	tlog.V("query").PrintwDepth(1, "add row", "args", w.vals, "err", err)
+	tlog.V("query").NewMessage(1, tlog.ID{}, "add row", "args", w.vals, "err", err)
 	if err != nil {
 		return errors.Wrap(err, "exec")
 	}
