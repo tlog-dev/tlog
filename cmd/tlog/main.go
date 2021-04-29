@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -49,7 +50,7 @@ func main() {
 		Flags: []*cli.Flag{
 			cli.NewFlag("log", "stderr", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
-			cli.NewFlag("debug", "", "debug address", cli.Hidden),
+			cli.NewFlag("debug", "", "debug address"),
 			cli.FlagfileFlag,
 			cli.HelpFlag,
 		},
@@ -90,6 +91,7 @@ func main() {
 				cli.NewFlag("db", "/var/log/tlog.db", "db address"),
 				cli.NewFlag("db-max-size", "1G", "max db size"),
 				cli.NewFlag("db-max-age", 30*24*time.Hour, "max logs age"),
+				cli.NewFlag("tolog", false, "dump events to log"),
 			},
 		}, {
 			Name:   "testreader",
@@ -120,11 +122,15 @@ func main() {
 	}
 }
 
+var logwriter io.Writer
+
 func before(c *cli.Command) error {
 	w, err := tlflag.OpenWriter(c.String("log"))
 	if err != nil {
 		return errors.Wrap(err, "open log file")
 	}
+
+	logwriter = w
 
 	tlog.DefaultLogger = tlog.New(w)
 
@@ -211,20 +217,37 @@ func agent(c *cli.Command) (err error) {
 	tlog.Printw("listen", "addr", l.Addr())
 
 	for {
-		c, err := l.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			return errors.Wrap(err, "accept")
 		}
 
 		go func() (err error) {
-			tr := tlog.Start("accept", "remote_addr", c.RemoteAddr(), "local_addr", c.LocalAddr())
+			tr := tlog.Start("accept", "remote_addr", conn.RemoteAddr(), "local_addr", conn.LocalAddr())
 			defer func() {
+				e := conn.Close()
+				if e != nil {
+					tr.Printw("close conn", "err", e)
+				}
+
 				tr.Finish("err", err)
 			}()
 
-			w := tlbolt.NewWriter(db)
+			var r io.Reader = conn
 
-			err = convert.Copy(w, c)
+			if ext := filepath.Ext(conn.LocalAddr().String()); ext == ".tlz" || ext == ".ez" || ext == ".seen" {
+				r = compress.NewDecoder(r)
+			}
+
+			var w io.Writer
+
+			w = tlbolt.NewWriter(db)
+
+			if c.Bool("tolog") {
+				w = tlog.TeeWriter{logwriter, w}
+			}
+
+			err = convert.Copy(w, r)
 			if errors.Is(err, io.EOF) {
 				err = nil
 			}
@@ -333,8 +356,13 @@ func ticker(c *cli.Command) error {
 	t := time.NewTicker(c.Duration("interval"))
 	defer t.Stop()
 
+	l.SetLabels(tlog.Labels{"service=ticker"})
+
+	i := 0
+
 	for t := range t.C {
-		l.Printw("current time", "time", t)
+		l.Printw("tick", "i", i, "time", t)
+		i++
 	}
 
 	return nil

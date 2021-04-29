@@ -303,15 +303,25 @@ loop2:
 func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, err error) {
 	inf, err := os.Stat(fn)
 	if err == nil && inf.Mode().Type() == os.ModeSocket {
-		var conn net.Conn
-		conn, err = net.Dial("unix", fn)
-		if err != nil {
-			err = errors.Wrap(err, "dial")
-			return
-		}
+		rew := tlog.NewReWriter(func(w io.Writer, err error) (io.Writer, error) {
+			if w != nil {
+				//	if err, ok := err.(net.Error); ok && err.Temporary() {
+				//		println("reuse conn", fmt.Sprintf("err: %v", err))
+				//		return w, nil
+				//	}
 
-		w = conn
-		c = conn
+				c, _ := w.(io.Closer)
+
+				if c != nil {
+					_ = c.Close()
+				}
+			}
+
+			return net.Dial("unix", fn)
+		})
+
+		w = rew
+		c = rew
 
 		return
 	} else {
@@ -369,6 +379,10 @@ func openr(fn string) (rc io.Reader, err error) {
 			fmt = strings.TrimSuffix(fmt, ext)
 
 			continue
+		case ".tlz":
+			fmt = strings.TrimSuffix(fmt, "z")
+
+			continue
 		default:
 			err = errors.New("unsupported file ext: %v", ext)
 		}
@@ -379,7 +393,7 @@ func openr(fn string) (rc io.Reader, err error) {
 		return
 	}
 
-	if ext := filepath.Ext(fn); ext == ".ez" || ext == ".seen" {
+	if ext := filepath.Ext(fn); ext == ".tlz" || ext == ".ez" || ext == ".seen" {
 		r = compress.NewDecoder(r)
 	}
 

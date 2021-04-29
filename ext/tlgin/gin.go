@@ -39,7 +39,7 @@ func tracer(l *tlog.Logger, c *gin.Context) {
 		if p := recover(); p != nil {
 			s := debug.Stack()
 
-			tr.Printw("panic", "panic", p, "stack_trace", low.UnsafeBytesToString(s), tlog.KeyLogLevel, tlog.Error)
+			tr.Printw("panic", "panic", p, "panic_type", tlog.FormatNext("%T"), p, "stack_trace", low.UnsafeBytesToString(s), tlog.KeyLogLevel, tlog.Error)
 		}
 
 		tr.Finish("status_code", c.Writer.Status())

@@ -4,6 +4,8 @@ import (
 	"io"
 	"sync/atomic"
 	"testing"
+
+	"github.com/nikandfor/errors"
 )
 
 type (
@@ -22,6 +24,17 @@ type (
 	WriteCloser struct {
 		io.Writer
 		io.Closer
+	}
+
+	ReWriter struct {
+		w io.Writer
+		c io.Closer
+
+		Open func(io.Writer, error) (io.Writer, error)
+
+		d Decoder
+
+		ls, lsdebt []byte
 	}
 
 	// CountableIODiscard discards data but counts operations and bytes.
@@ -111,4 +124,120 @@ func (w *CountableIODiscard) Write(p []byte) (int, error) {
 	atomic.AddInt64(&w.Bytes, int64(len(p)))
 
 	return len(p), nil
+}
+
+func NewReWriter(open func(io.Writer, error) (io.Writer, error)) *ReWriter {
+	return &ReWriter{
+		Open: open,
+	}
+}
+
+func (w *ReWriter) Write(p []byte) (n int, err error) {
+	ls := w.detectHeaders(p)
+
+	if w.w != nil {
+		n, err = w.write(p)
+
+		if err == nil {
+			return
+		}
+	}
+
+	n, err = w.open()
+	if err != nil {
+		return
+	}
+
+	if ls != nil {
+		return
+	}
+
+	n, err = w.write(p)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (w *ReWriter) open() (n int, err error) {
+	w.lsdebt = nil
+
+	w.w, err = w.Open(w.w, err)
+	if err != nil {
+		return 0, errors.Wrap(err, "open")
+	}
+
+	w.c, _ = w.w.(io.Closer)
+
+	if w.ls != nil {
+		n, err = w.w.Write(w.ls)
+		if err != nil {
+			w.lsdebt = w.ls
+
+			return
+		}
+	}
+
+	return 0, nil
+}
+
+func (w *ReWriter) write(p []byte) (n int, err error) {
+	if w.lsdebt != nil {
+		_, err = w.w.Write(w.lsdebt)
+		if err != nil {
+			return
+		}
+
+		w.lsdebt = nil
+	}
+
+	return w.w.Write(p)
+}
+
+func (w *ReWriter) Close() error {
+	if w.c == nil {
+		return nil
+	}
+
+	return w.c.Close()
+}
+
+func (w *ReWriter) detectHeaders(p []byte) (ls []byte) {
+	w.d.ResetBytes(p)
+
+	var i int64
+
+	tag, els, i := w.d.Tag(i)
+	if tag != Map {
+		return
+	}
+
+	var k []byte
+	var sub int
+
+	for el := 0; els == -1 || el < els; el++ {
+		if els == -1 && w.d.Break(&i) {
+			break
+		}
+
+		k, i = w.d.String(i)
+
+		tag, sub, _ = w.d.Tag(i)
+		if tag != Semantic {
+			i = w.d.Skip(i)
+			continue
+		}
+
+		switch {
+		case sub == WireLabels && string(k) == KeyLabels:
+			w.ls = append(w.ls[:0], p...)
+			w.lsdebt = nil
+			ls = w.ls
+		}
+
+		i = w.d.Skip(i)
+	}
+
+	return
 }
