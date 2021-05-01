@@ -45,7 +45,7 @@ func TestReWriter(t *testing.T) {
 	err = e.Encode(nil, []interface{}{"key2", "value2"})
 	assert.NoError(t, err)
 
-	err = e.Encode(nil, []interface{}{KeyLabels, Labels{"label"}})
+	err = e.Encode(nil, []interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label"}})
 	assert.NoError(t, err)
 
 	ewr.nerr++
@@ -55,7 +55,7 @@ func TestReWriter(t *testing.T) {
 
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{KeyLabels, Labels{"label2"}})
+	err = e.Encode(nil, []interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label2"}})
 	assert.NoError(t, err)
 
 	err = e.Encode(nil, []interface{}{"key4", "value4"})
@@ -64,7 +64,7 @@ func TestReWriter(t *testing.T) {
 	ewr.nerr++
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{KeyLabels, Labels{"label3"}})
+	err = e.Encode(nil, []interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}})
 	assert.Error(t, err, ewr.err.Error())
 
 	err = e.Encode(nil, []interface{}{"key5", "value5"})
@@ -87,23 +87,23 @@ func TestReWriter(t *testing.T) {
 		}),
 		newfile([][]interface{}{
 			{"key2", "value2"},
-			{KeyLabels, Labels{"label"}},
+			{KeyEventType, EventLabels, KeyLabels, Labels{"label"}},
 		}),
 		newfile([][]interface{}{
-			{KeyLabels, Labels{"label"}},
+			{KeyEventType, EventLabels, KeyLabels, Labels{"label"}},
 			{"key3", "value3"},
 		}),
 		newfile([][]interface{}{
-			{KeyLabels, Labels{"label2"}},
+			{KeyEventType, EventLabels, KeyLabels, Labels{"label2"}},
 			{"key4", "value4"},
 		}),
 		newfile([][]interface{}{
-			{KeyLabels, Labels{"label3"}},
+			{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}},
 			{"key5", "value5"},
 		}),
 		newfile([][]interface{}{}),
 		newfile([][]interface{}{
-			{KeyLabels, Labels{"label3"}},
+			{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}},
 			{"key7", "value7"},
 		}),
 	}

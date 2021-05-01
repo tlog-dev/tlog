@@ -18,7 +18,7 @@ type (
 		io.Writer
 		//	pos int64
 
-		mu sync.Mutex
+		sync.Mutex
 
 		ls map[loc.PC]struct{}
 
@@ -112,8 +112,8 @@ func (e *Encoder) Encode(hdr, kvs []interface{}) (err error) {
 		return nil
 	}
 
-	defer e.mu.Unlock()
-	e.mu.Lock()
+	defer e.Unlock()
+	e.Lock()
 
 	if e.ls == nil {
 		e.ls = make(map[loc.PC]struct{})
@@ -529,6 +529,45 @@ func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte
 	//	fmt.Fprintf(os.Stderr, "msg after  % 2x\n", b[st-1:])
 
 	return b
+}
+
+func (e *Encoder) AppendMessage(b []byte, m Message) []byte {
+	b = append(b, Semantic|WireMessage)
+	b = e.AppendString(b, String, string(m))
+	return b
+}
+
+func (e *Encoder) AppendTime(b []byte, nano int64) []byte {
+	b = append(b, Semantic|WireTime)
+	b = e.AppendUint(b, Int, uint64(nano))
+	return b
+}
+
+func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
+	b = append(b, Semantic|WireDuration)
+	b = e.AppendUint(b, Int, uint64(d))
+	return b
+}
+
+func (e *Encoder) AppendEventType(b []byte, et EventType) []byte {
+	b = append(b, Semantic|WireEventType)
+	return e.AppendString(b, String, string(et))
+}
+
+func (e *Encoder) AppendLogLevel(b []byte, l LogLevel) []byte {
+	var tag byte = Int
+
+	if l < 0 {
+		tag = Neg
+		l = -l
+	}
+
+	return append(b, Semantic|WireLogLevel, tag|byte(l)&0xf)
+}
+
+func (e *Encoder) AppendHex(b []byte, x int64) []byte {
+	b = append(b, Semantic|WireHex)
+	return e.AppendInt(b, x)
 }
 
 func (_ *Encoder) insertLen(b []byte, st, l int) []byte {

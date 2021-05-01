@@ -74,6 +74,15 @@ const (
 	MetricSummary = "summary"
 )
 
+// Event Types
+const (
+	EventLabels     = EventType("L")
+	EventSpanStart  = EventType("s")
+	EventSpanFinish = EventType("f")
+	EventValue      = EventType("v")
+	EventMetricDesc = EventType("m")
+)
+
 var ( //time
 	now  = time.Now
 	nano = low.UnixNano
@@ -187,7 +196,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		hdr[i] = KeyEventType
 		i++
 
-		hdr[i] = EventType("s")
+		hdr[i] = EventSpanStart
 		i++
 	}
 
@@ -240,7 +249,7 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 		hdr[i] = KeyEventType
 		i++
 
-		hdr[i] = EventType("v")
+		hdr[i] = EventValue
 		i++
 	}
 
@@ -293,7 +302,7 @@ func (s Span) Finish(kvs ...interface{}) {
 		hdr[i] = KeyEventType
 		i++
 
-		hdr[i] = EventType("f")
+		hdr[i] = EventSpanFinish
 		i++
 	}
 
@@ -343,7 +352,7 @@ func (l *Logger) SetLabels(ls Labels) {
 
 	t := Timestamp(nano())
 
-	l.Event(KeyTime, t, KeyLabels, ls)
+	l.Event(KeyTime, t, KeyEventType, EventLabels, KeyLabels, ls)
 }
 
 //go:noinline
@@ -628,12 +637,12 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 		hdr[i] = KeyEventType
 		i++
 
-		hdr[i] = EventType("m")
+		hdr[i] = EventMetricDesc
 		i++
 	}
 
 	{
-		hdr[i] = KeyMessage
+		hdr[i] = "name"
 		i++
 
 		hdr[i] = name

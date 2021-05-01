@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -266,7 +267,30 @@ func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {
 	tldb := tlbolt.NewWriter(db)
 
 	h := func(c *gin.Context) {
-		evs, next, err := tldb.Events("", -10, nil, nil)
+		var n int
+
+		if q := c.Query("n"); q != "" {
+			v, err := strconv.ParseInt(q, 10, 32)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": errors.Wrap(err, "parse n").Error()})
+				return
+			}
+
+			n = int(v)
+		} else {
+			n = -10
+		}
+
+		var token []byte
+		if q := c.Query("token"); q != "" {
+			token, err = hex.DecodeString(q)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": errors.Wrap(err, "parse token").Error()})
+				return
+			}
+		}
+
+		evs, next, err := tldb.Events("", int(n), token, nil)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -291,8 +315,7 @@ func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {
 
 	v1 := r.Group("/v1/")
 
-	v1.GET("/*path", h)
-	v1.POST("/*path", h)
+	v1.GET("/events", h)
 
 	http.Handle("/v1/", r)
 

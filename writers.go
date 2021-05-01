@@ -44,20 +44,20 @@ type (
 	}
 )
 
-func NewTeeWriter(ws ...io.Writer) TeeWriter {
-	if len(ws) == 0 {
-		return TeeWriter{}
-	}
-
-	if t, ok := ws[0].(TeeWriter); ok {
-		return append(t, ws[1:]...)
-	}
-
-	return TeeWriter(ws)
+func NewTeeWriter(ws ...io.Writer) (w TeeWriter) {
+	return w.Append(ws...)
 }
 
 func (w TeeWriter) Append(ws ...io.Writer) TeeWriter {
-	return append(w, ws...)
+	for _, s := range ws {
+		if tee, ok := s.(TeeWriter); ok {
+			w = append(w, tee...)
+		} else {
+			w = append(w, s)
+		}
+	}
+
+	return w
 }
 
 func (w TeeWriter) Write(p []byte) (n int, err error) {
@@ -206,6 +206,8 @@ func (w *ReWriter) Close() error {
 func (w *ReWriter) detectHeaders(p []byte) (ls []byte) {
 	w.d.ResetBytes(p)
 
+	var e EventType
+
 	var i int64
 
 	tag, els, i := w.d.Tag(i)
@@ -216,6 +218,7 @@ func (w *ReWriter) detectHeaders(p []byte) (ls []byte) {
 	var k []byte
 	var sub int
 
+loop:
 	for el := 0; els == -1 || el < els; el++ {
 		if els == -1 && w.d.Break(&i) {
 			break
@@ -230,13 +233,19 @@ func (w *ReWriter) detectHeaders(p []byte) (ls []byte) {
 		}
 
 		switch {
-		case sub == WireLabels && string(k) == KeyLabels:
-			w.ls = append(w.ls[:0], p...)
-			w.lsdebt = nil
-			ls = w.ls
-		}
+		case sub == WireEventType && string(k) == KeyEventType:
+			e, i = w.d.EventType(i)
 
-		i = w.d.Skip(i)
+			break loop
+		default:
+			i = w.d.Skip(i)
+		}
+	}
+
+	if e == EventLabels {
+		w.ls = append(w.ls[:0], p...)
+		w.lsdebt = nil
+		ls = w.ls
 	}
 
 	return

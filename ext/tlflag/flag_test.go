@@ -28,13 +28,7 @@ func TestFileExtWriter(t *testing.T) {
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags),
 	}, w)
 
-	w, err = OpenWriter("stderr;dm")
-	assert.NoError(t, err)
-	assert.Equal(t, tlog.TeeWriter{
-		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
-	}, w)
-
-	w, err = OpenWriter("stderr^dm")
+	w, err = OpenWriter("stderr+dm")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
@@ -46,7 +40,7 @@ func TestFileExtWriter(t *testing.T) {
 		convert.NewJSONWriter(tlog.Stderr),
 	}, w)
 
-	w, err = OpenWriter("stderr.json;TU")
+	w, err = OpenWriter("stderr.json+TU")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *convert.JSON {
@@ -59,7 +53,7 @@ func TestFileExtWriter(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr.json;T(150405)LU")
+	w, err = OpenWriter("stderr.json+T(150405)LU")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *convert.JSON {
@@ -73,14 +67,14 @@ func TestFileExtWriter(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr;dm,stderr.json")
+	w, err = OpenWriter("stderr+dm,stderr.json")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
 		convert.NewJSONWriter(tlog.Stderr),
 	}, w)
 
-	w, err = OpenWriter("stderr;dm,./stderr.json")
+	w, err = OpenWriter("stderr+dm,./stderr.json")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
@@ -131,7 +125,7 @@ func TestFileExtWriter(t *testing.T) {
 }
 
 func TestConsoleWidth(t *testing.T) {
-	w, err := OpenWriter("stderr;s")
+	w, err := OpenWriter("stderr+s")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *tlog.ConsoleWriter {
@@ -142,7 +136,7 @@ func TestConsoleWidth(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr;S")
+	w, err = OpenWriter("stderr+S")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *tlog.ConsoleWriter {
@@ -153,7 +147,7 @@ func TestConsoleWidth(t *testing.T) {
 		}(),
 	}, w)
 
-	w, err = OpenWriter("stderr;s[10]")
+	w, err = OpenWriter("stderr+s[10]")
 	assert.NoError(t, err)
 	assert.Equal(t, tlog.TeeWriter{
 		func() *tlog.ConsoleWriter {

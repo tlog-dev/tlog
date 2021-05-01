@@ -310,6 +310,23 @@ func (d *Decoder) LogLevel(st int64) (lv LogLevel, i int64) {
 	return LogLevel(v), i
 }
 
+func (d *Decoder) EventType(st int64) (e EventType, i int64) {
+	tag, sub, i := d.Tag(st)
+	if d.err != nil {
+		return
+	}
+
+	if tag != Semantic || sub != WireEventType {
+		d.newErr(st, "expected event type")
+		return
+	}
+
+	s, i := d.String(i)
+	e = EventType(s)
+
+	return
+}
+
 func (d *Decoder) String(st int64) (s []byte, i int64) {
 	tag, l, i := d.Tag(st)
 
@@ -726,4 +743,34 @@ func Dump(p []byte) string {
 	d.Write(p)
 
 	return string(d.b)
+}
+
+func (d *Decoder) MessageEventType(i int64) (e EventType) {
+	tag, els, i := d.Tag(i)
+
+	if tag != Map {
+		return
+	}
+
+	var k []byte
+	var sub int
+	for el := 0; els == -1 || el < els; el++ {
+		if els == -1 && d.Break(&i) {
+			break
+		}
+
+		k, i = d.String(i)
+
+		tag, sub, _ = d.Tag(i)
+
+		if tag == Semantic && sub == WireEventType && string(k) == KeyEventType {
+			e, _ = d.EventType(i)
+
+			return e
+		}
+
+		i = d.Skip(i)
+	}
+
+	return
 }
