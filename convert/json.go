@@ -21,7 +21,7 @@ type (
 
 		d tlog.Decoder
 
-		ls, tmpls tlog.Labels
+		ls []byte
 
 		b low.Buf
 	}
@@ -39,14 +39,68 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 	defer w.d.ResetBytes(nil)
 	w.d.ResetBytes(p)
 
-	var i int64
+	var i, j int64
 	b := w.b[:0]
 
-	for int(i) < len(p) {
-		b, i = w.appendValue(b, i, 0, nil)
+	var e tlog.EventType
+	var ls []byte
 
-		b = append(b, '\n')
+	tag, els, i := w.d.Tag(i)
+	if w.d.Err() != nil {
+		return
 	}
+
+	if tag != tlog.Map {
+		panic("not a map")
+	}
+
+	b = append(b, '{')
+
+	var k []byte
+	for el := 0; els == -1 || el < els; el++ {
+		if els == -1 && w.d.Break(&i) {
+			break
+		}
+
+		if el != 0 {
+			b = append(b, ',')
+		}
+
+		st := i
+		bst := len(b)
+
+		b, i = w.appendValue(b, i, 0)
+
+		b = append(b, ':')
+
+		b, i = w.appendValue(b, i, 0)
+
+		k, j = w.d.String(st)
+
+		tag, sub, _ := w.d.Tag(j)
+		if tag != tlog.Semantic {
+			continue
+		}
+
+		switch {
+		case sub == tlog.WireEventType && string(k) == tlog.KeyEventType:
+			e, _ = w.d.EventType(j)
+		case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
+			ls = b[bst:]
+		}
+	}
+
+	if e == tlog.EventLabels {
+		w.ls = append(w.ls[:0], ls...)
+	} else if w.AttachLabels {
+		if len(b) > 1 {
+			b = append(b, ',')
+		}
+
+		b = append(b, w.ls...)
+	}
+
+	b = append(b, '}', '\n')
 
 	w.b = b[:0]
 
@@ -59,15 +113,10 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 
-	if w.tmpls != nil {
-		w.ls = w.tmpls
-		w.tmpls = nil
-	}
-
 	return len(p), nil
 }
 
-func (w *JSON) appendValue(b []byte, st int64, d int, key []byte) (_ []byte, i int64) {
+func (w *JSON) appendValue(b []byte, st int64, d int) (_ []byte, i int64) {
 	tag, sub, i := w.d.Tag(st)
 	if w.d.Err() != nil {
 		return
@@ -120,7 +169,7 @@ func (w *JSON) appendValue(b []byte, st int64, d int, key []byte) (_ []byte, i i
 				b = append(b, ',')
 			}
 
-			b, i = w.appendValue(b, i, d+1, nil)
+			b, i = w.appendValue(b, i, d+1)
 		}
 
 		b = append(b, ']')
@@ -136,43 +185,15 @@ func (w *JSON) appendValue(b []byte, st int64, d int, key []byte) (_ []byte, i i
 				b = append(b, ',')
 			}
 
-			kst := len(b)
-			b, i = w.appendValue(b, i, d+1, nil)
-
-			var key []byte
-			if l := len(b) - 1; b[kst] == '"' && b[l] == '"' && kst+1 < l {
-				key = b[kst+1 : l]
-			}
+			b, i = w.appendValue(b, i, d+1)
 
 			b = append(b, ':')
 
-			b, i = w.appendValue(b, i, d+1, key)
-		}
-
-		if d == 0 && len(w.tmpls) == 0 && len(w.ls) != 0 && w.AttachLabels {
-			if i != st {
-				b = append(b, ',')
-			}
-			b = append(b, `"L":[`...)
-			for el, l := range w.ls {
-				if el != 0 {
-					b = append(b, ',')
-				}
-
-				b = low.AppendQuote(b, l)
-			}
-			b = append(b, ']')
+			b, i = w.appendValue(b, i, d+1)
 		}
 
 		b = append(b, '}')
 	case tlog.Semantic:
-		if key == nil {
-			b, i = w.appendValue(b, i, d+1, key)
-			break
-		}
-
-		ks := low.UnsafeBytesToString(key)
-
 		switch {
 		case sub == tlog.WireTime && w.TimeFormat != "":
 			var ts tlog.Timestamp
@@ -213,15 +234,8 @@ func (w *JSON) appendValue(b []byte, st int64, d int, key []byte) (_ []byte, i i
 				}
 				b = append(b, ']')
 			}
-		case sub == tlog.WireLabels && ks == tlog.KeyLabels:
-			var ls tlog.Labels
-			ls, _ = w.d.Labels(st)
-
-			w.tmpls = ls
-
-			b, i = w.appendValue(b, i, d+1, key)
 		default:
-			b, i = w.appendValue(b, i, d+1, key)
+			b, i = w.appendValue(b, i, d+1)
 		}
 	case tlog.Special:
 		switch sub {

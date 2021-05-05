@@ -26,6 +26,8 @@ func TestJSON(t *testing.T) {
 
 	l.SetLabels(tlog.Labels{"a=b", "c"})
 
+	l.Printw("user labels", "", tlog.Labels{"user_label"})
+
 	l.Printw("message", "str", "arg", "int", 5, "struct", struct {
 		A string `json:"a"`
 		B int    `tlog:"bb" yaml:"b"`
@@ -36,7 +38,8 @@ func TestJSON(t *testing.T) {
 	})
 
 	exp := `{"t":"2020-12-25T22:08:13\+03:00","T":"L","L":\["a=b","c"\]}
-{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:29","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
+{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:29","m":"user labels","L":\["user_label"\],"L":\["a=b","c"\]}
+{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:31","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
 `
 
 	exps := strings.Split(exp, "\n")

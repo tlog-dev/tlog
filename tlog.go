@@ -160,14 +160,14 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		l.b = l.Encoder.AppendTag(l.b, Semantic, WireMessage)
 
 		switch msg := msg.(type) {
-		case string:
-			l.b = l.Encoder.AppendString(l.b, String, msg)
-		case []byte:
-			l.b = l.Encoder.AppendString(l.b, String, low.UnsafeBytesToString(msg))
 		case Message:
 			l.b = l.Encoder.AppendString(l.b, String, string(msg))
 		case Format:
 			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
+		case string:
+			l.b = l.Encoder.AppendString(l.b, String, msg)
+		case []byte:
+			l.b = l.Encoder.AppendString(l.b, String, low.UnsafeBytesToString(msg))
 		default:
 			l.b = l.Encoder.AppendFormat(l.b, "%v", msg)
 		}
