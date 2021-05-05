@@ -75,6 +75,8 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 
 		b, i = w.appendValue(b, i, 0)
 
+		// semantic
+
 		k, j = w.d.String(st)
 
 		tag, sub, _ := w.d.Tag(j)
@@ -92,7 +94,7 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 
 	if e == tlog.EventLabels {
 		w.ls = append(w.ls[:0], ls...)
-	} else if w.AttachLabels {
+	} else if w.AttachLabels && len(w.ls) != 0 {
 		if len(b) > 1 {
 			b = append(b, ',')
 		}

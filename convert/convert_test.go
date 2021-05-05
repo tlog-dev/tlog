@@ -32,6 +32,12 @@ func TestCopy(t *testing.T) {
 	t.Logf("data\n%s", dst)
 
 	if t.Failed() {
-		t.Logf("dump\n%s", tlog.Dump(src))
+		var dump low.Buf
+		err := Copy(tlog.NewDumper(&dump), bytes.NewReader(src))
+		if err != nil {
+			t.Logf("dump (%v)\n%s", err, tlog.Dump(src))
+		} else {
+			t.Logf("dump\n%s", dump)
+		}
 	}
 }

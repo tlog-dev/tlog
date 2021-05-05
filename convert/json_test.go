@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"io/ioutil"
 	"regexp"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJSON(t *testing.T) {
@@ -38,8 +40,8 @@ func TestJSON(t *testing.T) {
 	})
 
 	exp := `{"t":"2020-12-25T22:08:13\+03:00","T":"L","L":\["a=b","c"\]}
-{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:29","m":"user labels","L":\["user_label"\],"L":\["a=b","c"\]}
-{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:31","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
+{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:\d+","m":"user labels","L":\["user_label"\],"L":\["a=b","c"\]}
+{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:\d+","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
 `
 
 	exps := strings.Split(exp, "\n")
@@ -57,5 +59,33 @@ func TestJSON(t *testing.T) {
 
 	for i := len(exps); i < len(ls); i++ {
 		assert.True(t, false, "expected\n%s\ngot\n%s", "", ls[i])
+	}
+}
+
+func BenchmarkJSON(b *testing.B) {
+	var buf low.Buf
+	var e tlog.Encoder
+
+	buf = e.AppendMap(buf, []interface{}{tlog.KeyTime, 10000000000, tlog.KeyEventType, tlog.EventLabels, tlog.KeyLabels, tlog.Labels{"a=b", "c=d", "e=f", "g=h"}})
+	buf = e.AppendMap(buf, []interface{}{tlog.KeySpan, tlog.ID{}, tlog.KeyTime, 10000000000, tlog.KeyMessage, "message text", "arg", "value", "arg2", 5})
+
+	var d tlog.Decoder
+	d.ResetBytes(buf)
+
+	st := d.Skip(0)
+
+	w := NewJSONWriter(ioutil.Discard)
+
+	_, err := w.Write(buf[:st])
+	require.NoError(b, err)
+
+	_, err = w.Write(buf[st:])
+	require.NoError(b, err)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_, _ = w.Write(buf[st:])
 	}
 }

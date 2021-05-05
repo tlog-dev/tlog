@@ -199,10 +199,6 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		ll++
 	}
 
-	if n != "" {
-		ll++
-	}
-
 	ll++ // event type
 
 	if par != (ID{}) {

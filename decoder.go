@@ -63,7 +63,7 @@ func (d *Decoder) Keep(st int64) {
 }
 
 func (d *Decoder) Bytes(st, end int64) []byte {
-	if !d.more(st, end) {
+	if int(end-d.ref) > len(d.b) && !d.more(st, end) {
 		return nil
 	}
 
@@ -335,7 +335,7 @@ func (d *Decoder) String(st int64) (s []byte, i int64) {
 		return
 	}
 
-	if !d.more(st, i+int64(l)) {
+	if int(i+int64(l)-d.ref) > len(d.b) && !d.more(st, i+int64(l)) {
 		return
 	}
 
@@ -355,7 +355,7 @@ func (d *Decoder) Float(st int64) (v float64, i int64) {
 
 	switch sub {
 	case FloatInt8:
-		if !d.more(st, i+1) {
+		if int(i+1-d.ref) > len(d.b) && !d.more(st, i+1) {
 			return
 		}
 
@@ -364,7 +364,7 @@ func (d *Decoder) Float(st int64) (v float64, i int64) {
 
 		return float64(q), i
 	case Float32:
-		if !d.more(st, i+4) {
+		if int(i+3-d.ref) > len(d.b) && !d.more(st, i+4) {
 			return
 		}
 
@@ -373,7 +373,7 @@ func (d *Decoder) Float(st int64) (v float64, i int64) {
 
 		return float64(math.Float32frombits(q)), i
 	case Float64:
-		if !d.more(st, i+8) {
+		if int(i+8-d.ref) > len(d.b) && !d.more(st, i+8) {
 			return
 		}
 
@@ -392,7 +392,7 @@ func (d *Decoder) Float(st int64) (v float64, i int64) {
 func (d *Decoder) Int(st int64) (v int64, i int64) {
 	i = st
 
-	if !d.more(i, i+1) {
+	if int(i+1-d.ref) > len(d.b) && !d.more(i, i+1) {
 		return -1, st
 	}
 
@@ -409,28 +409,28 @@ func (d *Decoder) Int(st int64) (v int64, i int64) {
 	case v < Len1:
 		// v = v
 	case v == Len1:
-		if !d.more(st, i+1) {
+		if int(i+1-d.ref) > len(d.b) && !d.more(st, i+1) {
 			return -1, i
 		}
 
 		v = int64(d.b[i-d.ref])
 		i++
 	case v == Len2:
-		if !d.more(st, i+2) {
+		if int(i+2-d.ref) > len(d.b) && !d.more(st, i+2) {
 			return -1, i
 		}
 
 		v = int64(d.b[i-d.ref])<<8 | int64(d.b[i+1-d.ref])
 		i += 2
 	case v == Len4:
-		if !d.more(st, i+4) {
+		if int(i+4-d.ref) > len(d.b) && !d.more(st, i+4) {
 			return -1, i
 		}
 
 		v = int64(d.b[i-d.ref])<<24 | int64(d.b[i+1-d.ref])<<16 | int64(d.b[i+2-d.ref])<<8 | int64(d.b[i+3-d.ref])
 		i += 4
 	case v == Len8:
-		if !d.more(st, i+8) {
+		if int(i+8-d.ref) > len(d.b) && !d.more(st, i+8) {
 			return -1, i
 		}
 
@@ -455,7 +455,7 @@ func (d *Decoder) Tag(st int64) (tag, sub int, i int64) {
 	//		fmt.Fprintf(Stderr, "Tag %3x -> %3x : %2x %2x  at %#v\n", st, i, tag, sub, loc.Callers(2, 4))
 	//	}()
 
-	if !d.more(st, i+1) {
+	if int(i+1-d.ref) > len(d.b) && !d.more(st, i+1) {
 		return -1, -1, st
 	}
 
@@ -471,28 +471,28 @@ func (d *Decoder) Tag(st int64) (tag, sub int, i int64) {
 	case sub < Len1:
 		// sub = sub
 	case sub == Len1:
-		if !d.more(st, i+1) {
+		if int(i+1-d.ref) > len(d.b) && !d.more(st, i+1) {
 			return -1, -1, st
 		}
 
 		sub = int(d.b[i-d.ref])
 		i++
 	case sub == Len2:
-		if !d.more(st, i+2) {
+		if int(i+2-d.ref) > len(d.b) && !d.more(st, i+2) {
 			return -1, -1, st
 		}
 
 		sub = int(d.b[i-d.ref])<<8 | int(d.b[i+1-d.ref])
 		i += 2
 	case sub == Len4:
-		if !d.more(st, i+4) {
+		if int(i+4-d.ref) > len(d.b) && !d.more(st, i+4) {
 			return -1, -1, st
 		}
 
 		sub = int(d.b[i-d.ref])<<24 | int(d.b[i+1-d.ref])<<16 | int(d.b[i+2-d.ref])<<8 | int(d.b[i+3-d.ref])
 		i += 4
 	case sub == Len8:
-		if !d.more(st, i+8) {
+		if int(i+8-d.ref) > len(d.b) && !d.more(st, i+8) {
 			return -1, -1, st
 		}
 
@@ -509,7 +509,7 @@ func (d *Decoder) Tag(st int64) (tag, sub int, i int64) {
 }
 
 func (d *Decoder) Break(i *int64) bool {
-	if !d.more(*i, *i+1) {
+	if int(*i+1-d.ref) > len(d.b) && !d.more(*i, *i+1) {
 		return true
 	}
 
