@@ -3,6 +3,7 @@ package tlog
 import (
 	"io"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -13,7 +14,7 @@ import (
 
 type (
 	Logger struct {
-		Encoder
+		io.Writer
 
 		NewID func() ID // must be threadsafe
 
@@ -21,6 +22,12 @@ type (
 		NoCaller bool
 
 		filter *filter // accessed by atomic operations
+
+		sync.Mutex
+
+		Encoder
+
+		b []byte
 	}
 
 	Span struct {
@@ -92,10 +99,8 @@ var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))
 
 func New(w io.Writer) *Logger {
 	l := &Logger{
-		Encoder: Encoder{
-			Writer: w,
-		},
-		NewID: MathRandID,
+		Writer: w,
+		NewID:  MathRandID,
 	}
 
 	return l
@@ -106,50 +111,71 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		return
 	}
 
-	var hdr [8]interface{}
-	i := 0
+	var ll int
 
 	if id != (ID{}) {
-		hdr[i] = KeySpan
-		i++
-
-		hdr[i] = id
-		i++
+		ll++
 	}
 
 	if !l.NoTime {
-		hdr[i] = KeyTime
-		i++
-
-		hdr[i] = Timestamp(nano())
-		i++
+		ll++
 	}
 
 	if !l.NoCaller && d >= 0 {
-		var lc loc.PC
-
-		caller1(2+d, &lc, 1, 1)
-
-		hdr[i] = KeyCaller
-		i++
-
-		hdr[i] = lc
-		i++
+		ll++
 	}
 
-	if s, ok := msg.(string); ok {
-		msg = Message(s)
+	if !low.IsNil(msg) {
+		ll++
 	}
 
-	if msg != nil && msg != Message("") {
-		hdr[i] = KeyMessage
-		i++
+	ll += l.Encoder.CalcMapLen(kvs)
 
-		hdr[i] = msg
-		i++
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+
+	if id != (ID{}) {
+		l.b = l.Encoder.AppendString(l.b, String, KeySpan)
+		l.b = l.Encoder.AppendID(l.b, id)
 	}
 
-	_ = l.Encoder.Encode(hdr[:i], kvs)
+	if !l.NoTime {
+		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
+		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
+		l.b = l.Encoder.AppendInt(l.b, nano())
+	}
+
+	if !l.NoCaller && d >= 0 {
+		var c loc.PC
+		caller1(2+d, &c, 1, 1)
+
+		l.b = l.Encoder.AppendString(l.b, String, KeyCaller)
+		l.b = l.Encoder.AppendPC(l.b, c, true)
+	}
+
+	if !low.IsNil(msg) {
+		l.b = l.Encoder.AppendString(l.b, String, KeyMessage)
+		l.b = l.Encoder.AppendTag(l.b, Semantic, WireMessage)
+
+		switch msg := msg.(type) {
+		case string:
+			l.b = l.Encoder.AppendString(l.b, String, msg)
+		case []byte:
+			l.b = l.Encoder.AppendString(l.b, String, low.UnsafeBytesToString(msg))
+		case Message:
+			l.b = l.Encoder.AppendString(l.b, String, string(msg))
+		case Format:
+			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
+		default:
+			l.b = l.Encoder.AppendFormat(l.b, "%v", msg)
+		}
+	}
+
+	l.b = l.Encoder.AppendKVs(l.b, kvs)
+
+	_, _ = l.Writer.Write(l.b)
 }
 
 func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
@@ -161,62 +187,77 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	s.ID = l.NewID()
 	s.StartedAt = now()
 
-	var hdr [12]interface{}
-	i := 0
+	var ll int
 
-	{
-		hdr[i] = KeySpan
-		i++
-
-		hdr[i] = s.ID
-		i++
-	}
+	ll++ // span
 
 	if !l.NoTime {
-		hdr[i] = KeyTime
-		i++
-
-		hdr[i] = Timestamp(nano())
-		i++
+		ll++
 	}
 
 	if !l.NoCaller && d >= 0 {
-		var lc loc.PC
-
-		caller1(2+d, &lc, 1, 1)
-
-		hdr[i] = KeyCaller
-		i++
-
-		hdr[i] = lc
-		i++
-	}
-
-	{
-		hdr[i] = KeyEventType
-		i++
-
-		hdr[i] = EventSpanStart
-		i++
-	}
-
-	if par != (ID{}) {
-		hdr[i] = KeyParent
-		i++
-
-		hdr[i] = par
-		i++
+		ll++
 	}
 
 	if n != "" {
-		hdr[i] = KeyMessage
-		i++
-
-		hdr[i] = Message(n)
-		i++
+		ll++
 	}
 
-	_ = l.Encoder.Encode(hdr[:i], kvs)
+	ll++ // event type
+
+	if par != (ID{}) {
+		ll++
+	}
+
+	if n != "" {
+		ll++
+	}
+
+	ll += l.Encoder.CalcMapLen(kvs)
+
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+
+	{
+		l.b = l.Encoder.AppendString(l.b, String, KeySpan)
+		l.b = l.Encoder.AppendID(l.b, s.ID)
+	}
+
+	if !l.NoTime {
+		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
+		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
+		l.b = l.Encoder.AppendInt(l.b, nano())
+	}
+
+	if !l.NoCaller && d >= 0 {
+		var c loc.PC
+		caller1(2+d, &c, 1, 1)
+
+		l.b = l.Encoder.AppendString(l.b, String, KeyCaller)
+		l.b = l.Encoder.AppendPC(l.b, c, true)
+	}
+
+	{
+		l.b = l.Encoder.AppendString(l.b, String, KeyEventType)
+		l.b = l.Encoder.AppendEventType(l.b, EventSpanStart)
+	}
+
+	if par != (ID{}) {
+		l.b = l.Encoder.AppendString(l.b, String, KeyParent)
+		l.b = l.Encoder.AppendID(l.b, par)
+	}
+
+	if n != "" {
+		l.b = l.Encoder.AppendString(l.b, String, KeyMessage)
+		l.b = l.Encoder.AppendTag(l.b, Semantic, WireMessage)
+		l.b = l.Encoder.AppendString(l.b, String, n)
+	}
+
+	l.b = l.Encoder.AppendKVs(l.b, kvs)
+
+	_, _ = l.Writer.Write(l.b)
 
 	return
 }
@@ -226,42 +267,51 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 		return
 	}
 
-	var hdr [8]interface{}
-	i := 0
+	var ll int
 
 	if id != (ID{}) {
-		hdr[i] = KeySpan
-		i++
-
-		hdr[i] = id
-		i++
+		ll++
 	}
 
 	if !l.NoTime {
-		hdr[i] = KeyTime
-		i++
+		ll++
+	}
 
-		hdr[i] = Timestamp(nano())
-		i++
+	ll++ // event type
+
+	ll++ // value
+
+	ll += l.Encoder.CalcMapLen(kvs)
+
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+
+	if id != (ID{}) {
+		l.b = l.Encoder.AppendString(l.b, String, KeySpan)
+		l.b = l.Encoder.AppendID(l.b, id)
+	}
+
+	if !l.NoTime {
+		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
+		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
+		l.b = l.Encoder.AppendInt(l.b, nano())
 	}
 
 	{
-		hdr[i] = KeyEventType
-		i++
-
-		hdr[i] = EventValue
-		i++
+		l.b = l.Encoder.AppendString(l.b, String, KeyEventType)
+		l.b = l.Encoder.AppendEventType(l.b, EventValue)
 	}
 
 	{
-		hdr[i] = name
-		i++
-
-		hdr[i] = v
-		i++
+		l.b = l.Encoder.AppendString(l.b, String, name)
+		l.b = l.Encoder.AppendValue(l.b, v)
 	}
 
-	_ = l.Encoder.Encode(hdr[:i], kvs)
+	l.b = l.Encoder.AppendKVs(l.b, kvs)
+
+	_, _ = l.Writer.Write(l.b)
 }
 
 func (s Span) Finish(kvs ...interface{}) {
@@ -269,71 +319,100 @@ func (s Span) Finish(kvs ...interface{}) {
 		return
 	}
 
-	var hdr [8]interface{}
-	i := 0
+	var ll int
 
 	if s.ID != (ID{}) {
-		hdr[i] = KeySpan
-		i++
+		ll++
+	}
 
-		hdr[i] = s.ID
-		i++
+	if !s.Logger.NoTime {
+		ll++
+		ll++
+	}
+
+	ll++
+
+	ll += s.Logger.Encoder.CalcMapLen(kvs)
+
+	defer s.Logger.Unlock()
+	s.Logger.Lock()
+
+	s.Logger.b = s.Logger.Encoder.AppendTag(s.Logger.b[:0], Map, ll)
+
+	if s.ID != (ID{}) {
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeySpan)
+		s.Logger.b = s.Logger.Encoder.AppendID(s.Logger.b, s.ID)
 	}
 
 	if !s.Logger.NoTime {
 		now := now()
 
-		hdr[i] = KeyTime
-		i++
-
-		hdr[i] = Timestamp(now.UnixNano())
-		i++
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyTime)
+		s.Logger.b = s.Logger.Encoder.AppendTime(s.Logger.b, now.UnixNano())
 
 		if s.StartedAt != (time.Time{}) && s.StartedAt.UnixNano() != 0 {
-			hdr[i] = KeyElapsed
-			i++
-
-			hdr[i] = now.Sub(s.StartedAt)
-			i++
+			s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyElapsed)
+			s.Logger.b = s.Logger.Encoder.AppendDuration(s.Logger.b, now.Sub(s.StartedAt))
 		}
 	}
 
 	{
-		hdr[i] = KeyEventType
-		i++
-
-		hdr[i] = EventSpanFinish
-		i++
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyEventType)
+		s.Logger.b = s.Logger.Encoder.AppendEventType(s.Logger.b, EventSpanFinish)
 	}
 
-	_ = s.Logger.Encoder.Encode(hdr[:i], kvs)
+	s.Logger.b = s.Logger.Encoder.AppendKVs(s.Logger.b, kvs)
+
+	_, _ = s.Logger.Writer.Write(s.Logger.b)
 }
 
-func (l *Logger) Event(kvs ...interface{}) error {
+func (l *Logger) Event(kvs ...interface{}) (err error) {
 	if l == nil {
 		return nil
 	}
 
-	return l.Encoder.Encode(nil, kvs)
+	ll := l.Encoder.CalcMapLen(kvs)
+
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+
+	l.b = l.Encoder.AppendKVs(l.b, kvs)
+
+	_, err = l.Writer.Write(l.b)
+
+	return
 }
 
-func (s Span) Event(kvs ...interface{}) error {
+func (s Span) Event(kvs ...interface{}) (err error) {
 	if s.Logger == nil {
 		return nil
 	}
 
-	var hdr [2]interface{}
-	i := 0
+	var ll int
 
 	if s.ID != (ID{}) {
-		hdr[i] = KeySpan
-		i++
-
-		hdr[i] = s.ID
-		i++
+		ll++
 	}
 
-	return s.Logger.Encoder.Encode(hdr[:i], kvs)
+	ll += s.Logger.Encoder.CalcMapLen(kvs)
+
+	defer s.Logger.Unlock()
+	s.Logger.Lock()
+
+	s.Logger.b = s.Logger.Encoder.AppendTag(s.Logger.b[:0], Map, ll)
+
+	if s.ID != (ID{}) {
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeySpan)
+		s.Logger.b = s.Logger.Encoder.AppendID(s.Logger.b, s.ID)
+	}
+
+	s.Logger.b = s.Logger.Encoder.AppendKVs(s.Logger.b, kvs)
+
+	_, err = s.Logger.Writer.Write(s.Logger.b)
+
+	return
 }
 
 func SetLabels(ls Labels) {
@@ -630,42 +709,36 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 		panic("empty type")
 	}
 
-	var hdr [8]interface{}
-	i := 0
-
-	{
-		hdr[i] = KeyEventType
-		i++
-
-		hdr[i] = EventMetricDesc
-		i++
-	}
-
-	{
-		hdr[i] = "name"
-		i++
-
-		hdr[i] = name
-		i++
-	}
-
-	{
-		hdr[i] = "type"
-		i++
-
-		hdr[i] = typ
-		i++
-	}
+	ll := 3
 
 	if help != "" {
-		hdr[i] = "help"
-		i++
-
-		hdr[i] = help
-		i++
+		ll++
 	}
 
-	_ = l.Encoder.Encode(hdr[:i], kvs)
+	ll += l.Encoder.CalcMapLen(kvs)
+
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+
+	l.b = l.Encoder.AppendString(l.b, String, KeyEventType)
+	l.b = l.Encoder.AppendEventType(l.b, EventSpanStart)
+
+	l.b = l.Encoder.AppendString(l.b, String, "name")
+	l.b = l.Encoder.AppendString(l.b, String, name)
+
+	l.b = l.Encoder.AppendString(l.b, String, "type")
+	l.b = l.Encoder.AppendString(l.b, String, typ)
+
+	if help != "" {
+		l.b = l.Encoder.AppendString(l.b, String, "help")
+		l.b = l.Encoder.AppendString(l.b, String, help)
+	}
+
+	l.b = l.Encoder.AppendKVs(l.b, kvs)
+
+	_, _ = l.Writer.Write(l.b)
 }
 
 func TestSetTime(t func() time.Time, ts func() int64) {

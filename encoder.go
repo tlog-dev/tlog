@@ -2,10 +2,8 @@ package tlog
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"reflect"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -15,14 +13,7 @@ import (
 
 type (
 	Encoder struct {
-		io.Writer
-		//	pos int64
-
-		sync.Mutex
-
 		ls map[loc.PC]struct{}
-
-		b []byte
 	}
 
 	Message   string
@@ -104,43 +95,19 @@ const (
 	WireHex
 )
 
-func (e *Encoder) Encode(hdr, kvs []interface{}) (err error) {
-	l := e.calcMapLen(hdr)
-	l += e.calcMapLen(kvs)
-
+func (e *Encoder) AppendMap(b []byte, kvs []interface{}) []byte {
+	l := e.CalcMapLen(kvs)
 	if l == 0 {
-		return nil
+		return b
 	}
 
-	defer e.Unlock()
-	e.Lock()
+	b = e.AppendTag(b, Map, l)
+	b = e.AppendKVs(b, kvs)
 
-	if e.ls == nil {
-		e.ls = make(map[loc.PC]struct{})
-	}
-
-	e.b = e.b[:0]
-
-	e.b = e.AppendTag(e.b, Map, l)
-
-	if len(hdr) != 0 {
-		encodeKVs0(e, hdr)
-	}
-
-	if len(kvs) != 0 {
-		encodeKVs0(e, kvs)
-	}
-
-	_, err = e.Write(e.b)
-	//	e.pos += int64(n)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return b
 }
 
-func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
+func (e *Encoder) CalcMapLen(kvs []interface{}) (l int) {
 	for i := 0; i < len(kvs); {
 		l++
 
@@ -164,7 +131,11 @@ func (e *Encoder) calcMapLen(kvs []interface{}) (l int) {
 	return
 }
 
-func (e *Encoder) encodeKVs(kvs []interface{}) {
+func (e *Encoder) AppendKVs(b []byte, kvs []interface{}) []byte {
+	return appendKVs(e, b, kvs)
+}
+
+func (e *Encoder) appendKVs(b []byte, kvs []interface{}) []byte {
 	for i := 0; i < len(kvs); {
 		var k string
 
@@ -179,10 +150,10 @@ func (e *Encoder) encodeKVs(kvs []interface{}) {
 			i++
 		}
 
-		e.b = e.AppendString(e.b, String, k)
+		b = e.AppendString(b, String, k)
 
 		if i == len(kvs) {
-			e.b = append(e.b, Special|Undefined)
+			b = append(b, Special|Undefined)
 			break
 		}
 
@@ -190,17 +161,20 @@ func (e *Encoder) encodeKVs(kvs []interface{}) {
 		case FormatNext:
 			i++
 			if i == len(kvs) {
-				e.b = append(e.b, Special|Undefined)
+				b = append(b, Special|Undefined)
 				break
 			}
 
-			e.b = e.AppendFormat(e.b, string(v), kvs[i])
+			b = append(b, Semantic|WireMessage)
+			b = e.AppendFormat(b, string(v), kvs[i])
 		default:
-			e.b = e.appendValue(e.b, kvs[i], nil)
+			b = e.appendValue(b, kvs[i], nil)
 		}
 
 		i++
 	}
+
+	return b
 }
 
 func (e *Encoder) autoKey(kvs []interface{}) (k string) {
@@ -255,10 +229,11 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited deepCtx) []byte {
 		b = append(b, Semantic|WireDuration)
 		return e.AppendUint(b, Int, uint64(v.Nanoseconds()))
 	case loc.PC:
-		return e.AppendLoc(b, v, true)
+		return e.AppendPC(b, v, true)
 	case loc.PCs:
-		return e.AppendLocStack(b, v, true)
+		return e.AppendPCs(b, v, true)
 	case Format:
+		b = append(b, Semantic|WireMessage)
 		return e.AppendFormat(b, v.Fmt, v.Args...)
 	case EventType:
 		b = append(b, Semantic|WireEventType)
@@ -426,24 +401,24 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 	return b
 }
 
-func (e *Encoder) AppendLocStack(b []byte, pcs loc.PCs, cache bool) []byte {
+func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs, cache bool) []byte {
 	b = append(b, Semantic|WireCaller)
 	b = e.AppendTag(b, Array, len(pcs))
 
 	for _, pc := range pcs {
-		b = e.appendLoc(b, pc, cache)
+		b = e.appendPC(b, pc, cache)
 	}
 
 	return b
 }
 
-func (e *Encoder) AppendLoc(b []byte, pc loc.PC, cache bool) []byte {
+func (e *Encoder) AppendPC(b []byte, pc loc.PC, cache bool) []byte {
 	b = append(b, Semantic|WireCaller)
 
-	return e.appendLoc(b, pc, cache)
+	return e.appendPC(b, pc, cache)
 }
 
-func (e *Encoder) appendLoc(b []byte, pc loc.PC, cache bool) []byte {
+func (e *Encoder) appendPC(b []byte, pc loc.PC, cache bool) []byte {
 	if cache {
 		if _, ok := e.ls[pc]; ok {
 			return e.AppendUint(b, Int, uint64(pc))
@@ -467,6 +442,10 @@ func (e *Encoder) appendLoc(b []byte, pc loc.PC, cache bool) []byte {
 	b = e.AppendInt(b, int64(line))
 
 	if cache {
+		if e.ls == nil {
+			e.ls = map[loc.PC]struct{}{}
+		}
+
 		e.ls[pc] = struct{}{}
 	}
 
@@ -498,8 +477,6 @@ func (e *Encoder) AppendString(b []byte, tag byte, s string) []byte {
 }
 
 func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
-	b = append(b, Semantic|WireMessage)
-
 	if len(args) == 0 {
 		return e.AppendString(b, String, fmt)
 	}

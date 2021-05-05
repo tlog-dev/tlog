@@ -23,6 +23,7 @@ func TestReWriter(t *testing.T) {
 		err: errors.New("some"),
 	}
 
+	var b low.Buf
 	var e Encoder
 
 	w := NewReWriter(func(have io.Writer, err error) (io.Writer, error) {
@@ -35,50 +36,59 @@ func TestReWriter(t *testing.T) {
 		return &ewr, nil
 	})
 
-	e.Writer = w
+	encode := func(kvs []interface{}) (err error) {
+		b = b[:0]
 
-	err := e.Encode(nil, []interface{}{"key", "value"})
+		b = e.AppendTag(b, Map, e.CalcMapLen(kvs))
+		b = e.AppendKVs(b, kvs)
+
+		_, err = w.Write(b)
+
+		return
+	}
+
+	err := encode([]interface{}{"key", "value"})
 	assert.NoError(t, err)
 
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{"key2", "value2"})
+	err = encode([]interface{}{"key2", "value2"})
 	assert.NoError(t, err)
 
-	err = e.Encode(nil, []interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label"}})
-	assert.NoError(t, err)
-
-	ewr.nerr++
-
-	err = e.Encode(nil, []interface{}{"key3", "value3"})
+	err = encode([]interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label"}})
 	assert.NoError(t, err)
 
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label2"}})
+	err = encode([]interface{}{"key3", "value3"})
 	assert.NoError(t, err)
 
-	err = e.Encode(nil, []interface{}{"key4", "value4"})
+	ewr.nerr++
+
+	err = encode([]interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label2"}})
+	assert.NoError(t, err)
+
+	err = encode([]interface{}{"key4", "value4"})
 	assert.NoError(t, err)
 
 	ewr.nerr++
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}})
+	err = encode([]interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}})
 	assert.Error(t, err, ewr.err.Error())
 
-	err = e.Encode(nil, []interface{}{"key5", "value5"})
+	err = encode([]interface{}{"key5", "value5"})
 	assert.NoError(t, err)
 
 	ewr.nerr++
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{"key6", "value6"})
+	err = encode([]interface{}{"key6", "value6"})
 	assert.Error(t, err, ewr.err.Error())
 
 	ewr.nerr++
 
-	err = e.Encode(nil, []interface{}{"key7", "value7"})
+	err = encode([]interface{}{"key7", "value7"})
 	assert.NoError(t, err)
 
 	exp := []*low.Buf{
@@ -120,10 +130,11 @@ func TestReWriter(t *testing.T) {
 func newfile(events [][]interface{}) (b *low.Buf) {
 	b = new(low.Buf)
 
-	e := Encoder{Writer: b}
+	var e Encoder
 
 	for _, evs := range events {
-		e.Encode(nil, evs)
+		*b = e.AppendTag(*b, Map, e.CalcMapLen(evs))
+		*b = e.AppendKVs(*b, evs)
 	}
 
 	return b

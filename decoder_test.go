@@ -5,18 +5,21 @@ import (
 
 	"github.com/nikandfor/tlog/low"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDecoder(t *testing.T) {
 	var b low.Buf
-	e := Encoder{Writer: &b}
+	var e Encoder
 
-	err := e.Encode(nil, []interface{}{"a", "b", "c", 3})
-	require.NoError(t, err)
+	kvs := []interface{}{"a", "b", "c", 3}
 
-	err = e.Encode(nil, []interface{}{"q", "w", "e", 4})
-	require.NoError(t, err)
+	b = e.AppendTag(b, Map, e.CalcMapLen(kvs))
+	b = e.AppendKVs(b, kvs)
+
+	kvs = []interface{}{"q", "w", "e", 4}
+
+	b = e.AppendTag(b, Map, e.CalcMapLen(kvs))
+	b = e.AppendKVs(b, kvs)
 
 	var d Decoder
 	d.ResetBytes(b)
