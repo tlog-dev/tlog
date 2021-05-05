@@ -61,10 +61,10 @@ var (
 	KeyParent    = "p"
 	KeyMessage   = "m"
 	KeyElapsed   = "e"
-	KeyLocation  = "l"
+	KeyCaller    = "c"
 	KeyLabels    = "L"
 	KeyEventType = "T"
-	KeyLogLevel  = "i"
+	KeyLogLevel  = "l"
 )
 
 // Metric types
@@ -130,7 +130,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 
 		caller1(2+d, &lc, 1, 1)
 
-		hdr[i] = KeyLocation
+		hdr[i] = KeyCaller
 		i++
 
 		hdr[i] = lc
@@ -185,7 +185,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 
 		caller1(2+d, &lc, 1, 1)
 
-		hdr[i] = KeyLocation
+		hdr[i] = KeyCaller
 		i++
 
 		hdr[i] = lc

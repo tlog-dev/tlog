@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/low"
 )
 
 func TestSetAdd(t *testing.T) {
@@ -30,10 +29,6 @@ func TestSetReplace(t *testing.T) {
 }
 
 func encode(kvs ...interface{}) []byte {
-	var msg low.Buf
-	e := tlog.Encoder{Writer: &msg}
-
-	e.Encode(nil, kvs)
-
-	return msg
+	var e tlog.Encoder
+	return e.AppendMap(nil, kvs)
 }

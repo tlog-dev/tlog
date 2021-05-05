@@ -238,12 +238,12 @@ func (w *Writer) appendPair(st int64) (i int64, err error) {
 			}
 
 			v = ts.Time()
-		case tlog.WireLocation:
+		case tlog.WireCaller:
 			tp = "String"
 			suff = "_loc"
 
 			var pc loc.PC
-			pc, _, i = w.d.Location(st)
+			pc, _, i = w.d.Caller(st)
 			if err = w.d.Err(); err != nil {
 				return i, errors.Wrap(err, "read time")
 			}

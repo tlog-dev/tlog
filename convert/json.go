@@ -194,11 +194,11 @@ func (w *JSON) appendValue(b []byte, st int64, d int, key []byte) (_ []byte, i i
 			b = append(b, `"123456789_123456789_123456789_12"`...)
 
 			id.FormatTo(b[bst:], 'x')
-		case sub == tlog.WireLocation:
+		case sub == tlog.WireCaller:
 			var pc loc.PC
 			var pcs loc.PCs
 
-			pc, pcs, i = w.d.Location(st)
+			pc, pcs, i = w.d.Caller(st)
 
 			if pcs == nil {
 				b = low.AppendQuote(b, pc.String())

@@ -127,13 +127,13 @@ func (d *Decoder) ID(st int64) (id ID, i int64) {
 	return
 }
 
-func (d *Decoder) Location(st int64) (pc loc.PC, pcs loc.PCs, i int64) {
+func (d *Decoder) Caller(st int64) (pc loc.PC, pcs loc.PCs, i int64) {
 	tag, sub, i := d.Tag(st)
 	if d.err != nil {
 		return
 	}
 
-	if tag != Semantic || sub != WireLocation {
+	if tag != Semantic || sub != WireCaller {
 		d.newErr(st, "expected location")
 		return
 	}

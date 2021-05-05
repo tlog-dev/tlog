@@ -44,7 +44,7 @@ type (
 		FloatFormat    string
 		FloatChar      byte
 		FloatPrecision int
-		LocationFormat string
+		CallerFormat   string
 
 		PairSeparator string
 		KVSeparator   string
@@ -125,7 +125,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		DurationFormat: "%v",
 		FloatChar:      'f',
 		FloatPrecision: 5,
-		LocationFormat: "%v",
+		CallerFormat:   "%v",
 
 		PairSeparator: "  ",
 		KVSeparator:   "=",
@@ -229,8 +229,8 @@ again:
 		switch {
 		case ks == KeyTime && sub == WireTime:
 			ts, i = w.d.Time(st)
-		case ks == KeyLocation && sub == WireLocation:
-			pc, pcs, i = w.d.Location(st)
+		case ks == KeyCaller && sub == WireCaller:
+			pc, pcs, i = w.d.Caller(st)
 
 			if pcs != nil && len(pcs) != 0 {
 				pc = pcs[0]
@@ -753,14 +753,14 @@ func (w *ConsoleWriter) convertValue(b []byte, st int64) (_ []byte, i int64) {
 			default:
 				b, i = w.convertValue(b, i)
 			}
-		case WireLocation:
+		case WireCaller:
 			var pc loc.PC
 			var pcs loc.PCs
 
-			pc, pcs, i = w.d.Location(st)
+			pc, pcs, i = w.d.Caller(st)
 
 			if pcs == nil {
-				b = low.AppendPrintf(b, w.LocationFormat, pc)
+				b = low.AppendPrintf(b, w.CallerFormat, pc)
 			} else {
 				b = append(b, '[')
 				for i, pc := range pcs {
@@ -768,7 +768,7 @@ func (w *ConsoleWriter) convertValue(b []byte, st int64) (_ []byte, i int64) {
 						b = append(b, ',', ' ')
 					}
 
-					b = low.AppendPrintf(b, w.LocationFormat, pc)
+					b = low.AppendPrintf(b, w.CallerFormat, pc)
 				}
 				b = append(b, ']')
 			}

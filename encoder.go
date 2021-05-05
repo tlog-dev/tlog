@@ -97,7 +97,7 @@ const (
 
 	WireError
 	WireLabels
-	WireLocation
+	WireCaller
 	WireEventType
 	WireLogLevel
 
@@ -427,7 +427,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 }
 
 func (e *Encoder) AppendLocStack(b []byte, pcs loc.PCs, cache bool) []byte {
-	b = append(b, Semantic|WireLocation)
+	b = append(b, Semantic|WireCaller)
 	b = e.AppendTag(b, Array, len(pcs))
 
 	for _, pc := range pcs {
@@ -438,7 +438,7 @@ func (e *Encoder) AppendLocStack(b []byte, pcs loc.PCs, cache bool) []byte {
 }
 
 func (e *Encoder) AppendLoc(b []byte, pc loc.PC, cache bool) []byte {
-	b = append(b, Semantic|WireLocation)
+	b = append(b, Semantic|WireCaller)
 
 	return e.appendLoc(b, pc, cache)
 }
