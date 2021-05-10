@@ -505,6 +505,11 @@ func (l *Logger) NewMessage(d int, id ID, msg interface{}, kvs ...interface{}) {
 	newmessage(l, id, d, msg, kvs)
 }
 
+//go:noinline
+func (s Span) NewMessage(d int, msg interface{}, kvs ...interface{}) {
+	newmessage(s.Logger, s.ID, d, msg, kvs)
+}
+
 func (l *Logger) ifv(d int, tp string) (ok bool) {
 	if l == nil {
 		return false
