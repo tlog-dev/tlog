@@ -21,6 +21,9 @@ type (
 		NoTime   bool
 		NoCaller bool
 
+		now  func() time.Time
+		nano func() int64
+
 		filter *filter // accessed by atomic operations
 
 		sync.Mutex
@@ -90,17 +93,14 @@ const (
 	EventMetricDesc = EventType("m")
 )
 
-var ( //time
-	now  = time.Now
-	nano = low.UnixNano
-)
-
 var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))
 
 func New(w io.Writer) *Logger {
 	l := &Logger{
 		Writer: w,
 		NewID:  MathRandID,
+		now:    time.Now,
+		nano:   low.UnixNano,
 	}
 
 	return l
@@ -144,7 +144,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	if !l.NoTime {
 		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
 		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
-		l.b = l.Encoder.AppendInt(l.b, nano())
+		l.b = l.Encoder.AppendInt(l.b, l.nano())
 	}
 
 	if !l.NoCaller && d >= 0 {
@@ -185,7 +185,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 
 	s.Logger = l
 	s.ID = l.NewID()
-	s.StartedAt = now()
+	s.StartedAt = l.now()
 
 	var ll int
 
@@ -224,7 +224,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	if !l.NoTime {
 		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
 		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
-		l.b = l.Encoder.AppendInt(l.b, nano())
+		l.b = l.Encoder.AppendInt(l.b, l.nano())
 	}
 
 	if !l.NoCaller && d >= 0 {
@@ -292,7 +292,7 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 	if !l.NoTime {
 		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
 		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
-		l.b = l.Encoder.AppendInt(l.b, nano())
+		l.b = l.Encoder.AppendInt(l.b, l.nano())
 	}
 
 	{
@@ -341,7 +341,7 @@ func (s Span) Finish(kvs ...interface{}) {
 	}
 
 	if !s.Logger.NoTime {
-		now := now()
+		now := s.Logger.now()
 
 		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyTime)
 		s.Logger.b = s.Logger.Encoder.AppendTime(s.Logger.b, now.UnixNano())
@@ -425,7 +425,7 @@ func (l *Logger) SetLabels(ls Labels) {
 		return
 	}
 
-	t := Timestamp(nano())
+	t := Timestamp(l.nano())
 
 	l.Event(KeyTime, t, KeyEventType, EventLabels, KeyLabels, ls)
 }
@@ -742,7 +742,7 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 	_, _ = l.Writer.Write(l.b)
 }
 
-func TestSetTime(t func() time.Time, ts func() int64) {
-	now = t
-	nano = ts
+func TestSetTime(l *Logger, t func() time.Time, ts func() int64) {
+	l.now = t
+	l.nano = ts
 }

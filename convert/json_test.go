@@ -15,7 +15,6 @@ import (
 
 func TestJSON(t *testing.T) {
 	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.FixedZone("Europe/Moscow", int(3*time.Hour/time.Second)))
-	tlog.TestSetTime(func() time.Time { return tm }, tm.UnixNano)
 
 	var b low.Buf
 
@@ -25,6 +24,8 @@ func TestJSON(t *testing.T) {
 	j.TimeFormat = time.RFC3339Nano
 
 	l := tlog.New(j)
+
+	tlog.TestSetTime(l, func() time.Time { return tm }, tm.UnixNano)
 
 	l.SetLabels(tlog.Labels{"a=b", "c"})
 
