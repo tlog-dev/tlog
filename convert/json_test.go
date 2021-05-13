@@ -64,6 +64,64 @@ func TestJSON(t *testing.T) {
 	}
 }
 
+func TestJSONRename(t *testing.T) {
+	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.FixedZone("Europe/Moscow", int(3*time.Hour/time.Second)))
+
+	var b low.Buf
+
+	j := NewJSONWriter(&b)
+	j.AttachLabels = true
+	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
+	j.TimeFormat = time.RFC3339Nano
+
+	j.Rename = map[KeyTagSub]string{
+		{Tag: wire.Semantic, Key: tlog.KeyLabels, Sub: tlog.WireLabels}:       "Labels",
+		{Tag: wire.Semantic, Key: tlog.KeyEventType, Sub: tlog.WireEventType}: "EventType",
+		{Tag: wire.Semantic, Key: tlog.KeyTime, Sub: wire.Time}:               "time",
+		{Tag: wire.Semantic, Key: tlog.KeyCaller, Sub: wire.Caller}:           "caller",
+		{Tag: wire.String, Key: "str"}:                                        "str_key",
+	}
+
+	l := tlog.New(j)
+
+	tlog.TestSetTime(l, func() time.Time { return tm }, tm.UnixNano)
+
+	l.SetLabels(tlog.Labels{"a=b", "c"})
+
+	l.Printw("user labels", "", tlog.Labels{"user_label"})
+
+	l.Printw("message", "str", "arg", "int", 5, "struct", struct {
+		A string `json:"a"`
+		B int    `tlog:"bb" yaml:"b"`
+		C *int   `tlog:"c,omitempty"`
+	}{
+		A: "A field",
+		B: 9,
+	})
+
+	exp := `{"time":"2020-12-25T22:08:13\+03:00","EventType":"L","Labels":\["a=b","c"\]}
+{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","m":"user labels","Labels":\["user_label"\],"Labels":\["a=b","c"\]}
+{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","m":"message","str_key":"arg","int":5,"struct":{"a":"A field","bb":9},"Labels":\["a=b","c"\]}
+`
+
+	exps := strings.Split(exp, "\n")
+	ls := strings.Split(string(b), "\n")
+	for i := 0; i < len(exps); i++ {
+		re := regexp.MustCompile(exps[i])
+
+		var have string
+		if i < len(ls) {
+			have = ls[i]
+		}
+
+		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", exps[i], have)
+	}
+
+	for i := len(exps); i < len(ls); i++ {
+		assert.True(t, false, "expected\n%s\ngot\n%s", "", ls[i])
+	}
+}
+
 func BenchmarkJSONConvert(b *testing.B) {
 	var buf low.Buf
 	var e wire.Encoder

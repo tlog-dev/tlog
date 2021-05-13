@@ -40,6 +40,8 @@ type (
 		StartedAt time.Time
 	}
 
+	Message string
+
 	EventType rune
 
 	LogLevel int
@@ -163,6 +165,8 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 			}
 
 			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
+		case Message:
+			l.b = l.Encoder.AppendString(l.b, wire.String, string(msg))
 		case []byte:
 			l.b = l.Encoder.AppendString(l.b, wire.String, low.UnsafeBytesToString(msg))
 		default:

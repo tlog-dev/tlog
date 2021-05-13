@@ -22,11 +22,19 @@ type (
 		TimeFormat   string
 		TimeZone     *time.Location
 
+		Rename map[KeyTagSub]string
+
 		d wire.Decoder
 
 		ls []byte
 
 		b low.Buf
+	}
+
+	KeyTagSub struct {
+		Key string
+		Tag byte
+		Sub int64
 	}
 )
 
@@ -64,15 +72,39 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 
 		bst := len(b)
 
+		b = append(b, '"')
+
 		k, i = w.d.String(p, i)
 
 		vst := i
 
 		tag, sub, _ = w.d.Tag(p, i)
 
-		b = low.AppendQuote(b, low.UnsafeBytesToString(k))
+		var renamed bool
 
-		b = append(b, ':')
+		if w.Rename != nil {
+			kts := KeyTagSub{
+				Key: low.UnsafeBytesToString(k),
+				Tag: tag,
+			}
+
+			if tag == wire.Semantic || tag == wire.Special {
+				kts.Sub = sub
+			}
+
+			var key string
+			key, renamed = w.Rename[kts]
+
+			if renamed {
+				b = low.AppendSafe(b, key)
+			}
+		}
+
+		if !renamed {
+			b = low.AppendSafe(b, low.UnsafeBytesToString(k))
+		}
+
+		b = append(b, '"', ':')
 
 		b, i = w.convertValue(b, p, i)
 

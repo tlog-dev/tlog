@@ -14,6 +14,16 @@ const (
 
 var KeyAuto = ""
 
+var (
+	_l LogLevel
+	_e EventType
+	_h Hex
+	_m Message
+
+	_, _, _, _, _, _, _ wire.TlogAppender = ID{}, Info, EventValue, Labels{}, Hex(0), Message(""), Format{}
+	_, _, _, _, _, _    wire.TlogParser   = &ID{}, &_l, &_e, &Labels{}, &_h, &_m
+)
+
 func AppendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 	return appendKVs0(e, b, kvs)
 }
@@ -195,6 +205,25 @@ func (x *Hex) TlogParse(d *wire.Decoder, p []byte, i int) int {
 	v, i := d.Signed(p, i)
 
 	*x = Hex(v)
+
+	return i
+}
+
+func (m Message) TlogAppend(e *wire.Encoder, b []byte) []byte {
+	b = append(b, wire.Semantic|WireMessage)
+	return e.AppendString(b, wire.String, string(m))
+}
+
+func (m *Message) TlogParse(d *wire.Decoder, p []byte, i int) int {
+	if p[i] != wire.Semantic|WireMessage {
+		panic("not a message")
+	}
+
+	i++
+
+	v, i := d.String(p, i)
+
+	*m = Message(v)
 
 	return i
 }
