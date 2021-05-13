@@ -50,6 +50,8 @@ type (
 
 	FormatNext string
 
+	Timestamp int64
+
 	Format struct {
 		Fmt  string
 		Args []interface{}

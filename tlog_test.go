@@ -130,3 +130,15 @@ func BenchmarkTracerStartPrintwFinish(b *testing.B) {
 		tr.Finish()
 	}
 }
+
+func BenchmarkTracerStartPrintwFinishWithTimeCaller(b *testing.B) {
+	b.ReportAllocs()
+
+	l := New(ioutil.Discard)
+
+	for i := 0; i < b.N; i++ {
+		tr := l.Start("span_name")
+		tr.Printw("message", "a", i+1000, "b", i+1000)
+		tr.Finish()
+	}
+}

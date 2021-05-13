@@ -62,7 +62,11 @@ func (d *StreamDecoder) Bytes() []byte {
 func (d *StreamDecoder) Skip() {
 	tag, sub := d.PeekTag()
 
-	//	println(fmt.Sprintf("Skip %2x  -> %2x %2x _   data % .10x (%.10q)  from %v  err %v", d.i, tag, sub, d.b[d.i:], d.b[d.i:], loc.Callers(1, 4), d.err))
+	//	fmt.Fprintf(os.Stderr, "Skip %3x  -> %2x %3x _   data % .10x (%.10[4]q)  from %v  err %v\n", d.i, tag, sub, d.b[d.i:], loc.Callers(1, 4), d.err)
+
+	if d.err != nil {
+		return
+	}
 
 	switch tag {
 	case Int, Neg:
@@ -70,20 +74,26 @@ func (d *StreamDecoder) Skip() {
 	case String, Bytes:
 		d.String()
 	case Array, Map:
-		d.i++
+		d.Tag()
 
 		for el := 0; sub == -1 || el < int(sub); el++ {
 			if sub == -1 && d.Break() {
 				break
 			}
 
-			d.String()
 			if tag == Map {
-				d.Skip()
+				d.String()
+			}
+
+			d.Skip()
+
+			if d.err != nil {
+				d.err = errors.Wrap(d.err, "array/map (map %v) element %x of %x", tag == Map, el, sub)
+				break
 			}
 		}
 	case Semantic:
-		d.i++
+		d.Tag()
 
 		d.Skip()
 	case Special:
@@ -175,7 +185,7 @@ func (d *StreamDecoder) peekTag() (tag byte, sub int64, i int) {
 	tag &= TagMask
 	i++
 
-	//	println(fmt.Sprintf("tag  %2x  -> %2x %2x %2x  data % .10x  from %v", d.i, tag, sub, i, d.b[d.i:], loc.Callers(1, 3)))
+	//	fmt.Fprintf(os.Stderr, "tag  %2x  -> %2x %2x %2x  data % .10x  from %v\n", d.i, tag, sub, i, d.b[d.i:], loc.Callers(2, 3))
 
 	if tag == Special {
 		return
@@ -308,7 +318,7 @@ func (d *StreamDecoder) more(l int) bool {
 
 	end := len(d.b)
 
-	if false && d.i > 0 && !d.keep {
+	if d.i > 0 && !d.keep {
 		copy(d.b, d.b[d.i:])
 
 		d.ref += int64(d.i)

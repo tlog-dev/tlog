@@ -227,3 +227,22 @@ func (m *Message) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 	return i
 }
+
+func (ts Timestamp) TlogAppend(e *wire.Encoder, b []byte) []byte {
+	b = append(b, wire.Semantic|wire.Time)
+	return e.AppendInt(b, wire.Int, uint64(ts))
+}
+
+func (ts *Timestamp) TlogParse(d *wire.Decoder, p []byte, i int) int {
+	if p[i] != wire.Semantic|wire.Time {
+		panic("not a time")
+	}
+
+	i++
+
+	v, i := d.Int(p, i)
+
+	*ts = Timestamp(v)
+
+	return i
+}

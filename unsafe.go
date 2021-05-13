@@ -15,6 +15,9 @@ func appendKVs0(e *wire.Encoder, b []byte, kvs []interface{}) []byte
 //go:linkname caller1 runtime.callers
 func caller1(skip int, pc *loc.PC, len, cap int) int
 
+//go:linkname UnixNano github.com/nikandfor/tlog/low.UnixNano
+func UnixNano() Timestamp
+
 func stringToBytes(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&s))
 }
