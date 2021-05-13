@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/low"
 )
 
 var (
@@ -26,8 +29,12 @@ func initComplexLogger() func() {
 	cw.Funcname = 14
 	cw.IDWidth = 10
 
+	var jsonBuf low.Buf
+	jw := convert.NewJSONWriter(&jsonBuf)
+
 	w := tlog.NewTeeWriter(
 		cw,
+		jw,
 	//	wire.NewDumper(tlog.Stderr),
 	)
 
@@ -36,7 +43,7 @@ func initComplexLogger() func() {
 	tlog.DefaultLogger = logger // needed for sub package. It uses package interface (tlog.Printf)
 
 	return func() {
-		//	fmt.Fprintf(os.Stderr, "%s", buf.Bytes())
+		fmt.Fprintf(os.Stderr, "%s", jsonBuf)
 	}
 }
 

@@ -155,6 +155,16 @@ func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte
 	return b
 }
 
+func (e *Encoder) AppendError(b []byte, err error) []byte {
+	b = append(b, Semantic|Error)
+
+	if err == nil {
+		return append(b, Special|Null)
+	}
+
+	return e.AppendString(b, String, err.Error())
+}
+
 func (e *Encoder) AppendTime(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
 	b = e.AppendInt(b, Int, uint64(t.UnixNano()))

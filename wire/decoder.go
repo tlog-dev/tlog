@@ -160,6 +160,10 @@ func (d *LowDecoder) String(b []byte, st int) (v []byte, i int) {
 	return b[i : i+int(l)], i + int(l)
 }
 
+func (_ *LowDecoder) TagOnly(b []byte, st int) (tag byte) {
+	return b[st] & TagMask
+}
+
 func (_ *LowDecoder) Tag(b []byte, st int) (tag byte, sub int64, i int) {
 	i = st
 

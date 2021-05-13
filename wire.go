@@ -53,8 +53,6 @@ func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 			b = e.AppendString(b, wire.String, v)
 		case int:
 			b = e.AppendSigned(b, int64(v))
-		default:
-			b = e.AppendValue(b, v)
 		case FormatNext:
 			i++
 			if i == len(kvs) {
@@ -64,6 +62,8 @@ func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 
 			b = append(b, wire.Semantic|WireMessage)
 			b = e.AppendFormat(b, string(v), kvs[i])
+		default:
+			b = e.AppendValue(b, v)
 		}
 
 		i++
@@ -155,7 +155,7 @@ func (e *EventType) TlogParse(d *wire.Decoder, p []byte, i int) int {
 }
 
 func (f Format) TlogAppend(e *wire.Encoder, b []byte) []byte {
-	return e.AppendFormat(b, f.Fmt, f.Args)
+	return e.AppendFormat(b, f.Fmt, f.Args...)
 }
 
 func (ls Labels) TlogAppend(e *wire.Encoder, b []byte) []byte {
