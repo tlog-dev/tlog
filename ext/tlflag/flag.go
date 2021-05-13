@@ -14,6 +14,7 @@ import (
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/rotated"
+	"github.com/nikandfor/tlog/wire"
 )
 
 var (
@@ -247,7 +248,7 @@ loop2:
 		switch ext {
 		case ".tlog", ".tl":
 		case ".dump":
-			w = tlog.NewDumper(w)
+			w = wire.NewDumper(w)
 		case ".ez", ".tlz":
 			w = compress.NewEncoder(w, CompressorBlockSize)
 		case ".log", "":

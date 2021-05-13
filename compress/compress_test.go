@@ -12,6 +12,7 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ var fileFlag = flag.String("test-file", "../log.tlog", "file with tlog logs")
 
 var (
 	testData   []byte
-	testOff    []int64
+	testOff    []int
 	testsCount int
 )
 
@@ -143,16 +144,15 @@ func TestDumpFile(t *testing.T) {
 		t.Skipf("open test data: %v", err)
 	}
 
-	dec := tlog.NewDecoderBytes(data)
-
+	var dec wire.Decoder
 	var dump, encoded low.Buf
 
 	d := NewDumper(&dump)
 	w := newEncoder(tlog.NewTeeWriter(&encoded, d), 16*1024, 6)
 
-	var st int64
-	for n := 0; n < MaxEvents && int(st) < len(data); n++ {
-		end := dec.Skip(st)
+	var st int
+	for n := 0; n < MaxEvents && st < len(data); n++ {
+		end := dec.Skip(data, st)
 
 		m, err := w.Write(data[st:end])
 		if !assert.NoError(t, err, "%v bytes written", m) {
@@ -361,13 +361,13 @@ func loadTestFile(b testing.TB, f string) (err error) {
 		return errors.Wrap(err, "open data file")
 	}
 
-	d := tlog.NewDecoderBytes(testData)
-	testOff = make([]int64, 0, 100)
+	var d wire.Decoder
+	testOff = make([]int, 0, 100)
 
-	var st int64
-	for int(st) < len(testData) {
+	var st int
+	for st < len(testData) {
 		testOff = append(testOff, st)
-		st = d.Skip(st)
+		st = d.Skip(testData, st)
 	}
 	testsCount = len(testOff)
 	testOff = append(testOff, st)

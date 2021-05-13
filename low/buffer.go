@@ -35,6 +35,10 @@ func (wr *Bwr) Ret(b *Buf) {
 	bufPool.Put(wr)
 }
 
+func (w *Buf) Reset() {
+	*w = (*w)[:0]
+}
+
 func (w *Buf) Write(p []byte) (int, error) {
 	*w = append(*w, p...)
 

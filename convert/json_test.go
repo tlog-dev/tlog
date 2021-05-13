@@ -9,6 +9,7 @@ import (
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -63,17 +64,24 @@ func TestJSON(t *testing.T) {
 	}
 }
 
-func BenchmarkJSON(b *testing.B) {
+func BenchmarkJSONConvert(b *testing.B) {
 	var buf low.Buf
-	var e tlog.Encoder
+	var e wire.Encoder
 
-	buf = e.AppendMap(buf, []interface{}{tlog.KeyTime, 10000000000, tlog.KeyEventType, tlog.EventLabels, tlog.KeyLabels, tlog.Labels{"a=b", "c=d", "e=f", "g=h"}})
-	buf = e.AppendMap(buf, []interface{}{tlog.KeySpan, tlog.ID{}, tlog.KeyTime, 10000000000, tlog.KeyMessage, "message text", "arg", "value", "arg2", 5})
+	appendMap := func(b []byte, kvs ...interface{}) []byte {
+		b = e.AppendObject(b, -1)
+		b = tlog.AppendKVs(&e, b, kvs)
+		b = e.AppendBreak(b)
 
-	var d tlog.Decoder
-	d.ResetBytes(buf)
+		return b
+	}
 
-	st := d.Skip(0)
+	buf = appendMap(buf, tlog.KeyTime, 10000000000, tlog.KeyEventType, tlog.EventLabels, tlog.KeyLabels, tlog.Labels{"a=b", "c=d", "e=f", "g=h"})
+	buf = appendMap(buf, tlog.KeySpan, tlog.ID{}, tlog.KeyTime, 10000000000, tlog.KeyMessage, "message text", "arg", "value", "arg2", 5)
+
+	var d wire.Decoder
+
+	st := d.Skip(buf, 0)
 
 	w := NewJSONWriter(ioutil.Discard)
 
@@ -88,5 +96,21 @@ func BenchmarkJSON(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, _ = w.Write(buf[st:])
+	}
+}
+
+func BenchmarkJSONPrintw(b *testing.B) {
+	w := NewJSONWriter(ioutil.Discard)
+	l := tlog.New(w)
+	l.NoCaller = true
+	l.NoTime = true
+
+	l.SetLabels(tlog.Labels{"a=b", "c=d", "e=f", "g=h"})
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		l.Printw("message", "a", i+1000, "b", i+1000)
 	}
 }

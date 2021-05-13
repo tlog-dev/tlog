@@ -10,11 +10,12 @@ import (
 	"github.com/nikandfor/quantile"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
 	Writer struct {
-		d tlog.Decoder
+		d wire.Decoder
 
 		mu sync.Mutex
 
@@ -65,28 +66,25 @@ func New() *Writer {
 }
 
 func (w *Writer) Write(p []byte) (n int, err error) {
-	w.d.ResetBytes(p)
-
-	e := w.getEventType()
+	e := w.getEventType(p)
 
 	switch e {
 	case tlog.EventValue:
-		w.value()
+		w.value(p)
 	case tlog.EventLabels:
-		w.ls = w.getLabels()
+		w.ls = w.getLabels(p)
 		w.labels = w.encodeLabels(w.labels[:0], w.ls)
 
 	//	tlog.Printw("labels", "global", w.labels)
 	case tlog.EventMetricDesc:
-		w.metric()
+		w.metric(p)
 	}
 
 	return len(p), nil
 }
 
-func (w *Writer) value() {
-	var i int64
-	_, els, i := w.d.Tag(i)
+func (w *Writer) value(p []byte) {
+	_, els, i := w.d.Tag(p, 0)
 
 	var m *metric
 	var val interface{}
@@ -94,16 +92,16 @@ func (w *Writer) value() {
 
 	var k, s []byte
 	var v interface{}
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
-		k, i = w.d.String(i)
+		k, i = w.d.String(p, i)
 
-		tag, sub, _ := w.d.Tag(i)
-		if tag == tlog.Semantic {
-			i = w.d.Skip(i)
+		tag, sub, _ := w.d.Tag(p, i)
+		if tag == wire.Semantic {
+			i = w.d.Skip(p, i)
 
 			continue
 		}
@@ -119,36 +117,36 @@ func (w *Writer) value() {
 			}
 
 			switch tag {
-			case tlog.Int, tlog.Neg:
-				val, i = w.d.Int(i)
-			case tlog.Special:
+			case wire.Int, wire.Neg:
+				val, i = w.d.Int(p, i)
+			case wire.Special:
 				switch sub {
-				case tlog.Float64, tlog.Float32, tlog.Float16, tlog.FloatInt8:
-					val, i = w.d.Float(i)
+				case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
+					val, i = w.d.Float(p, i)
 				default:
-					i = w.d.Skip(i)
+					i = w.d.Skip(p, i)
 				}
 			default:
-				i = w.d.Skip(i)
+				i = w.d.Skip(p, i)
 			}
 
 			continue
 		}
 
 		switch tag {
-		case tlog.String:
-			s, i = w.d.String(i)
-		case tlog.Int, tlog.Neg:
-			v, i = w.d.Int(i)
-		case tlog.Special:
+		case wire.String:
+			s, i = w.d.String(p, i)
+		case wire.Int, wire.Neg:
+			v, i = w.d.Int(p, i)
+		case wire.Special:
 			switch sub {
-			case tlog.Float64, tlog.Float32, tlog.Float16, tlog.FloatInt8:
-				v, i = w.d.Float(i)
+			case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
+				v, i = w.d.Float(p, i)
 			default:
-				i = w.d.Skip(i)
+				i = w.d.Skip(p, i)
 			}
 		default:
-			i = w.d.Skip(i)
+			i = w.d.Skip(p, i)
 
 			continue
 		}
@@ -177,63 +175,58 @@ func (w *Writer) value() {
 	m.observe(val, ls)
 }
 
-func (w *Writer) metric() {
-	var i int64
-	_, els, i := w.d.Tag(i)
+func (w *Writer) metric(p []byte) {
+	_, els, i := w.d.Tag(p, 0)
 
 	m := &metric{}
 
 	var k, s []byte
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
-		k, i = w.d.String(i)
+		k, i = w.d.String(p, i)
 
-		tag, sub, _ := w.d.Tag(i)
+		tag, sub, _ := w.d.Tag(p, i)
 
 		switch {
-		case tag == tlog.String && string(k) == "name":
-			s, i = w.d.String(i)
+		case tag == wire.String && string(k) == "name":
+			s, i = w.d.String(p, i)
 
 			m.Name = string(s)
-		case tag == tlog.String && string(k) == "type":
-			s, i = w.d.String(i)
+		case tag == wire.String && string(k) == "type":
+			s, i = w.d.String(p, i)
 
 			m.Type = string(s)
-		case tag == tlog.String && string(k) == "help":
-			s, i = w.d.String(i)
+		case tag == wire.String && string(k) == "help":
+			s, i = w.d.String(p, i)
 
 			m.Help = string(s)
-		case tag == tlog.Semantic && sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
+		case tag == wire.Semantic && sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
 			var ls tlog.Labels
-			ls, i = w.d.Labels(i)
+			i = ls.TlogParse(&w.d, p, i)
 
 			m.constls = w.encodeLabels(nil, ls)
-		case tag == tlog.Array && string(k) == "quantile":
+		case tag == wire.Array && string(k) == "quantile":
 			st := i
 
-			_, _, i = w.d.Tag(i)
+			_, _, i = w.d.Tag(p, i)
 
-			for el := 0; sub == -1 || el < sub; el++ {
-				if sub == -1 && w.d.Break(&i) {
+			for el := 0; sub == -1 || el < int(sub); el++ {
+				if sub == -1 && w.d.Break(p, &i) {
 					break
 				}
 
 				var f float64
-				f, i = w.d.Float(i)
-				if w.d.Err() != nil {
-					w.d.ResetErr()
-					break
-				}
+				f, i = w.d.Float(p, i)
 
 				m.q = append(m.q, f)
 			}
 
-			i = w.d.Skip(st)
+			i = w.d.Skip(p, st)
 		default:
-			i = w.d.Skip(i)
+			i = w.d.Skip(p, i)
 		}
 	}
 
@@ -303,49 +296,49 @@ func (m *metric) observe(v interface{}, ls []byte) {
 	o.Observe(v)
 }
 
-func (w *Writer) getEventType() (e tlog.EventType) {
-	i := w.find(tlog.WireEventType, tlog.KeyEventType)
+func (w *Writer) getEventType(p []byte) (e tlog.EventType) {
+	i := w.find(p, tlog.WireEventType, tlog.KeyEventType)
 	if i == -1 {
 		return
 	}
 
-	e, _ = w.d.EventType(i)
+	e.TlogParse(&w.d, p, i)
 
 	return
 }
 
-func (w *Writer) getLabels() (ls tlog.Labels) {
-	i := w.find(tlog.WireLabels, tlog.KeyLabels)
+func (w *Writer) getLabels(p []byte) (ls tlog.Labels) {
+	i := w.find(p, tlog.WireLabels, tlog.KeyLabels)
 	if i == -1 {
 		return
 	}
 
-	ls, _ = w.d.Labels(i)
+	ls.TlogParse(&w.d, p, i)
 
 	return ls
 }
 
-func (w *Writer) find(typ int, key string) (i int64) {
-	tag, els, i := w.d.Tag(i)
+func (w *Writer) find(p []byte, typ int64, key string) (i int) {
+	tag, els, i := w.d.Tag(p, i)
 
-	if tag != tlog.Map {
+	if tag != wire.Map {
 		return -1
 	}
 
 	var k []byte
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
-		k, i = w.d.String(i)
+		k, i = w.d.String(p, i)
 
-		tag, sub, _ := w.d.Tag(i)
-		if tag == tlog.Semantic && sub == typ && string(k) == key {
+		tag, sub, _ := w.d.Tag(p, i)
+		if tag == wire.Semantic && sub == typ && string(k) == key {
 			return i
 		}
 
-		i = w.d.Skip(i)
+		i = w.d.Skip(p, i)
 	}
 
 	return -1

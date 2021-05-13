@@ -11,6 +11,7 @@ import (
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 func TestSmoke(t *testing.T) {
@@ -53,7 +54,7 @@ func TestSmoke(t *testing.T) {
 
 	fmt.Fprintf(tlog.Stderr, "dump events (%d)\n", len(evs))
 
-	d := tlog.NewDumper(tlog.Stderr)
+	d := wire.NewDumper(tlog.Stderr)
 
 	for _, ev := range evs {
 		_, _ = d.Write(ev)

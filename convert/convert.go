@@ -4,26 +4,29 @@ import (
 	"io"
 
 	"github.com/nikandfor/errors"
-
-	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/wire"
 )
 
 func Copy(w io.Writer, r io.Reader) (err error) {
-	d := tlog.NewDecoder(r)
+	d := wire.NewStreamDecoder(r)
 
-	i := int64(0)
+	//	println("coooooopy")
+
 	for {
-		st := i
-		d.Keep(st)
+		d.Keep(true)
 
-		i = d.Skip(st)
-		if err = d.Err(); err == io.EOF {
+		//	println("looop")
+
+		d.Skip()
+		if err = d.Err(); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return errors.Wrap(err, "read")
 		}
 
-		_, err = w.Write(d.Bytes(st, i))
+		//	println(fmt.Sprintf("copy %x %x\n%s", d.Ref(), d.I(), wire.Dump(d.Bytes())))
+
+		_, err = w.Write(d.Bytes())
 		if err != nil {
 			return errors.Wrap(err, "write")
 		}

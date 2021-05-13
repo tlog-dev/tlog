@@ -3,12 +3,14 @@ package convert
 import (
 	"encoding/base64"
 	"io"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
@@ -19,7 +21,7 @@ type (
 		TimeFormat   string
 		TimeZone     *time.Location
 
-		d tlog.Decoder
+		d wire.Decoder
 
 		ls []byte
 
@@ -29,36 +31,31 @@ type (
 
 func NewJSONWriter(w io.Writer) *JSON {
 	return &JSON{
-		Writer: w,
-		//	TimeFormat: "2006-01-02T15:04:05.999999Z07:00",
-		TimeZone: time.Local,
+		Writer:     w,
+		TimeFormat: time.RFC3339Nano,
+		TimeZone:   time.Local,
 	}
 }
 
-func (w *JSON) Write(p []byte) (n int, err error) {
-	defer w.d.ResetBytes(nil)
-	w.d.ResetBytes(p)
+func (w *JSON) Write0(p []byte) (n int, err error) { return 0, nil }
 
-	var i, j int64
+func (w *JSON) Write(p []byte) (i int, err error) {
 	b := w.b[:0]
 
 	var e tlog.EventType
 	var ls []byte
 
-	tag, els, i := w.d.Tag(i)
-	if w.d.Err() != nil {
-		return
-	}
-
-	if tag != tlog.Map {
+	tag, els, i := w.d.Tag(p, i)
+	if tag != wire.Map {
 		panic("not a map")
 	}
 
 	b = append(b, '{')
 
 	var k []byte
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
+	var j int
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
@@ -69,24 +66,24 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 		st := i
 		bst := len(b)
 
-		b, i = w.appendValue(b, i, 0)
+		b, i = w.appendValue(b, p, i, 0)
 
 		b = append(b, ':')
 
-		b, i = w.appendValue(b, i, 0)
+		b, i = w.appendValue(b, p, i, 0)
 
 		// semantic
 
-		k, j = w.d.String(st)
+		k, j = w.d.String(p, st)
 
-		tag, sub, _ := w.d.Tag(j)
-		if tag != tlog.Semantic {
+		tag, sub, _ := w.d.Tag(p, j)
+		if tag != wire.Semantic {
 			continue
 		}
 
 		switch {
 		case sub == tlog.WireEventType && string(k) == tlog.KeyEventType:
-			e, _ = w.d.EventType(j)
+			e.TlogParse(&w.d, p, j)
 		case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
 			ls = b[bst:]
 		}
@@ -106,10 +103,6 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 
 	w.b = b[:0]
 
-	if err = w.d.Err(); err != nil {
-		return 0, err
-	}
-
 	_, err = w.Writer.Write(b)
 	if err != nil {
 		return 0, err
@@ -118,27 +111,25 @@ func (w *JSON) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (w *JSON) appendValue(b []byte, st int64, d int) (_ []byte, i int64) {
-	tag, sub, i := w.d.Tag(st)
-	if w.d.Err() != nil {
-		return
-	}
+func (w *JSON) appendValue(b, p []byte, st int, d int) (_ []byte, i int) {
+	tag, sub, i := w.d.Tag(p, st)
 
-	var v int64
 	var s []byte
 	var f float64
 
 	switch tag {
-	case tlog.Int:
-		v, i = w.d.Int(st)
+	case wire.Int:
+		var v uint64
+		v, i = w.d.Int(p, st)
 
-		b = strconv.AppendUint(b, uint64(v), 10)
-	case tlog.Neg:
-		v, i = w.d.Int(st)
+		b = strconv.AppendUint(b, v, 10)
+	case wire.Neg:
+		var v uint64
+		v, i = w.d.Int(p, st)
 
-		b = strconv.AppendInt(b, v, 10)
-	case tlog.Bytes:
-		s, i = w.d.String(st)
+		b = strconv.AppendInt(b, -int64(v), 10)
+	case wire.Bytes:
+		s, i = w.d.String(p, st)
 
 		b = append(b, '"')
 
@@ -154,16 +145,16 @@ func (w *JSON) appendValue(b []byte, st int64, d int) (_ []byte, i int64) {
 		base64.StdEncoding.Encode(b[d:], s)
 
 		b = append(b, '"')
-	case tlog.String:
-		s, i = w.d.String(st)
+	case wire.String:
+		s, i = w.d.String(p, st)
 
 		b = low.AppendQuote(b, low.UnsafeBytesToString(s))
 
-	case tlog.Array:
+	case wire.Array:
 		b = append(b, '[')
 
-		for el := 0; sub == -1 || el < sub; el++ {
-			if sub == -1 && w.d.Break(&i) {
+		for el := 0; sub == -1 || el < int(sub); el++ {
+			if sub == -1 && w.d.Break(p, &i) {
 				break
 			}
 
@@ -171,15 +162,15 @@ func (w *JSON) appendValue(b []byte, st int64, d int) (_ []byte, i int64) {
 				b = append(b, ',')
 			}
 
-			b, i = w.appendValue(b, i, d+1)
+			b, i = w.appendValue(b, p, i, d+1)
 		}
 
 		b = append(b, ']')
-	case tlog.Map:
+	case wire.Map:
 		b = append(b, '{')
 
-		for el := 0; sub == -1 || el < sub; el++ {
-			if sub == -1 && w.d.Break(&i) {
+		for el := 0; sub == -1 || el < int(sub); el++ {
+			if sub == -1 && w.d.Break(p, &i) {
 				break
 			}
 
@@ -187,21 +178,20 @@ func (w *JSON) appendValue(b []byte, st int64, d int) (_ []byte, i int64) {
 				b = append(b, ',')
 			}
 
-			b, i = w.appendValue(b, i, d+1)
+			b, i = w.appendValue(b, p, i, d+1)
 
 			b = append(b, ':')
 
-			b, i = w.appendValue(b, i, d+1)
+			b, i = w.appendValue(b, p, i, d+1)
 		}
 
 		b = append(b, '}')
-	case tlog.Semantic:
+	case wire.Semantic:
 		switch {
-		case sub == tlog.WireTime && w.TimeFormat != "":
-			var ts tlog.Timestamp
-			ts, i = w.d.Time(st)
+		case sub == wire.Time:
+			var t time.Time
+			t, i = w.d.Time(p, st)
 
-			t := time.Unix(0, int64(ts))
 			if w.TimeZone != nil {
 				t = t.In(w.TimeZone)
 			}
@@ -211,44 +201,32 @@ func (w *JSON) appendValue(b []byte, st int64, d int) (_ []byte, i int64) {
 			b = append(b, '"')
 		case sub == tlog.WireID:
 			var id tlog.ID
-			id, i = w.d.ID(st)
+			i = id.TlogParse(&w.d, p, st)
 
 			bst := len(b) + 1
 			b = append(b, `"123456789_123456789_123456789_12"`...)
 
 			id.FormatTo(b[bst:], 'x')
-		case sub == tlog.WireCaller:
+		case sub == wire.Caller:
 			var pc loc.PC
-			var pcs loc.PCs
+			pc, i = w.d.Caller(p, st)
 
-			pc, pcs, i = w.d.Caller(st)
+			_, file, line := pc.NameFileLine()
 
-			if pcs == nil {
-				b = low.AppendQuote(b, pc.String())
-			} else {
-				b = append(b, '[')
-				for i, pc := range pcs {
-					if i != 0 {
-						b = append(b, ',')
-					}
-
-					b = low.AppendQuote(b, pc.String())
-				}
-				b = append(b, ']')
-			}
+			b = low.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
 		default:
-			b, i = w.appendValue(b, i, d+1)
+			b, i = w.appendValue(b, p, i, d+1)
 		}
-	case tlog.Special:
+	case wire.Special:
 		switch sub {
-		case tlog.False:
+		case wire.False:
 			b = append(b, "false"...)
-		case tlog.True:
+		case wire.True:
 			b = append(b, "true"...)
-		case tlog.Null, tlog.Undefined:
+		case wire.Null, wire.Undefined:
 			b = append(b, "null"...)
-		case tlog.Float64, tlog.Float32, tlog.Float16, tlog.FloatInt8:
-			f, i = w.d.Float(st)
+		case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
+			f, i = w.d.Float(p, st)
 
 			b = strconv.AppendFloat(b, f, 'f', -1, 64)
 		default:

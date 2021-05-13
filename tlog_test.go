@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 func TestLoggerSmoke(t *testing.T) {
@@ -15,17 +16,17 @@ func TestLoggerSmoke(t *testing.T) {
 
 	l.Printf("message %v %v", 1, "two")
 
-	t.Logf("dump:\n%v", Dump(buf))
+	t.Logf("dump:\n%v", wire.Dump(buf))
 	buf = buf[:0]
 
 	l.Printw("message", "a", -1, "b", "two")
 
-	t.Logf("dump:\n%v", Dump(buf))
+	t.Logf("dump:\n%v", wire.Dump(buf))
 	buf = buf[:0]
 
 	l.NewMessage(0, ID{}, "")
 
-	t.Logf("dump:\n%v", Dump(buf))
+	t.Logf("dump:\n%v", wire.Dump(buf))
 	buf = buf[:0]
 }
 

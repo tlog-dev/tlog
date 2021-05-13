@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/wire"
 )
 
 func TestSetAdd(t *testing.T) {
@@ -14,7 +15,7 @@ func TestSetAdd(t *testing.T) {
 
 	res := Set(nil, msg, L)
 
-	t.Logf("sum:\n%v", tlog.Dump(res))
+	t.Logf("sum:\n%v", wire.Dump(res))
 }
 
 func TestSetReplace(t *testing.T) {
@@ -25,10 +26,14 @@ func TestSetReplace(t *testing.T) {
 
 	res := Set(nil, msg, L)
 
-	t.Logf("sum:\n%v", tlog.Dump(res))
+	t.Logf("sum:\n%v", wire.Dump(res))
 }
 
 func encode(kvs ...interface{}) []byte {
-	var e tlog.Encoder
-	return e.AppendMap(nil, kvs)
+	var e wire.Encoder
+
+	b := e.AppendObject(nil, len(kvs)/2)
+	b = tlog.AppendKVs(&e, b, kvs)
+
+	return b
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,11 +19,14 @@ func TestCopy(t *testing.T) {
 
 	l.Printw("message", "arg", "value", "int", 4)
 
-	tr := l.Start("span_name")
-	tr.Printw("traced", "message", "arg")
-	tr.Finish("err", nil)
+	//	tr := l.Start("span_name")
+	//	tr.Printw("traced", "message", "arg")
+	//	tr.Finish("err", nil)
 
-	tr.Observe("metric", 123)
+	//	tr.Observe("metric", 123)
+
+	t.Logf("src\n%s", wire.Dump(src))
+	//	println("src\n" + wire.Dump(src))
 
 	var dst low.Buf
 
@@ -33,9 +37,9 @@ func TestCopy(t *testing.T) {
 
 	if t.Failed() {
 		var dump low.Buf
-		err := Copy(tlog.NewDumper(&dump), bytes.NewReader(src))
+		err := Copy(wire.NewDumper(&dump), bytes.NewReader(src))
 		if err != nil {
-			t.Logf("dump (%v)\n%s", err, tlog.Dump(src))
+			t.Logf("dump (%v)\n%s", err, wire.Dump(src))
 		} else {
 			t.Logf("dump\n%s", dump)
 		}

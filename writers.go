@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/errors"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
@@ -32,7 +33,7 @@ type (
 
 		Open func(io.Writer, error) (io.Writer, error)
 
-		d Decoder
+		d wire.Decoder
 
 		ls, lsdebt []byte
 	}
@@ -204,41 +205,39 @@ func (w *ReWriter) Close() error {
 }
 
 func (w *ReWriter) detectHeaders(p []byte) (ls []byte) {
-	w.d.ResetBytes(p)
-
 	var e EventType
 
-	var i int64
+	var i int
 
-	tag, els, i := w.d.Tag(i)
-	if tag != Map {
+	tag, els, i := w.d.Tag(p, i)
+	if tag != wire.Map {
 		return
 	}
 
 	var k []byte
-	var sub int
+	var sub int64
 
 loop:
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
-		k, i = w.d.String(i)
+		k, i = w.d.String(p, i)
 
-		tag, sub, _ = w.d.Tag(i)
-		if tag != Semantic {
-			i = w.d.Skip(i)
+		tag, sub, _ = w.d.Tag(p, i)
+		if tag != wire.Semantic {
+			i = w.d.Skip(p, i)
 			continue
 		}
 
 		switch {
 		case sub == WireEventType && string(k) == KeyEventType:
-			e, i = w.d.EventType(i)
+			i = e.TlogParse(&w.d, p, i)
 
 			break loop
 		default:
-			i = w.d.Skip(i)
+			i = w.d.Skip(p, i)
 		}
 	}
 

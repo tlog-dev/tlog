@@ -28,6 +28,7 @@ func initComplexLogger() func() {
 
 	w := tlog.NewTeeWriter(
 		cw,
+	//	wire.NewDumper(tlog.Stderr),
 	)
 
 	logger = tlog.New(w)

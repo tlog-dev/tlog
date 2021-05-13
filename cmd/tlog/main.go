@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -28,9 +27,9 @@ import (
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/ext/tlbolt"
-	"github.com/nikandfor/tlog/ext/tlclickhouse"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/rotated"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
@@ -334,12 +333,13 @@ func agent0(c *cli.Command) error {
 		return errors.Wrap(err, "open: %v", f)
 	}
 
-	var i int64
-	d := tlog.NewDecoder(r)
+	d := wire.NewStreamDecoder(r)
 	cnt := 0
 
 	for {
-		end := d.Skip(i)
+		i := d.Keep(true)
+
+		d.Skip()
 		if errors.Is(d.Err(), io.EOF) {
 			tlog.Printw("EOF. wait...")
 			time.Sleep(500 * time.Millisecond)
@@ -352,11 +352,11 @@ func agent0(c *cli.Command) error {
 			return errors.Wrap(err, "reading event")
 		}
 
+		end := d.Pos()
+
 		cnt++
 
 		tlog.Printw("read event", "events", cnt, "st", i, "end", end)
-
-		i = end
 
 		if false && cnt%3 == 0 {
 			tlog.Printw("truncate file", "events", cnt, "st", i)
@@ -399,25 +399,27 @@ func conv(c *cli.Command) (err error) {
 		return err
 	}
 
-	if q := c.String("clickhouse"); q != "" {
-		clickhouse.SetLogOutput(tlog.DefaultLogger.IOWriter(2))
+	/*
+		if q := c.String("clickhouse"); q != "" {
+			clickhouse.SetLogOutput(tlog.DefaultLogger.IOWriter(2))
 
-		u, err := url.Parse(q)
-		if err != nil {
-			return errors.Wrap(err, "clickhouse url")
+			u, err := url.Parse(q)
+			if err != nil {
+				return errors.Wrap(err, "clickhouse url")
+			}
+
+			table := u.Query().Get("table")
+
+			db, err := sql.Open("clickhouse", q)
+			if err != nil {
+				return errors.Wrap(err, "connect to clickhouse")
+			}
+
+			cw := tlclickhouse.New(db, table)
+
+			w = tlog.NewTeeWriter(w, cw)
 		}
-
-		table := u.Query().Get("table")
-
-		db, err := sql.Open("clickhouse", q)
-		if err != nil {
-			return errors.Wrap(err, "connect to clickhouse")
-		}
-
-		cw := tlclickhouse.New(db, table)
-
-		w = tlog.NewTeeWriter(w, cw)
-	}
+	*/
 
 	defer func() {
 		e := w.Close()

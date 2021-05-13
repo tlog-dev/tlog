@@ -10,6 +10,7 @@ import (
 
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
@@ -28,7 +29,7 @@ type (
 
 		sync.Mutex
 
-		Encoder
+		wire.Encoder
 
 		b []byte
 	}
@@ -37,6 +38,19 @@ type (
 		Logger    *Logger
 		ID        ID
 		StartedAt time.Time
+	}
+
+	EventType rune
+
+	LogLevel int
+
+	Hex int64
+
+	FormatNext string
+
+	Format struct {
+		Fmt  string
+		Args []interface{}
 	}
 
 	// for log.SetOutput(l) // stdlib.
@@ -86,11 +100,11 @@ const (
 
 // Event Types
 const (
-	EventLabels     = EventType("L")
-	EventSpanStart  = EventType("s")
-	EventSpanFinish = EventType("f")
-	EventValue      = EventType("v")
-	EventMetricDesc = EventType("m")
+	EventLabels     = EventType('L')
+	EventSpanStart  = EventType('s')
+	EventSpanFinish = EventType('f')
+	EventValue      = EventType('v')
+	EventMetricDesc = EventType('m')
 )
 
 var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))
@@ -111,69 +125,54 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		return
 	}
 
-	var ll int
-
-	if id != (ID{}) {
-		ll++
-	}
-
-	if !l.NoTime {
-		ll++
-	}
-
-	if !l.NoCaller && d >= 0 {
-		ll++
-	}
-
-	if !low.IsNil(msg) {
-		ll++
-	}
-
-	ll += l.Encoder.CalcMapLen(kvs)
-
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+	l.b = l.Encoder.AppendTag(l.b[:0], wire.Map, -1)
 
 	if id != (ID{}) {
-		l.b = l.Encoder.AppendString(l.b, String, KeySpan)
-		l.b = l.Encoder.AppendID(l.b, id)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeySpan)
+		l.b = id.TlogAppend(&l.Encoder, l.b)
 	}
 
 	if !l.NoTime {
-		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
-		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
-		l.b = l.Encoder.AppendInt(l.b, l.nano())
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyTime)
+		l.b = l.Encoder.AppendTimestamp(l.b, l.nano())
 	}
 
 	if !l.NoCaller && d >= 0 {
 		var c loc.PC
 		caller1(2+d, &c, 1, 1)
 
-		l.b = l.Encoder.AppendString(l.b, String, KeyCaller)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyCaller)
 		l.b = l.Encoder.AppendPC(l.b, c, true)
 	}
 
 	if !low.IsNil(msg) {
-		l.b = l.Encoder.AppendString(l.b, String, KeyMessage)
-		l.b = l.Encoder.AppendTag(l.b, Semantic, WireMessage)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyMessage)
+		//l.b = append(l.b, wire.Semantic|WireMessage)
+		l.b = l.Encoder.AppendTag(l.b, wire.Semantic, WireMessage)
 
 		switch msg := msg.(type) {
-		case Message:
-			l.b = l.Encoder.AppendString(l.b, String, string(msg))
-		case Format:
-			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
 		case string:
-			l.b = l.Encoder.AppendString(l.b, String, msg)
+			l.b = l.Encoder.AppendString(l.b, wire.String, msg)
+		case Format:
+			if len(msg.Args) == 0 {
+				l.b = l.Encoder.AppendString(l.b, wire.String, msg.Fmt)
+				break
+			}
+
+			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
 		case []byte:
-			l.b = l.Encoder.AppendString(l.b, String, low.UnsafeBytesToString(msg))
+			l.b = l.Encoder.AppendString(l.b, wire.String, low.UnsafeBytesToString(msg))
 		default:
 			l.b = l.Encoder.AppendFormat(l.b, "%v", msg)
 		}
 	}
 
-	l.b = l.Encoder.AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = l.Encoder.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 }
@@ -187,71 +186,48 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	s.ID = l.NewID()
 	s.StartedAt = l.now()
 
-	var ll int
-
-	ll++ // span
-
-	if !l.NoTime {
-		ll++
-	}
-
-	if !l.NoCaller && d >= 0 {
-		ll++
-	}
-
-	ll++ // event type
-
-	if par != (ID{}) {
-		ll++
-	}
-
-	if n != "" {
-		ll++
-	}
-
-	ll += l.Encoder.CalcMapLen(kvs)
-
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+	l.b = l.Encoder.AppendTag(l.b[:0], wire.Map, -1)
 
 	{
-		l.b = l.Encoder.AppendString(l.b, String, KeySpan)
-		l.b = l.Encoder.AppendID(l.b, s.ID)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeySpan)
+		l.b = s.ID.TlogAppend(&l.Encoder, l.b)
 	}
 
 	if !l.NoTime {
-		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
-		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
-		l.b = l.Encoder.AppendInt(l.b, l.nano())
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyTime)
+		l.b = l.Encoder.AppendTimestamp(l.b, l.nano())
 	}
 
 	if !l.NoCaller && d >= 0 {
 		var c loc.PC
 		caller1(2+d, &c, 1, 1)
 
-		l.b = l.Encoder.AppendString(l.b, String, KeyCaller)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyCaller)
 		l.b = l.Encoder.AppendPC(l.b, c, true)
 	}
 
 	{
-		l.b = l.Encoder.AppendString(l.b, String, KeyEventType)
-		l.b = l.Encoder.AppendEventType(l.b, EventSpanStart)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyEventType)
+		l.b = EventSpanStart.TlogAppend(&l.Encoder, l.b)
 	}
 
 	if par != (ID{}) {
-		l.b = l.Encoder.AppendString(l.b, String, KeyParent)
-		l.b = l.Encoder.AppendID(l.b, par)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyParent)
+		l.b = s.ID.TlogAppend(&l.Encoder, l.b)
 	}
 
 	if n != "" {
-		l.b = l.Encoder.AppendString(l.b, String, KeyMessage)
-		l.b = l.Encoder.AppendTag(l.b, Semantic, WireMessage)
-		l.b = l.Encoder.AppendString(l.b, String, n)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyMessage)
+		l.b = l.Encoder.AppendTag(l.b, wire.Semantic, WireMessage)
+		l.b = l.Encoder.AppendString(l.b, wire.String, n)
 	}
 
-	l.b = l.Encoder.AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = l.Encoder.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 
@@ -263,49 +239,34 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 		return
 	}
 
-	var ll int
-
-	if id != (ID{}) {
-		ll++
-	}
-
-	if !l.NoTime {
-		ll++
-	}
-
-	ll++ // event type
-
-	ll++ // value
-
-	ll += l.Encoder.CalcMapLen(kvs)
-
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+	l.b = l.Encoder.AppendTag(l.b[:0], wire.Map, -1)
 
 	if id != (ID{}) {
-		l.b = l.Encoder.AppendString(l.b, String, KeySpan)
-		l.b = l.Encoder.AppendID(l.b, id)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeySpan)
+		l.b = id.TlogAppend(&l.Encoder, l.b)
 	}
 
 	if !l.NoTime {
-		l.b = l.Encoder.AppendString(l.b, String, KeyTime)
-		l.b = l.Encoder.AppendTag(l.b, Semantic, WireTime)
-		l.b = l.Encoder.AppendInt(l.b, l.nano())
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyTime)
+		l.b = l.Encoder.AppendTimestamp(l.b, l.nano())
 	}
 
 	{
-		l.b = l.Encoder.AppendString(l.b, String, KeyEventType)
-		l.b = l.Encoder.AppendEventType(l.b, EventValue)
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyEventType)
+		l.b = EventValue.TlogAppend(&l.Encoder, l.b)
 	}
 
 	{
-		l.b = l.Encoder.AppendString(l.b, String, name)
+		l.b = l.Encoder.AppendString(l.b, wire.String, name)
 		l.b = l.Encoder.AppendValue(l.b, v)
 	}
 
-	l.b = l.Encoder.AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = l.Encoder.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 }
@@ -315,49 +276,36 @@ func (s Span) Finish(kvs ...interface{}) {
 		return
 	}
 
-	var ll int
-
-	if s.ID != (ID{}) {
-		ll++
-	}
-
-	if !s.Logger.NoTime {
-		ll++
-		ll++
-	}
-
-	ll++
-
-	ll += s.Logger.Encoder.CalcMapLen(kvs)
-
 	defer s.Logger.Unlock()
 	s.Logger.Lock()
 
-	s.Logger.b = s.Logger.Encoder.AppendTag(s.Logger.b[:0], Map, ll)
+	s.Logger.b = s.Logger.Encoder.AppendTag(s.Logger.b[:0], wire.Map, -1)
 
 	if s.ID != (ID{}) {
-		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeySpan)
-		s.Logger.b = s.Logger.Encoder.AppendID(s.Logger.b, s.ID)
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeySpan)
+		s.Logger.b = s.ID.TlogAppend(&s.Logger.Encoder, s.Logger.b)
 	}
 
 	if !s.Logger.NoTime {
 		now := s.Logger.now()
 
-		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyTime)
-		s.Logger.b = s.Logger.Encoder.AppendTime(s.Logger.b, now.UnixNano())
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyTime)
+		s.Logger.b = s.Logger.Encoder.AppendTime(s.Logger.b, now)
 
 		if s.StartedAt != (time.Time{}) && s.StartedAt.UnixNano() != 0 {
-			s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyElapsed)
+			s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyElapsed)
 			s.Logger.b = s.Logger.Encoder.AppendDuration(s.Logger.b, now.Sub(s.StartedAt))
 		}
 	}
 
 	{
-		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeyEventType)
-		s.Logger.b = s.Logger.Encoder.AppendEventType(s.Logger.b, EventSpanFinish)
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyEventType)
+		s.Logger.b = EventSpanFinish.TlogAppend(&s.Logger.Encoder, s.Logger.b)
 	}
 
-	s.Logger.b = s.Logger.Encoder.AppendKVs(s.Logger.b, kvs)
+	s.Logger.b = AppendKVs(&s.Logger.Encoder, s.Logger.b, kvs)
+
+	s.Logger.b = s.Logger.Encoder.AppendBreak(s.Logger.b)
 
 	_, _ = s.Logger.Writer.Write(s.Logger.b)
 }
@@ -367,14 +315,14 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 		return nil
 	}
 
-	ll := l.Encoder.CalcMapLen(kvs)
-
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+	l.b = l.Encoder.AppendObject(l.b[:0], -1)
 
-	l.b = l.Encoder.AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = l.Encoder.AppendBreak(l.b)
 
 	_, err = l.Writer.Write(l.b)
 
@@ -386,25 +334,19 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 		return nil
 	}
 
-	var ll int
-
-	if s.ID != (ID{}) {
-		ll++
-	}
-
-	ll += s.Logger.Encoder.CalcMapLen(kvs)
-
 	defer s.Logger.Unlock()
 	s.Logger.Lock()
 
-	s.Logger.b = s.Logger.Encoder.AppendTag(s.Logger.b[:0], Map, ll)
+	s.Logger.b = s.Logger.Encoder.AppendObject(s.Logger.b[:0], -1)
 
 	if s.ID != (ID{}) {
-		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, String, KeySpan)
-		s.Logger.b = s.Logger.Encoder.AppendID(s.Logger.b, s.ID)
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeySpan)
+		s.Logger.b = s.ID.TlogAppend(&s.Logger.Encoder, s.Logger.b)
 	}
 
-	s.Logger.b = s.Logger.Encoder.AppendKVs(s.Logger.b, kvs)
+	s.Logger.b = AppendKVs(&s.Logger.Encoder, s.Logger.b, kvs)
+
+	s.Logger.b = s.Logger.Encoder.AppendBreak(s.Logger.b)
 
 	_, err = s.Logger.Writer.Write(s.Logger.b)
 
@@ -420,14 +362,28 @@ func (l *Logger) SetLabels(ls Labels) {
 		return
 	}
 
-	if l.NoTime {
-		l.Event(KeyLabels, ls)
-		return
+	sz := 2
+	if !l.NoTime {
+		sz = 3
 	}
 
-	t := Timestamp(l.nano())
+	defer l.Unlock()
+	l.Lock()
 
-	l.Event(KeyTime, t, KeyEventType, EventLabels, KeyLabels, ls)
+	l.b = l.Encoder.AppendTag(l.b[:0], wire.Map, int64(sz))
+
+	if !l.NoTime {
+		l.b = l.Encoder.AppendString(l.b, wire.String, KeyTime)
+		l.b = l.Encoder.AppendTimestamp(l.b, l.nano())
+	}
+
+	l.b = l.Encoder.AppendString(l.b, wire.String, KeyEventType)
+	l.b = EventLabels.TlogAppend(&l.Encoder, l.b)
+
+	l.b = l.Encoder.AppendString(l.b, wire.String, KeyLabels)
+	l.b = ls.TlogAppend(&l.Encoder, l.b)
+
+	_, _ = l.Writer.Write(l.b)
 }
 
 //go:noinline
@@ -437,7 +393,7 @@ func Printf(f string, args ...interface{}) {
 
 //go:noinline
 func Printw(msg string, kvs ...interface{}) {
-	newmessage(DefaultLogger, ID{}, 0, Message(msg), kvs)
+	newmessage(DefaultLogger, ID{}, 0, msg, kvs)
 }
 
 //go:noinline
@@ -447,7 +403,7 @@ func (l *Logger) Printf(f string, args ...interface{}) {
 
 //go:noinline
 func (l *Logger) Printw(msg string, kvs ...interface{}) {
-	newmessage(l, ID{}, 0, Message(msg), kvs)
+	newmessage(l, ID{}, 0, msg, kvs)
 }
 
 //go:noinline
@@ -457,7 +413,7 @@ func (s Span) Printf(f string, args ...interface{}) {
 
 //go:noinline
 func (s Span) Printw(msg string, kvs ...interface{}) {
-	newmessage(s.Logger, s.ID, 0, Message(msg), kvs)
+	newmessage(s.Logger, s.ID, 0, msg, kvs)
 }
 
 //go:noinline
@@ -680,7 +636,7 @@ func (s Span) IOWriter(d int) io.Writer {
 }
 
 func (w writeWrapper) Write(p []byte) (int, error) {
-	newmessage(w.Logger, w.ID, w.d, Message(low.UnsafeBytesToString(p)), nil)
+	newmessage(w.Logger, w.ID, w.d, low.UnsafeBytesToString(p), nil)
 
 	return len(p), nil
 }
@@ -710,34 +666,28 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 		panic("empty type")
 	}
 
-	ll := 3
-
-	if help != "" {
-		ll++
-	}
-
-	ll += l.Encoder.CalcMapLen(kvs)
-
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], Map, ll)
+	l.b = l.Encoder.AppendObject(l.b[:0], -1)
 
-	l.b = l.Encoder.AppendString(l.b, String, KeyEventType)
-	l.b = l.Encoder.AppendEventType(l.b, EventSpanStart)
+	l.b = l.Encoder.AppendString(l.b, wire.String, KeyEventType)
+	l.b = EventMetricDesc.TlogAppend(&l.Encoder, l.b)
 
-	l.b = l.Encoder.AppendString(l.b, String, "name")
-	l.b = l.Encoder.AppendString(l.b, String, name)
+	l.b = l.Encoder.AppendString(l.b, wire.String, "name")
+	l.b = l.Encoder.AppendString(l.b, wire.String, name)
 
-	l.b = l.Encoder.AppendString(l.b, String, "type")
-	l.b = l.Encoder.AppendString(l.b, String, typ)
+	l.b = l.Encoder.AppendString(l.b, wire.String, "type")
+	l.b = l.Encoder.AppendString(l.b, wire.String, typ)
 
 	if help != "" {
-		l.b = l.Encoder.AppendString(l.b, String, "help")
-		l.b = l.Encoder.AppendString(l.b, String, help)
+		l.b = l.Encoder.AppendString(l.b, wire.String, "help")
+		l.b = l.Encoder.AppendString(l.b, wire.String, help)
 	}
 
-	l.b = l.Encoder.AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = l.Encoder.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 }

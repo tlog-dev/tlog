@@ -1,4 +1,4 @@
-package tlog
+package wire
 
 import (
 	"reflect"

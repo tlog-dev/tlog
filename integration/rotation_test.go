@@ -10,6 +10,7 @@ import (
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/rotated"
+	"github.com/nikandfor/tlog/wire"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,7 +54,7 @@ func dumpFile(t *testing.T, f low.Buf, name string) {
 	d, err := ioutil.ReadAll(r)
 	assert.NoError(t, err)
 
-	t.Logf("file %q\n%s", name, tlog.Dump(d))
+	t.Logf("file %q\n%s", name, wire.Dump(d))
 }
 
 //go:noinline

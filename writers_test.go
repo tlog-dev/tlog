@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"encoding/hex"
 	"io"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type errWriter struct {
@@ -24,7 +26,7 @@ func TestReWriter(t *testing.T) {
 	}
 
 	var b low.Buf
-	var e Encoder
+	var e wire.Encoder
 
 	w := NewReWriter(func(have io.Writer, err error) (io.Writer, error) {
 		var b low.Buf
@@ -39,8 +41,21 @@ func TestReWriter(t *testing.T) {
 	encode := func(kvs []interface{}) (err error) {
 		b = b[:0]
 
-		b = e.AppendTag(b, Map, e.CalcMapLen(kvs))
-		b = e.AppendKVs(b, kvs)
+		defer func() {
+			p := recover()
+			if p == nil {
+				return
+			}
+
+			t.Logf("hex dump:\n%s", hex.Dump(b))
+			t.Logf("dump:\n%s", wire.Dump(b))
+
+			panic(p)
+		}()
+
+		b = e.AppendObject(b, -1)
+		b = AppendKVs(&e, b, kvs)
+		b = e.AppendBreak(b)
 
 		_, err = w.Write(b)
 
@@ -122,22 +137,23 @@ func TestReWriter(t *testing.T) {
 
 	if t.Failed() {
 		for i, f := range files {
-			t.Logf("dump %d:\n%s", i, Dump(*f))
+			t.Logf("dump %d:\n%s", i, wire.Dump(*f))
 		}
 	}
 }
 
-func newfile(events [][]interface{}) (b *low.Buf) {
-	b = new(low.Buf)
+func newfile(events [][]interface{}) *low.Buf {
+	var b low.Buf
 
-	var e Encoder
+	var e wire.Encoder
 
 	for _, evs := range events {
-		*b = e.AppendTag(*b, Map, e.CalcMapLen(evs))
-		*b = e.AppendKVs(*b, evs)
+		b = e.AppendObject(b, -1)
+		b = AppendKVs(&e, b, evs)
+		b = e.AppendBreak(b)
 	}
 
-	return b
+	return &b
 }
 
 func (w *errWriter) Write(p []byte) (n int, err error) {
@@ -149,4 +165,22 @@ func (w *errWriter) Write(p []byte) (n int, err error) {
 	}
 
 	return w.Writer.Write(p)
+}
+
+func BenchmarkReWriter(b *testing.B) {
+	b.ReportAllocs()
+
+	w := NewReWriter(func(io.Writer, error) (io.Writer, error) {
+		return io.Discard, nil
+	})
+
+	l := New(w)
+	l.NoTime = true
+	l.NoCaller = true
+
+	l.SetLabels(Labels{"a", "b", "c"})
+
+	for i := 0; i < b.N; i++ {
+		l.Printw("message", "a", i+1000, "b", i+1001)
+	}
 }

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"time"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/wire"
 	"go.etcd.io/bbolt"
 )
 
@@ -47,14 +49,14 @@ type (
 	Writer struct {
 		db *bbolt.DB
 
-		d tlog.Decoder
+		d wire.Decoder
 
 		ls tlog.Labels
 	}
 
 	header struct {
 		ls tlog.Labels
-		ts tlog.Timestamp
+		ts time.Time
 
 		lssum  []byte
 		labels []byte
@@ -78,24 +80,17 @@ func NewWriter(db *bbolt.DB) (w *Writer) {
 	return w
 }
 
-func (w *Writer) Write(p []byte) (_ int, err error) {
+func (w *Writer) Write(p []byte) (i int, err error) {
 	defer func() {
 		tl.Printw("written", "err", err, "data", p, "callers", loc.Callers(1, 5))
 	}()
 
-	var i int64
-	w.d.ResetBytes(p)
-
-	tag, els, i := w.d.Tag(i)
-	if err = w.d.Err(); err != nil {
-		return
-	}
-
-	if tag != tlog.Map {
+	tag, els, i := w.d.Tag(p, i)
+	if tag != wire.Map {
 		return 0, errors.New("expected map")
 	}
 
-	h := w.findLabels(els, i)
+	h := w.findLabels(p, els, i)
 	key := w.key(&h)
 
 	err = w.db.Update(func(tx *bbolt.Tx) error {
@@ -152,28 +147,25 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 		}
 
 		var k, ktp []byte
-		for el := 0; els == -1 || el < els; el++ {
-			if els == -1 && w.d.Break(&i) {
+		for el := 0; els == -1 || el < int(els); el++ {
+			if els == -1 && w.d.Break(p, &i) {
 				break
 			}
 
-			k, i = w.d.String(i)
+			k, i = w.d.String(p, i)
 
 			st := i
 
-			i = w.d.Skip(st)
-			if err = w.d.Err(); err != nil {
-				return errors.Wrap(err, "decode key-value")
-			}
+			i = w.d.Skip(p, st)
 
 			v = p[st:i]
 
-			tag, sub, tpi := w.d.Tag(st)
-			if tag == tlog.Semantic {
+			tag, sub, tpi := w.d.Tag(p, st)
+			if tag == wire.Semantic {
 				if sub == tlog.WireLabels && string(k) == tlog.KeyLabels {
 					continue
 				}
-				if sub == tlog.WireTime && string(k) == tlog.KeyTime {
+				if sub == wire.Time && string(k) == tlog.KeyTime {
 					continue
 				}
 			}
@@ -181,20 +173,20 @@ func (w *Writer) Write(p []byte) (_ int, err error) {
 			ktp = append(ktp[:0], k...)
 
 			switch tag {
-			case tlog.Int, tlog.Neg:
-				ktp = append(ktp, tlog.Int)
-			case tlog.String, tlog.Bytes, tlog.Array, tlog.Map:
+			case wire.Int, wire.Neg:
+				ktp = append(ktp, wire.Int)
+			case wire.String, wire.Bytes, wire.Array, wire.Map:
 				ktp = append(ktp, byte(tag))
-			case tlog.Semantic:
+			case wire.Semantic:
 				ktp = append(ktp, p[st:tpi]...)
-			case tlog.Special:
+			case wire.Special:
 				switch sub {
-				case tlog.False, tlog.True:
-					ktp = append(ktp, tlog.Special|tlog.False)
-				case tlog.Null, tlog.Undefined:
+				case wire.False, wire.True:
+					ktp = append(ktp, wire.Special|wire.False)
+				case wire.Null, wire.Undefined:
 					ktp = append(ktp, p[st:tpi]...)
-				case tlog.FloatInt8, tlog.Float16, tlog.Float32, tlog.Float64:
-					ktp = append(ktp, tlog.Special|tlog.Float64)
+				case wire.Float8, wire.Float16, wire.Float32, wire.Float64:
+					ktp = append(ktp, wire.Special|wire.Float64)
 				default:
 					panic("special")
 				}
@@ -333,34 +325,34 @@ func (w *Writer) dump(wr io.Writer, b bucket, d int) (err error) {
 	return nil
 }
 
-func (w *Writer) findLabels(els int, i int64) (h header) {
+func (w *Writer) findLabels(p []byte, els int64, i int) (h header) {
 	h.ls = w.ls
 
 	var k []byte
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
 		kst := i
 
-		k, i = w.d.String(i)
+		k, i = w.d.String(p, i)
 
-		tag, sub, _ := w.d.Tag(i)
-		if tag != tlog.Semantic {
-			i = w.d.Skip(i)
+		tag, sub, _ := w.d.Tag(p, i)
+		if tag != wire.Semantic {
+			i = w.d.Skip(p, i)
 			continue
 		}
 
 		switch {
 		case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
-			h.ls, i = w.d.Labels(i)
+			i = h.ls.TlogParse(&w.d, p, i)
 
-			h.labels = w.d.Bytes(kst, i)
-		case sub == tlog.WireTime && string(k) == tlog.KeyTime:
-			h.ts, i = w.d.Time(i)
+			h.labels = p[kst:i]
+		case sub == wire.Time && string(k) == tlog.KeyTime:
+			h.ts, i = w.d.Time(p, i)
 		default:
-			i = w.d.Skip(i)
+			i = w.d.Skip(p, i)
 		}
 	}
 
@@ -368,7 +360,7 @@ func (w *Writer) findLabels(els int, i int64) (h header) {
 }
 
 func (w *Writer) key(h *header) []byte {
-	binary.BigEndian.PutUint64(h.b[:], uint64(h.ts))
+	binary.BigEndian.PutUint64(h.b[:], uint64(h.ts.UnixNano()))
 
 	var sum uint32
 	for _, l := range h.ls {

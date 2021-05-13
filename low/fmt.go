@@ -75,6 +75,10 @@ func doPrintf(p *pp, format string, a []interface{})
 //go:noescape
 func doPrintln(p *pp, a []interface{})
 
+//go:linkname doPrint fmt.(*pp).doPrint
+//go:noescape
+func doPrint(p *pp, a []interface{})
+
 // AppendPrintf is similar to fmt.Fprintf but a little bit hacked.
 //
 // There is no sync.Pool.Get and Put. There is no copying buffer to io.Writer or conversion to string. There is no io.Writer interface dereference.
@@ -94,6 +98,16 @@ func AppendPrintln(b []byte, a ...interface{}) []byte {
 	p.buf = b
 	p.fmt.buf = &p.buf
 	doPrintln(&p, a)
+	b = *(*[]byte)(noescape(unsafe.Pointer(&p.buf)))
+	return b
+}
+
+// AppendPrint is similar to fmt.Sprint but faster. See doc for AppendPrintf for more details.
+func AppendPrint(b []byte, a ...interface{}) []byte {
+	var p pp
+	p.buf = b
+	p.fmt.buf = &p.buf
+	doPrint(&p, a)
 	b = *(*[]byte)(noescape(unsafe.Pointer(&p.buf)))
 	return b
 }
