@@ -49,6 +49,10 @@ first:
 	case Int:
 		pc = loc.PC(sub)
 
+		if pc != 0 && !pc.Cached() {
+			pc.SetCache("_", ".", 0)
+		}
+
 		return
 	case Array:
 		if sub == 0 {
@@ -114,10 +118,11 @@ func (d *LowDecoder) Skip(b []byte, st int) (i int) {
 				break
 			}
 
-			_, i = d.String(b, i)
 			if tag == Map {
-				i = d.Skip(b, i)
+				_, i = d.String(b, i)
 			}
+
+			i = d.Skip(b, i)
 		}
 	case Semantic:
 		i = d.Skip(b, i)

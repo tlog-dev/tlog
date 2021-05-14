@@ -103,13 +103,14 @@ func main() {
 		Flags: []*cli.Flag{
 			cli.NewFlag("listen-packet,p", "", "listen packet address"),
 			cli.NewFlag("listen-packet-net,P", "unixgram", "listen packet network"),
+			cli.NewFlag("listen,l", "", "listen address"),
+			cli.NewFlag("listen-net,L", "unix", "listen network"),
+
 			cli.NewFlag("http", ":8000", "http listen address"),
 			cli.NewFlag("http-net", "tcp", "http listen network"),
 
 			cli.NewFlag("max-events", 100000, "max events to keep in memory"),
 
-			cli.NewFlag("listen,l", "/var/log/tlog.tl", "listen address"),
-			cli.NewFlag("listen-net,L", "unix", "listen network"),
 			cli.NewFlag("db", "/var/log/tlog.db", "db address"),
 			cli.NewFlag("db-max-size", "1G", "max db size"),
 			cli.NewFlag("db-max-age", 30*24*time.Hour, "max logs age"),
@@ -244,6 +245,8 @@ func agentFn(c *cli.Command) (err error) {
 				}
 			}))
 
+			tlog.Printw("http server done", "err", err)
+
 			errc <- errors.Wrap(err, "serve http")
 		}()
 	}
@@ -266,6 +269,8 @@ func agentFn(c *cli.Command) (err error) {
 		go func() {
 			err := a.ListenPacket(p)
 
+			tlog.Printw("packet listener done", "err", err)
+
 			errc <- errors.Wrap(err, "listen packet")
 		}()
 	}
@@ -287,6 +292,8 @@ func agentFn(c *cli.Command) (err error) {
 
 		go func() {
 			err := a.Listen(l)
+
+			tlog.Printw("listener done", "err", err)
 
 			errc <- errors.Wrap(err, "listen packet")
 		}()
@@ -532,10 +539,18 @@ func ticker(c *cli.Command) error {
 
 	l.SetLabels(tlog.Labels{"service=ticker"})
 
+	var first int
 	i := 0
 
 	for t := range t.C {
-		l.Printw("tick", "i", i, "time", t)
+		var drift int
+		if i == 0 {
+			first = t.Nanosecond()
+		} else {
+			drift = t.Nanosecond() - first
+		}
+
+		l.Printw("tick", "i", i, "time", t, "drift", drift)
 		i++
 	}
 

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -17,8 +18,11 @@ type (
 		MaxEvents int
 
 		mu sync.Mutex
-		b  []*msg
-		w  int
+
+		b []*msg
+		w int
+
+		clients map[net.Addr]*connWriter
 
 		cond *sync.Cond
 	}
@@ -49,6 +53,7 @@ type (
 func New() (a *Agent) {
 	a = &Agent{
 		MaxEvents: 100000,
+		clients:   make(map[net.Addr]*connWriter),
 	}
 
 	a.cond = sync.NewCond(&a.mu)
@@ -125,10 +130,7 @@ func (a *Agent) Subscribe(ctx context.Context, c io.Writer, n int, follow, addla
 
 		a.mu.Unlock()
 
-		_, err = c.Write(b)
-		if err != nil {
-			return errors.Wrap(err, "write msg")
-		}
+		_, _ = c.Write(b)
 
 		if r+1 == w && f != nil {
 			f.Flush()
@@ -176,12 +178,18 @@ func (a *Agent) addEvent(ev, ls, lsmsg []byte) {
 func (a *Agent) ListenPacket(p net.PacketConn) error {
 	var buf [0xffff]byte
 	for {
-		n, _, err := p.ReadFrom(buf[:])
+		n, addr, err := p.ReadFrom(buf[:])
+		//	tlog.Printw("read packet", "n", n, "addr", addr, "err", err)
 		if err != nil {
 			return errors.Wrap(err, "read from")
 		}
 
-		a.addEvent(buf[:n], nil, nil)
+		w := a.Writer(addr)
+
+		_, err = w.Write(buf[:n])
+		if err != nil {
+			tlog.Printw("process packet", "err", err)
+		}
 	}
 }
 
@@ -199,7 +207,10 @@ func (a *Agent) Listen(l net.Listener) (err error) {
 			go func() {
 				err := a.ServeConn(conn)
 
-				errc <- errors.Wrap(err, "serve conn %v", conn.RemoteAddr())
+				if err != nil {
+					tlog.Printw("serve conn", "err", err)
+				}
+				//errors.Wrap(err, "serve conn %v", conn.RemoteAddr())
 			}()
 		}
 	}()
@@ -208,10 +219,7 @@ func (a *Agent) Listen(l net.Listener) (err error) {
 }
 
 func (a *Agent) ServeConn(c net.Conn) (err error) {
-	w, err := a.NewWriter(c.RemoteAddr())
-	if err != nil {
-		return errors.Wrap(err, "new writer")
-	}
+	w := a.Writer(c.RemoteAddr())
 
 	err = convert.Copy(w, c)
 	if err != nil {
@@ -221,15 +229,33 @@ func (a *Agent) ServeConn(c net.Conn) (err error) {
 	return nil
 }
 
-func (a *Agent) NewWriter(addr net.Addr) (w io.Writer, err error) {
+func (a *Agent) newWriter(addr net.Addr) (c *connWriter) {
 	return &connWriter{
 		a:    a,
 		addr: addr,
-	}, nil
+	}
+}
+
+func (a *Agent) Writer(addr net.Addr) (c *connWriter) {
+	defer a.mu.Unlock()
+	a.mu.Lock()
+
+	c, ok := a.clients[addr]
+
+	if !ok {
+		c = a.newWriter(addr)
+
+		a.clients[addr] = c
+	}
+
+	return c
 }
 
 func (w *connWriter) Write(p []byte) (i int, err error) {
-	ls := w.findLabels(p)
+	ls, err := w.findLabels(p)
+	if err != nil {
+		return 0, err
+	}
 
 	w.a.addEvent(p, w.ls, w.lsmsg)
 
@@ -241,7 +267,25 @@ func (w *connWriter) Write(p []byte) (i int, err error) {
 	return
 }
 
-func (w *connWriter) findLabels(p []byte) (ls []byte) {
+func (w *connWriter) findLabels(p []byte) (ls []byte, err error) {
+	defer func() {
+		p := recover()
+		if p == nil {
+			return
+		}
+
+		switch p := p.(type) {
+		case error:
+			err = p
+		case string:
+			err = errors.NewNoLoc(p)
+		default:
+			err = fmt.Errorf("%v", p)
+		}
+
+		err = errors.Wrap(err, "parse message")
+	}()
+
 	tag, els, i := w.d.Tag(p, 0)
 	if tag != wire.Map {
 		return
@@ -288,5 +332,5 @@ func (w *connWriter) findLabels(p []byte) (ls []byte) {
 		ls = nil
 	}
 
-	return ls
+	return ls, nil
 }

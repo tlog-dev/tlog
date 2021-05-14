@@ -9,7 +9,7 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747
 	github.com/nikandfor/errors v0.3.1-0.20201212142705-56fda2c0e8b3
-	github.com/nikandfor/loc v0.0.0-20201209201630-39582039abc5
+	github.com/nikandfor/loc v0.0.0-20210514200626-a41c4599fc7b
 	github.com/nikandfor/quantile v0.0.0-20201109213849-4905a12df281
 	github.com/prometheus/client_golang v1.10.0
 	github.com/stretchr/testify v1.6.1

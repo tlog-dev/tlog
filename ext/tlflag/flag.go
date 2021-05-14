@@ -1,6 +1,7 @@
 package tlflag
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -222,7 +223,7 @@ func openw(fn string, opts string) (wc io.Writer, err error) {
 			default:
 				w, c, err = openwfile(fn, of, mode)
 			}
-		case ".ez":
+		case ".ez", ".sock":
 			fmt = strings.TrimSuffix(fmt, ext)
 
 			continue
@@ -266,12 +267,14 @@ loop2:
 			updateJSONOptions(jw, opts)
 
 			w = jw
+		case ".sock":
 		default:
 			panic("missed extension switch case")
 		}
 
 		switch ext {
-		case ".ez":
+		case ".ez",
+			".sock":
 			fmt = strings.TrimSuffix(fmt, ext)
 		case ".tlz":
 			fmt = strings.TrimSuffix(fmt, "z")
@@ -299,8 +302,16 @@ loop2:
 }
 
 func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, err error) {
+	var ext string
+	for f := fn; f != ""; f = strings.TrimSuffix(f, ext) {
+		ext = filepath.Ext(f)
+		if ext == "" || ext == ".sock" {
+			break
+		}
+	}
+
 	inf, err := os.Stat(fn)
-	if err == nil && inf.Mode().Type() == os.ModeSocket {
+	if err == nil && inf.Mode().Type() == os.ModeSocket || ext == ".sock" {
 		rew := tlog.NewReWriter(func(w io.Writer, err error) (io.Writer, error) {
 			if w != nil {
 				//	if err, ok := err.(net.Error); ok && err.Temporary() {
@@ -315,16 +326,30 @@ func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, e
 				}
 			}
 
-			return net.Dial("unix", fn)
+			exec, _ := os.Executable()
+
+			name := fmt.Sprintf("/tmp/%s.%d.tl.sock", filepath.Base(exec), os.Getpid())
+
+			_ = os.Remove(name)
+
+			c, err := net.DialUnix("unix", &net.UnixAddr{Name: name, Net: "unixgram"}, &net.UnixAddr{Name: fn, Net: "unixgram"})
+			if err != nil {
+				return nil, errors.Wrap(err, "connect")
+			}
+
+			return c, err
+
+			//	return net.Dial("unix", fn)
 		})
 
 		w = rew
 		c = rew
+		err = nil
 
 		return
-	} else {
-		err = nil
 	}
+
+	err = nil
 
 	if strings.ContainsRune(fn, rotated.SubstChar) {
 		f := rotated.Create(fn)
