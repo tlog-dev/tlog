@@ -52,6 +52,8 @@ type (
 
 	Timestamp int64
 
+	RawMessage []byte
+
 	Format struct {
 		Fmt  string
 		Args []interface{}

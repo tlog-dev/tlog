@@ -22,6 +22,10 @@ type (
 )
 
 func Dump(p []byte) (r string) {
+	if len(p) == 0 {
+		return ""
+	}
+
 	var d Dumper
 	d.NoGlobalOffset = true
 
@@ -36,7 +40,11 @@ func Dump(p []byte) (r string) {
 
 	_, _ = d.Write(p)
 
-	d.b.NewLine()
+	if !d.NoGlobalOffset {
+		d.b = low.AppendPrintf(d.b, "%8x  ", d.pos)
+	}
+
+	d.b = low.AppendPrintf(d.b, "%4x\n", len(p))
 
 	return string(d.b)
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/nikandfor/tlog/wire"
 )
 
-func Set(buf, msg []byte, data ...[]byte) []byte {
+func Set(buf, msg []byte, pairs ...[]byte) []byte {
 	var d wire.Decoder
 
 	tag, els, i := d.Tag(msg, 0)
@@ -31,8 +31,8 @@ out:
 
 		i = d.Skip(msg, i) // val
 
-		for _, d := range data {
-			if bytes.HasPrefix(d, k) {
+		for _, p := range pairs {
+			if bytes.HasPrefix(p, k) {
 				continue out
 			}
 		}
@@ -40,8 +40,8 @@ out:
 		buf = append(buf, msg[st:i]...)
 	}
 
-	for _, d := range data {
-		buf = append(buf, d...)
+	for _, p := range pairs {
+		buf = append(buf, p...)
 	}
 
 	buf = append(buf, wire.Special|wire.Break)

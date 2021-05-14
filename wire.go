@@ -15,13 +15,14 @@ const (
 var KeyAuto = ""
 
 var (
-	_l LogLevel
-	_e EventType
-	_h Hex
-	_m Message
+	_l  LogLevel
+	_e  EventType
+	_h  Hex
+	_m  Message
+	_ts Timestamp
 
-	_, _, _, _, _, _, _ wire.TlogAppender = ID{}, Info, EventValue, Labels{}, Hex(0), Message(""), Format{}
-	_, _, _, _, _, _    wire.TlogParser   = &ID{}, &_l, &_e, &Labels{}, &_h, &_m
+	_, _, _, _, _, _, _, _, _ wire.TlogAppender = ID{}, Info, EventValue, Labels{}, Hex(0), Message(""), Timestamp(0), RawMessage{}, Format{}
+	_, _, _, _, _, _, _, _    wire.TlogParser   = &ID{}, &_l, &_e, &Labels{}, &_h, &_m, &_ts, &RawMessage{}
 )
 
 func AppendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
@@ -245,4 +246,14 @@ func (ts *Timestamp) TlogParse(d *wire.Decoder, p []byte, i int) int {
 	*ts = Timestamp(v)
 
 	return i
+}
+
+func (r RawMessage) TlogAppend(e *wire.Encoder, b []byte) []byte {
+	return append(b, r...)
+}
+
+func (r *RawMessage) TlogParse(d *wire.Decoder, p []byte, i int) int {
+	end := d.Skip(p, i)
+	*r = append((*r)[:0], p[i:end]...)
+	return end
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"debug/elf"
 	"encoding/hex"
@@ -13,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"go.etcd.io/bbolt"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/agent"
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/ext/tlbolt"
@@ -41,9 +44,79 @@ type (
 	perrWriter struct {
 		io.WriteCloser
 	}
+
+	pConnClose struct {
+		net.PacketConn
+		def []func() error
+	}
+
+	listenerClose struct {
+		net.Listener
+		def []func() error
+	}
+
+	Flusher interface {
+		Flush()
+	}
+
+	WriteFlusher struct {
+		io.Writer
+		Flusher
+	}
 )
 
 func main() {
+	catCmd := &cli.Command{
+		Name:   "convert,conv,cat,c",
+		Action: conv,
+		Args:   cli.Args{},
+		Flags: []*cli.Flag{
+			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
+			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
+			cli.NewFlag("clickhouse", "", "additional clickhouse writer"),
+		},
+	}
+
+	tlzCmd := &cli.Command{
+		Name:        "seen,tlz",
+		Description: "logs compressor/decompressor",
+		Flags: []*cli.Flag{
+			cli.NewFlag("output,o", "-", "output file (or stdout)"),
+		},
+		Commands: []*cli.Command{{
+			Name:   "compress,c",
+			Action: tlz,
+			Args:   cli.Args{},
+			Flags: []*cli.Flag{
+				cli.NewFlag("block,b", 1*rotated.MB, "compression block size"),
+			},
+		}, {
+			Name:   "decompress,d",
+			Action: tlz,
+			Args:   cli.Args{},
+		}},
+	}
+
+	agentCmd := &cli.Command{
+		Name:   "agent",
+		Action: agentFn,
+		Flags: []*cli.Flag{
+			cli.NewFlag("listen-packet,p", "", "listen packet address"),
+			cli.NewFlag("listen-packet-net,P", "unixgram", "listen packet network"),
+			cli.NewFlag("http", ":8000", "http listen address"),
+			cli.NewFlag("http-net", "tcp", "http listen network"),
+
+			cli.NewFlag("max-events", 100000, "max events to keep in memory"),
+
+			cli.NewFlag("listen,l", "/var/log/tlog.tl", "listen address"),
+			cli.NewFlag("listen-net,L", "unix", "listen network"),
+			cli.NewFlag("db", "/var/log/tlog.db", "db address"),
+			cli.NewFlag("db-max-size", "1G", "max db size"),
+			cli.NewFlag("db-max-age", 30*24*time.Hour, "max logs age"),
+			cli.NewFlag("tolog", false, "dump events to log"),
+		},
+	}
+
 	cli.App = cli.Command{
 		Name:   "tlog",
 		Before: before,
@@ -54,65 +127,30 @@ func main() {
 			cli.FlagfileFlag,
 			cli.HelpFlag,
 		},
-		Commands: []*cli.Command{{
-			Name:   "convert,conv,cat,c",
-			Action: conv,
-			Args:   cli.Args{},
-			Flags: []*cli.Flag{
-				cli.NewFlag("output,out,o", "-:dm", "output file (empty is stderr, - is stdout)"),
-				cli.NewFlag("follow,f", false, "wait for changes until terminated"),
-				cli.NewFlag("clickhouse", "", "additional clickhouse writer"),
-			},
-		}, {
-			Name:        "seen,tlz",
-			Description: "logs compressor/decompressor",
-			Flags: []*cli.Flag{
-				cli.NewFlag("output,o", "-", "output file (or stdout)"),
-			},
-			Commands: []*cli.Command{{
-				Name:   "compress,c",
-				Action: tlz,
+		Commands: []*cli.Command{
+			catCmd,
+			tlzCmd,
+			agentCmd,
+			{
+				Name:   "testreader",
+				Action: agent0,
 				Args:   cli.Args{},
+			}, {
+				Name:   "ticker",
+				Action: ticker,
 				Flags: []*cli.Flag{
-					cli.NewFlag("block,b", 1*rotated.MB, "compression block size"),
+					cli.NewFlag("output,o", "-", "output file (or stdout)"),
+					cli.NewFlag("interval,int,i", time.Second, "interval to tick on"),
 				},
 			}, {
-				Name:   "decompress,d",
-				Action: tlz,
-				Args:   cli.Args{},
+				Name:        "core",
+				Description: "core dump memory dumper",
+				Args:        cli.Args{},
+				Action:      coredump,
+			}, {
+				Name:   "test",
+				Action: test,
 			}},
-		}, {
-			Name:   "agent",
-			Action: agent,
-			Flags: []*cli.Flag{
-				cli.NewFlag("http", ":8000", "http listen address"),
-				cli.NewFlag("http-net", "tcp", "http listen network"),
-				cli.NewFlag("listen,l", "/var/log/tlog.tl", "listen address"),
-				cli.NewFlag("db", "/var/log/tlog.db", "db address"),
-				cli.NewFlag("db-max-size", "1G", "max db size"),
-				cli.NewFlag("db-max-age", 30*24*time.Hour, "max logs age"),
-				cli.NewFlag("tolog", false, "dump events to log"),
-			},
-		}, {
-			Name:   "testreader",
-			Action: agent0,
-			Args:   cli.Args{},
-		}, {
-			Name:   "ticker",
-			Action: ticker,
-			Flags: []*cli.Flag{
-				cli.NewFlag("output,o", "-", "output file (or stdout)"),
-				cli.NewFlag("interval,int,i", time.Second, "interval to tick on"),
-			},
-		}, {
-			Name:        "core",
-			Description: "core dump memory dumper",
-			Args:        cli.Args{},
-			Action:      coredump,
-		}, {
-			Name:   "test",
-			Action: test,
-		}},
 	}
 
 	err := cli.Run(os.Args)
@@ -151,7 +189,115 @@ func before(c *cli.Command) error {
 	return nil
 }
 
-func agent(c *cli.Command) (err error) {
+func agentFn(c *cli.Command) (err error) {
+	errc := make(chan error, 10)
+
+	a := agent.New()
+
+	a.MaxEvents = c.Int("max-events")
+
+	if q := c.String("http"); q != "" {
+		l, err := net.Listen(c.String("http-net"), q)
+		if err != nil {
+			return errors.Wrap(err, "listen http: %v", q)
+		}
+
+		tlog.Printw("listen http", "addr", l.Addr())
+
+		go func() {
+			err := http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := context.Background()
+
+				var follow, addlabels bool
+				n := 10
+
+				cw := tlog.NewConsoleWriter(w, tlog.LdetFlags)
+
+				vs := req.URL.Query()
+
+				if _, ok := vs["color"]; ok {
+					cw.Colorize = true
+				}
+
+				if _, ok := vs["follow"]; ok {
+					follow = true
+				}
+
+				if _, ok := vs["addlabels"]; ok {
+					addlabels = true
+				}
+
+				if q := vs.Get("n"); q != "" {
+					n, err = strconv.Atoi(q)
+					if err != nil {
+						fmt.Fprintf(w, "parse n: %v\n", err)
+						return
+					}
+				}
+
+				err = a.Subscribe(ctx, WriteFlusher{
+					Writer:  cw,
+					Flusher: w.(Flusher),
+				}, n, follow, addlabels)
+				if err != nil {
+					tlog.Printw("http client", "err", err)
+				}
+			}))
+
+			errc <- errors.Wrap(err, "serve http")
+		}()
+	}
+
+	if q := c.String("listen-packet"); q != "" {
+		p, err := listenPacket(c.String("listen-packet-net"), q)
+		if err != nil {
+			return errors.Wrap(err, "listen packet")
+		}
+
+		defer func() {
+			e := p.Close()
+			if err == nil {
+				err = errors.Wrap(e, "close")
+			}
+		}()
+
+		tlog.Printw("listening", "addr", p.LocalAddr())
+
+		go func() {
+			err := a.ListenPacket(p)
+
+			errc <- errors.Wrap(err, "listen packet")
+		}()
+	}
+
+	if q := c.String("listen"); q != "" {
+		l, err := listen(c.String("listen-net"), q)
+		if err != nil {
+			return errors.Wrap(err, "listen")
+		}
+
+		defer func() {
+			e := l.Close()
+			if err == nil {
+				err = errors.Wrap(e, "close")
+			}
+		}()
+
+		tlog.Printw("listening", "addr", l.Addr())
+
+		go func() {
+			err := a.Listen(l)
+
+			errc <- errors.Wrap(err, "listen packet")
+		}()
+	}
+
+	err = <-errc
+
+	return err
+}
+
+func agent1(c *cli.Command) (err error) {
 	db, err := bbolt.Open(c.String("db"), 0644, nil)
 	if err != nil {
 		return errors.Wrap(err, "open db")
@@ -179,40 +325,45 @@ func agent(c *cli.Command) (err error) {
 		}()
 	}
 
+	addrNet := c.String("listen-net")
 	addr := c.String("listen")
 
-	lock, err := os.Create(addr + ".lock")
-	if err != nil {
-		return errors.Wrap(err, "open lock")
-	}
-	defer lock.Close()
-
-	err = flock(lock)
-	if err != nil {
-		return errors.Wrap(err, "lock file")
-	}
-
-	if inf, err := os.Stat(addr); os.IsNotExist(err) {
-		// ok: all clear
-	} else if err == nil && inf.Mode().Type() == os.ModeSocket {
-		tlog.Printw("remove old socket file", "addr", addr)
-
-		err = os.Remove(addr)
+	if addrNet == "unix" {
+		lock, err := os.Create(addr + ".lock")
 		if err != nil {
-			return errors.Wrap(err, "remove socket file")
+			return errors.Wrap(err, "open lock")
 		}
-	} else if err != nil {
-		return errors.Wrap(err, "socket file info")
-	} else {
-		return errors.Wrap(err, "bad socket file type: %v", inf.Mode().Type())
+		defer lock.Close()
+
+		err = flock(lock)
+		if err != nil {
+			return errors.Wrap(err, "lock file")
+		}
+
+		if inf, err := os.Stat(addr); os.IsNotExist(err) {
+			// ok: all clear
+		} else if err == nil && inf.Mode().Type() == os.ModeSocket {
+			tlog.Printw("remove old socket file", "addr", addr)
+
+			err = os.Remove(addr)
+			if err != nil {
+				return errors.Wrap(err, "remove socket file")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "socket file info")
+		} else {
+			return errors.Wrap(err, "bad socket file type: %v", inf.Mode().Type())
+		}
 	}
 
-	l, err := net.Listen("unix", addr)
+	l, err := net.Listen(addrNet, addr)
 	if err != nil {
 		return errors.Wrap(err, "listen: %v", addr)
 	}
 
-	defer os.Remove(addr)
+	if addrNet == "unix" {
+		defer os.Remove(addr)
+	}
 
 	tlog.Printw("listen", "addr", l.Addr())
 
@@ -398,28 +549,6 @@ func conv(c *cli.Command) (err error) {
 	if err != nil {
 		return err
 	}
-
-	/*
-		if q := c.String("clickhouse"); q != "" {
-			clickhouse.SetLogOutput(tlog.DefaultLogger.IOWriter(2))
-
-			u, err := url.Parse(q)
-			if err != nil {
-				return errors.Wrap(err, "clickhouse url")
-			}
-
-			table := u.Query().Get("table")
-
-			db, err := sql.Open("clickhouse", q)
-			if err != nil {
-				return errors.Wrap(err, "connect to clickhouse")
-			}
-
-			cw := tlclickhouse.New(db, table)
-
-			w = tlog.NewTeeWriter(w, cw)
-		}
-	*/
 
 	defer func() {
 		e := w.Close()
@@ -658,6 +787,127 @@ func (w perrWriter) Close() (err error) {
 
 	if err != nil {
 		tlog.Printw("close", "err", err)
+	}
+
+	return
+}
+
+func listenPacket(netw, addr string) (p net.PacketConn, err error) {
+	unix := strings.HasPrefix(netw, "unix")
+
+	var def []func() error
+
+	if unix {
+		cl, err := flockLock(addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "lock")
+		}
+
+		def = append(def, cl)
+	}
+
+	p, err = net.ListenPacket(netw, addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "listen: %v", addr)
+	}
+
+	if unix {
+		def = append(def, func() (err error) {
+			err = os.Remove(addr)
+			return errors.Wrap(err, "remote socket file")
+		})
+	}
+
+	if def != nil {
+		return pConnClose{
+			PacketConn: p,
+			def:        def,
+		}, nil
+	}
+
+	return p, nil
+}
+
+func listen(netw, addr string) (l net.Listener, err error) {
+	unix := strings.HasPrefix(netw, "unix")
+
+	var def []func() error
+
+	if unix {
+		cl, err := flockLock(addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "lock")
+		}
+
+		def = append(def, cl)
+	}
+
+	l, err = net.Listen(netw, addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "listen: %v", addr)
+	}
+
+	if unix {
+		def = append(def, func() (err error) {
+			err = os.Remove(addr)
+			return errors.Wrap(err, "remote socket file")
+		})
+	}
+
+	if def != nil {
+		return listenerClose{
+			Listener: l,
+			def:      def,
+		}, nil
+	}
+
+	return l, nil
+}
+
+func flockLock(addr string) (cl func() error, err error) {
+	lock, err := os.Create(addr + ".lock")
+	if err != nil {
+		return nil, errors.Wrap(err, "open lock")
+	}
+	cl = func() (err error) {
+		err = lock.Close()
+		return errors.Wrap(err, "close lock")
+	}
+
+	err = flock(lock)
+	if err != nil {
+		return cl, errors.Wrap(err, "lock file")
+	}
+
+	inf, err := os.Stat(addr)
+	switch {
+	case os.IsNotExist(err):
+		// ok: all clear
+		err = nil
+	case err == nil && inf.Mode().Type() == os.ModeSocket:
+		tlog.Printw("remove old socket file", "addr", addr)
+
+		err = os.Remove(addr)
+		if err != nil {
+			return cl, errors.Wrap(err, "remove socket file")
+		}
+	case err != nil:
+		return cl, errors.Wrap(err, "socket file info")
+	default:
+		return cl, errors.New("not a socket file")
+	}
+
+	return
+}
+
+func (p pConnClose) Close() (err error) {
+	err = p.PacketConn.Close()
+
+	for i := len(p.def) - 1; i >= 0; i-- {
+		e := p.def[i]()
+		if err == nil {
+			err = e
+		}
 	}
 
 	return
