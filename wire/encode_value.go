@@ -97,7 +97,15 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool, visited ptr
 			return e.appendValue(b, r.Elem().Interface(), visited)
 		}
 	case reflect.Slice, reflect.Array:
-		if r.Kind() == reflect.Slice && r.Type().Elem().Kind() == reflect.Uint8 {
+		if r.Type().Elem().Kind() == reflect.Uint8 {
+			if r.Kind() == reflect.Array {
+				if r.CanAddr() {
+					r = r.Slice(0, r.Len())
+				} else {
+					return e.AppendString(b, Bytes, low.UnsafeString(low.InterfaceData(r.Interface()), r.Len()))
+				}
+			}
+
 			return e.AppendString(b, Bytes, low.UnsafeBytesToString(r.Bytes()))
 		}
 
@@ -191,6 +199,10 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 			b = append(b, Special|Null)
 
 			continue
+		}
+
+		if fc.Hex {
+			b = append(b, Semantic|Hex)
 		}
 
 		if fc.Unexported || private {

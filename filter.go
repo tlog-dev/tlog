@@ -34,7 +34,7 @@ func newFilter(f string) *filter {
 	}
 }
 
-func (f *filter) match(t string, loc loc.PC) bool {
+func (f *filter) match(t string, pc loc.PC) bool {
 	if f == nil || f.f == "" {
 		return false
 	}
@@ -44,7 +44,7 @@ func (f *filter) match(t string, loc loc.PC) bool {
 	}
 
 	k := filterkey{
-		l:  loc,
+		l:  pc,
 		tp: t,
 	}
 
@@ -57,7 +57,7 @@ func (f *filter) match(t string, loc loc.PC) bool {
 	}
 
 	f.mu.Lock()
-	en = f.matchFilter(loc, t)
+	en = f.matchFilter(pc, t)
 	f.c[k] = en
 	f.mu.Unlock()
 

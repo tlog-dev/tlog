@@ -3,6 +3,7 @@ package tlgin
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,8 @@ func tracer(l *tlog.Logger, c *gin.Context) {
 			s := debug.Stack()
 
 			tr.Printw("panic", "panic", p, "panic_type", tlog.FormatNext("%T"), p, "stack_trace", low.UnsafeBytesToString(s), tlog.KeyLogLevel, tlog.Error)
+
+			c.Status(http.StatusInternalServerError)
 		}
 
 		tr.Finish("status_code", c.Writer.Status())

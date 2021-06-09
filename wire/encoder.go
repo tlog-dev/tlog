@@ -70,6 +70,7 @@ const (
 	Duration
 	Caller
 
+	Hex
 	SemanticExtBase
 )
 
@@ -83,6 +84,10 @@ func (e *Encoder) AppendArray(b []byte, l int) []byte {
 
 func (e *Encoder) AppendBreak(b []byte) []byte {
 	return append(b, Special|Break)
+}
+
+func (e *Encoder) AppendKey(b []byte, k string) []byte {
+	return e.AppendString(b, String, k)
 }
 
 func (e *Encoder) AppendKeyString(b []byte, k, v string) []byte {

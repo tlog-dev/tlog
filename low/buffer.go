@@ -55,3 +55,12 @@ func (w *Buf) NewLine() {
 func UnsafeBytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
+
+type sh struct {
+	p unsafe.Pointer
+	l int
+}
+
+func UnsafeString(ptr unsafe.Pointer, l int) string {
+	return *(*string)(unsafe.Pointer(&sh{p: ptr, l: l}))
+}

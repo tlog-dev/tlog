@@ -33,3 +33,7 @@ func IsNil(v interface{}) bool {
 
 	return e.t == nil || e.p == nil
 }
+
+func InterfaceData(v interface{}) unsafe.Pointer {
+	return ((*eface)(unsafe.Pointer(&v))).p
+}

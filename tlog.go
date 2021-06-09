@@ -46,7 +46,7 @@ type (
 
 	LogLevel int
 
-	Hex int64
+	Hex uint64
 
 	FormatNext string
 
@@ -224,7 +224,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 
 	if par != (ID{}) {
 		l.b = l.Encoder.AppendString(l.b, wire.String, KeyParent)
-		l.b = s.ID.TlogAppend(&l.Encoder, l.b)
+		l.b = par.TlogAppend(&l.Encoder, l.b)
 	}
 
 	if n != "" {

@@ -67,8 +67,8 @@ type (
 
 func main() {
 	catCmd := &cli.Command{
-		Name:   "convert,conv,cat,c",
-		Action: conv,
+		Name:   "convert,cat,c",
+		Action: cat,
 		Args:   cli.Args{},
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
@@ -557,7 +557,7 @@ func ticker(c *cli.Command) error {
 	return nil
 }
 
-func conv(c *cli.Command) (err error) {
+func cat(c *cli.Command) (err error) {
 	var w io.WriteCloser
 
 	w, err = tlflag.OpenWriter(c.String("out"))

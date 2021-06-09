@@ -91,6 +91,10 @@ const ( // console writer flags
 	Lnone = 0
 )
 
+const (
+	cfHex = 1 << iota
+)
+
 var (
 	ResetColor = Color(0)
 )
@@ -543,7 +547,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 
 	vst := len(b)
 
-	b, i = w.convertValue(b, p, i)
+	b, i = w.convertValue(b, p, i, 0)
 
 	vw := len(b) - vst
 
@@ -568,23 +572,33 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	return b, i
 }
 
-func (w *ConsoleWriter) convertValue(b, p []byte, st int) (_ []byte, i int) {
+func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	switch tag {
-	case wire.Int:
+	case wire.Int, wire.Neg:
 		var v uint64
 		v, i = w.d.Int(p, st)
 
-		b = strconv.AppendUint(b, v, 10)
-	case wire.Neg:
-		var v uint64
-		v, i = w.d.Int(p, st)
+		base := 10
+		if tag == wire.Neg {
+			b = append(b, '-')
+		}
 
-		b = strconv.AppendInt(b, int64(v), 10)
+		if ff&cfHex != 0 {
+			b = append(b, "0x"...)
+			base = 16
+		}
+
+		b = strconv.AppendUint(b, v, base)
 	case wire.Bytes, wire.String:
 		var s []byte
 		s, i = w.d.String(p, st)
+
+		if ff&cfHex != 0 {
+			b = low.AppendPrintf(b, "%x", s)
+			break
+		}
 
 		quote := tag == wire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
 		if !quote {
@@ -620,7 +634,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) (_ []byte, i int) {
 				b = append(b, ' ')
 			}
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, p, i, ff)
 		}
 
 		b = append(b, ']')
@@ -636,11 +650,11 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) (_ []byte, i int) {
 				b = append(b, ' ')
 			}
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, p, i, ff)
 
 			b = append(b, ':')
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, p, i, ff)
 		}
 
 		b = append(b, '}')
@@ -699,33 +713,8 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) (_ []byte, i int) {
 			st := len(b)
 			b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 			id.FormatTo(b[st:], 'v')
-		case WireHex:
-			tag, sub, _ = w.d.Tag(p, i)
-
-			switch tag {
-			case wire.Int, wire.Neg:
-				var v uint64
-				v, i = w.d.Int(p, i)
-
-				if tag == wire.Neg {
-					b = append(b, "-0x"...)
-				} else {
-					b = append(b, "0x"...)
-				}
-
-				if v < 0 {
-					v = -v
-				}
-
-				b = strconv.AppendUint(b, uint64(v), 16)
-			case wire.Bytes, wire.String:
-				var s []byte
-				s, i = w.d.String(p, i)
-
-				b = low.AppendPrintf(b, "%x", s)
-			default:
-				b, i = w.convertValue(b, p, i)
-			}
+		case wire.Hex:
+			b, i = w.convertValue(b, p, i, ff|cfHex)
 		case wire.Caller:
 			var pc loc.PC
 			pc, i = w.d.Caller(p, st)
@@ -752,7 +741,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int) (_ []byte, i int) {
 				}
 			*/
 		default:
-			b, i = w.convertValue(b, p, i)
+			b, i = w.convertValue(b, p, i, ff)
 		}
 	default:
 		panic(tag)

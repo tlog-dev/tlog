@@ -7,9 +7,8 @@ const (
 	WireID
 	WireMessage
 	WireEventType
-	WireLogLevel
 
-	WireHex
+	WireLogLevel
 )
 
 var KeyAuto = ""
@@ -36,7 +35,7 @@ func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 			k = "MISSING_KEY"
 		} else {
 			if k == KeyAuto {
-				k = autoKey(kvs)
+				k = autoKey(kvs[i:])
 			}
 
 			i++
@@ -79,6 +78,8 @@ func autoKey(kvs []interface{}) (k string) {
 	}
 
 	switch kvs[1].(type) {
+	case Message:
+		k = KeyMessage
 	case ID:
 		k = KeySpan
 	case LogLevel:
@@ -192,12 +193,12 @@ func (ls *Labels) TlogParse(d *wire.Decoder, p []byte, i int) int {
 }
 
 func (x Hex) TlogAppend(e *wire.Encoder, b []byte) []byte {
-	b = append(b, wire.Semantic|WireHex)
-	return e.AppendSigned(b, int64(x))
+	b = append(b, wire.Semantic|wire.Hex)
+	return e.AppendInt(b, wire.Int, uint64(x))
 }
 
 func (x *Hex) TlogParse(d *wire.Decoder, p []byte, i int) int {
-	if p[i] != wire.Semantic|WireHex {
+	if p[i] != wire.Semantic|wire.Hex {
 		panic("not a hex type")
 	}
 

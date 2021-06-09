@@ -18,6 +18,7 @@ type (
 		OmitEmpty  bool
 		Unexported bool
 		Embed      bool
+		Hex        bool
 	}
 )
 
@@ -89,6 +90,8 @@ nextfield:
 					sf.OmitEmpty = true
 				case "embed":
 					sf.Embed = true
+				case "hex":
+					sf.Hex = true
 				}
 			}
 		}

@@ -72,7 +72,7 @@ func work() {
 	tr := logger.Start("worker")
 	defer tr.Finish()
 
-	tr.Printw("work", "argument", *str)
+	tr.Printw("work", "argument", *str, "hex", tlog.Hex(16))
 
 	var a A
 	a.func1(tlog.ContextWithSpan(context.Background(), tr))
