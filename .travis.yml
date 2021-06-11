@@ -1,6 +1,6 @@
 language: go
 
-dist: xenial
+dist: focal
 
 os:
   - linux
@@ -13,14 +13,13 @@ arch:
   - arm64
 
 go:
+  - "1.16"
   - "1.15"
   - "1.14"
-  - "1.13"
 
 script:
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-  - go test -coverprofile=coverage.txt -covermode=atomic . ./parse/... ./rotated ./circle ./ext/...
 
 after_success:
-  - test "$TRAVIS_OS_NAME" = linux && test "$TRAVIS_CPU_ARCH" = amd64 && test "$TRAVIS_GO_VERSION" = "1.15" && export CODECOV_UPLOAD=yes
+  - test "$TRAVIS_OS_NAME" = linux && test "$TRAVIS_CPU_ARCH" = amd64 && test "$TRAVIS_GO_VERSION" = "1.16" && export CODECOV_UPLOAD=yes
   - test $CODECOV_UPLOAD = "yes" && bash <(curl -s https://codecov.io/bash)

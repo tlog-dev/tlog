@@ -6,18 +6,21 @@ jobs:
     working_directory: /go/wd
     steps:
       - run: go version
-
       - checkout
+      - run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
+      - run: bash <(curl -s https://codecov.io/bash)
 
-      - run: go test -race -v ./...
-
-  go1.15:
+  go1.15: &base_next
     <<: *base
     docker:
       - image: circleci/golang:1.15
+    steps:
+      - run: go version
+      - checkout
+      - run: go test -race -v ./...
 
   go1.14:
-    <<: *base
+    <<: *base_next
     docker:
       - image: circleci/golang:1.14
 

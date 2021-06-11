@@ -49,8 +49,8 @@ first:
 	case Int:
 		pc = loc.PC(sub)
 
-		if pc != 0 && !pc.Cached() {
-			pc.SetCache("_", ".", 0)
+		if pc != 0 && !loc.Cached(pc) {
+			loc.SetCache(pc, "_", ".", 0)
 		}
 
 		return
@@ -97,7 +97,7 @@ first:
 		return
 	}
 
-	pc.SetCache(name, file, line)
+	loc.SetCache(pc, name, file, line)
 
 	return
 }

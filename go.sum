@@ -217,8 +217,8 @@ github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747/go.mod h1:xDROzJvdwq
 github.com/nikandfor/errors v0.3.1-0.20201212142705-56fda2c0e8b3 h1:x4bT73wFI4/twH7j6UbbQDxbZqEP84Ycv1gVcJsvIrI=
 github.com/nikandfor/errors v0.3.1-0.20201212142705-56fda2c0e8b3/go.mod h1:YG1muM/ZtoVZ7rYhrFXUGLa9fRQ2yX5cs7LWiN8i8ho=
 github.com/nikandfor/loc v0.0.0-20201209201630-39582039abc5/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
-github.com/nikandfor/loc v0.0.0-20210514200626-a41c4599fc7b h1:8c7gn5lIyGBlkhl5S2AzxKL96b+jnwO8vAQ6LwWI+ok=
-github.com/nikandfor/loc v0.0.0-20210514200626-a41c4599fc7b/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
+github.com/nikandfor/loc v0.1.0 h1:tJvUXycrsg+uM/bvdyWYnF7UoPQw+dWz8tURzcwxwWI=
+github.com/nikandfor/loc v0.1.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/quantile v0.0.0-20201109213849-4905a12df281 h1:0VnanunYRoHR6zRDK89Rkle9BBUnYzTA6tYWfzjHMNU=
 github.com/nikandfor/quantile v0.0.0-20201109213849-4905a12df281/go.mod h1:APrhtjJLhkjWbXluFo//uObr4wqeUN+frTIb0RJaLyE=
 github.com/oklog/oklog v0.3.2/go.mod h1:FCV+B7mhrz4o+ueLpx+KqkyXRGMWOYEvfiXtdGtbWGs=
