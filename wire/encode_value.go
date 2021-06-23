@@ -6,6 +6,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -48,6 +49,10 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited ptrSet) []byte {
 		b = e.AppendDuration(b, v)
 	case TlogAppender:
 		b = v.TlogAppend(e, b)
+	case loc.PC:
+		b = e.AppendPC(b, v, true)
+	case loc.PCs:
+		b = e.AppendPCs(b, v, true)
 	case error:
 		b = append(b, Semantic|Error)
 		b = e.AppendString(b, String, v.Error())
