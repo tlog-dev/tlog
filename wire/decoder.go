@@ -40,13 +40,67 @@ func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 	if p[st] != Semantic|Caller {
 		panic("not a caller")
 	}
-	i = st + 1
 
-first:
-	tag, sub, i := d.Tag(p, i)
+	tag, sub, i := d.Tag(p, st+1)
 
 	switch tag {
-	case Int:
+	case Int, Map:
+		return d.caller(p, st+1)
+	case Array:
+	default:
+		panic(fmt.Sprintf("unsupported caller tag: %x", tag))
+	}
+
+	if sub == 0 {
+		return
+	}
+
+	pc, i = d.caller(p, i)
+
+	for el := 1; el < int(sub); el++ {
+		_, i = d.caller(p, i)
+	}
+
+	return
+}
+
+func (d *Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
+	if p[st] != Semantic|Caller {
+		panic("not a caller")
+	}
+
+	tag, sub, i := d.Tag(p, st+1)
+
+	switch tag {
+	case Int, Map:
+		pc, i = d.caller(p, st+1)
+		return
+	case Array:
+	default:
+		panic(fmt.Sprintf("unsupported caller tag: %x", tag))
+	}
+
+	if sub == 0 {
+		return
+	}
+
+	pcs = make(loc.PCs, sub)
+
+	for el := 0; el < int(sub); el++ {
+		pcs[el], i = d.caller(p, i)
+	}
+
+	pc = pcs[0]
+
+	return
+}
+
+func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
+	i = st
+
+	tag, sub, i := d.Tag(p, i)
+
+	if tag == Int {
 		pc = loc.PC(sub)
 
 		if pc != 0 && !loc.Cached(pc) {
@@ -54,15 +108,6 @@ first:
 		}
 
 		return
-	case Array:
-		if sub == 0 {
-			return
-		}
-
-		goto first
-	case Map:
-	default:
-		panic(fmt.Sprintf("unsupported caller tag: %x", tag))
 	}
 
 	var v uint64

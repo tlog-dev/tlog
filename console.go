@@ -184,7 +184,6 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 
 	var t time.Time
 	var pc loc.PC
-	//	var pcs loc.PCs
 	var lv LogLevel
 	var m []byte
 	b := w.b
@@ -717,29 +716,24 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			b, i = w.convertValue(b, p, i, ff|cfHex)
 		case wire.Caller:
 			var pc loc.PC
-			pc, i = w.d.Caller(p, st)
+			var pcs loc.PCs
 
-			b = low.AppendPrintf(b, w.CallerFormat, pc)
-			/*
-				var pc loc.PC
-				var pcs loc.PCs
+			pc, pcs, i = w.d.Callers(p, st)
 
-				pc, pcs, i = w.d.Callers(p, st)
+			if pcs == nil {
+				b = low.AppendPrintf(b, w.CallerFormat, pc)
+				break
+			}
 
-				if pcs == nil {
-					b = low.AppendPrintf(b, w.CallerFormat, pc)
-				} else {
-					b = append(b, '[')
-					for i, pc := range pcs {
-						if i != 0 {
-							b = append(b, ',', ' ')
-						}
-
-						b = low.AppendPrintf(b, w.CallerFormat, pc)
-					}
-					b = append(b, ']')
+			b = append(b, '[')
+			for i, pc := range pcs {
+				if i != 0 {
+					b = append(b, ',', ' ')
 				}
-			*/
+
+				b = low.AppendPrintf(b, w.CallerFormat, pc)
+			}
+			b = append(b, ']')
 		default:
 			b, i = w.convertValue(b, p, i, ff)
 		}
