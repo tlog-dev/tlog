@@ -1,9 +1,9 @@
 package compress
 
 import (
-	"fmt"
 	"io"
 
+	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -21,8 +21,6 @@ type (
 		b      []byte
 		i, end int
 		ref    int64
-
-		err error
 	}
 
 	Dumper struct {
@@ -66,22 +64,17 @@ func (r *Decoder) ResetBytes(b []byte) {
 	r.ref = 0
 
 	r.state = 0
-	r.err = nil
 }
 
 func (r *Decoder) Read(p []byte) (i int, err error) {
-	if r.err != nil {
-		return 0, r.err
-	}
-
 more:
 	switch r.state {
 	case 0:
 		//	tl.Printw("stream pos", "ref+i", r.ref+r.i, "prefix", tlog.FormatNext("%.10s"), r.b[r.i:])
 
-		tag, l := r.tag()
-		if r.err != nil {
-			return int(i), r.err
+		tag, l, err := r.tag()
+		if err != nil {
+			return int(i), err
 		}
 
 		switch tag {
@@ -91,9 +84,9 @@ more:
 			r.state = 'l'
 			r.len = l
 		case Copy:
-			r.off = r.readOff()
-			if r.err != nil {
-				return int(i), r.err
+			r.off, err = r.readOff()
+			if err != nil {
+				return int(i), err
 			}
 
 			r.off = int(r.pos) - r.off - l
@@ -105,9 +98,9 @@ more:
 		case Meta:
 			switch l {
 			case MetaReset:
-				bslog := r.readOff()
-				if r.err != nil {
-					return int(i), r.err
+				bslog, err := r.readOff()
+				if err != nil {
+					return int(i), err
 				}
 
 				bs := 1 << bslog
@@ -128,10 +121,10 @@ more:
 
 			//	tl.Printw("tag", "name", "meta", "tag", tlog.Hex(tag), "sub", tlog.Hex(l), "sub_name", "block_size", "block_size", len(r.block))
 			default:
-				return int(i), r.newErr("unsupported meta tag: %x", l)
+				return int(i), errors.New("unsupported meta tag: %x", l)
 			}
 		default:
-			return int(i), r.newErr("impossible tag: %x", tag)
+			return int(i), errors.New("impossible tag: %x", tag)
 		}
 	case 'l':
 		end := len(p)
@@ -139,8 +132,8 @@ more:
 			end = i + r.len
 		}
 
-		if !r.more(end - i) {
-			return int(i), r.err
+		if err = r.more(end - i); err != nil {
+			return int(i), err
 		}
 
 		//	tl.Printw("literal", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.i", tlog.Hex(r.i), "r.pos", tlog.Hex(r.pos))
@@ -184,19 +177,11 @@ more:
 		goto more
 	}
 
-	return i, r.err
+	return i, nil
 }
 
-func (r *Decoder) newErr(f string, args ...interface{}) error {
-	if r.err == nil {
-		r.err = fmt.Errorf(f, args...)
-	}
-
-	return r.err
-}
-
-func (r *Decoder) readOff() (l int) {
-	if !r.more(1) {
+func (r *Decoder) readOff() (l int, err error) {
+	if err = r.more(1); err != nil {
 		return
 	}
 
@@ -205,28 +190,28 @@ func (r *Decoder) readOff() (l int) {
 
 	switch l {
 	case Off1:
-		if !r.more(1) {
+		if err = r.more(1); err != nil {
 			return
 		}
 
 		l = int(r.b[r.i])
 		r.i++
 	case Off2:
-		if !r.more(2) {
+		if err = r.more(2); err != nil {
 			return
 		}
 
 		l = int(r.b[r.i])<<8 | int(r.b[r.i+1])
 		r.i += 2
 	case Off4:
-		if !r.more(4) {
+		if err = r.more(4); err != nil {
 			return
 		}
 
 		l = int(r.b[r.i])<<24 | int(r.b[r.i+1])<<16 | int(r.b[r.i+2])<<8 | int(r.b[r.i+3])
 		r.i += 4
 	case Off8:
-		if !r.more(8) {
+		if err = r.more(8); err != nil {
 			return
 		}
 
@@ -238,8 +223,8 @@ func (r *Decoder) readOff() (l int) {
 	return
 }
 
-func (r *Decoder) tag() (tag, l int) {
-	if !r.more(1) {
+func (r *Decoder) tag() (tag, l int, err error) {
+	if err = r.more(1); err != nil {
 		return
 	}
 
@@ -249,28 +234,28 @@ func (r *Decoder) tag() (tag, l int) {
 
 	switch l {
 	case TagLen1:
-		if !r.more(1) {
+		if err = r.more(1); err != nil {
 			return
 		}
 
 		l = int(r.b[r.i])
 		r.i++
 	case TagLen2:
-		if !r.more(2) {
+		if err = r.more(2); err != nil {
 			return
 		}
 
 		l = int(r.b[r.i])<<8 | int(r.b[r.i+1])
 		r.i += 2
 	case TagLen4:
-		if !r.more(4) {
+		if err = r.more(4); err != nil {
 			return
 		}
 
 		l = int(r.b[r.i])<<24 | int(r.b[r.i+1])<<16 | int(r.b[r.i+2])<<8 | int(r.b[r.i+3])
 		r.i += 4
 	case TagLen8:
-		if !r.more(8) {
+		if err = r.more(8); err != nil {
 			return
 		}
 
@@ -282,25 +267,19 @@ func (r *Decoder) tag() (tag, l int) {
 	return
 }
 
-func (r *Decoder) more(l int) bool {
-	if r.err != nil {
-		return false
-	}
-
+func (r *Decoder) more(l int) (err error) {
 	if r.i+l <= r.end {
-		return true
+		return nil
 	}
 
 	//	tl.PrintwDepth(1, "more", "r.i", r.i, "r.end", r.end, "len", l)
 
 	if r.Reader == nil {
 		if r.i == r.end {
-			r.err = io.EOF
-		} else {
-			r.err = io.ErrUnexpectedEOF
+			return io.EOF
 		}
 
-		return false
+		return io.ErrUnexpectedEOF
 	}
 
 	copy(r.b, r.b[r.i:r.end])
@@ -318,7 +297,6 @@ func (r *Decoder) more(l int) bool {
 		r.b = r.b[:cap(r.b)]
 	}
 
-	var err error
 	for r.i+l > r.end && err == nil {
 		var n int
 		n, err = r.Reader.Read(r.b[r.end:])
@@ -331,9 +309,11 @@ func (r *Decoder) more(l int) bool {
 		err = io.ErrUnexpectedEOF
 	}
 
-	r.err = err
+	if r.i+l > r.end {
+		return err
+	}
 
-	return r.i+l <= r.end
+	return nil
 }
 
 func NewDumper(w io.Writer) *Dumper {
@@ -357,9 +337,9 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 
 		w.b = low.AppendPrintf(w.b, "%4x  ", w.d.i)
 
-		tag, l := w.d.tag()
-		if w.d.err != nil {
-			return int(w.d.i), w.d.err
+		tag, l, err := w.d.tag()
+		if err != nil {
+			return int(w.d.i), err
 		}
 
 		switch tag {
@@ -369,22 +349,25 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 			w.d.i += l
 			w.d.pos += int64(l)
 		case Copy:
-			off := w.d.readOff()
+			off, err := w.d.readOff()
+			if err != nil {
+				return 0, err
+			}
+
 			off += l
 			w.d.pos += int64(l)
 
 			w.b = low.AppendPrintf(w.b, "%4x  copy off %4x\n", l, off)
 		case Meta:
-			arg := w.d.readOff()
+			arg, err := w.d.readOff()
+			if err != nil {
+				return 0, err
+			}
 
 			w.b = low.AppendPrintf(w.b, "%4x  meta %x\n", 2, arg)
 		default:
-			return int(w.d.i), w.d.newErr("impossible tag: %x", tag)
+			return int(w.d.i), errors.New("impossible tag: %x", tag)
 		}
-	}
-
-	if w.d.err != nil {
-		return 0, w.d.err
 	}
 
 	w.ref += int64(w.d.i)

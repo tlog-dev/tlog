@@ -328,6 +328,10 @@ func (d *StreamDecoder) more(l int) bool {
 		d.b = d.b[:end]
 	}
 
+	if l == 0 {
+		return true
+	}
+
 	for end+l > cap(d.b) {
 		d.b = append(d.b[:cap(d.b)], 0, 0, 0, 0)
 	}
@@ -335,7 +339,8 @@ func (d *StreamDecoder) more(l int) bool {
 	d.b = d.b[:cap(d.b)]
 
 	n, err := io.ReadAtLeast(d.Reader, d.b[end:], d.i+l-end)
-	//	println(fmt.Sprintf("more  ref %x i %x lim %x  end %x -> n %x  space %x cap %x err %v", d.ref, d.i, l, end, n, len(d.b[end:]), cap(d.b), err))
+	//	println(fmt.Sprintf("read at least %T %+[1]v  space %x at least %x => %x %v\n", d.Reader, len(d.b[end:]), d.i+l-end, n, err))
+	//	println(fmt.Sprintf("more  ref %x i %x lim %x  end %x -> n %x  space %x cap %x err %v  callers %v", d.ref, d.i, l, end, n, len(d.b[end:]), cap(d.b), err, loc.Callers(0, 4)))
 	d.b = d.b[:end+n]
 
 	if err != nil {
