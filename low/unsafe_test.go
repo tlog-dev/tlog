@@ -9,8 +9,10 @@ import (
 type testError struct{}
 
 func TestIsNil(t *testing.T) {
+	t.Parallel()
+
 	var e interface{}
-	var i = 3
+	i := 3
 
 	assert.Equal(t, true, IsNil(e))
 

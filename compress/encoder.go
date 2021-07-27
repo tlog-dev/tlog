@@ -6,6 +6,7 @@ import (
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog"
 )
 
@@ -30,6 +31,7 @@ type (
 	}
 )
 
+// Byte multipliers.
 const (
 	B = 1 << (iota * 10)
 	KB
@@ -37,7 +39,7 @@ const (
 	GB
 )
 
-// tags
+// Tags.
 const (
 	Literal = iota << 6
 	Copy
@@ -48,7 +50,7 @@ const (
 	TagLenMask = 0b0011_1111
 )
 
-// tag lengths
+// Tag lengths.
 const (
 	_ = 1<<6 - iota
 	TagLen8
@@ -57,7 +59,7 @@ const (
 	TagLen1
 )
 
-// offset lengths
+// Offset lengths.
 const (
 	_ = 1<<8 - iota
 	Off8
@@ -66,7 +68,7 @@ const (
 	Off1
 )
 
-// meta tags
+// Meta tags.
 const (
 	_ = iota
 	MetaReset
@@ -122,7 +124,8 @@ func (w *Encoder) reset() {
 	}
 }
 
-func (w *Encoder) Write(p []byte) (done int, err error) {
+// Write is io.Writer implementation.
+func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 	w.b = w.b[:0]
 
 	if w.pos == 0 {
@@ -233,10 +236,10 @@ func (w *Encoder) Write(p []byte) (done int, err error) {
 
 	if err != nil {
 		if n == len(w.b) {
-			return done, err
+			return done, err //nolint:wrapcheck
 		}
 
-		return 0, err
+		return 0, err //nolint:wrapcheck
 	}
 
 	return done, nil

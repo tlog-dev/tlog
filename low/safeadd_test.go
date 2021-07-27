@@ -10,6 +10,8 @@ import (
 )
 
 func TestSafeAdd(t *testing.T) {
+	t.Parallel()
+
 	b := AppendSafe(nil, `"\'`)
 	assert.Equal(t, []byte(`\"\\'`), b)
 
@@ -37,6 +39,8 @@ func TestSafeAdd(t *testing.T) {
 }
 
 func TestSafeMultiline(t *testing.T) {
+	t.Parallel()
+
 	const data = `flagfile: /etc/flags.flagfile
 --friends ,
 --clickhouse tcp://127.0.0.1:9000

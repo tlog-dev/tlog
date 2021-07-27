@@ -7,6 +7,8 @@ linters-settings:
     min-confidence: 0
   gocognit:
     min-complexity: 30
+  cyclop:
+    max-complexity: 30
   maligned:
     suggest-new: true
   dupl:
@@ -20,27 +22,20 @@ linters-settings:
       - github.com/beorn7/perks/quantile
       - github.com/getsentry/sentry-go
       - github.com/gin-gonic/gin
-      - github.com/golang/glog
-      - github.com/golang/protobuf/proto
       - github.com/nikandfor/cli
       - github.com/nikandfor/errors
       - github.com/nikandfor/goid
-      - github.com/nikandfor/json
+      - github.com/nikandfor/loc
       - github.com/nikandfor/quantile
       - github.com/nikandfor/tlog
-      - github.com/nikandfor/xrain
       - github.com/opentracing/opentracing-go
       - github.com/prometheus/client_golang
       - github.com/prometheus/client_model
-      - github.com/sirupsen/logrus
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
-      - github.com/uber/jaeger-client-go
       - golang.org/x
-      - google.golang.org/protobuf
       - go.opentelemetry.io/otel
       - gopkg.in/fsnotify.v1
-      - go.uber.org/zap
   misspell:
   lll:
     line-length: 170
@@ -66,6 +61,7 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - golint
     - exhaustive
     - funlen
     - gci
@@ -80,3 +76,5 @@ linters:
     - testpackage
     - unparam
     - wsl
+    - forcetypeassert
+    - exhaustivestruct

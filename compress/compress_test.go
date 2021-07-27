@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/nikandfor/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/wire"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var fileFlag = flag.String("test-file", "../log.tlog", "file with tlog logs")
@@ -26,14 +27,15 @@ var (
 )
 
 func TestLiteral(t *testing.T) {
+	t.Parallel()
+
 	const B = 32
 
 	tl = tlog.NewTestLogger(t, "", nil)
 
-	//tl.Writer = tlog.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
+	// tl.Writer = tlog.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
 
 	var buf low.Buf
-	st := 0
 
 	w := newEncoder(&buf, B, 1)
 
@@ -42,8 +44,7 @@ func TestLiteral(t *testing.T) {
 	assert.NoError(t, err)
 
 	tl.Printf("buf pos %x ht %x\n%v", w.pos, w.ht, hex.Dump(w.block))
-	tl.Printf("res\n%v", hex.Dump(buf[st:]))
-	st = len(buf)
+	tl.Printf("res\n%v", hex.Dump(buf))
 
 	r := &Decoder{
 		b:   buf,
@@ -66,16 +67,19 @@ func TestLiteral(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
+	t.Parallel()
+
 	const B = 32
 
 	tl = tlog.NewTestLogger(t, "", nil)
 
-	//tl.Writer = tlog.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
+	// tl.Writer = tlog.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
 
 	var buf low.Buf
-	st := 0
 
 	w := newEncoder(&buf, B, 1)
+
+	st := 0
 
 	n, err := w.Write([]byte("prefix_1234_suffix"))
 	assert.Equal(t, 18, n)
@@ -83,6 +87,7 @@ func TestCopy(t *testing.T) {
 
 	tl.Printf("buf pos %x ht %x\n%v", w.pos, w.ht, hex.Dump(w.block))
 	tl.Printf("res\n%v", hex.Dump(buf[st:]))
+
 	st = len(buf)
 
 	n, err = w.Write([]byte("prefix_567_suffix"))
@@ -91,7 +96,6 @@ func TestCopy(t *testing.T) {
 
 	tl.Printf("buf  pos %x ht %x\n%v", w.pos, w.ht, hex.Dump(w.block))
 	tl.Printf("res\n%v", hex.Dump(buf[st:]))
-	st = len(buf)
 
 	r := &Decoder{
 		b:   buf,
@@ -127,9 +131,11 @@ func TestCopy(t *testing.T) {
 }
 
 func TestDumpFile(t *testing.T) {
+	t.Parallel()
+
 	const MaxEvents = 800
 
-	f, err := os.Create("/tmp/seen.log")
+	f, err := os.Create("/tmp/seen.log") //nolint:gosec
 	require.NoError(t, err)
 
 	tl = nil
@@ -163,7 +169,7 @@ func TestDumpFile(t *testing.T) {
 	}
 
 	//	t.Logf("dump:\n%s", dump)
-	err = ioutil.WriteFile("/tmp/seen.dump", dump, 0644)
+	err = ioutil.WriteFile("/tmp/seen.dump", dump, 0600) //nolint:gosec
 	require.NoError(t, err)
 	t.Logf("block size: %x", len(w.block))
 	t.Logf("writer pos: %x", w.pos)
@@ -177,6 +183,7 @@ func TestDumpFile(t *testing.T) {
 }
 
 func TestDumpOnelineText(t *testing.T) {
+	t.Parallel()
 	t.Skip()
 
 	tl = tlog.NewTestLogger(t, "", nil)
@@ -348,10 +355,11 @@ func BenchmarkDecodeFile(b *testing.B) {
 		min = decoded.Len()
 	}
 	assert.Equal(b, testData[:min], decoded.Bytes())
-
 }
 
-func loadTestFile(b testing.TB, f string) (err error) {
+func loadTestFile(tb testing.TB, f string) (err error) {
+	tb.Helper()
+
 	if testData != nil {
 		return
 	}
@@ -372,7 +380,7 @@ func loadTestFile(b testing.TB, f string) (err error) {
 	testsCount = len(testOff)
 	testOff = append(testOff, st)
 
-	b.Logf("messages loaded: %v", testsCount)
+	tb.Logf("messages loaded: %v", testsCount)
 
 	return
 }

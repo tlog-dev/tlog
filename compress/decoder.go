@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/nikandfor/errors"
+
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -66,7 +67,7 @@ func (r *Decoder) ResetBytes(b []byte) {
 	r.state = 0
 }
 
-func (r *Decoder) Read(p []byte) (i int, err error) {
+func (r *Decoder) Read(p []byte) (i int, err error) { //nolint:gocognit
 more:
 	switch r.state {
 	case 0:
@@ -74,7 +75,7 @@ more:
 
 		tag, l, err := r.tag()
 		if err != nil {
-			return int(i), err
+			return i, err
 		}
 
 		switch tag {
@@ -86,7 +87,7 @@ more:
 		case Copy:
 			r.off, err = r.readOff()
 			if err != nil {
-				return int(i), err
+				return i, err
 			}
 
 			r.off = int(r.pos) - r.off - l
@@ -100,7 +101,7 @@ more:
 			case MetaReset:
 				bslog, err := r.readOff()
 				if err != nil {
-					return int(i), err
+					return i, err
 				}
 
 				bs := 1 << bslog
@@ -121,10 +122,10 @@ more:
 
 			//	tl.Printw("tag", "name", "meta", "tag", tlog.Hex(tag), "sub", tlog.Hex(l), "sub_name", "block_size", "block_size", len(r.block))
 			default:
-				return int(i), errors.New("unsupported meta tag: %x", l)
+				return i, errors.New("unsupported meta tag: %x", l)
 			}
 		default:
-			return int(i), errors.New("impossible tag: %x", tag)
+			return i, errors.New("impossible tag: %x", tag)
 		}
 	case 'l':
 		end := len(p)
@@ -132,8 +133,8 @@ more:
 			end = i + r.len
 		}
 
-		if err = r.more(end - i); err != nil {
-			return int(i), err
+		if err = r.more(end - i); err != nil { //nolint:gocritic
+			return i, err
 		}
 
 		//	tl.Printw("literal", "i", tlog.Hex(i), "end", tlog.Hex(end), "r.i", tlog.Hex(r.i), "r.pos", tlog.Hex(r.pos))
@@ -188,7 +189,7 @@ func (r *Decoder) readOff() (l int, err error) {
 	l = int(r.b[r.i])
 	r.i++
 
-	switch l {
+	switch l { //nolint:dupl
 	case Off1:
 		if err = r.more(1); err != nil {
 			return
@@ -232,7 +233,7 @@ func (r *Decoder) tag() (tag, l int, err error) {
 	l = int(r.b[r.i]) & TagLenMask
 	r.i++
 
-	switch l {
+	switch l { //nolint:dupl
 	case TagLen1:
 		if err = r.more(1); err != nil {
 			return
@@ -305,7 +306,7 @@ func (r *Decoder) more(l int) (err error) {
 
 	if r.i+l <= r.end {
 		err = nil
-	} else if r.i != r.end && err == io.EOF {
+	} else if r.i != r.end && errors.Is(err, io.EOF) {
 		err = io.ErrUnexpectedEOF
 	}
 
@@ -339,7 +340,7 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 
 		tag, l, err := w.d.tag()
 		if err != nil {
-			return int(w.d.i), err
+			return w.d.i, err
 		}
 
 		switch tag {
@@ -366,15 +367,15 @@ func (w *Dumper) Write(p []byte) (n int, err error) {
 
 			w.b = low.AppendPrintf(w.b, "%4x  meta %x\n", 2, arg)
 		default:
-			return int(w.d.i), errors.New("impossible tag: %x", tag)
+			return w.d.i, errors.New("impossible tag: %x", tag)
 		}
 	}
 
 	w.ref += int64(w.d.i)
 
 	if w.Writer != nil {
-		return w.Writer.Write(w.b)
+		return w.Writer.Write(w.b) //nolint:wrapcheck
 	}
 
-	return int(w.d.i), nil
+	return w.d.i, nil
 }

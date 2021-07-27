@@ -8,6 +8,8 @@ import (
 )
 
 func TestTimeFastNow(t *testing.T) {
+	t.Parallel()
+
 	now := time.Now()
 	ts := UnixNano()
 

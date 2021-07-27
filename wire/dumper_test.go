@@ -11,6 +11,8 @@ import (
 )
 
 func TestDumper(t *testing.T) {
+	t.Parallel()
+
 	var (
 		b, db low.Buf
 		e     Encoder

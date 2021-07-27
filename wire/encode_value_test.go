@@ -9,6 +9,8 @@ import (
 var i interface{}
 
 func TestEncodeValue(t *testing.T) {
+	t.Parallel()
+
 	var e Encoder
 	var b low.Buf
 

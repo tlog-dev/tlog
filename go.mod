@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/ClickHouse/clickhouse-go v1.4.3
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/gin-gonic/gin v1.6.3
+	github.com/gin-gonic/gin v1.7.2
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747
 	github.com/nikandfor/errors v0.3.1-0.20201212142705-56fda2c0e8b3

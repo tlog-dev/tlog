@@ -7,6 +7,8 @@ import (
 )
 
 func TestStrHash(t *testing.T) {
+	t.Parallel()
+
 	s1 := "str"
 	s2 := "str"
 

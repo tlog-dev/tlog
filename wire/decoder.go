@@ -13,8 +13,7 @@ type (
 		LowDecoder
 	}
 
-	LowDecoder struct {
-	}
+	LowDecoder struct{}
 )
 
 func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
@@ -179,7 +178,7 @@ func (d *LowDecoder) Skip(b []byte, st int) (i int) {
 			Undefined,
 			Break:
 		case Float8:
-			i += 1
+			i += 1 //nolint:revive
 		case Float16:
 			i += 2
 		case Float32:
@@ -194,7 +193,7 @@ func (d *LowDecoder) Skip(b []byte, st int) (i int) {
 	return
 }
 
-func (_ *LowDecoder) Break(b []byte, i *int) bool {
+func (d *LowDecoder) Break(b []byte, i *int) bool {
 	if b[*i] != Special|Break {
 		return false
 	}
@@ -210,11 +209,11 @@ func (d *LowDecoder) String(b []byte, st int) (v []byte, i int) {
 	return b[i : i+int(l)], i + int(l)
 }
 
-func (_ *LowDecoder) TagOnly(b []byte, st int) (tag byte) {
+func (d *LowDecoder) TagOnly(b []byte, st int) (tag byte) {
 	return b[st] & TagMask
 }
 
-func (_ *LowDecoder) Tag(b []byte, st int) (tag byte, sub int64, i int) {
+func (d *LowDecoder) Tag(b []byte, st int) (tag byte, sub int64, i int) {
 	i = st
 
 	tag = b[i]
@@ -251,14 +250,14 @@ func (_ *LowDecoder) Tag(b []byte, st int) (tag byte, sub int64, i int) {
 	return
 }
 
-func (_ *LowDecoder) Signed(b []byte, st int) (v int64, i int) {
+func (d *LowDecoder) Signed(b []byte, st int) (v int64, i int) {
 	i = st
 
 	st = int(b[i]) & TagMask
 	v = int64(b[i]) & TagDetMask
 	i++
 
-	switch {
+	switch { //nolint:dupl
 	case v < Len1:
 		// we are ok
 	case v == Len1:
@@ -285,13 +284,13 @@ func (_ *LowDecoder) Signed(b []byte, st int) (v int64, i int) {
 	return
 }
 
-func (_ *LowDecoder) Int(b []byte, st int) (v uint64, i int) {
+func (d *LowDecoder) Int(b []byte, st int) (v uint64, i int) {
 	i = st
 
 	v = uint64(b[i]) & TagDetMask
 	i++
 
-	switch {
+	switch { //nolint:dupl
 	case v < Len1:
 		// we are ok
 	case v == Len1:
@@ -314,7 +313,7 @@ func (_ *LowDecoder) Int(b []byte, st int) (v uint64, i int) {
 	return
 }
 
-func (_ *LowDecoder) Float(b []byte, st int) (v float64, i int) {
+func (d *LowDecoder) Float(b []byte, st int) (v float64, i int) {
 	i = st
 
 	st = int(b[i]) & TagDetMask

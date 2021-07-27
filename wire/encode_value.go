@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -30,7 +31,11 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	return appendValue(e, b, v, nil)
 }
 
-// called through linkname hack
+func init() {
+	_ = (&Encoder{}).appendValue(nil, nil, ptrSet{})
+}
+
+// called through linkname hack.
 func (e *Encoder) appendValue(b []byte, v interface{}, visited ptrSet) []byte {
 	if low.IsNil(v) {
 		return append(b, Special|Null)
@@ -67,7 +72,7 @@ func (e *Encoder) appendValue(b []byte, v interface{}, visited ptrSet) []byte {
 	return b
 }
 
-func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool, visited ptrSet) []byte {
+func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool, visited ptrSet) []byte { //nolint:gocognit
 	switch r.Kind() {
 	case reflect.String:
 		return e.AppendString(b, String, r.String())
@@ -98,9 +103,9 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool, visited ptr
 
 		if private {
 			return e.appendRaw(b, r.Elem(), private, visited)
-		} else {
-			return e.appendValue(b, r.Elem().Interface(), visited)
 		}
+
+		return e.appendValue(b, r.Elem().Interface(), visited)
 	case reflect.Slice, reflect.Array:
 		if r.Type().Elem().Kind() == reflect.Uint8 {
 			if r.Kind() == reflect.Array {
@@ -150,16 +155,14 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, private bool, visited ptr
 	case reflect.Bool:
 		if r.Bool() {
 			return append(b, Special|True)
-		} else {
+		} else { //nolint:golint,revive
 			return append(b, Special|False)
 		}
 	case reflect.Func:
 		return append(b, Special|Undefined)
 	case reflect.Uintptr:
-		//	b = append(b, Semantic|WireHex)
-		return e.AppendInt(b, Int, uint64(r.Uint()))
+		return e.AppendInt(b, Int, r.Uint())
 	case reflect.UnsafePointer:
-		//	b = append(b, Semantic|WireHex)
 		return e.AppendInt(b, Int, uint64(r.Pointer()))
 	default:
 		panic(r)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -18,7 +19,7 @@ type (
 	LowEncoder struct{}
 )
 
-// basic types
+// Basic types.
 const (
 	Int = iota << 5
 	Neg
@@ -33,7 +34,7 @@ const (
 	TagDetMask = 0b000_11111
 )
 
-// len
+// Len.
 const (
 	Len1 = 24 + iota
 	Len2
@@ -45,7 +46,7 @@ const (
 	LenBreak
 )
 
-// specials
+// Specials.
 const (
 	False = 20 + iota
 	True
@@ -62,7 +63,7 @@ const (
 	Break
 )
 
-// semantics
+// Semantics.
 const (
 	Meta = iota
 	Error
@@ -249,7 +250,7 @@ func (e *LowEncoder) AppendStringBytes(b []byte, tag byte, s []byte) []byte {
 	return append(b, s...)
 }
 
-func (_ *LowEncoder) AppendTag(b []byte, tag byte, v int64) []byte {
+func (e *LowEncoder) AppendTag(b []byte, tag byte, v int64) []byte {
 	switch {
 	case v == -1:
 		return append(b, tag|LenBreak)
@@ -274,7 +275,7 @@ func (e *LowEncoder) AppendSigned(b []byte, v int64) []byte {
 	return e.AppendInt(b, Int, uint64(v))
 }
 
-func (_ *LowEncoder) AppendInt(b []byte, tag byte, v uint64) []byte {
+func (e *LowEncoder) AppendInt(b []byte, tag byte, v uint64) []byte {
 	switch {
 	case v < Len1:
 		return append(b, tag|byte(v))
@@ -289,7 +290,7 @@ func (_ *LowEncoder) AppendInt(b []byte, tag byte, v uint64) []byte {
 	}
 }
 
-func (_ *LowEncoder) AppendFloat(b []byte, v float64) []byte {
+func (e *LowEncoder) AppendFloat(b []byte, v float64) []byte {
 	if q := int8(v); float64(q) == v {
 		return append(b, Special|Float8, byte(q))
 	}

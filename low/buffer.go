@@ -16,6 +16,9 @@ type (
 
 var bufPool = sync.Pool{New: func() interface{} { w := &Bwr{}; w.b = w.buf[:]; return w }}
 
+// Spaces is for padding strings.
+//
+// Used as buf = append(buf, Spaces[:padWidth]...)
 var Spaces = []byte("                                                                                                                                                ")
 
 // Getbuf gets bytes buffer from a pool to reduce gc pressure.
@@ -25,7 +28,7 @@ var Spaces = []byte("                                                           
 //     defer wr.Ret(&b)
 //
 //     b = append(b[:0], ...)
-func Getbuf() (_ Buf, wr *Bwr) { //nolint:golint
+func Getbuf() (_ Buf, wr *Bwr) {
 	wr = bufPool.Get().(*Bwr)
 	return wr.b, wr
 }

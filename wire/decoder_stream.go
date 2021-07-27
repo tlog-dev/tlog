@@ -106,7 +106,7 @@ func (d *StreamDecoder) Skip() {
 			Undefined,
 			Break:
 		case Float8:
-			d.i += 1
+			d.i += 1 //nolint:golint,revive
 		case Float16:
 			d.i += 2
 		case Float32:
@@ -117,8 +117,6 @@ func (d *StreamDecoder) Skip() {
 			d.newErr("bad special")
 		}
 	}
-
-	return
 }
 
 func (d *StreamDecoder) Break() bool {
@@ -197,7 +195,7 @@ func (d *StreamDecoder) peekTag() (tag byte, sub int64, i int) {
 	case sub == LenBreak:
 		sub = -1
 	case sub == Len1:
-		if i+1 > len(d.b) && !d.more(2) {
+		if i >= len(d.b) && !d.more(2) {
 			return
 		}
 
@@ -340,6 +338,7 @@ func (d *StreamDecoder) more(l int) bool {
 
 	n, err := io.ReadAtLeast(d.Reader, d.b[end:], d.i+l-end)
 	//	println(fmt.Sprintf("read at least %T %+[1]v  space %x at least %x => %x %v\n", d.Reader, len(d.b[end:]), d.i+l-end, n, err))
+	//nolint:lll
 	//	println(fmt.Sprintf("more  ref %x i %x lim %x  end %x -> n %x  space %x cap %x err %v  callers %v", d.ref, d.i, l, end, n, len(d.b[end:]), cap(d.b), err, loc.Callers(0, 4)))
 	d.b = d.b[:end+n]
 

@@ -40,14 +40,14 @@ again:
 	case '\f':
 		b = append(b, '\\', 'f')
 	default:
-		goto complex
+		goto hardway
 	}
 
 	s = s[i+1:]
 
 	goto again
 
-complex:
+hardway:
 	r, width := utf8.DecodeRuneInString(s[i:])
 
 	if r == utf8.RuneError && width == 1 {

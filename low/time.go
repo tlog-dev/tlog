@@ -15,16 +15,21 @@ func UnixNano() int64 {
 func walltime() (sec int64, nsec int32)
 
 //go:linkname Monotonic runtime.nanotime1
+
+// Monotonic is runtime function. It returns monotonic nanoseconds.
 func Monotonic() int64
 
 //go:linkname MonotonicDuration runtime.nanotime1
+
+// MonotonicDuration is runtime function. It returns monotonic time.
 func MonotonicDuration() time.Duration
 
 func Since(monotonic int64) time.Duration {
 	return time.Duration(Monotonic() - monotonic)
 }
 
-func SplitTime(t time.Time) (year, month, day, hour, min, sec int) {
+// SplitTime is faster version of t.Date(); t.Clock().
+func SplitTime(t time.Time) (year, month, day, hour, min, sec int) { //nolint:gocritic
 	u := timeAbs(t)
 	year, month, day, _ = absDate(u, true)
 	hour, min, sec = absClock(u)

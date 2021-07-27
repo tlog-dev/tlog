@@ -6,8 +6,11 @@ import "unsafe"
 var fastrandseed uintptr
 
 //go:linkname Fastrand runtime.fastrand
+
+// Fastrand is runtime.fastrand.
 func Fastrand() uint32
 
+// RunID is a random string generated at start.
 var RunID string
 
 func init() {

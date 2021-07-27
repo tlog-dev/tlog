@@ -27,7 +27,7 @@ var (
 	structsCache = map[reflect.Type]*rawStruct{}
 )
 
-func parseStruct(tp reflect.Type) (s *rawStruct) {
+func parseStruct(tp reflect.Type) (s *rawStruct) { //nolint:gocognit
 	defer structsMu.Unlock()
 	structsMu.Lock()
 
@@ -41,7 +41,6 @@ func parseStruct(tp reflect.Type) (s *rawStruct) {
 
 	ff := tp.NumField()
 
-nextfield:
 	for i := 0; i < ff; i++ {
 		f := tp.Field(i)
 
@@ -74,7 +73,7 @@ nextfield:
 
 		if len(ss) != 0 {
 			if ss[0] == "-" {
-				continue nextfield
+				continue
 			}
 
 			if ss[0] != "" {
