@@ -27,8 +27,6 @@ var (
 )
 
 func TestLiteral(t *testing.T) {
-	t.Parallel()
-
 	const B = 32
 
 	tl = tlog.NewTestLogger(t, "", nil)
@@ -67,8 +65,6 @@ func TestLiteral(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
-	t.Parallel()
-
 	const B = 32
 
 	tl = tlog.NewTestLogger(t, "", nil)
@@ -131,8 +127,6 @@ func TestCopy(t *testing.T) {
 }
 
 func TestDumpFile(t *testing.T) {
-	t.Parallel()
-
 	const MaxEvents = 800
 
 	f, err := os.Create("/tmp/seen.log") //nolint:gosec
@@ -183,7 +177,6 @@ func TestDumpFile(t *testing.T) {
 }
 
 func TestDumpOnelineText(t *testing.T) {
-	t.Parallel()
 	t.Skip()
 
 	tl = tlog.NewTestLogger(t, "", nil)
