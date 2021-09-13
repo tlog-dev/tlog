@@ -14,8 +14,6 @@ TraceLog is a new way of instrumentation. Log once use everywhere: logs, distrib
 
 Explore [examples](examples) and [extensions](ext).
 
-Idea and most of the concepts were designated while working on distributed systems in [Yuri Korzhenevsky R&D Center](https://www.rnd.center).
-
 # Contents
 - [Status](#status)
 - [Benifits](#benifits)
