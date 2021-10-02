@@ -53,28 +53,29 @@ linters-settings:
       - appendAssign
       - builtinShadow
       - commentedOutCode
+      - octalLiteral
       - unnamedResult
       - whyNoLint
       - yodaStyleExpr
-      - octalLiteral
 
 linters:
   enable-all: true
   disable:
-    - golint
     - exhaustive
+    - exhaustivestruct
+    - forcetypeassert
     - funlen
     - gci
     - gochecknoglobals
     - gochecknoinits
     - godox
     - goerr113
+    - golint
     - gomnd
     - nakedret
     - nlreturn
+    - paralleltest
     - prealloc
     - testpackage
     - unparam
     - wsl
-    - forcetypeassert
-    - exhaustivestruct

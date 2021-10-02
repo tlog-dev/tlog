@@ -294,21 +294,25 @@ func (s Span) Finish(kvs ...interface{}) {
 		s.Logger.b = s.ID.TlogAppend(&s.Logger.Encoder, s.Logger.b)
 	}
 
+	var now time.Time
+
 	if !s.Logger.NoTime {
-		now := s.Logger.now()
+		now = s.Logger.now()
 
 		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyTime)
 		s.Logger.b = s.Logger.Encoder.AppendTime(s.Logger.b, now)
-
-		if s.StartedAt != (time.Time{}) && s.StartedAt.UnixNano() != 0 {
-			s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyElapsed)
-			s.Logger.b = s.Logger.Encoder.AppendDuration(s.Logger.b, now.Sub(s.StartedAt))
-		}
 	}
 
 	{
 		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyEventType)
 		s.Logger.b = EventSpanFinish.TlogAppend(&s.Logger.Encoder, s.Logger.b)
+	}
+
+	if !s.Logger.NoTime {
+		if s.StartedAt != (time.Time{}) && s.StartedAt.UnixNano() != 0 {
+			s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeyElapsed)
+			s.Logger.b = s.Logger.Encoder.AppendDuration(s.Logger.b, now.Sub(s.StartedAt))
+		}
 	}
 
 	s.Logger.b = AppendKVs(&s.Logger.Encoder, s.Logger.b, kvs)

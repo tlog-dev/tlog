@@ -1,6 +1,9 @@
 package tlog
 
-import "github.com/nikandfor/tlog/wire"
+import (
+	"github.com/nikandfor/loc"
+	"github.com/nikandfor/tlog/wire"
+)
 
 const (
 	WireLabels = wire.SemanticExtBase + iota
@@ -88,6 +91,8 @@ func autoKey(kvs []interface{}) (k string) {
 		k = KeyEventType
 	case Labels:
 		k = KeyLabels
+	case loc.PC:
+		k = KeyCaller
 	default:
 		k = "UNSUPPORTED_AUTO_KEY"
 	}

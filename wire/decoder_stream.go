@@ -343,7 +343,7 @@ func (d *StreamDecoder) more(l int) bool {
 	d.b = d.b[:end+n]
 
 	if err != nil {
-		d.wrapErr(err, "read")
+		d.wrapErr(err, "read i %x  l %x  n %x  at least %x  of %x", d.i, l, n, d.i+l-end, cap(d.b)-end)
 	}
 
 	return err == nil
