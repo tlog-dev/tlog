@@ -1,8 +1,8 @@
 version: 2
 jobs:
-  go1.16: &base
+  go1.17: &base
     docker:
-      - image: circleci/golang:1.16
+      - image: circleci/golang:1.17
     working_directory: /go/wd
     steps:
       - run: go version
@@ -10,24 +10,25 @@ jobs:
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
       - run: bash <(curl -s https://codecov.io/bash)
 
-  go1.15: &base_next
+  go1.16: &base_next
     <<: *base
     docker:
-      - image: circleci/golang:1.15
+      - image: circleci/golang:1.16
     steps:
       - run: go version
       - checkout
       - run: go test -race -v ./...
 
-  go1.14:
+  go1.15:
     <<: *base_next
     docker:
-      - image: circleci/golang:1.14
+      - image: circleci/golang:1.15
 
 workflows:
   version: 2
   build:
     jobs:
+      - go1.17
       - go1.16
       #- go1.15
       #- go1.14
