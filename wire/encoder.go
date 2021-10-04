@@ -207,6 +207,10 @@ func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs, cache bool) []byte {
 }
 
 func (e *Encoder) appendPC(b []byte, pc loc.PC, cache bool) []byte {
+	if pc == 0 {
+		return append(b, Special|Null)
+	}
+
 	if cache {
 		if _, ok := e.ls[pc]; ok {
 			return e.AppendInt(b, Int, uint64(pc))

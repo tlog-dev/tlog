@@ -42,11 +42,15 @@ func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 
 	tag, sub, i := d.Tag(p, st+1)
 
-	switch tag {
-	case Int, Map:
+	if tag == Int || tag == Map {
 		return d.caller(p, st+1)
-	case Array:
-	default:
+	}
+
+	if tag == Special && sub == Null {
+		return
+	}
+
+	if tag != Array {
 		panic(fmt.Sprintf("unsupported caller tag: %x", tag))
 	}
 
