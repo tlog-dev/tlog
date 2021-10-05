@@ -53,7 +53,7 @@ func TestReWriter(t *testing.T) {
 			panic(p)
 		}()
 
-		b = e.AppendObject(b, -1)
+		b = e.AppendMap(b, -1)
 		b = AppendKVs(&e, b, kvs)
 		b = e.AppendBreak(b)
 
@@ -148,7 +148,7 @@ func newfile(events [][]interface{}) *low.Buf {
 	var e wire.Encoder
 
 	for _, evs := range events {
-		b = e.AppendObject(b, -1)
+		b = e.AppendMap(b, -1)
 		b = AppendKVs(&e, b, evs)
 		b = e.AppendBreak(b)
 	}

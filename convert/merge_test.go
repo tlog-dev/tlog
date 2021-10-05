@@ -32,7 +32,7 @@ func TestSetReplace(t *testing.T) {
 func encode(kvs ...interface{}) []byte {
 	var e wire.Encoder
 
-	b := e.AppendObject(nil, len(kvs)/2)
+	b := e.AppendMap(nil, len(kvs)/2)
 	b = tlog.AppendKVs(&e, b, kvs)
 
 	return b

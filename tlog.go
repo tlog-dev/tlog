@@ -330,7 +330,7 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendObject(l.b[:0], -1)
+	l.b = l.Encoder.AppendMap(l.b[:0], -1)
 
 	l.b = AppendKVs(&l.Encoder, l.b, kvs)
 
@@ -349,7 +349,7 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 	defer s.Logger.Unlock()
 	s.Logger.Lock()
 
-	s.Logger.b = s.Logger.Encoder.AppendObject(s.Logger.b[:0], -1)
+	s.Logger.b = s.Logger.Encoder.AppendMap(s.Logger.b[:0], -1)
 
 	if s.ID != (ID{}) {
 		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, wire.String, KeySpan)
@@ -681,7 +681,7 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendObject(l.b[:0], -1)
+	l.b = l.Encoder.AppendMap(l.b[:0], -1)
 
 	l.b = l.Encoder.AppendString(l.b, wire.String, KeyEventType)
 	l.b = EventMetricDesc.TlogAppend(&l.Encoder, l.b)

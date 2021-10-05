@@ -31,7 +31,7 @@ func TestDumper(t *testing.T) {
 		panic(p)
 	}()
 
-	b = e.AppendObject(b, -1)
+	b = e.AppendMap(b, -1)
 
 	b = e.AppendKeyString(b, "key_a", "val_a")
 

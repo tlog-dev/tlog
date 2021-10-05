@@ -127,7 +127,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 	var e wire.Encoder
 
 	appendMap := func(b []byte, kvs ...interface{}) []byte {
-		b = e.AppendObject(b, -1)
+		b = e.AppendMap(b, -1)
 		b = tlog.AppendKVs(&e, b, kvs)
 		b = e.AppendBreak(b)
 

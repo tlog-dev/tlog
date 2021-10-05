@@ -167,8 +167,7 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 		}
 
 		var opts string
-		p := strings.IndexByte(d, '+')
-		if p != -1 {
+		if p := strings.IndexByte(d, '+'); p != -1 {
 			opts = d[p+1:]
 			d = d[:p]
 		}

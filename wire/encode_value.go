@@ -111,6 +111,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	//		p = r.Pointer()
 	//	}
 	//	fmt.Fprintf(os.Stderr, "append raw %16v (canaddr %5v inter %5v) (vis %10x %v)  %v\n", r.Type(), r.CanAddr(), r.CanInterface(), p, visited, loc.Callers(1, 2))
+	//	fmt.Fprintf(os.Stderr, "append raw %16v (canaddr %5v inter %5v)  %v\n", r.Type(), r.CanAddr(), r.CanInterface(), loc.Callers(1, 2))
 
 	if r.CanInterface() {
 		v := r.Interface()
@@ -215,8 +216,10 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	case reflect.Func:
 		return append(b, Special|Undefined)
 	case reflect.Uintptr:
+		b = append(b, Semantic|Hex)
 		return e.AppendInt(b, Int, r.Uint())
 	case reflect.UnsafePointer:
+		b = append(b, Semantic|Hex)
 		return e.AppendInt(b, Int, uint64(r.Pointer()))
 	default:
 		panic(r)

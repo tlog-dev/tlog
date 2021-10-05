@@ -75,7 +75,7 @@ const (
 	SemanticExtBase
 )
 
-func (e *Encoder) AppendObject(b []byte, l int) []byte {
+func (e *Encoder) AppendMap(b []byte, l int) []byte {
 	return e.AppendTag(b, Map, int64(l))
 }
 

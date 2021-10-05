@@ -220,9 +220,8 @@ func (d *LowDecoder) TagOnly(b []byte, st int) (tag byte) {
 func (d *LowDecoder) Tag(b []byte, st int) (tag byte, sub int64, i int) {
 	i = st
 
-	tag = b[i]
-	sub = int64(tag & TagDetMask)
-	tag &= TagMask
+	tag = b[i] & TagMask
+	sub = int64(b[i] & TagDetMask)
 	i++
 
 	if tag == Special {

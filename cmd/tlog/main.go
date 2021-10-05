@@ -32,7 +32,6 @@ import (
 	"github.com/nikandfor/tlog/ext/tlbolt"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/rotated"
-	"github.com/nikandfor/tlog/wire"
 )
 
 type (
@@ -133,10 +132,6 @@ func main() {
 			tlzCmd,
 			agentCmd,
 			{
-				Name:   "testreader",
-				Action: agent0,
-				Args:   cli.Args{},
-			}, {
 				Name:   "ticker",
 				Action: ticker,
 				Flags: []*cli.Flag{
@@ -479,49 +474,6 @@ func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {
 	return nil
 }
 
-func agent0(c *cli.Command) error {
-	if c.Args.Len() == 0 {
-		return errors.New("arguments expected")
-	}
-
-	f := c.Args.First()
-
-	r, err := tlflag.OpenReader(f)
-	if err != nil {
-		return errors.Wrap(err, "open: %v", f)
-	}
-
-	d := wire.NewStreamDecoder(r)
-	cnt := 0
-
-	for {
-		i := d.Keep(true)
-
-		d.Skip()
-		if errors.Is(d.Err(), io.EOF) {
-			tlog.Printw("EOF. wait...")
-			time.Sleep(500 * time.Millisecond)
-
-			d.ResetErr()
-
-			continue
-		}
-		if err = d.Err(); err != nil {
-			return errors.Wrap(err, "reading event")
-		}
-
-		end := d.Pos()
-
-		cnt++
-
-		tlog.Printw("read event", "events", cnt, "st", i, "end", end)
-
-		if false && cnt%3 == 0 {
-			tlog.Printw("truncate file", "events", cnt, "st", i)
-		}
-	}
-}
-
 func ticker(c *cli.Command) error {
 	w, err := tlflag.OpenWriter(c.String("output"))
 	if err != nil {
@@ -642,6 +594,10 @@ func cat(c *cli.Command) (err error) {
 			}
 
 			err = convert.Copy(w, rc)
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				tlog.Printw("unexpected EOF", "file", ev.Name)
+				err = nil
+			}
 			if err != nil {
 				return errors.Wrap(err, "copy: %v", ev.Name)
 			}
