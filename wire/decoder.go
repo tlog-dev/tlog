@@ -151,7 +151,12 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 }
 
 func (d *LowDecoder) Skip(b []byte, st int) (i int) {
-	tag, sub, i := d.Tag(b, st)
+	_, _, i = d.SkipTag(b, st)
+	return
+}
+
+func (d *LowDecoder) SkipTag(b []byte, st int) (tag byte, sub int64, i int) {
+	tag, sub, i = d.Tag(b, st)
 
 	//	println(fmt.Sprintf("Skip %x  tag %x %x %x  data % x", st, tag, sub, i, b[st:]))
 

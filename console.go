@@ -31,6 +31,7 @@ type (
 
 		Colorize        bool
 		PadEmptyMessage bool
+		AllLabels       bool
 
 		LevelWidth   int
 		MessageWidth int
@@ -46,6 +47,7 @@ type (
 		FloatChar      byte
 		FloatPrecision int
 		CallerFormat   string
+		BytesFormat    string
 
 		PairSeparator string
 		KVSeparator   string
@@ -185,6 +187,7 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 	var t time.Time
 	var pc loc.PC
 	var lv LogLevel
+	var tp EventType
 	var m []byte
 	b := w.b
 
@@ -225,6 +228,12 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 			m, i = w.d.String(p, i)
 		case ks == KeyLogLevel && sub == WireLogLevel && w.Flags&Lloglevel != 0:
 			i = lv.TlogParse(&w.d, p, st)
+		case ks == KeyEventType && sub == WireEventType:
+			_ = tp.TlogParse(&w.d, p, st)
+
+			b, i = w.appendPair(b, p, k, st)
+		case !w.AllLabels && tp != EventLabels && ks == KeyLabels && sub == WireLabels:
+			i = w.d.Skip(p, st)
 		default:
 			b, i = w.appendPair(b, p, k, st)
 		}
@@ -594,9 +603,16 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 		var s []byte
 		s, i = w.d.String(p, st)
 
-		if ff&cfHex != 0 {
-			b = low.AppendPrintf(b, "%x", s)
-			break
+		if tag == wire.Bytes {
+			if w.BytesFormat != "" {
+				b = low.AppendPrintf(b, w.BytesFormat, s)
+				break
+			}
+
+			if ff&cfHex != 0 {
+				b = low.AppendPrintf(b, "%x", s)
+				break
+			}
 		}
 
 		quote := tag == wire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue

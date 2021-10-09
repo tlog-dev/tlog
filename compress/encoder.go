@@ -4,7 +4,6 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 
 	"github.com/nikandfor/tlog"
@@ -24,10 +23,6 @@ type (
 		ht    []uint32
 		hmask uintptr
 		hsh   uint
-	}
-
-	RotatedError interface {
-		IsRotated() bool
 	}
 )
 
@@ -148,7 +143,7 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 			continue
 		}
 
-		if pos > int(w.pos) {
+		if tl != nil && pos > int(w.pos) {
 			tl.Printw("see the future", "h", h, "i", i, "w.pos", tlog.Hex(w.pos), "pos", tlog.Hex(pos), "done", tlog.Hex(done), "i", tlog.Hex(i), "plen", tlog.Hex(len(p)))
 		}
 
@@ -229,20 +224,15 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 	n, err := w.Writer.Write(w.b)
 	w.written += int64(n)
 
-	var rot RotatedError
-	if errors.As(err, &rot) && rot.IsRotated() {
+	if err != nil {
 		w.reset()
 	}
 
-	if err != nil {
-		if n == len(w.b) {
-			return done, err //nolint:wrapcheck
-		}
-
-		return 0, err //nolint:wrapcheck
+	if n != len(w.b) {
+		return 0, err
 	}
 
-	return done, nil
+	return done, err
 }
 
 func (w *Encoder) appendHeader(b []byte) []byte {

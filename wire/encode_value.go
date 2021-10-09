@@ -72,9 +72,9 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 	case TlogAppender:
 		b = v.TlogAppend(e, b)
 	case loc.PC:
-		b = e.AppendPC(b, v, true)
+		b = e.AppendPC(b, v)
 	case loc.PCs:
-		b = e.AppendPCs(b, v, true)
+		b = e.AppendPCs(b, v)
 	case error:
 		b = append(b, Semantic|Error)
 		b = e.AppendString(b, String, v.Error())

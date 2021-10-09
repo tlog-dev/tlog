@@ -4,16 +4,12 @@ import (
 	"math"
 	"time"
 
-	"github.com/nikandfor/loc"
-
 	"github.com/nikandfor/tlog/low"
 )
 
 type (
 	Encoder struct {
 		LowEncoder
-
-		ls map[loc.PC]struct{}
 	}
 
 	LowEncoder struct{}
@@ -186,61 +182,6 @@ func (e *Encoder) AppendTimestamp(b []byte, t int64) []byte {
 func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 	b = append(b, Semantic|Duration)
 	b = e.AppendInt(b, Int, uint64(d.Nanoseconds()))
-	return b
-}
-
-func (e *Encoder) AppendPC(b []byte, pc loc.PC, cache bool) []byte {
-	b = append(b, Semantic|Caller)
-
-	return e.appendPC(b, pc, cache)
-}
-
-func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs, cache bool) []byte {
-	b = append(b, Semantic|Caller)
-	b = e.AppendTag(b, Array, int64(len(pcs)))
-
-	for _, pc := range pcs {
-		b = e.appendPC(b, pc, cache)
-	}
-
-	return b
-}
-
-func (e *Encoder) appendPC(b []byte, pc loc.PC, cache bool) []byte {
-	if pc == 0 {
-		return append(b, Special|Null)
-	}
-
-	if cache {
-		if _, ok := e.ls[pc]; ok {
-			return e.AppendInt(b, Int, uint64(pc))
-		}
-	}
-
-	b = append(b, Map|4)
-
-	b = e.AppendString(b, String, "p")
-	b = e.AppendInt(b, Int, uint64(pc))
-
-	name, file, line := pc.NameFileLine()
-
-	b = e.AppendString(b, String, "n")
-	b = e.AppendString(b, String, name)
-
-	b = e.AppendString(b, String, "f")
-	b = e.AppendString(b, String, file)
-
-	b = e.AppendString(b, String, "l")
-	b = e.AppendSigned(b, int64(line))
-
-	if cache {
-		if e.ls == nil {
-			e.ls = map[loc.PC]struct{}{}
-		}
-
-		e.ls[pc] = struct{}{}
-	}
-
 	return b
 }
 

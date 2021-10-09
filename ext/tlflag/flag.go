@@ -15,6 +15,7 @@ import (
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/rotated"
+	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/wire"
 )
 
@@ -23,9 +24,7 @@ var (
 		return os.OpenFile(n, f, m)
 	}
 
-	OpenFileReader = func(n string, f int, m os.FileMode) (io.Reader, error) {
-		return os.OpenFile(n, f, m)
-	}
+	OpenFileReader = OpenFileReaderWithReReader
 
 	CompressorBlockSize = compress.MB
 
@@ -107,6 +106,10 @@ func updateConsoleOptions(w *tlog.ConsoleWriter, s string) {
 			w.Colorize = false
 		case 'g':
 			w.FloatChar = 'g'
+		case 'b':
+			w.BytesFormat = "%x"
+		case 'B':
+			w.BytesFormat = "% x"
 		}
 	}
 }
@@ -115,8 +118,6 @@ func updateJSONOptions(w *convert.JSON, s string) {
 	for i := 0; i < len(s); i++ {
 	out:
 		switch s[i] { //nolint:gocritic
-		case 'L':
-			w.AttachLabels = true
 		case 'U':
 			w.TimeZone = time.UTC
 		case 't':
@@ -151,7 +152,7 @@ func updateJSONOptions(w *convert.JSON, s string) {
 }
 
 func OpenWriter(dst string) (wc io.WriteCloser, err error) {
-	var ws tlog.TeeWriter
+	var ws tlio.TeeWriter
 
 	defer func() {
 		if err == nil {
@@ -283,7 +284,7 @@ loop2:
 	}
 
 	if c != nil && w.(interface{}) != c.(interface{}) {
-		return tlog.WriteCloser{
+		return tlio.WriteCloser{
 			Writer: w,
 			Closer: c,
 		}, nil
@@ -291,7 +292,7 @@ loop2:
 
 	if c == nil {
 		if _, ok := w.(io.Closer); ok {
-			return tlog.NopCloser{
+			return tlio.NopCloser{
 				Writer: w,
 			}, nil
 		}
@@ -311,7 +312,7 @@ func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, e
 
 	inf, err := os.Stat(fn)
 	if err == nil && inf.Mode().Type() == os.ModeSocket || ext == ".sock" {
-		rew := tlog.NewReWriter(func(w io.Writer, err error) (io.Writer, error) {
+		rew := tlio.NewReWriter(func(w io.Writer, err error) (io.Writer, error) {
 			if w != nil {
 				//	if err, ok := err.(net.Error); ok && err.Temporary() {
 				//		println("reuse conn", fmt.Sprintf("err: %v", err))
@@ -377,7 +378,7 @@ func OpenReader(src string) (rc io.ReadCloser, err error) {
 		return rc, nil
 	}
 
-	return tlog.NopCloser{
+	return tlio.NopCloser{
 		Reader: r,
 	}, nil
 }
@@ -396,6 +397,13 @@ func openr(fn string) (rc io.Reader, err error) {
 			default:
 				r, err = OpenFileReader(fn, os.O_RDONLY, 0)
 				c, _ = r.(io.Closer)
+			}
+
+			if tlog.If("dump_reader") {
+				r = &tlio.DumpReader{
+					Reader: r,
+					Span:   tlog.Start("dump_reader", "name", "file"),
+				}
 			}
 		case ".ez", ".seen":
 			fmt = strings.TrimSuffix(fmt, ext)
@@ -417,10 +425,17 @@ func openr(fn string) (rc io.Reader, err error) {
 
 	if ext := filepath.Ext(fn); ext == ".tlz" || ext == ".ez" || ext == ".seen" {
 		r = compress.NewDecoder(r)
+
+		if tlog.If("dump_reader") {
+			r = &tlio.DumpReader{
+				Reader: r,
+				Span:   tlog.Start("dump_reader", "name", "decompressor"),
+			}
+		}
 	}
 
 	if c != nil && r.(interface{}) != c.(interface{}) {
-		return tlog.ReadCloser{
+		return tlio.ReadCloser{
 			Reader: r,
 			Closer: c,
 		}, nil
@@ -428,11 +443,32 @@ func openr(fn string) (rc io.Reader, err error) {
 
 	if c == nil {
 		if _, ok := r.(io.Closer); ok {
-			return tlog.NopCloser{
+			return tlio.NopCloser{
 				Reader: r,
 			}, nil
 		}
 	}
 
 	return r, nil
+}
+
+func OpenFileReaderWithReReader(n string, ff int, m os.FileMode) (io.Reader, error) {
+	f, err := os.OpenFile(n, ff, m)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := tlio.NewReReader(f)
+	if err != nil {
+		return nil, err
+	}
+
+	r.Hook = func(old, cur int64) {
+		tlog.Printw("file truncated", "file", n, "pos", old, "cur", cur)
+	}
+
+	return tlio.ReadCloser{
+		Reader: r,
+		Closer: f,
+	}, nil
 }

@@ -1,11 +1,13 @@
-package tlog
+package tlio
 
 import (
+	"bytes"
 	"io"
 	"sync/atomic"
 	"testing"
 
 	"github.com/nikandfor/errors"
+	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/wire"
 )
 
@@ -15,11 +17,6 @@ type (
 	NopCloser struct {
 		io.Reader
 		io.Writer
-	}
-
-	ReadCloser struct {
-		io.Reader
-		io.Closer
 	}
 
 	WriteCloser struct {
@@ -32,10 +29,22 @@ type (
 		c io.Closer
 
 		Open func(io.Writer, error) (io.Writer, error)
+	}
 
+	DeLabels struct {
+		w io.Writer
 		d wire.Decoder
+		e wire.Encoder
 
-		ls, lsdebt []byte
+		b, ls []byte
+	}
+
+	TailWriter struct {
+		w io.Writer
+		n int
+
+		i   int
+		buf [][]byte
 	}
 
 	// CountableIODiscard discards data but counts operations and bytes.
@@ -134,10 +143,8 @@ func NewReWriter(open func(io.Writer, error) (io.Writer, error)) *ReWriter {
 }
 
 func (w *ReWriter) Write(p []byte) (n int, err error) {
-	ls := w.detectHeaders(p)
-
 	if w.w != nil {
-		n, err = w.write(p)
+		n, err = w.w.Write(p)
 
 		if err == nil {
 			return
@@ -149,11 +156,7 @@ func (w *ReWriter) Write(p []byte) (n int, err error) {
 		return
 	}
 
-	if ls != nil {
-		return
-	}
-
-	n, err = w.write(p)
+	n, err = w.w.Write(p)
 	if err != nil {
 		return
 	}
@@ -162,8 +165,6 @@ func (w *ReWriter) Write(p []byte) (n int, err error) {
 }
 
 func (w *ReWriter) open() (n int, err error) {
-	w.lsdebt = nil
-
 	w.w, err = w.Open(w.w, err)
 	if err != nil {
 		return 0, errors.Wrap(err, "open")
@@ -171,29 +172,7 @@ func (w *ReWriter) open() (n int, err error) {
 
 	w.c, _ = w.w.(io.Closer)
 
-	if w.ls != nil {
-		n, err = w.w.Write(w.ls)
-		if err != nil {
-			w.lsdebt = w.ls
-
-			return
-		}
-	}
-
 	return 0, nil
-}
-
-func (w *ReWriter) write(p []byte) (n int, err error) {
-	if w.lsdebt != nil {
-		_, err = w.w.Write(w.lsdebt)
-		if err != nil {
-			return
-		}
-
-		w.lsdebt = nil
-	}
-
-	return w.w.Write(p)
 }
 
 func (w *ReWriter) Close() error {
@@ -204,48 +183,95 @@ func (w *ReWriter) Close() error {
 	return w.c.Close()
 }
 
-func (w *ReWriter) detectHeaders(p []byte) (ls []byte) {
-	var e EventType
+func NewDeLabels(w io.Writer) *DeLabels {
+	return &DeLabels{
+		w: w,
+	}
+}
 
-	var i int
-
+func (w *DeLabels) Write(p []byte) (i int, err error) {
 	tag, els, i := w.d.Tag(p, i)
 	if tag != wire.Map {
-		return
+		return i, errors.New("map expected")
 	}
 
-	var k []byte
-	var sub int64
+	gst := i
 
-loop:
+	var k []byte
+	var st int
+	var sub int64
 	for el := 0; els == -1 || el < int(els); el++ {
 		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
-		k, i = w.d.String(p, i)
+		st = i
 
-		tag, sub, _ = w.d.Tag(p, i)
-		if tag != wire.Semantic {
-			i = w.d.Skip(p, i)
+		k, i = w.d.String(p, i)
+		tag, sub, i = w.d.SkipTag(p, i)
+
+		if sub == tlog.WireLabels && string(k) == tlog.KeyLabels {
+			break
+		}
+	}
+
+	if !bytes.Equal(w.ls, p[st:i]) {
+		w.ls = append(w.ls[:0], p[st:i]...)
+
+		return w.w.Write(p)
+	}
+
+	w.b = w.b[:0]
+
+	if els != -1 {
+		w.b = w.e.AppendMap(w.b, int(els-1))
+	} else {
+		gst = 0
+	}
+
+	w.b = append(w.b, p[gst:st]...)
+	w.b = append(w.b, p[i:]...)
+
+	i, err = w.w.Write(w.b)
+	if err != nil {
+		return i, err
+	}
+
+	return len(p), nil
+}
+
+func NewTailWriter(w io.Writer, n int) *TailWriter {
+	return &TailWriter{
+		w:   w,
+		n:   n,
+		buf: make([][]byte, n),
+	}
+}
+
+func (w *TailWriter) Write(p []byte) (n int, err error) {
+	i := w.i % w.n
+	w.buf[i] = append(w.buf[i][:0], p...)
+
+	w.i++
+
+	return len(p), nil
+}
+
+func (w *TailWriter) Flush() (err error) {
+	for i := w.i; i < w.i+w.n; i++ {
+		b := w.buf[i%w.n]
+
+		if len(b) == 0 {
 			continue
 		}
 
-		switch {
-		case sub == WireEventType && string(k) == KeyEventType:
-			i = e.TlogParse(&w.d, p, i)
-
-			break loop
-		default:
-			i = w.d.Skip(p, i)
+		_, err = w.w.Write(b)
+		if err != nil {
+			return err
 		}
+
+		w.buf[i%w.n] = b[:0]
 	}
 
-	if e == EventLabels {
-		w.ls = append(w.ls[:0], p...)
-		w.lsdebt = nil
-		ls = w.ls
-	}
-
-	return
+	return nil
 }

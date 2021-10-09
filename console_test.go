@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"io"
 	"testing"
 
 	"github.com/nikandfor/loc"
@@ -9,11 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type TeeWriter []io.Writer
+
 func TestConsoleLocations(t *testing.T) {
 	var buf, raw low.Buf
 
 	w := NewConsoleWriter(&buf, 0)
-	l := New(NewTeeWriter(&raw, w))
+	l := New(TeeWriter{&raw, w})
 
 	w.PadEmptyMessage = false
 
@@ -36,8 +39,24 @@ func TestConsoleLocations(t *testing.T) {
 	buf = buf[:0]
 
 	l.Event("callers", cc)
-	assert.Equal(t, "callers=[location.go:71, console_test.go:21]\n", string(buf))
+	assert.Equal(t, "callers=[location.go:71, console_test.go:24]\n", string(buf))
 
 	t.Logf("dump:\n%v", wire.Dump(raw))
 
+}
+
+func (w TeeWriter) Write(p []byte) (n int, err error) {
+	for i, w := range w {
+		m, e := w.Write(p)
+
+		if i == 0 {
+			n = m
+		}
+
+		if err == nil {
+			err = e
+		}
+	}
+
+	return
 }

@@ -6,6 +6,12 @@ import (
 	"github.com/nikandfor/errors"
 )
 
+const (
+	eUnexpectedEOF = -1 - iota
+	eBadFormat
+	eBadSpecial
+)
+
 type StreamDecoder struct {
 	io.Reader
 
@@ -21,69 +27,103 @@ func NewStreamDecoder(r io.Reader) *StreamDecoder {
 }
 
 func (d *StreamDecoder) Decode() (data []byte, err error) {
-	if d.i != 0 {
-		d.move()
+	end, err := d.skipRead()
+	if err != nil {
+		return nil, err
 	}
 
 	st := d.i
-
-	end, err := d.skip(st)
-	if err != nil {
-		return d.b[st:], errors.Wrap(err, "st %x end %x", d.ref+int64(st), d.ref+int64(end))
-	}
-
 	d.i = end
 
 	return d.b[st:end], nil
 }
 
-func (d *StreamDecoder) skip(st int) (i int, err error) {
-	tag, sub, i, err := d.tag(st)
-	//	defer func() {
-	//		fmt.Fprintf(os.Stderr, "skip [%x -> %x]  tag %x %x  err %v\n", st, i, tag, sub, err)
-	//	}()
+func (d *StreamDecoder) Read(p []byte) (n int, err error) {
+	end, err := d.skipRead()
 	if err != nil {
-		return
+		return 0, err
+	}
+
+	if len(p) < end-d.i {
+		return 0, io.ErrShortBuffer
+	}
+
+	copy(p, d.b[d.i:end])
+	d.i = end
+
+	return len(p), nil
+}
+
+func (d *StreamDecoder) WriteTo(w io.Writer) (n int64, err error) {
+	for {
+		data, err := d.Decode()
+		if err != nil {
+			return n, errors.Wrap(err, "decode")
+		}
+
+		m, err := w.Write(data)
+		n += int64(m)
+		if err != nil {
+			return n, errors.Wrap(err, "write")
+		}
+	}
+}
+
+func (d *StreamDecoder) skipRead() (end int, err error) {
+	for {
+		end = d.skip(d.i)
+		//	println("skip", d.i, end)
+		if end > 0 {
+			return end, nil
+		}
+
+		if end < eUnexpectedEOF {
+			return 0, errors.New("bad format")
+		}
+
+		err = d.more()
+		if err != nil {
+			return 0, err
+		}
+	}
+}
+
+func (d *StreamDecoder) skip(st int) (i int) {
+	tag, sub, i := d.tag(d.b, st)
+	//	println("tag", st, tag, sub, i)
+	if i < 0 {
+		return i
 	}
 
 	switch tag {
 	case Int, Neg:
 		// already read
-	case String, Bytes:
+	case Bytes, String:
 		i += int(sub)
 	case Array, Map:
 		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 {
-				if i >= len(d.b) {
-					err = d.more(i + 1)
-					if err != nil {
-						return
-					}
-				}
-
-				if d.b[i] == Special|Break {
-					i++
-					break
-				}
+			if i == len(d.b) {
+				return eUnexpectedEOF
+			}
+			if sub == -1 && d.b[i] == Special|Break {
+				i++
+				break
 			}
 
 			if tag == Map {
-				i, err = d.skip(i)
-				if err != nil {
-					return
+				i = d.skip(i)
+				if i < 0 {
+					return i
 				}
 			}
 
-			i, err = d.skip(i)
-			if err != nil {
-				return
+			i = d.skip(i)
+			if i < 0 {
+				return i
 			}
 		}
 	case Semantic:
-		i, err = d.skip(i)
-		if err != nil {
-			return
-		}
+		return d.skip(i)
 	case Special:
 		switch sub {
 		case False,
@@ -100,33 +140,26 @@ func (d *StreamDecoder) skip(st int) (i int, err error) {
 		case Float64:
 			i += 8
 		default:
-			err = errors.New("unsupported special")
+			return eBadSpecial
 		}
-	}
-
-	if err != nil {
-		return
 	}
 
 	if i > len(d.b) {
-		err = d.more(i)
+		return eUnexpectedEOF
 	}
 
-	return
+	return i
 }
 
-func (d *StreamDecoder) tag(st int) (tag byte, sub int64, i int, err error) {
-	i = st
-
-	if i >= len(d.b) {
-		err = d.more(i + 1)
-		if err != nil {
-			return
-		}
+func (d *StreamDecoder) tag(b []byte, st int) (tag byte, sub int64, i int) {
+	if st >= len(b) {
+		return tag, sub, eUnexpectedEOF
 	}
 
-	tag = d.b[i] & TagMask
-	sub = int64(d.b[i] & TagDetMask)
+	i = st
+
+	tag = b[i] & TagMask
+	sub = int64(b[i] & TagDetMask)
 	i++
 
 	if tag == Special {
@@ -136,99 +169,68 @@ func (d *StreamDecoder) tag(st int) (tag byte, sub int64, i int, err error) {
 	switch {
 	case sub < Len1:
 		// we are ok
-	case sub == Len1:
-		if i+1 > len(d.b) {
-			err = d.more(i + 1)
-			if err != nil {
-				return
-			}
-		}
-
-		sub = int64(d.b[i])
-		i++
-	case sub == Len2:
-		if i+2 > len(d.b) {
-			err = d.more(i + 2)
-			if err != nil {
-				return
-			}
-		}
-
-		sub = int64(d.b[i])<<8 | int64(d.b[i+1])
-		i += 2
-	case sub == Len4:
-		if i+4 > len(d.b) {
-			err = d.more(i + 4)
-			if err != nil {
-				return
-			}
-		}
-
-		sub = int64(d.b[i])<<24 | int64(d.b[i+1])<<16 | int64(d.b[i+2])<<8 | int64(d.b[i+3])
-		i += 4
-	case sub == Len8:
-		if i+8 > len(d.b) {
-			err = d.more(i + 8)
-			if err != nil {
-				return
-			}
-		}
-
-		sub = int64(d.b[i])<<56 | int64(d.b[i+1])<<48 | int64(d.b[i+2])<<40 | int64(d.b[i+3])<<32 |
-			int64(d.b[i+4])<<24 | int64(d.b[i+5])<<16 | int64(d.b[i+6])<<8 | int64(d.b[i+7])
-		i += 8
 	case sub == LenBreak:
 		sub = -1
+	case sub == Len1:
+		if i+1 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])
+		i++
+	case sub == Len2:
+		if i+2 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])<<8 | int64(b[i+1])
+		i += 2
+	case sub == Len4:
+		if i+4 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])<<24 | int64(b[i+1])<<16 | int64(b[i+2])<<8 | int64(b[i+3])
+		i += 4
+	case sub == Len8:
+		if i+8 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])<<56 | int64(b[i+1])<<48 | int64(b[i+2])<<40 | int64(b[i+3])<<32 |
+			int64(b[i+4])<<24 | int64(b[i+5])<<16 | int64(b[i+6])<<8 | int64(b[i+7])
+		i += 8
 	default:
-		err = errors.New("malformed message")
+		return tag, sub, eBadFormat
 	}
 
-	return
+	return tag, sub, i
 }
 
-func (d *StreamDecoder) more(l int) (err error) {
-	if d.Reader == nil {
-		return errors.New("end of buffer")
+func (d *StreamDecoder) more() (err error) {
+	{
+		copy(d.b, d.b[d.i:])
+		d.b = d.b[:len(d.b)-d.i]
+		d.ref += int64(d.i)
+		d.i = 0
 	}
 
 	end := len(d.b)
 
-	if l > cap(d.b) {
-		d.grow(l)
-	}
-
+	//	if len(d.b) == 0 {
+	//		d.b = make([]byte, 1024)
+	//	} else {
+	d.b = append(d.b, 0, 0, 0, 0, 0, 0, 0, 0)
+	//	}
 	d.b = d.b[:cap(d.b)]
 
-	n, err := io.ReadAtLeast(d.Reader, d.b[end:], l-end)
+	n, err := d.Reader.Read(d.b[end:])
+	//	println("more", d.i, end, end+n, n, len(d.b))
+	d.b = d.b[:end+n]
 
-	end += n
-	d.b = d.b[:end]
-
-	return err
-}
-
-func (d *StreamDecoder) grow(l int) {
-	n := 4096
-
-	for n < l {
-		if n < 0x10000 {
-			n *= 2
-		} else {
-			n += n / 4
-		}
+	if n != 0 && errors.Is(err, io.EOF) {
+		err = nil
 	}
 
-	q := make([]byte, n)
-	copy(q, d.b)
-
-	d.b = q
-}
-
-func (d *StreamDecoder) move() {
-	copy(d.b, d.b[d.i:])
-
-	d.ref += int64(d.i)
-
-	d.b = d.b[:len(d.b)-d.i]
-	d.i = 0
+	return err
 }

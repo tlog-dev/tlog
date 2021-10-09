@@ -20,7 +20,6 @@ func TestJSON(t *testing.T) {
 	var b low.Buf
 
 	j := NewJSONWriter(&b)
-	j.AttachLabels = true
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
@@ -70,7 +69,6 @@ func TestJSONRename(t *testing.T) {
 	var b low.Buf
 
 	j := NewJSONWriter(&b)
-	j.AttachLabels = true
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 

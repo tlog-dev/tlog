@@ -6,7 +6,11 @@ const tohex = "0123456789abcdef"
 
 // AppendSafe appends string to buffer with JSON compatible esaping.
 // It does NOT add quotes.
-func AppendSafe(b []byte, s string) []byte {
+func AppendSafe(b, s []byte) []byte {
+	return AppendSafeString(b, UnsafeBytesToString(s))
+}
+
+func AppendSafeString(b []byte, s string) []byte {
 again:
 	i := 0
 	l := len(s)
@@ -61,9 +65,17 @@ hardway:
 	goto again
 }
 
-func AppendQuote(b []byte, s string) []byte {
+func AppendQuote(b, s []byte) []byte {
 	b = append(b, '"')
 	b = AppendSafe(b, s)
+	b = append(b, '"')
+
+	return b
+}
+
+func AppendQuoteString(b []byte, s string) []byte {
+	b = append(b, '"')
+	b = AppendSafeString(b, s)
 	b = append(b, '"')
 
 	return b

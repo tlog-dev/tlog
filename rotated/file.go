@@ -164,5 +164,3 @@ func fnameTime(name string, now time.Time) (f, l string) {
 }
 
 func (RotatedError) Error() string { return "file rotated" }
-
-func (RotatedError) IsRotated() bool { return true }

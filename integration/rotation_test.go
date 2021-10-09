@@ -17,7 +17,7 @@ import (
 func TestRotation(t *testing.T) {
 	var f1, f2 low.Buf
 
-	f := rotated.Create("name.tlog.seen")
+	f := rotated.Create("name.tlog.ez")
 	f.OpenFile = func(n string, ff int, m os.FileMode) (io.Writer, error) {
 		if f1 == nil {
 			return &f1, nil

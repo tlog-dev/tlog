@@ -27,11 +27,12 @@ type (
 
 		filter *filter // accessed by atomic operations
 
-		sync.Mutex
-
 		wire.Encoder
 
-		b []byte
+		sync.Mutex
+
+		b  []byte
+		ls []byte
 	}
 
 	Span struct {
@@ -46,7 +47,7 @@ type (
 
 	LogLevel int
 
-	Hex uint64
+	Hex int64
 
 	FormatNext string
 
@@ -151,7 +152,7 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		caller1(2+d, &c, 1, 1)
 
 		l.b = l.Encoder.AppendString(l.b, wire.String, KeyCaller)
-		l.b = l.Encoder.AppendPC(l.b, c, true)
+		l.b = l.Encoder.AppendPC(l.b, c)
 	}
 
 	if !low.IsNil(msg) {
@@ -179,6 +180,8 @@ func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	}
 
 	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = append(l.b, l.ls...)
 
 	l.b = l.Encoder.AppendBreak(l.b)
 
@@ -210,11 +213,11 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	}
 
 	if !l.NoCaller && d >= 0 {
-		var c loc.PC
-		caller1(2+d, &c, 1, 1)
+		var c [2]loc.PC
+		caller1(2+d, &c[0], 2, 2)
 
 		l.b = l.Encoder.AppendString(l.b, wire.String, KeyCaller)
-		l.b = l.Encoder.AppendPC(l.b, c, true)
+		l.b = l.Encoder.AppendPCs(l.b, c[:])
 	}
 
 	{
@@ -234,6 +237,8 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	}
 
 	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = append(l.b, l.ls...)
 
 	l.b = l.Encoder.AppendBreak(l.b)
 
@@ -273,6 +278,8 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 	}
 
 	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = append(l.b, l.ls...)
 
 	l.b = l.Encoder.AppendBreak(l.b)
 
@@ -317,6 +324,8 @@ func (s Span) Finish(kvs ...interface{}) {
 
 	s.Logger.b = AppendKVs(&s.Logger.Encoder, s.Logger.b, kvs)
 
+	s.Logger.b = append(s.Logger.b, s.Logger.ls...)
+
 	s.Logger.b = s.Logger.Encoder.AppendBreak(s.Logger.b)
 
 	_, _ = s.Logger.Writer.Write(s.Logger.b)
@@ -333,6 +342,8 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 	l.b = l.Encoder.AppendMap(l.b[:0], -1)
 
 	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = append(l.b, l.ls...)
 
 	l.b = l.Encoder.AppendBreak(l.b)
 
@@ -357,6 +368,8 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 	}
 
 	s.Logger.b = AppendKVs(&s.Logger.Encoder, s.Logger.b, kvs)
+
+	s.Logger.b = append(s.Logger.b, s.Logger.ls...)
 
 	s.Logger.b = s.Logger.Encoder.AppendBreak(s.Logger.b)
 
@@ -392,8 +405,12 @@ func (l *Logger) SetLabels(ls Labels) {
 	l.b = l.Encoder.AppendString(l.b, wire.String, KeyEventType)
 	l.b = EventLabels.TlogAppend(&l.Encoder, l.b)
 
+	st := len(l.b)
+
 	l.b = l.Encoder.AppendString(l.b, wire.String, KeyLabels)
 	l.b = ls.TlogAppend(&l.Encoder, l.b)
+
+	l.ls = append(l.ls[:0], l.b[st:]...)
 
 	_, _ = l.Writer.Write(l.b)
 }
@@ -698,6 +715,8 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 	}
 
 	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+
+	l.b = append(l.b, l.ls...)
 
 	l.b = l.Encoder.AppendBreak(l.b)
 

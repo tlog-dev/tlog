@@ -12,11 +12,12 @@ import (
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/ext/tlgin"
 	"github.com/nikandfor/tlog/ext/tlprometheus"
+	"github.com/nikandfor/tlog/tlio"
 )
 
 var (
 	listen = flag.String("listen,l", ":8000", "address to listen to")
-	log    = flag.String("log", "stderr^dm", "log file")
+	log    = flag.String("log", "stderr+dm", "log file")
 	v      = flag.String("verbose,v", "", "tlog verbosity")
 )
 
@@ -32,7 +33,7 @@ func main() {
 
 	pw := tlprometheus.New()
 
-	w = tlog.NewTeeWriter(w, pw)
+	w = tlio.NewTeeWriter(w, pw)
 
 	l := tlog.New(w)
 

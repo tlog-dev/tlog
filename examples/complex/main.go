@@ -9,6 +9,7 @@ import (
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/tlio"
 )
 
 var (
@@ -32,7 +33,7 @@ func initComplexLogger() func() {
 	var jsonBuf low.Buf
 	jw := convert.NewJSONWriter(&jsonBuf)
 
-	w := tlog.NewTeeWriter(
+	w := tlio.NewTeeWriter(
 		cw,
 		jw,
 	//	wire.NewDumper(tlog.Stderr),

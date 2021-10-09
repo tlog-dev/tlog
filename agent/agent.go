@@ -221,7 +221,9 @@ func (a *Agent) Listen(l net.Listener) (err error) {
 func (a *Agent) ServeConn(c net.Conn) (err error) {
 	w := a.Writer(c.RemoteAddr())
 
-	err = convert.Copy(w, c)
+	r := wire.NewStreamDecoder(c)
+
+	_, err = r.WriteTo(w)
 	if err != nil {
 		return errors.Wrap(err, "copy")
 	}

@@ -12,7 +12,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -32,6 +31,8 @@ import (
 	"github.com/nikandfor/tlog/ext/tlbolt"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/rotated"
+	"github.com/nikandfor/tlog/tlio"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
@@ -72,6 +73,7 @@ func main() {
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
+			cli.NewFlag("tail", 0, "skip all except last n events"),
 			cli.NewFlag("clickhouse", "", "additional clickhouse writer"),
 		},
 	}
@@ -91,6 +93,10 @@ func main() {
 			},
 		}, {
 			Name:   "decompress,d",
+			Action: tlz,
+			Args:   cli.Args{},
+		}, {
+			Name:   "dump",
 			Action: tlz,
 			Args:   cli.Args{},
 		}},
@@ -299,122 +305,6 @@ func agentFn(c *cli.Command) (err error) {
 	return err
 }
 
-func agent1(c *cli.Command) (err error) {
-	db, err := bbolt.Open(c.String("db"), 0644, nil)
-	if err != nil {
-		return errors.Wrap(err, "open db")
-	}
-
-	if q := c.String("http"); q != "" {
-		err = setupHTTPDB(c, db)
-		if err != nil {
-			return errors.Wrap(err, "setup http")
-		}
-
-		l, err := net.Listen(c.String("http-net"), q)
-		if err != nil {
-			return errors.Wrap(err, "listen http: %v", q)
-		}
-
-		tlog.Printw("listen http", "addr", l.Addr())
-
-		go func() {
-			err := http.Serve(l, nil)
-			if err != nil {
-				tlog.Printw("serve http", "err", err)
-				os.Exit(1)
-			}
-		}()
-	}
-
-	addrNet := c.String("listen-net")
-	addr := c.String("listen")
-
-	if addrNet == "unix" {
-		lock, err := os.Create(addr + ".lock")
-		if err != nil {
-			return errors.Wrap(err, "open lock")
-		}
-		defer lock.Close()
-
-		err = flock(lock)
-		if err != nil {
-			return errors.Wrap(err, "lock file")
-		}
-
-		if inf, err := os.Stat(addr); os.IsNotExist(err) {
-			// ok: all clear
-		} else if err == nil && inf.Mode().Type() == os.ModeSocket {
-			tlog.Printw("remove old socket file", "addr", addr)
-
-			err = os.Remove(addr)
-			if err != nil {
-				return errors.Wrap(err, "remove socket file")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "socket file info")
-		} else {
-			return errors.Wrap(err, "bad socket file type: %v", inf.Mode().Type())
-		}
-	}
-
-	l, err := net.Listen(addrNet, addr)
-	if err != nil {
-		return errors.Wrap(err, "listen: %v", addr)
-	}
-
-	if addrNet == "unix" {
-		defer os.Remove(addr)
-	}
-
-	tlog.Printw("listen", "addr", l.Addr())
-
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			return errors.Wrap(err, "accept")
-		}
-
-		go func() (err error) {
-			tr := tlog.Start("accept", "remote_addr", conn.RemoteAddr(), "local_addr", conn.LocalAddr())
-			defer func() {
-				e := conn.Close()
-				if e != nil {
-					tr.Printw("close conn", "err", e)
-				}
-
-				tr.Finish("err", err)
-			}()
-
-			var r io.Reader = conn
-
-			if ext := filepath.Ext(conn.LocalAddr().String()); ext == ".tlz" || ext == ".ez" || ext == ".seen" {
-				r = compress.NewDecoder(r)
-			}
-
-			var w io.Writer
-
-			w = tlbolt.NewWriter(db)
-
-			if c.Bool("tolog") {
-				w = tlog.TeeWriter{logwriter, w}
-			}
-
-			err = convert.Copy(w, r)
-			if errors.Is(err, io.EOF) {
-				err = nil
-			}
-			if err != nil {
-				err = errors.Wrap(err, "convert")
-			}
-
-			return
-		}()
-	}
-
-	return nil
-}
-
 func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {
 	tldb := tlbolt.NewWriter(db)
 
@@ -540,11 +430,11 @@ func cat(c *cli.Command) (err error) {
 		}()
 	}
 
-	rs := make(map[string]io.ReadCloser, c.Args.Len())
+	rs := make(map[string]io.WriterTo, c.Args.Len())
 	defer func() {
 		for name, r := range rs {
-			if r != nil {
-				e := r.Close()
+			if c, ok := r.(io.Closer); ok {
+				e := c.Close()
 				if err == nil {
 					err = errors.Wrap(e, "close: %v", name)
 				}
@@ -557,12 +447,31 @@ func cat(c *cli.Command) (err error) {
 			fs.Add(a)
 		}
 
-		rs[a], err = tlflag.OpenReader(a)
+		var r io.Reader
+		r, err = tlflag.OpenReader(a)
 		if err != nil {
 			return errors.Wrap(err, "open: %v", a)
 		}
 
-		err = convert.Copy(w, rs[a])
+		rs[a] = wire.NewStreamDecoder(r)
+
+		var w0 io.Writer = w
+		if t := c.Int("tail"); t > 0 {
+			w0 = tlio.NewTailWriter(w, t)
+		}
+
+		_, err = rs[a].WriteTo(w0)
+		if errors.Is(err, io.EOF) {
+			err = nil
+		}
+
+		if f, ok := w0.(interface{ Flush() error }); ok {
+			e := f.Flush()
+			if err == nil {
+				err = errors.Wrap(e, "flush: %v", a)
+			}
+		}
+
 		if err != nil {
 			return errors.Wrap(err, "copy: %v", a)
 		}
@@ -588,17 +497,17 @@ func cat(c *cli.Command) (err error) {
 		//	tlog.Printw("fs event", "name", ev.Name, "op", ev.Op)
 
 		if ev.Op&fsnotify.Write != 0 {
-			rc, ok := rs[ev.Name]
+			r, ok := rs[ev.Name]
 			if !ok {
 				return errors.New("unexpected event: %v", ev.Name)
 			}
 
-			err = convert.Copy(w, rc)
-			if errors.Is(err, io.ErrUnexpectedEOF) {
-				tlog.Printw("unexpected EOF", "file", ev.Name)
-				err = nil
-			}
-			if err != nil {
+			_, err = r.WriteTo(w)
+			switch {
+			case errors.Is(err, io.EOF):
+			case errors.Is(err, io.ErrUnexpectedEOF):
+				tlog.V("unexpected_eof").Printw("unexpected EOF", "file", ev.Name)
+			case err != nil:
 				return errors.Wrap(err, "copy: %v", ev.Name)
 			}
 		}
@@ -637,7 +546,8 @@ func tlz(c *cli.Command) (err error) {
 		w = f
 	}
 
-	if c.MainName() == "compress" {
+	switch c.MainName() {
+	case "compress":
 		e := compress.NewEncoder(w, c.Int("block"))
 
 		for _, r := range rs {
@@ -646,13 +556,22 @@ func tlz(c *cli.Command) (err error) {
 				return errors.Wrap(err, "copy")
 			}
 		}
-	} else {
+	case "decompress":
 		d := compress.NewDecoder(io.MultiReader(rs...))
 
 		_, err = io.Copy(w, d)
 		if err != nil {
 			return errors.Wrap(err, "copy")
 		}
+	case "dump":
+		d := compress.NewDumper(w)
+
+		_, err = io.Copy(d, io.MultiReader(rs...))
+		if err != nil {
+			return errors.Wrap(err, "copy")
+		}
+	default:
+		return errors.New("unexpected command: %v", c.MainName())
 	}
 
 	return nil

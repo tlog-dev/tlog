@@ -12,12 +12,12 @@ import (
 func TestSafeAdd(t *testing.T) {
 	t.Parallel()
 
-	b := AppendSafe(nil, `"\'`)
+	b := AppendSafeString(nil, `"\'`)
 	assert.Equal(t, []byte(`\"\\'`), b)
 
 	q := "\xbd\xb2\x3d\xbc\x20\xe2\x8c\x98"
 
-	b = AppendQuote(nil, q)
+	b = AppendQuoteString(nil, q)
 	assert.Equal(t, []byte(`"\xbd\xb2=\xbc ⌘"`), b, "quoted: %q", q)
 
 	if t.Failed() {
@@ -48,7 +48,7 @@ func TestSafeMultiline(t *testing.T) {
 --debug :6061
 `
 
-	b := AppendSafe(nil, data)
+	b := AppendSafeString(nil, data)
 
 	//	var dec string
 

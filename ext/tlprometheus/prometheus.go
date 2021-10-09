@@ -19,9 +19,6 @@ type (
 
 		mu sync.Mutex
 
-		ls     tlog.Labels
-		labels []byte
-
 		vs map[string]*metric
 
 		lsbuf []byte
@@ -71,11 +68,6 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	switch e {
 	case tlog.EventValue:
 		w.value(p)
-	case tlog.EventLabels:
-		w.ls = w.getLabels(p)
-		w.labels = w.encodeLabels(w.labels[:0], w.ls)
-
-	//	tlog.Printw("labels", "global", w.labels)
 	case tlog.EventMetricDesc:
 		w.metric(p)
 	}
@@ -151,11 +143,15 @@ func (w *Writer) value(p []byte) {
 			continue
 		}
 
+		if len(ls) != 0 {
+			ls = append(ls, ',')
+		}
+
 		ls = append(ls, k...)
 		ls = append(ls, '=', '"')
 
 		if s != nil {
-			ls = low.AppendSafe(ls, low.UnsafeBytesToString(s))
+			ls = low.AppendSafe(ls, s)
 		} else {
 			switch v := v.(type) {
 			case int64:
@@ -207,7 +203,7 @@ func (w *Writer) metric(p []byte) {
 			var ls tlog.Labels
 			i = ls.TlogParse(&w.d, p, i)
 
-			m.constls = w.encodeLabels(nil, ls)
+			m.constls = w.encodeLabels(m.constls, ls)
 		case tag == wire.Array && string(k) == "quantile":
 			st := i
 
@@ -307,17 +303,6 @@ func (w *Writer) getEventType(p []byte) (e tlog.EventType) {
 	return
 }
 
-func (w *Writer) getLabels(p []byte) (ls tlog.Labels) {
-	i := w.find(p, tlog.WireLabels, tlog.KeyLabels)
-	if i == -1 {
-		return
-	}
-
-	ls.TlogParse(&w.d, p, i)
-
-	return ls
-}
-
 func (w *Writer) find(p []byte, typ int64, key string) (i int) {
 	tag, els, i := w.d.Tag(p, i)
 
@@ -357,14 +342,12 @@ func (w *Writer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			case *summary:
 				ls := w.catLabels(m, sum)
 
-				commals := append(ls, ',')
-
 				for _, q := range m.q {
 					v := o.q.Query(q)
 
 					//	tlog.Printw("metric", "name", m.Name, "global", w.labels, "const", m.constls, "val", m.ls[sum])
 
-					fmt.Fprintf(rw, "%v{%squantile=\"%v\"} %v\n", m.Name, commals, q, v)
+					fmt.Fprintf(rw, "%v{%s%squantile=\"%v\"} %v\n", m.Name, ls, ",", q, v)
 				}
 
 				fmt.Fprintf(rw, "%v_sum{%s} %v\n", m.Name, ls, o.sum)
@@ -384,11 +367,7 @@ func (w *Writer) catLabels(m *metric, sum uintptr) (ls []byte) {
 	var comma bool
 	ls = w.lsbuf[:0]
 
-	if len(w.labels) != 0 {
-		comma = true
-
-		ls = append(ls, w.labels...)
-	}
+	tlog.Printw("metric", "m", m, "sum", sum, "constls", m.constls, "m.ls", m.ls[sum])
 
 	if len(m.constls) != 0 {
 		if comma {

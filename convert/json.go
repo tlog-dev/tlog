@@ -18,16 +18,13 @@ type (
 	JSON struct {
 		io.Writer
 
-		AppendSafe   bool
-		AttachLabels bool
-		TimeFormat   string
-		TimeZone     *time.Location
+		AppendSafe bool
+		TimeFormat string
+		TimeZone   *time.Location
 
 		Rename map[KeyTagSub]string
 
 		d wire.Decoder
-
-		ls []byte
 
 		b low.Buf
 	}
@@ -54,9 +51,6 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 		return i, errors.New("map expected")
 	}
 
-	var e tlog.EventType
-	var ls []byte
-
 	b := w.b[:0]
 
 	b = append(b, '{')
@@ -72,13 +66,9 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 			b = append(b, ',')
 		}
 
-		bst := len(b)
-
 		b = append(b, '"')
 
 		k, i = w.d.String(p, i)
-
-		vst := i
 
 		tag, sub, _ = w.d.Tag(p, i)
 
@@ -99,7 +89,7 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 
 			if renamed {
 				if w.AppendSafe {
-					b = low.AppendSafe(b, key)
+					b = low.AppendSafeString(b, key)
 				} else {
 					b = append(b, key...)
 				}
@@ -108,7 +98,7 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 
 		if !renamed {
 			if w.AppendSafe {
-				b = low.AppendSafe(b, low.UnsafeBytesToString(k))
+				b = low.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)
 			}
@@ -117,25 +107,6 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 		b = append(b, '"', ':')
 
 		b, i = w.convertValue(b, p, i)
-
-		if tag == wire.Semantic {
-			switch {
-			case sub == tlog.WireEventType && string(k) == tlog.KeyEventType:
-				e.TlogParse(&w.d, p, vst)
-			case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
-				ls = b[bst:]
-			}
-		}
-	}
-
-	if e == tlog.EventLabels {
-		w.ls = append(w.ls[:0], ls...)
-	} else if len(w.ls) != 0 {
-		if len(b) > 1 {
-			b = append(b, ',')
-		}
-
-		b = append(b, w.ls...)
 	}
 
 	b = append(b, '}', '\n')
@@ -179,7 +150,7 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 		b = append(b, '"')
 
 		if w.AppendSafe {
-			b = low.AppendSafe(b, low.UnsafeBytesToString(p[i:i+int(sub)]))
+			b = low.AppendSafe(b, p[i:i+int(sub)])
 		} else {
 			b = append(b, p[i:i+int(sub)]...)
 		}
@@ -222,7 +193,7 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 			b = append(b, '"')
 
 			if w.AppendSafe {
-				b = low.AppendSafe(b, low.UnsafeBytesToString(k))
+				b = low.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)
 			}
@@ -260,11 +231,25 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 			id.FormatTo(b[bst:], 'x')
 		case wire.Caller:
 			var pc loc.PC
-			pc, i = w.d.Caller(p, st)
+			var pcs loc.PCs
+			pc, pcs, i = w.d.Callers(p, st)
 
-			_, file, line := pc.NameFileLine()
+			if pcs != nil {
+				b = append(b, '[')
+				for i, pc := range pcs {
+					if i != 0 {
+						b = append(b, ',')
+					}
 
-			b = low.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
+					_, file, line := pc.NameFileLine()
+					b = low.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
+				}
+				b = append(b, ']')
+			} else {
+				_, file, line := pc.NameFileLine()
+
+				b = low.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
+			}
 		default:
 			b, i = w.convertValue(b, p, i)
 		}

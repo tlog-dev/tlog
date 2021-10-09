@@ -1,4 +1,4 @@
-package tlog
+package tlio
 
 import (
 	"encoding/hex"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/errors"
+	"github.com/nikandfor/tlog"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/nikandfor/tlog/low"
@@ -54,7 +55,7 @@ func TestReWriter(t *testing.T) {
 		}()
 
 		b = e.AppendMap(b, -1)
-		b = AppendKVs(&e, b, kvs)
+		b = tlog.AppendKVs(&e, b, kvs)
 		b = e.AppendBreak(b)
 
 		_, err = w.Write(b)
@@ -70,7 +71,7 @@ func TestReWriter(t *testing.T) {
 	err = encode([]interface{}{"key2", "value2"})
 	assert.NoError(t, err)
 
-	err = encode([]interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label"}})
+	err = encode([]interface{}{"label", "label"})
 	assert.NoError(t, err)
 
 	ewr.nerr++
@@ -80,7 +81,7 @@ func TestReWriter(t *testing.T) {
 
 	ewr.nerr++
 
-	err = encode([]interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label2"}})
+	err = encode([]interface{}{"label", "label2"})
 	assert.NoError(t, err)
 
 	err = encode([]interface{}{"key4", "value4"})
@@ -89,7 +90,7 @@ func TestReWriter(t *testing.T) {
 	ewr.nerr++
 	ewr.nerr++
 
-	err = encode([]interface{}{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}})
+	err = encode([]interface{}{"label", "label3"})
 	assert.Error(t, err, ewr.err.Error())
 
 	err = encode([]interface{}{"key5", "value5"})
@@ -112,23 +113,20 @@ func TestReWriter(t *testing.T) {
 		}),
 		newfile([][]interface{}{
 			{"key2", "value2"},
-			{KeyEventType, EventLabels, KeyLabels, Labels{"label"}},
+			{"label", "label"},
 		}),
 		newfile([][]interface{}{
-			{KeyEventType, EventLabels, KeyLabels, Labels{"label"}},
 			{"key3", "value3"},
 		}),
 		newfile([][]interface{}{
-			{KeyEventType, EventLabels, KeyLabels, Labels{"label2"}},
+			{"label", "label2"},
 			{"key4", "value4"},
 		}),
 		newfile([][]interface{}{
-			{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}},
 			{"key5", "value5"},
 		}),
 		newfile([][]interface{}{}),
 		newfile([][]interface{}{
-			{KeyEventType, EventLabels, KeyLabels, Labels{"label3"}},
 			{"key7", "value7"},
 		}),
 	}
@@ -149,7 +147,7 @@ func newfile(events [][]interface{}) *low.Buf {
 
 	for _, evs := range events {
 		b = e.AppendMap(b, -1)
-		b = AppendKVs(&e, b, evs)
+		b = tlog.AppendKVs(&e, b, evs)
 		b = e.AppendBreak(b)
 	}
 
@@ -174,11 +172,11 @@ func BenchmarkReWriter(b *testing.B) {
 		return io.Discard, nil
 	})
 
-	l := New(w)
+	l := tlog.New(w)
 	l.NoTime = true
 	l.NoCaller = true
 
-	l.SetLabels(Labels{"a", "b", "c"})
+	l.SetLabels(tlog.Labels{"a", "b", "c"})
 
 	for i := 0; i < b.N; i++ {
 		l.Printw("message", "a", i+1000, "b", i+1001)

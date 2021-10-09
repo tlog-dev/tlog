@@ -15,6 +15,7 @@ import (
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/wire"
 )
 
@@ -31,7 +32,7 @@ func TestLiteral(t *testing.T) {
 
 	tl = tlog.NewTestLogger(t, "", nil)
 
-	// tl.Writer = tlog.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
+	// tl.Writer = tlio.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
 
 	var buf low.Buf
 
@@ -69,7 +70,7 @@ func TestCopy(t *testing.T) {
 
 	tl = tlog.NewTestLogger(t, "", nil)
 
-	// tl.Writer = tlog.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
+	// tl.Writer = tlio.NewTeeWriter(tl.Writer, tlog.NewDumper(os.Stderr))
 
 	var buf low.Buf
 
@@ -148,7 +149,7 @@ func TestDumpFile(t *testing.T) {
 	var dump, encoded low.Buf
 
 	d := NewDumper(&dump)
-	w := newEncoder(tlog.NewTeeWriter(&encoded, d), 16*1024, 6)
+	w := newEncoder(tlio.NewTeeWriter(&encoded, d), 16*1024, 6)
 
 	var st int
 	for n := 0; n < MaxEvents && st < len(data); n++ {
@@ -186,7 +187,7 @@ func TestDumpOnelineText(t *testing.T) {
 	d := NewDumper(&dump)
 	e := newEncoder(d, 1*1024, 2)
 
-	cw := tlog.NewConsoleWriter(tlog.NewTeeWriter(e, &text), tlog.LstdFlags)
+	cw := tlog.NewConsoleWriter(tlio.NewTeeWriter(e, &text), tlog.LstdFlags)
 
 	l := tlog.New(cw)
 	tr := l.Start("span_name")
@@ -210,7 +211,7 @@ func BenchmarkLogCompressOneline(b *testing.B) {
 
 	var buf low.Buf
 	w := NewEncoder(&buf, 128*1024)
-	var c tlog.CountableIODiscard
+	var c tlio.CountableIODiscard
 
 	l := tlog.New(io.MultiWriter(w, &c))
 	tr := l.Start("span_name")
@@ -235,7 +236,7 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 
 	var buf low.Buf
 	w := NewEncoder(&buf, 128*1024)
-	var c tlog.CountableIODiscard
+	var c tlio.CountableIODiscard
 
 	cw := tlog.NewConsoleWriter(io.MultiWriter(w, &c), tlog.LstdFlags)
 
@@ -267,7 +268,7 @@ func BenchmarkEncodeFile(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	var c tlog.CountableIODiscard
+	var c tlio.CountableIODiscard
 	w := newEncoder(&c, 1024*1024, 6)
 
 	//	b.Logf("block %x  ht %x (%x * %x)", len(w.block), len(w.ht)*int(unsafe.Sizeof(w.ht[0])), len(w.ht), unsafe.Sizeof(w.ht[0]))
