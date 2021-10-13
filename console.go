@@ -32,6 +32,7 @@ type (
 		Colorize        bool
 		PadEmptyMessage bool
 		AllLabels       bool
+		AllCallers      bool
 
 		LevelWidth   int
 		MessageWidth int
@@ -223,7 +224,13 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 		case ks == KeyTime && sub == wire.Time:
 			t, i = w.d.Time(p, st)
 		case ks == KeyCaller && sub == wire.Caller:
-			pc, i = w.d.Caller(p, st)
+			var pcs loc.PCs
+
+			pc, pcs, i = w.d.Callers(p, st)
+
+			if w.AllCallers && pcs != nil {
+				b, i = w.appendPair(b, p, k, st)
+			}
 		case ks == KeyMessage && sub == WireMessage:
 			m, i = w.d.String(p, i)
 		case ks == KeyLogLevel && sub == WireLogLevel && w.Flags&Lloglevel != 0:

@@ -138,6 +138,8 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 			k, i = d.String(p, i)
 
 			file = string(k)
+		default:
+			i = d.Skip(p, i)
 		}
 	}
 

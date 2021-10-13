@@ -46,8 +46,7 @@ func TestLiteral(t *testing.T) {
 	tl.Printf("res\n%v", hex.Dump(buf))
 
 	r := &Decoder{
-		b:   buf,
-		end: len(buf),
+		b: buf,
 	}
 
 	p := make([]byte, 100)
@@ -95,8 +94,7 @@ func TestCopy(t *testing.T) {
 	tl.Printf("res\n%v", hex.Dump(buf[st:]))
 
 	r := &Decoder{
-		b:   buf,
-		end: len(buf),
+		b: buf,
 	}
 
 	p := make([]byte, 100)
@@ -127,56 +125,6 @@ func TestCopy(t *testing.T) {
 	tl.Printw("compression", "ratio", float64(18+17)/float64(len(buf)))
 }
 
-func TestDumpFile(t *testing.T) {
-	const MaxEvents = 800
-
-	f, err := os.Create("/tmp/seen.log") //nolint:gosec
-	require.NoError(t, err)
-
-	tl = nil
-	tl = tlog.NewTestLogger(t, "hash",
-		//	tlog.Stderr,
-		//	nil,
-		f,
-	)
-
-	data, err := ioutil.ReadFile(*fileFlag)
-	if err != nil {
-		t.Skipf("open test data: %v", err)
-	}
-
-	var dec wire.Decoder
-	var dump, encoded low.Buf
-
-	d := NewDumper(&dump)
-	w := newEncoder(tlio.NewTeeWriter(&encoded, d), 16*1024, 6)
-
-	var st int
-	for n := 0; n < MaxEvents && st < len(data); n++ {
-		end := dec.Skip(data, st)
-
-		m, err := w.Write(data[st:end])
-		if !assert.NoError(t, err, "%v bytes written", m) {
-			break
-		}
-
-		st = end
-	}
-
-	//	t.Logf("dump:\n%s", dump)
-	err = ioutil.WriteFile("/tmp/seen.dump", dump, 0600) //nolint:gosec
-	require.NoError(t, err)
-	t.Logf("block size: %x", len(w.block))
-	t.Logf("writer pos: %x", w.pos)
-
-	r := NewDecoderBytes(encoded)
-
-	decoded, err := ioutil.ReadAll(r)
-	assert.NoError(t, err)
-
-	assert.Equal(t, data[:len(decoded)], decoded)
-}
-
 func TestDumpOnelineText(t *testing.T) {
 	t.Skip()
 
@@ -202,6 +150,89 @@ func TestDumpOnelineText(t *testing.T) {
 
 	t.Logf("text:\n%s", text)
 	t.Logf("dump:\n%s", dump)
+}
+
+func TestBug1(t *testing.T) {
+	tl = tlog.NewTestLogger(t, "", nil)
+	tlog.DefaultLogger = tl
+
+	var b bytes.Buffer
+
+	p := make([]byte, 1000)
+	d := NewDecoder(&b)
+
+	tl.Printw("first")
+
+	_, _ = b.Write([]byte{Meta | MetaReset, 10})
+	_, _ = b.Write([]byte{Literal | 3, 0x94, 0xa8, 0xfb, Copy | 9})
+
+	n, err := d.Read(p)
+	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
+	assert.Equal(t, 3, n)
+
+	tl.Printw("second")
+
+	_, _ = b.Write([]byte{0xfd, 0x03, 0x65}) // offset
+
+	n, err = d.Read(p)
+	assert.EqualError(t, err, io.EOF.Error())
+	assert.Equal(t, 9, n)
+}
+
+func TestDumpFile(t *testing.T) {
+	t.Skip()
+
+	const MaxEvents = 800
+
+	f, err := os.Create("/tmp/seen.log") //nolint:gosec
+	require.NoError(t, err)
+
+	tl = nil
+	tl = tlog.NewTestLogger(t, "hash",
+		tlio.NewTeeWriter(
+			//	tlog.Stderr,
+			//	nil,
+			f,
+		),
+	)
+
+	data, err := ioutil.ReadFile(*fileFlag)
+	if err != nil {
+		t.Skipf("open test data: %v", err)
+	}
+
+	var dec wire.Decoder
+	var dump, encoded low.Buf
+
+	d := NewDumper(&dump)
+	w := newEncoder(tlio.NewTeeWriter(&encoded, d), 16*1024, 6)
+
+	var st int
+	for n := 0; n < MaxEvents && st < len(data); n++ {
+		end := dec.Skip(data, st)
+
+		//	tl.Printw("write event", "st", tlog.Hex(st), "end", tlog.Hex(end))
+
+		m, err := w.Write(data[st:end])
+		if !assert.NoError(t, err, "%v bytes written", m) {
+			break
+		}
+
+		st = end
+	}
+
+	//	t.Logf("dump:\n%s", dump)
+	err = ioutil.WriteFile("/tmp/seen.dump", dump, 0600) //nolint:gosec
+	require.NoError(t, err)
+	t.Logf("block size: %x", len(w.block))
+	t.Logf("writer pos: %x", w.pos)
+
+	r := NewDecoderBytes(encoded)
+
+	decoded, err := ioutil.ReadAll(r)
+	assert.NoError(t, err)
+
+	assert.Equal(t, data[:len(decoded)], decoded)
 }
 
 func BenchmarkLogCompressOneline(b *testing.B) {

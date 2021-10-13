@@ -41,9 +41,16 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 		return append(b, c...)
 	}
 
+	fe := pc.FuncEntry()
+
 	st := len(b)
 
-	b = append(b, Map|4)
+	l := byte(4)
+	if fe != pc {
+		l++
+	}
+
+	b = append(b, Map|l)
 
 	b = e.AppendString(b, String, "p")
 	b = e.AppendInt(b, Int, uint64(pc))
@@ -58,6 +65,11 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 
 	b = e.AppendString(b, String, "l")
 	b = e.AppendSigned(b, int64(line))
+
+	if fe != pc {
+		b = e.AppendString(b, String, "e")
+		b = e.AppendInt(b, Int, uint64(fe))
+	}
 
 	c = make([]byte, len(b)-st)
 	copy(c, b[st:])

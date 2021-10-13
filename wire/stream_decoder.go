@@ -217,11 +217,12 @@ func (d *StreamDecoder) more() (err error) {
 
 	end := len(d.b)
 
-	//	if len(d.b) == 0 {
-	//		d.b = make([]byte, 1024)
-	//	} else {
-	d.b = append(d.b, 0, 0, 0, 0, 0, 0, 0, 0)
-	//	}
+	if len(d.b) == 0 {
+		d.b = make([]byte, 1024)
+	} else {
+		d.b = append(d.b, 0, 0, 0, 0, 0, 0, 0, 0)
+	}
+
 	d.b = d.b[:cap(d.b)]
 
 	n, err := d.Reader.Read(d.b[end:])

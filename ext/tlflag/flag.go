@@ -104,6 +104,8 @@ func updateConsoleOptions(w *tlog.ConsoleWriter, s string) {
 			w.Colorize = true
 		case 'C':
 			w.Colorize = false
+		case 'l':
+			w.AllCallers = true
 		case 'g':
 			w.FloatChar = 'g'
 		case 'b':

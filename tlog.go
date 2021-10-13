@@ -107,11 +107,11 @@ const (
 
 // Event Types
 const (
-	EventLabels     = EventType('L')
-	EventSpanStart  = EventType('s')
-	EventSpanFinish = EventType('f')
-	EventValue      = EventType('v')
-	EventMetricDesc = EventType('m')
+	EventLabels     EventType = 'L'
+	EventSpanStart  EventType = 's'
+	EventSpanFinish EventType = 'f'
+	EventValue      EventType = 'v'
+	EventMetricDesc EventType = 'm'
 )
 
 var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))

@@ -48,10 +48,10 @@ const (
 // Tag lengths.
 const (
 	_ = 1<<6 - iota
-	TagLen8
-	TagLen4
-	TagLen2
-	TagLen1
+	Len8
+	Len4
+	Len2
+	Len1
 )
 
 // Offset lengths.
@@ -285,16 +285,16 @@ func (w *Encoder) appendCopy(st, end int) {
 
 func (w *Encoder) appendTag(b []byte, tag byte, l int) []byte {
 	switch {
-	case l < TagLen1:
+	case l < Len1:
 		return append(b, tag|byte(l))
 	case l <= 0xff:
-		return append(b, tag|TagLen1, byte(l))
+		return append(b, tag|Len1, byte(l))
 	case l <= 0xffff:
-		return append(b, tag|TagLen2, byte(l>>8), byte(l))
+		return append(b, tag|Len2, byte(l>>8), byte(l))
 	case l <= 0xffff_ffff:
-		return append(b, tag|TagLen4, byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
+		return append(b, tag|Len4, byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
 	default:
-		return append(b, tag|TagLen8, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
+		return append(b, tag|Len8, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
 	}
 }
 

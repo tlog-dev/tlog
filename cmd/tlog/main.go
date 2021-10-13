@@ -30,6 +30,7 @@ import (
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/ext/tlbolt"
 	"github.com/nikandfor/tlog/ext/tlflag"
+	"github.com/nikandfor/tlog/processor"
 	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/wire"
@@ -74,7 +75,8 @@ func main() {
 			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			cli.NewFlag("tail", 0, "skip all except last n events"),
-			cli.NewFlag("clickhouse", "", "additional clickhouse writer"),
+			cli.NewFlag("filter", "", "span filter"),
+			cli.NewFlag("filter-max-depth", 0, "span filter max depth"),
 		},
 	}
 
@@ -99,6 +101,9 @@ func main() {
 			Name:   "dump",
 			Action: tlz,
 			Args:   cli.Args{},
+			Flags: []*cli.Flag{
+				cli.NewFlag("base", 1, "global offset"),
+			},
 		}},
 	}
 
@@ -162,15 +167,11 @@ func main() {
 	}
 }
 
-var logwriter io.Writer
-
 func before(c *cli.Command) error {
 	w, err := tlflag.OpenWriter(c.String("log"))
 	if err != nil {
 		return errors.Wrap(err, "open log file")
 	}
-
-	logwriter = w
 
 	tlog.DefaultLogger = tlog.New(w)
 
@@ -407,6 +408,16 @@ func cat(c *cli.Command) (err error) {
 		return err
 	}
 
+	if q := c.String("filter"); q != "" {
+		p := processor.New(w, strings.Split(q, ",")...)
+		p.MaxDepth = c.Int("filter-max-depth")
+
+		w = tlio.WriteCloser{
+			Writer: p,
+			Closer: w,
+		}
+	}
+
 	defer func() {
 		e := w.Close()
 		if err == nil {
@@ -564,7 +575,9 @@ func tlz(c *cli.Command) (err error) {
 			return errors.Wrap(err, "copy")
 		}
 	case "dump":
-		d := compress.NewDumper(w)
+		d := compress.NewDumper(w) // BUG: dumper does not work with writes not aligned to tags
+
+		d.GlobalOffset = int64(c.Int("base"))
 
 		_, err = io.Copy(d, io.MultiReader(rs...))
 		if err != nil {
