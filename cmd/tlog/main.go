@@ -148,6 +148,7 @@ func main() {
 				Flags: []*cli.Flag{
 					cli.NewFlag("output,o", "-", "output file (or stdout)"),
 					cli.NewFlag("interval,int,i", time.Second, "interval to tick on"),
+					cli.NewFlag("labels", "service=ticker,_pid", "labels"),
 				},
 			}, {
 				Name:        "core",
@@ -380,20 +381,26 @@ func ticker(c *cli.Command) error {
 	t := time.NewTicker(c.Duration("interval"))
 	defer t.Stop()
 
-	l.SetLabels(tlog.Labels{"service=ticker"})
+	ls := strings.Split(c.String("labels"), ",")
+	ls = tlog.FillLabelsWithDefaults(ls...)
+
+	l.SetLabels(ls)
 
 	var first int
+	var drift float64
 	i := 0
 
 	for t := range t.C {
-		var drift int
+		var diff int
 		if i == 0 {
 			first = t.Nanosecond()
 		} else {
-			drift = t.Nanosecond() - first
+			diff = t.Nanosecond() - first
+
+			drift = drift*0.9999 + float64(diff)*0.0001
 		}
 
-		l.Printw("tick", "i", i, "time", t, "drift", drift)
+		l.Printw("tick", "i", i, "time", t, "diff", time.Duration(diff), "drift", time.Duration(drift))
 		i++
 	}
 

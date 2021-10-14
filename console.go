@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -27,7 +28,7 @@ type (
 		addpad int     // padding for the next pair
 		b, h   low.Buf // buf, header
 
-		ls Labels
+		lastls []byte
 
 		Colorize        bool
 		PadEmptyMessage bool
@@ -221,9 +222,9 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 
 		ks := low.UnsafeBytesToString(k)
 		switch {
-		case ks == KeyTime && sub == wire.Time:
+		case sub == wire.Time && ks == KeyTime:
 			t, i = w.d.Time(p, st)
-		case ks == KeyCaller && sub == wire.Caller:
+		case sub == wire.Caller && ks == KeyCaller:
 			var pcs loc.PCs
 
 			pc, pcs, i = w.d.Callers(p, st)
@@ -231,16 +232,27 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 			if w.AllCallers && pcs != nil {
 				b, i = w.appendPair(b, p, k, st)
 			}
-		case ks == KeyMessage && sub == WireMessage:
+		case sub == WireMessage && ks == KeyMessage:
 			m, i = w.d.String(p, i)
-		case ks == KeyLogLevel && sub == WireLogLevel && w.Flags&Lloglevel != 0:
+		case sub == WireLogLevel && ks == KeyLogLevel && w.Flags&Lloglevel != 0:
 			i = lv.TlogParse(&w.d, p, st)
-		case ks == KeyEventType && sub == WireEventType:
+		case sub == WireEventType && ks == KeyEventType:
 			_ = tp.TlogParse(&w.d, p, st)
 
 			b, i = w.appendPair(b, p, k, st)
-		case !w.AllLabels && tp != EventLabels && ks == KeyLabels && sub == WireLabels:
+		case sub == WireLabels && ks == KeyLabels:
 			i = w.d.Skip(p, st)
+
+			switch {
+			case w.AllLabels:
+				b, i = w.appendPair(b, p, k, st)
+			case !bytes.Equal(w.lastls, p[st:i]):
+				w.lastls = append(w.lastls[:0], p[st:i]...)
+
+				b, i = w.appendPair(b, p, k, st)
+			default:
+				// skip
+			}
 		default:
 			b, i = w.appendPair(b, p, k, st)
 		}
@@ -565,6 +577,9 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	b, i = w.convertValue(b, p, i, 0)
 
 	vw := len(b) - vst
+
+	// NOTE: Value width can be incorrect for non-ascii symbols.
+	// We can calc it by iterating utf8.DecodeRune() but should we?
 
 	if w.Colorize && len(w.ValColor) != 0 {
 		b = append(b, ResetColor...)
