@@ -65,8 +65,15 @@ const (
 
 // Meta tags.
 const (
-	MetaReset = iota
+	MetaMagic    = iota << 4 // "tlz"
+	MetaVer                  // Version
+	MetaReset                // block size log
+	MetaChecksum             // [...]byte
+
+	MetaTagMask = 0xf0
 )
+
+const Version = "000"
 
 var zeros = make([]byte, 1024)
 
@@ -237,12 +244,15 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 }
 
 func (w *Encoder) appendHeader(b []byte) []byte {
+	b = append(b, Literal|Meta, MetaMagic|3, 't', 'l', 'z')
+
+	b = append(b, Literal|Meta, MetaVer|3)
+	b = append(b, Version...)
+
 	bs := 0
 	for q := len(w.block); q != 1; q >>= 1 {
 		bs++
 	}
-
-	//	tl.Printw("meta", "sub", tlog.Hex(MetaReset), "sub_name", "reset", "block_size", bs)
 
 	b = append(b, Literal|Meta, MetaReset, byte(bs))
 

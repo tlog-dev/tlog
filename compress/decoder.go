@@ -1,6 +1,7 @@
 package compress
 
 import (
+	"bytes"
 	"io"
 
 	"github.com/nikandfor/errors"
@@ -218,7 +219,31 @@ func (d *Decoder) readMetaTag(st int) (i int, err error) {
 		return st, err
 	}
 
-	switch meta {
+	switch meta & MetaTagMask {
+	case MetaMagic:
+		meta &^= MetaTagMask
+
+		if i+meta > len(d.b) {
+			return st, eUnexpectedEOF
+		}
+
+		if !bytes.Equal(d.b[i:i+meta], []byte("tlz")) {
+			return st, errors.New("bad magic")
+		}
+
+		i += meta
+	case MetaVer:
+		meta &^= MetaTagMask
+
+		if i+meta > len(d.b) {
+			return st, eUnexpectedEOF
+		}
+
+		if string(d.b[i:i+meta]) != Version {
+			return st, errors.New("incompatible version")
+		}
+
+		i += meta
 	case MetaReset:
 		meta, i, err = d.roff(d.b, i) // block size log
 		if err != nil {
@@ -409,17 +434,20 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 				return
 			}
 
-			switch tag {
+			switch tag & MetaTagMask {
+			case MetaMagic, MetaVer:
+				l = tag &^ MetaTagMask
+
+				w.b = low.AppendPrintf(w.b, "meta %4x  %q\n", tag, p[i:i+l])
+
+				i += l
 			case MetaReset:
 				l, i, err = w.d.roff(p, i)
-			default:
-				err = errors.New("impossible tag: %x", tag)
-			}
-			if err != nil {
-				return
-			}
 
-			w.b = low.AppendPrintf(w.b, "meta %4x  %x\n", tag, l)
+				w.b = low.AppendPrintf(w.b, "meta %4x  %x\n", tag, l)
+			default:
+				return i, errors.New("unsupported meta tag: %x", tag)
+			}
 		case tag == Literal:
 			w.b = low.AppendPrintf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
 
