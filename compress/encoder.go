@@ -36,22 +36,22 @@ const (
 
 // Tags.
 const (
-	Literal = iota << 6
+	Literal = iota << 7
 	Copy
-	_
-	Meta
 
-	TagMask    = 0b1100_0000
-	TagLenMask = 0b0011_1111
+	TagMask    = 0b1000_0000
+	TagLenMask = 0b0111_1111
 )
 
 // Tag lengths.
 const (
-	_ = 1<<6 - iota
+	_ = 1<<7 - iota
 	Len8
 	Len4
 	Len2
 	Len1
+
+	Meta = 0 // Literal | Meta - means meta tag
 )
 
 // Offset lengths.
@@ -65,10 +65,7 @@ const (
 
 // Meta tags.
 const (
-	_ = iota
-	MetaReset
-
-//	MetaBlockSize
+	MetaReset = iota
 )
 
 var zeros = make([]byte, 1024)
@@ -88,6 +85,10 @@ func newEncoder(w io.Writer, bs, ss int) *Encoder {
 }
 
 func NewEncoderHTSize(w io.Writer, bs, hlen int) *Encoder {
+	if (bs-1)&bs != 0 {
+		panic("bad block size")
+	}
+
 	hsh := uint(2)
 	for 1<<(32-hsh) != hlen {
 		hsh++
@@ -243,7 +244,7 @@ func (w *Encoder) appendHeader(b []byte) []byte {
 
 	//	tl.Printw("meta", "sub", tlog.Hex(MetaReset), "sub_name", "reset", "block_size", bs)
 
-	b = append(b, Meta|MetaReset, byte(bs))
+	b = append(b, Literal|Meta, MetaReset, byte(bs))
 
 	return b
 }

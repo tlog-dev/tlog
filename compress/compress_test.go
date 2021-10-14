@@ -163,7 +163,7 @@ func TestBug1(t *testing.T) {
 
 	tl.Printw("first")
 
-	_, _ = b.Write([]byte{Meta | MetaReset, 10})
+	_, _ = b.Write([]byte{Literal | Meta, MetaReset, 10})
 	_, _ = b.Write([]byte{Literal | 3, 0x94, 0xa8, 0xfb, Copy | 9})
 
 	n, err := d.Read(p)

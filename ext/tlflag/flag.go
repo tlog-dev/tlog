@@ -216,7 +216,7 @@ func openw(fn string, opts string) (wc io.Writer, err error) {
 	fmt := fn
 	for { // pop extensions to find out if it's a file or stderr
 		switch ext := filepath.Ext(fmt); ext {
-		case ".tlog", ".tl", ".dump", ".log", "", ".json":
+		case ".tlog", ".tl", ".dump", ".log", "", ".json", ".tlzdump":
 			switch strings.TrimSuffix(fmt, ext) {
 			case "", "stderr":
 				w = tlog.Stderr
@@ -253,6 +253,9 @@ loop2:
 		case ".dump":
 			w = wire.NewDumper(w)
 		case ".ez", ".tlz":
+			w = compress.NewEncoder(w, CompressorBlockSize)
+		case ".tlzdump":
+			w = compress.NewDumper(w)
 			w = compress.NewEncoder(w, CompressorBlockSize)
 		case ".log", "":
 			ff := tlog.LstdFlags

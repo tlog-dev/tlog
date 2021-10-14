@@ -94,6 +94,7 @@ func (d *Decoder) Read(p []byte) (n int, err error) {
 		d.i = i
 
 		if n == len(p) {
+			err = nil
 			break
 		}
 
@@ -172,11 +173,13 @@ func (d *Decoder) read(p []byte, st int) (n, i int, err error) {
 }
 
 func (d *Decoder) readTag(st int) (i int, err error) {
-	i = st
-
-	tag, l, i, err := d.tag(d.b, i)
+	tag, l, i, err := d.tag(d.b, st)
 	if err != nil {
 		return st, err
+	}
+
+	if tag == Literal && l == Meta {
+		return d.readMetaTag(st)
 	}
 
 	switch tag {
@@ -193,37 +196,53 @@ func (d *Decoder) readTag(st int) (i int, err error) {
 
 		d.state = 'c'
 		d.len = l
-	case Meta:
-		switch l {
-		case MetaReset:
-			var bslog int
-
-			bslog, i, err = d.roff(d.b, i)
-			if err != nil {
-				return st, err
-			}
-
-			bs := 1 << bslog
-
-			if bs > len(d.block) {
-				d.block = make([]byte, bs)
-			} else {
-				d.block = d.block[:bs]
-
-				for i := 0; i < bs; {
-					i += copy(d.block[i:], zeros)
-				}
-			}
-
-			d.pos = 0
-			d.mask = bs - 1
-
-			d.state = 0
-		default:
-			return st, errors.New("unsupported meta: %x", l)
-		}
 	default:
 		return st, errors.New("unsupported tag: %x", tag)
+	}
+
+	return i, nil
+}
+
+func (d *Decoder) readMetaTag(st int) (i int, err error) {
+	_, meta, i, err := d.tag(d.b, st)
+	if err != nil {
+		return st, err
+	}
+
+	if meta != Meta {
+		panic("bad usage")
+	}
+
+	meta, i, err = d.roff(d.b, i)
+	if err != nil {
+		return st, err
+	}
+
+	switch meta {
+	case MetaReset:
+		meta, i, err = d.roff(d.b, i) // block size log
+		if err != nil {
+			return st, err
+		}
+
+		bs := 1 << meta
+
+		if bs > len(d.block) {
+			d.block = make([]byte, bs)
+		} else {
+			d.block = d.block[:bs]
+
+			for i := 0; i < bs; {
+				i += copy(d.block[i:], zeros)
+			}
+		}
+
+		d.pos = 0
+		d.mask = bs - 1
+
+		d.state = 0
+	default:
+		return st, errors.New("unsupported meta: %x", meta)
 	}
 
 	return i, nil
@@ -383,13 +402,30 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 		//	println("loop", i, tag>>6, l)
 
-		switch tag {
-		case Literal:
+		switch {
+		case l == Meta:
+			tag, i, err = w.d.roff(p, i)
+			if err != nil {
+				return
+			}
+
+			switch tag {
+			case MetaReset:
+				l, i, err = w.d.roff(p, i)
+			default:
+				err = errors.New("impossible tag: %x", tag)
+			}
+			if err != nil {
+				return
+			}
+
+			w.b = low.AppendPrintf(w.b, "meta %4x  %x\n", tag, l)
+		case tag == Literal:
 			w.b = low.AppendPrintf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
 
 			i += l
 			w.d.pos += int64(l)
-		case Copy:
+		case tag == Copy:
 			var off int
 
 			off, i, err = w.d.roff(p, i)
@@ -402,15 +438,6 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 			w.b = low.AppendPrintf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
 
 			off += l
-		case Meta:
-			var arg int
-
-			arg, i, err = w.d.roff(p, i)
-			if err != nil {
-				return
-			}
-
-			w.b = low.AppendPrintf(w.b, "meta %4x  %x\n", 2, arg)
 		default:
 			return i, errors.New("impossible tag: %x", tag)
 		}
