@@ -3,6 +3,7 @@ package wire
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/nikandfor/loc"
@@ -148,6 +149,80 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 	}
 
 	loc.SetCache(pc, name, file, line)
+
+	return
+}
+
+func (d *Decoder) BigInt(p []byte, st int, x *big.Int) (raw []byte, i int) {
+	if p[st] != Semantic|Big {
+		panic("not a big")
+	}
+
+	raw, i = d.bigInt(p, st+1)
+
+	if x != nil {
+		x.SetBytes(raw)
+	}
+
+	return
+}
+
+func (d *Decoder) bigInt(p []byte, st int) (raw []byte, i int) {
+	tag, l, i := d.Tag(p, st)
+	if tag != Bytes {
+		panic("not a big bytes")
+	}
+
+	raw = p[i : i+int(l)]
+	i += int(l)
+
+	return
+}
+
+func (d *Decoder) BigRat(p []byte, st int, x *big.Rat) (num, denom []byte, i int) {
+	if p[st] != Semantic|Big {
+		panic("not a big")
+	}
+
+	tag, l, i := d.Tag(p, st+1)
+	if tag != Array || l != 2 {
+		panic("not a big rat array")
+	}
+
+	num, i = d.bigInt(p, i)
+	denom, i = d.bigInt(p, i)
+
+	if x != nil {
+		var a, b big.Int
+
+		a.SetBytes(num)
+		b.SetBytes(denom)
+
+		x.SetFrac(&a, &b)
+	}
+
+	return
+}
+
+func (d *Decoder) BigFloat(p []byte, st int, x *big.Float) (text []byte, i int) {
+	if p[st] != Semantic|Big {
+		panic("not a big")
+	}
+
+	tag, l, i := d.Tag(p, st+1)
+	if tag != String {
+		panic("not a big string")
+	}
+
+	text = p[i : i+int(l)]
+	i += int(l)
+
+	if x != nil {
+		err := x.UnmarshalText(text)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	return
 }

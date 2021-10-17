@@ -2,6 +2,7 @@ package wire
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 	"time"
 	"unsafe"
@@ -32,22 +33,13 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 }
 
 func init() {
-	_ = (&Encoder{}).appendValue(nil, nil)
+	_ = (&Encoder{}).appendValue(nil, nil) // for linter to know it is used
 }
 
-// called through linkname hack.
+// called through linkname hack as appendValue from (*Encoder).AppendValue
 func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	if low.IsNil(v) {
 		return append(b, Special|Null)
-	}
-
-	switch v := v.(type) {
-	case string:
-		return e.AppendString(b, String, v)
-	case int:
-		return e.AppendSigned(b, int64(v))
-	case float64:
-		return e.AppendFloat(b, v)
 	}
 
 	q, ok := e.appendSpecials(b, v)
@@ -65,21 +57,37 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 	ok = true
 
 	switch v := v.(type) {
+	case string:
+		b = e.AppendString(b, String, v)
+	case int:
+		b = e.AppendSigned(b, int64(v))
+	case float64:
+		b = e.AppendFloat(b, v)
+
 	case time.Time:
 		b = e.AppendTime(b, v)
 	case time.Duration:
 		b = e.AppendDuration(b, v)
+	case *big.Int:
+		b = e.AppendBigInt(b, v)
+	case *big.Rat:
+		b = e.AppendBigRat(b, v)
+	case *big.Float:
+		b = e.AppendBigFloat(b, v)
+
 	case TlogAppender:
 		b = v.TlogAppend(e, b)
 	case loc.PC:
 		b = e.AppendPC(b, v)
 	case loc.PCs:
 		b = e.AppendPCs(b, v)
+
 	case error:
 		b = append(b, Semantic|Error)
 		b = e.AppendString(b, String, v.Error())
 	case fmt.Stringer:
 		b = e.AppendString(b, String, v.String())
+
 	default:
 		ok = false
 	}

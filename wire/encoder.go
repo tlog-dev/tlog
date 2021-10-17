@@ -1,7 +1,9 @@
 package wire
 
 import (
+	"encoding/binary"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/nikandfor/tlog/low"
@@ -65,9 +67,14 @@ const (
 	Error
 	Time
 	Duration
-	Caller
+	Big
 
+	Caller
 	Hex
+	_
+	_
+	_
+
 	SemanticExtBase
 )
 
@@ -182,6 +189,82 @@ func (e *Encoder) AppendTimestamp(b []byte, t int64) []byte {
 func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 	b = append(b, Semantic|Duration)
 	b = e.AppendInt(b, Int, uint64(d.Nanoseconds()))
+	return b
+}
+
+func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
+	b = append(b, Semantic|Big)
+	b = e.AppendStringBytes(b, Bytes, x.Bytes())
+	return b
+}
+
+func (e *Encoder) AppendBigRat(b []byte, x *big.Rat) []byte {
+	b = append(b, Semantic|Big)
+	b = append(b, Array|2)
+	b = e.AppendStringBytes(b, Bytes, x.Num().Bytes())
+	b = e.AppendStringBytes(b, Bytes, x.Denom().Bytes())
+	return b
+}
+
+func (e *Encoder) AppendBigFloat(b []byte, x *big.Float) []byte {
+	b = append(b, Semantic|Big)
+
+	b = append(b, String|0)
+
+	st := len(b)
+	b = x.Append(b, 'g', -1)
+	l := len(b) - st
+
+	b = e.InsertLen(b, st, l)
+
+	return b
+}
+
+func (e *Encoder) InsertLen(b []byte, st, l int) []byte {
+	if l < 0 {
+		panic(l)
+	}
+
+	if l < Len1 {
+		b[st-1] = b[st-1]&TagMask | byte(l)
+
+		return b
+	}
+
+	m := 0
+	switch {
+	case l < 0xff:
+		m = 1
+	case l < 0xffff:
+		m = 2
+	case l < 0xffff_ffff:
+		m = 4
+	default:
+		m = 8
+	}
+
+	b = append(b, "        "[:m]...)
+
+	copy(b[st+m:], b[st:])
+
+	b[st-1] = b[st-1] & TagMask
+
+	switch {
+	case l < 0xff:
+		b[st-1] |= Len1
+
+		b[st] = byte(l)
+	case l < 0xffff:
+		b[st-1] |= Len2
+		binary.BigEndian.PutUint16(b[st:], uint16(l))
+	case l < 0xffff_ffff:
+		b[st-1] |= Len4
+		binary.BigEndian.PutUint32(b[st:], uint32(l))
+	default:
+		b[st-1] |= Len8
+		binary.BigEndian.PutUint64(b[st:], uint64(l))
+	}
+
 	return b
 }
 

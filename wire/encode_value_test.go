@@ -2,6 +2,7 @@ package wire
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 	"time"
 
@@ -33,6 +34,7 @@ func TestSpecials(t *testing.T) {
 		Duration: time.Second,
 		Error:    errors.New("some"),
 	})
+
 	assert.Equal(t, `   0  bf  -  map: len -1
    1    64  -  "Time"
    6    c2  -  semantic  2
@@ -41,10 +43,10 @@ func TestSpecials(t *testing.T) {
   12    c3  -  semantic  3
   13      1a 3b 9a ca 00  -  int 1000000000
   18    62  -  "PC"
-  1b    c4  -  semantic  4
+  1b    c5  -  semantic  5
   1c      f6  -  null
   1d    63  -  "PCs"
-  21    c4  -  semantic  4
+  21    c5  -  semantic  5
   22      80  -  array: len 0
   23    68  -  "NilError"
   2c    f6  -  null
@@ -137,4 +139,37 @@ func TestAppenderCheck(t *testing.T) {
   23    ff  -  break
   24
 `, Dump(b), "%#v", s)
+}
+
+func TestBig(t *testing.T) {
+	var b []byte
+	var e Encoder
+
+	b = e.AppendValue(b, big.NewInt(123123123))
+
+	b = e.AppendValue(b, big.NewRat(12, 123123123))
+
+	b = e.AppendValue(b, big.NewFloat(0.123123123456456))
+
+	t.Logf("%s", Dump(b))
+
+	var d Decoder
+
+	var x1 big.Int
+	raw, i := d.BigInt(b, 0, &x1)
+	assert.Equal(t, []byte{0x7, 0x56, 0xb5, 0xb3}, raw)
+	assert.Equal(t, big.NewInt(123123123), &x1)
+
+	var x2 big.Rat
+	raw, raw2, i := d.BigRat(b, i, &x2)
+	assert.Equal(t, []byte{0x04}, raw)
+	assert.Equal(t, []byte{0x2, 0x72, 0x3c, 0x91}, raw2)
+	assert.Equal(t, big.NewRat(12, 123123123), &x2)
+
+	var x3 big.Float
+	raw, i = d.BigFloat(b, i, &x3)
+	assert.Equal(t, []byte("0.123123123456456"), raw)
+	assert.Equal(t, big.NewFloat(0.123123123456456).String(), x3.String())
+
+	assert.Equal(t, len(b), i)
 }

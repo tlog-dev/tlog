@@ -15,7 +15,7 @@ import (
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/wire"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type (
@@ -109,11 +109,11 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	case interface {
 		Fd() uintptr
 	}:
-		colorize = terminal.IsTerminal(int(f.Fd()))
+		colorize = term.IsTerminal(int(f.Fd()))
 	case interface {
 		Fd() int
 	}:
-		colorize = terminal.IsTerminal(f.Fd())
+		colorize = term.IsTerminal(f.Fd())
 	}
 
 	return &ConsoleWriter{

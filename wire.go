@@ -33,15 +33,23 @@ func AppendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 
 func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 	for i := 0; i < len(kvs); {
-		k, ok := kvs[i].(string)
-		if !ok {
-			k = "MISSING_KEY"
-		} else {
+		var k string
+
+		switch el := kvs[i].(type) {
+		case string:
+			k = el
+
 			if k == KeyAuto {
 				k = autoKey(kvs[i:])
 			}
 
 			i++
+		case RawMessage:
+			b = append(b, el...)
+			i++
+			continue
+		default:
+			k = "MISSING_KEY"
 		}
 
 		b = e.AppendString(b, wire.String, k)
@@ -214,6 +222,11 @@ func (x *Hex) TlogParse(d *wire.Decoder, p []byte, i int) int {
 	*x = Hex(v)
 
 	return i
+}
+
+func (x HexAny) TlogAppend(e *wire.Encoder, b []byte) []byte {
+	b = append(b, wire.Semantic|wire.Hex)
+	return e.AppendValue(b, x.X)
 }
 
 func (m Message) TlogAppend(e *wire.Encoder, b []byte) []byte {

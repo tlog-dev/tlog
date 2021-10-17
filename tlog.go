@@ -47,7 +47,10 @@ type (
 
 	LogLevel int
 
-	Hex int64
+	Hex    int64
+	HexAny struct {
+		X interface{}
+	}
 
 	FormatNext string
 

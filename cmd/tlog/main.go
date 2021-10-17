@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"debug/elf"
 	"encoding/hex"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/nikandfor/cli"
@@ -637,44 +635,6 @@ func (f *filereader) Read(p []byte) (n int, err error) {
 }
 
 func test(c *cli.Command) (err error) {
-	clickhouse.SetLogOutput(tlog.DefaultLogger.IOWriter(2))
-
-	db, err := sql.Open("clickhouse", "tcp://localhost:9000?debug=1")
-	if err != nil {
-		return errors.Wrap(err, "connect to clickhouse")
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "begin")
-	}
-	defer tx.Rollback()
-
-	s1, err := tx.Prepare("INSERT INTO tlog (t_time)")
-	if err != nil {
-		return errors.Wrap(err, "prepare 1")
-	}
-
-	s2, err := tx.Prepare("INSERT INTO tlog (L)")
-	if err != nil {
-		return errors.Wrap(err, "prepare 2")
-	}
-
-	_, err = s1.Exec(time.Now())
-	if err != nil {
-		return errors.Wrap(err, "exec 1")
-	}
-
-	_, err = s2.Exec([]string{"a=b", "c"})
-	if err != nil {
-		return errors.Wrap(err, "exec 2")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return errors.Wrap(err, "commit")
-	}
-
 	return nil
 }
 

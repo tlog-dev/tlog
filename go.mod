@@ -3,7 +3,6 @@ module github.com/nikandfor/tlog
 go 1.15
 
 require (
-	github.com/ClickHouse/clickhouse-go v1.4.3
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.7.2
 	github.com/kr/pretty v0.2.1 // indirect
@@ -14,8 +13,9 @@ require (
 	github.com/prometheus/client_golang v1.10.0
 	github.com/stretchr/testify v1.6.1
 	go.etcd.io/bbolt v1.3.5
-	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
 	golang.org/x/sys v0.0.0-20210326220804-49726bf1d181 // indirect
+	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	google.golang.org/protobuf v1.25.0 // indirect
 )
 
