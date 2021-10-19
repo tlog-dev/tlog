@@ -105,24 +105,7 @@ func (w TeeWriter) Close() (err error) {
 func (NopCloser) Close() error { return nil }
 
 func (c NopCloser) Fd() uintptr {
-	const ffff = ^uintptr(0)
-
-	if c.Writer == nil {
-		return ffff
-	}
-
-	switch f := c.Writer.(type) {
-	case interface {
-		Fd() uintptr
-	}:
-		return f.Fd()
-	case interface {
-		Fd() int
-	}:
-		return uintptr(f.Fd())
-	}
-
-	return ffff
+	return Fd(c.Writer)
 }
 
 func (w *CountableIODiscard) ReportDisk(b *testing.B) {
@@ -274,4 +257,25 @@ func (w *TailWriter) Flush() (err error) {
 	}
 
 	return nil
+}
+
+func Fd(f interface{}) uintptr {
+	const ffff = ^uintptr(0)
+
+	if f == nil {
+		return ffff
+	}
+
+	switch f := f.(type) {
+	case interface {
+		Fd() uintptr
+	}:
+		return f.Fd()
+	case interface {
+		Fd() int
+	}:
+		return uintptr(f.Fd())
+	}
+
+	return ffff
 }

@@ -10,8 +10,15 @@ const (
 	WireID
 	WireMessage
 	WireEventType
-
 	WireLogLevel
+
+	_
+	_
+	_
+	_
+	_
+
+	SemanticUserBase
 )
 
 var KeyAuto = ""

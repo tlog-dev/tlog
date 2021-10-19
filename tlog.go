@@ -63,7 +63,7 @@ type (
 		Args []interface{}
 	}
 
-	// for log.SetOutput(l) // stdlib.
+	// for like stdlib log.SetOutput(l)
 	writeWrapper struct {
 		Span
 

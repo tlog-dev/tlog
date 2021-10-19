@@ -15,6 +15,17 @@ type (
 	}
 
 	LowDecoder struct{}
+
+	BigType int
+)
+
+const (
+	BigNil BigType = iota
+	BigInt
+	BigRat
+	BigFloat
+
+	NotBig BigType = -1
 )
 
 func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
@@ -151,6 +162,27 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 	loc.SetCache(pc, name, file, line)
 
 	return
+}
+
+func (d *Decoder) BigWhich(p []byte, st int) BigType {
+	if p[st] != Semantic|Big {
+		return NotBig
+	}
+
+	tag, sub, _ := d.Tag(p, st+1)
+
+	switch {
+	case tag == Special && sub == Null:
+		return BigNil
+	case tag == Bytes || tag == Int || tag == Neg:
+		return BigInt
+	case tag == Array && sub == 2:
+		return BigRat
+	case tag == String:
+		return BigFloat
+	default:
+		return NotBig
+	}
 }
 
 func (d *Decoder) BigInt(p []byte, st int, x *big.Int) (raw []byte, i int) {

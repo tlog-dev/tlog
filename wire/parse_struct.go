@@ -14,7 +14,7 @@ type (
 	rawField struct {
 		Name       string
 		TagName    string
-		I          int
+		Idx        int
 		OmitEmpty  bool
 		Unexported bool
 		Embed      bool
@@ -45,7 +45,7 @@ func parseStruct(tp reflect.Type) (s *rawStruct) { //nolint:gocognit
 		f := tp.Field(i)
 
 		sf := rawField{
-			I:          i,
+			Idx:        i,
 			Unexported: f.PkgPath != "",
 		}
 

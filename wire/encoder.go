@@ -41,7 +41,7 @@ const (
 	_
 	_
 	_
-	LenBreak
+	LenBreak = Break
 )
 
 // Specials.
@@ -58,7 +58,7 @@ const (
 	_
 	_
 	_
-	Break
+	Break = 1<<5 - 1
 )
 
 // Semantics.
@@ -70,8 +70,8 @@ const (
 	Big
 
 	Caller
-	Hex
 	_
+	Hex
 	_
 	_
 
@@ -194,20 +194,37 @@ func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 
 func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
 	b = append(b, Semantic|Big)
+
+	if x == nil {
+		return append(b, Special|Null)
+	}
+
 	b = e.AppendStringBytes(b, Bytes, x.Bytes())
+
 	return b
 }
 
 func (e *Encoder) AppendBigRat(b []byte, x *big.Rat) []byte {
 	b = append(b, Semantic|Big)
+
+	if x == nil {
+		return append(b, Special|Null)
+	}
+
 	b = append(b, Array|2)
+
 	b = e.AppendStringBytes(b, Bytes, x.Num().Bytes())
 	b = e.AppendStringBytes(b, Bytes, x.Denom().Bytes())
+
 	return b
 }
 
 func (e *Encoder) AppendBigFloat(b []byte, x *big.Float) []byte {
 	b = append(b, Semantic|Big)
+
+	if x == nil {
+		return append(b, Special|Null)
+	}
 
 	b = append(b, String|0)
 

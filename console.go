@@ -104,17 +104,19 @@ var (
 )
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
-	var colorize bool
+	var fd int
 	switch f := w.(type) {
 	case interface {
 		Fd() uintptr
 	}:
-		colorize = term.IsTerminal(int(f.Fd()))
+		fd = int(f.Fd())
 	case interface {
 		Fd() int
 	}:
-		colorize = term.IsTerminal(f.Fd())
+		fd = f.Fd()
 	}
+
+	colorize := term.IsTerminal(fd)
 
 	return &ConsoleWriter{
 		Writer: w,

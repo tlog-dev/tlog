@@ -38,13 +38,18 @@ func init() {
 
 // called through linkname hack as appendValue from (*Encoder).AppendValue
 func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
-	if low.IsNil(v) {
+	if v == nil {
 		return append(b, Special|Null)
 	}
 
-	q, ok := e.appendSpecials(b, v)
-	if ok {
-		return q
+	// fast path
+	switch v := v.(type) {
+	case string:
+		return e.AppendString(b, String, v)
+	case int:
+		return e.AppendSigned(b, int64(v))
+	case float64:
+		return e.AppendFloat(b, v)
 	}
 
 	r := reflect.ValueOf(v)
@@ -57,17 +62,30 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 	ok = true
 
 	switch v := v.(type) {
-	case string:
-		b = e.AppendString(b, String, v)
-	case int:
-		b = e.AppendSigned(b, int64(v))
-	case float64:
-		b = e.AppendFloat(b, v)
+	case TlogAppender:
+		b = v.TlogAppend(e, b)
+
+	case error:
+		b = append(b, Semantic|Error)
+		b = e.AppendString(b, String, v.Error())
+	case *error: // nil error is not catched by prev case
+		b = append(b, Semantic|Error)
+		b = append(b, Special|Null)
 
 	case time.Time:
 		b = e.AppendTime(b, v)
+	case *time.Time:
+		b = e.AppendTime(b, *v)
 	case time.Duration:
 		b = e.AppendDuration(b, v)
+	case *time.Duration:
+		b = e.AppendDuration(b, *v)
+
+	case loc.PC:
+		b = e.AppendPC(b, v)
+	case loc.PCs:
+		b = e.AppendPCs(b, v)
+
 	case *big.Int:
 		b = e.AppendBigInt(b, v)
 	case *big.Rat:
@@ -75,16 +93,6 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 	case *big.Float:
 		b = e.AppendBigFloat(b, v)
 
-	case TlogAppender:
-		b = v.TlogAppend(e, b)
-	case loc.PC:
-		b = e.AppendPC(b, v)
-	case loc.PCs:
-		b = e.AppendPCs(b, v)
-
-	case error:
-		b = append(b, Semantic|Error)
-		b = e.AppendString(b, String, v.Error())
 	case fmt.Stringer:
 		b = e.AppendString(b, String, v.String())
 
@@ -95,52 +103,19 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 	return b, ok
 }
 
-func (e *Encoder) checkAppender(b []byte, r reflect.Value) []byte {
-	var v interface{}
-
-	if r.Kind() == reflect.Ptr {
-		v = r.Elem().Interface()
-	} else if r.CanAddr() {
-		v = r.Addr().Interface()
-	} else {
-		return nil
-	}
-
-	if a, ok := v.(TlogAppender); ok {
-		return a.TlogAppend(e, b)
-	}
-
-	return nil
-}
-
 func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit
-	//	var p uintptr
-	//	if r.Kind() == reflect.Ptr {
-	//		p = r.Pointer()
-	//	}
-	//	fmt.Fprintf(os.Stderr, "append raw %16v (canaddr %5v inter %5v) (vis %10x %v)  %v\n", r.Type(), r.CanAddr(), r.CanInterface(), p, visited, loc.Callers(1, 2))
-	//	fmt.Fprintf(os.Stderr, "append raw %16v (canaddr %5v inter %5v)  %v\n", r.Type(), r.CanAddr(), r.CanInterface(), loc.Callers(1, 2))
-
 	if r.CanInterface() {
-		v := r.Interface()
-
-		if a, ok := v.(TlogAppender); ok {
-			return a.TlogAppend(e, b)
-		}
-
-		if q, ok := e.appendSpecials(b, v); ok {
+		if q, ok := e.appendSpecials(b, r.Interface()); ok {
 			return q
 		}
 	}
 
-	if r.CanAddr() {
+	if r.Kind() != reflect.Ptr && r.CanAddr() {
 		a := r.Addr()
 
 		if a.CanInterface() {
-			v := a.Interface()
-
-			if a, ok := v.(TlogAppender); ok {
-				return a.TlogAppend(e, b)
+			if q, ok := e.appendSpecials(b, a.Interface()); ok {
+				return q
 			}
 		}
 	}
@@ -252,7 +227,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 	s := parseStruct(t)
 
 	for _, fc := range s.fs {
-		fv := r.Field(fc.I)
+		fv := r.Field(fc.Idx)
 
 		if fc.OmitEmpty && fv.IsZero() {
 			continue
@@ -267,12 +242,6 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 		}
 
 		b = e.AppendString(b, String, fc.Name)
-
-		if k := fv.Kind(); (k == reflect.Ptr || k == reflect.Interface) && fv.IsNil() {
-			b = append(b, Special|Null)
-
-			continue
-		}
 
 		if fc.Hex {
 			b = append(b, Semantic|Hex)

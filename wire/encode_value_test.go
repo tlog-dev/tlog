@@ -2,7 +2,9 @@ package wire
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,12 +51,13 @@ func TestSpecials(t *testing.T) {
   21    c5  -  semantic  5
   22      80  -  array: len 0
   23    68  -  "NilError"
-  2c    f6  -  null
-  2d    65  -  "Error"
-  33    c1  -  semantic  1
-  34      64  -  "some"
-  39    ff  -  break
-  3a
+  2c    c1  -  semantic  1
+  2d      f6  -  null
+  2e    65  -  "Error"
+  34    c1  -  semantic  1
+  35      64  -  "some"
+  3a    ff  -  break
+  3b
 `, Dump(b))
 }
 
@@ -155,10 +158,14 @@ func TestBig(t *testing.T) {
 
 	var d Decoder
 
+	assert.Equal(t, BigInt, d.BigWhich(b, 0))
+
 	var x1 big.Int
 	raw, i := d.BigInt(b, 0, &x1)
 	assert.Equal(t, []byte{0x7, 0x56, 0xb5, 0xb3}, raw)
 	assert.Equal(t, big.NewInt(123123123), &x1)
+
+	assert.Equal(t, BigRat, d.BigWhich(b, i))
 
 	var x2 big.Rat
 	raw, raw2, i := d.BigRat(b, i, &x2)
@@ -166,10 +173,154 @@ func TestBig(t *testing.T) {
 	assert.Equal(t, []byte{0x2, 0x72, 0x3c, 0x91}, raw2)
 	assert.Equal(t, big.NewRat(12, 123123123), &x2)
 
+	assert.Equal(t, BigFloat, d.BigWhich(b, i))
+
 	var x3 big.Float
 	raw, i = d.BigFloat(b, i, &x3)
 	assert.Equal(t, []byte("0.123123123456456"), raw)
 	assert.Equal(t, big.NewFloat(0.123123123456456).String(), x3.String())
 
 	assert.Equal(t, len(b), i)
+
+}
+
+func TestTypeSwitch(t *testing.T) {
+	q := 0
+
+	if _, ok := ((interface{})(time.Time{})).(fmt.Stringer); ok {
+		t.Logf("time.Time is fmt.Stringer")
+		q++
+	}
+
+	if _, ok := ((interface{})(&time.Time{})).(fmt.Stringer); ok {
+		t.Logf("*time.Time is fmt.Stringer")
+		q++
+	}
+
+	if _, ok := ((interface{})(big.Int{})).(fmt.Stringer); !ok {
+		t.Logf("big.Int is NOT fmt.Stringer")
+		q++
+	}
+
+	if _, ok := ((interface{})(&big.Int{})).(fmt.Stringer); ok {
+		t.Logf("*big.Int is fmt.Stringer")
+		q++
+	}
+
+	if q != 4 {
+		t.Fail()
+	}
+}
+
+type benchVal struct {
+	Time  time.Time
+	Time2 *time.Time
+
+	BigInt  big.Int
+	BigInt2 *big.Int
+
+	BigFloat  big.Float
+	BigFloat2 *big.Float
+
+	PC loc.PC
+
+	Err    error
+	Err2   error
+	Interf interface{}
+
+	Str  strings.Builder
+	Str2 *strings.Builder
+}
+
+func mkTestRaw() benchVal {
+	v := benchVal{
+		Time: time.Now(),
+		PC:   loc.Caller(0),
+		Err:  errors.New("error"),
+	}
+
+	v.Time2 = &v.Time
+
+	//	v.BigInt.SetInt64(1000000000)
+	//	v.BigInt2 = &v.BigInt
+
+	//	v.BigFloat.SetInt64(1000000000)
+	//	v.BigFloat2 = &v.BigFloat
+
+	v.Str.WriteString("string builder")
+	v.Str2 = &strings.Builder{}
+	v.Str2.WriteString("second stringer")
+
+	return v
+}
+
+func TestAppendRawTestStruct(t *testing.T) {
+	var e Encoder
+
+	v := mkTestRaw()
+
+	buf := e.AppendValue(nil, &v)
+
+	t.Logf("%s", Dump(buf))
+}
+
+func BenchmarkAppendRawInt(b *testing.B) {
+	b.ReportAllocs()
+
+	var buf []byte
+	var e Encoder
+
+	for i := 0; i < b.N; i++ {
+		buf = e.AppendValue(buf[:0], 1)
+	}
+}
+
+func BenchmarkAppendRawInt64(b *testing.B) {
+	b.ReportAllocs()
+
+	var buf []byte
+	var e Encoder
+
+	for i := 0; i < b.N; i++ {
+		buf = e.AppendValue(buf[:0], int64(1))
+	}
+}
+
+func BenchmarkAppendRawString(b *testing.B) {
+	b.ReportAllocs()
+
+	var buf []byte
+	var e Encoder
+
+	type S string
+
+	for i := 0; i < b.N; i++ {
+		buf = e.AppendValue(buf[:0], S("qweqwe"))
+	}
+}
+
+func BenchmarkAppendRawTime(b *testing.B) {
+	b.ReportAllocs()
+
+	var buf []byte
+	var e Encoder
+
+	tm := time.Now()
+
+	for i := 0; i < b.N; i++ {
+		buf = e.AppendValue(buf[:0], tm)
+	}
+}
+
+func BenchmarkAppendRawTimePtr(b *testing.B) {
+	b.ReportAllocs()
+
+	var buf []byte
+	var e Encoder
+
+	tm := time.Now()
+
+	for i := 0; i < b.N; i++ {
+		buf = e.AppendValue(buf[:0], &tm)
+	}
 }
