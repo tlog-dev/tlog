@@ -16,7 +16,7 @@ type (
 
 	LowDecoder struct{}
 
-	BigType int
+	BigType int8
 )
 
 const (
@@ -170,6 +170,10 @@ func (d *Decoder) BigWhich(p []byte, st int) BigType {
 	}
 
 	tag, sub, _ := d.Tag(p, st+1)
+
+	if tag == Semantic {
+		return BigType(sub)
+	}
 
 	switch {
 	case tag == Special && sub == Null:

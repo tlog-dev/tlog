@@ -199,7 +199,30 @@ func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
 		return append(b, Special|Null)
 	}
 
-	b = e.AppendStringBytes(b, Bytes, x.Bytes())
+	if false {
+		return e.AppendStringBytes(b, Bytes, x.Bytes())
+	}
+
+	return e.appendBigInt(b, x)
+}
+
+func (e *Encoder) appendBigInt(b []byte, x *big.Int) []byte {
+	if x.IsUint64() {
+		return e.AppendInt(b, Int, x.Uint64())
+	}
+
+	if x.IsInt64() {
+		return e.AppendSigned(b, x.Int64())
+	}
+
+	b = append(b, Semantic|byte(BigInt))
+	b = append(b, String|0)
+
+	st := len(b)
+	b = x.Append(b, 10)
+	l := len(b) - st
+
+	b = e.InsertLen(b, st, l)
 
 	return b
 }
@@ -211,10 +234,21 @@ func (e *Encoder) AppendBigRat(b []byte, x *big.Rat) []byte {
 		return append(b, Special|Null)
 	}
 
+	if false {
+		b = append(b, Array|2)
+
+		b = e.AppendStringBytes(b, Bytes, x.Num().Bytes())
+		b = e.AppendStringBytes(b, Bytes, x.Denom().Bytes())
+	}
+
+	if x.IsInt() {
+		return e.appendBigInt(b, x.Num())
+	}
+
 	b = append(b, Array|2)
 
-	b = e.AppendStringBytes(b, Bytes, x.Num().Bytes())
-	b = e.AppendStringBytes(b, Bytes, x.Denom().Bytes())
+	b = e.appendBigInt(b, x.Num())
+	b = e.appendBigInt(b, x.Denom())
 
 	return b
 }
@@ -226,6 +260,11 @@ func (e *Encoder) AppendBigFloat(b []byte, x *big.Float) []byte {
 		return append(b, Special|Null)
 	}
 
+	if v, a := x.Float64(); a == big.Exact {
+		return e.AppendFloat(b, v)
+	}
+
+	b = append(b, Semantic|byte(BigFloat))
 	b = append(b, String|0)
 
 	st := len(b)
@@ -318,6 +357,10 @@ func (e *LowEncoder) AppendSigned(b []byte, v int64) []byte {
 	}
 
 	return e.AppendInt(b, Int, uint64(v))
+}
+
+func (e *LowEncoder) AppendUnsigned(b []byte, v uint64) []byte {
+	return e.AppendInt(b, Int, v)
 }
 
 func (e *LowEncoder) AppendInt(b []byte, tag byte, v uint64) []byte {
