@@ -3,8 +3,26 @@ package tlog
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
+	"sync"
 	"testing"
 )
+
+func testRandID(seed int64) func() ID {
+	var mu sync.Mutex
+	rnd := rand.New(rand.NewSource(seed))
+
+	return func() (id ID) {
+		defer mu.Unlock()
+		mu.Lock()
+
+		for id == (ID{}) {
+			_, _ = rnd.Read(id[:])
+		}
+
+		return
+	}
+}
 
 func BenchmarkIDFormat(b *testing.B) {
 	b.ReportAllocs()

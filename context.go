@@ -11,9 +11,10 @@ type (
 )
 
 func ContextWithLogger(ctx context.Context, l *Logger) context.Context {
-	if l == nil {
+	if l == nil && LoggerFromContext(ctx) == nil {
 		return ctx
 	}
+
 	return context.WithValue(ctx, ctxloggerkey{}, l)
 }
 
@@ -46,7 +47,7 @@ func LoggerOrDefaultFromContext(ctx context.Context) (l *Logger) {
 // ContextWithID creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
 func ContextWithID(ctx context.Context, id ID) context.Context {
-	if id == (ID{}) {
+	if id == (ID{}) && IDFromContext(ctx) == (ID{}) {
 		return ctx
 	}
 	return context.WithValue(ctx, ctxidkey{}, id)
@@ -77,9 +78,10 @@ func ContextWithIDOrRandom(ctx context.Context, id ID) context.Context {
 // ContextWithSpan creates new context with Span ID context.Value.
 // It returns the same context if id is zero.
 func ContextWithSpan(ctx context.Context, s Span) context.Context {
-	if s.Logger == nil {
+	if s.Logger == nil && SpanFromContext(ctx) == (Span{}) {
 		return ctx
 	}
+
 	return context.WithValue(ctx, ctxspankey{}, s)
 }
 

@@ -1,6 +1,3 @@
-// TODO
-// +build ignore
-
 package tlog
 
 import (
@@ -8,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/nikandfor/tlog/low"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,14 +15,14 @@ func TestContextWithID(t *testing.T) {
 	}(DefaultLogger)
 
 	var buf bytes.Buffer
-	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
-	DefaultLogger.NewID = testRandID()
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+	DefaultLogger.NewID = testRandID(1)
 
 	ctx := ContextWithID(context.Background(), ID{})
-	tr := SpawnFromContext(ctx)
+	tr := SpawnFromContext(ctx, "spawn_1")
 	assert.Zero(t, tr)
 
-	tr = SpawnFromContextOrStart(ctx)
+	tr = SpawnOrStartFromContext(ctx, "spawn_or_start_1")
 	assert.NotZero(t, tr.ID)
 
 	//
@@ -35,29 +33,29 @@ func TestContextWithID(t *testing.T) {
 
 	assert.Equal(t, id, res)
 
-	tr = SpawnFromContext(ctx)
+	tr = SpawnFromContext(ctx, "spawn_2")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, `0194fdc2  Span started
-6e4ff95f  Span spawned from 0a140000
+		assert.Equal(t, `spawn_or_start_1              s=52fdfc07  T=s
+spawn_2                       s=9566c74d  T=s  p=0a140000
 `, buf.String())
 	}
 
 	//
 	DefaultLogger = nil
 
-	tr = SpawnFromContext(ctx)
+	tr = SpawnFromContext(ctx, "spawn_3")
 	assert.Zero(t, tr)
 
-	tr = SpawnFromContextOrStart(ctx)
+	tr = SpawnOrStartFromContext(ctx, "spawn_or_start_2")
 	assert.Zero(t, tr)
 }
 
 func TestContextWithSpan(t *testing.T) {
-	var buf, bufl bufWriter
-	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
-	DefaultLogger.NewID = testRandID()
+	var buf, bufl low.Buf
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+	DefaultLogger.NewID = testRandID(2)
 
-	l := New(NewConsoleWriter(&bufl, Lspans))
+	l := New(NewConsoleWriter(&bufl, 0))
 	l.NewID = DefaultLogger.NewID
 
 	id := ID{10, 20}
@@ -72,9 +70,9 @@ func TestContextWithSpan(t *testing.T) {
 	res := IDFromContext(ctx)
 	assert.Equal(t, id, res)
 
-	tr = SpawnFromContext(ctx)
+	tr = SpawnFromContext(ctx, "spawn_1")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "0194fdc2  Span spawned from 0a140000\n", string(buf))
+		assert.Equal(t, "spawn_1                       s=2f8282cb  T=s  p=0a140000\n", string(buf))
 	}
 
 	//
@@ -99,16 +97,16 @@ func TestContextWithSpan(t *testing.T) {
 	trr = SpanFromContext(ctx)
 	assert.Equal(t, tr, trr)
 
-	tr = SpawnFromContext(ctx)
+	tr = SpawnFromContext(ctx, "spawn_2")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "6e4ff95f  Span spawned from 0a140000\n", string(bufl))
+		assert.Equal(t, "spawn_2                       s=d967dc28  T=s  p=0a140000\n", string(bufl))
 	}
 
 	bufl = bufl[:0]
 
-	tr = SpawnFromContextOrStart(ctx)
+	tr = SpawnOrStartFromContext(ctx, "spawn_or_start_1")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "fb180daf  Span spawned from 0a140000\n", string(bufl))
+		assert.Equal(t, "spawn_or_start_1              s=686ba0dc  T=s  p=0a140000\n", string(bufl))
 	}
 }
 
@@ -118,8 +116,8 @@ func TestContextWithRandom(t *testing.T) {
 	}(DefaultLogger)
 
 	var buf bytes.Buffer
-	DefaultLogger = New(NewConsoleWriter(&buf, Lspans))
-	DefaultLogger.NewID = testRandID()
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+	DefaultLogger.NewID = testRandID(3)
 
 	id := ID{10, 20}
 
@@ -140,4 +138,38 @@ func TestContextWithRandom(t *testing.T) {
 
 	ctx = ContextWithRandomID(context.Background())
 	assert.Equal(t, context.Background(), ctx)
+}
+
+func TestContextResetSpan(t *testing.T) {
+	defer func(old *Logger) {
+		DefaultLogger = old
+	}(DefaultLogger)
+
+	var buf bytes.Buffer
+	DefaultLogger = New(NewConsoleWriter(&buf, 0))
+	DefaultLogger.NewID = testRandID(3)
+
+	tr := Start("root")
+
+	ctx := ContextWithSpan(context.Background(), tr)
+
+	//
+	ctx2 := ContextWithSpan(ctx, tr.V("nope"))
+
+	tr2 := SpawnFromContext(ctx2, "spawn")
+	assert.Zero(t, tr2)
+
+	t.Skip("not specified")
+
+	//
+	ctx2 = ContextWithID(ctx, (ID{}))
+
+	tr2 = SpawnFromContext(ctx2, "spawn")
+	assert.NotZero(t, tr2)
+
+	//
+	ctx2 = ContextWithLogger(ctx, (*Logger)(nil))
+
+	tr2 = SpawnFromContext(ctx2, "spawn")
+	assert.NotZero(t, tr2)
 }
