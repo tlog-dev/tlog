@@ -183,7 +183,7 @@ func (w *Writer) Write(p []byte) (i int, err error) {
 				switch sub {
 				case wire.False, wire.True:
 					ktp = append(ktp, wire.Special|wire.False)
-				case wire.Null, wire.Undefined:
+				case wire.Nil, wire.Undefined:
 					ktp = append(ktp, p[st:tpi]...)
 				case wire.Float8, wire.Float16, wire.Float32, wire.Float64:
 					ktp = append(ktp, wire.Special|wire.Float64)

@@ -259,7 +259,7 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 			b = append(b, "false"...)
 		case wire.True:
 			b = append(b, "true"...)
-		case wire.Null, wire.Undefined:
+		case wire.Nil, wire.Undefined:
 			b = append(b, "null"...)
 		case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
 			var f float64

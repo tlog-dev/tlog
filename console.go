@@ -703,7 +703,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			b = append(b, "false"...)
 		case wire.True:
 			b = append(b, "true"...)
-		case wire.Null:
+		case wire.Nil:
 			b = append(b, "<nil>"...)
 		case wire.Undefined:
 			b = append(b, "<undef>"...)

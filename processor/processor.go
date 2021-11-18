@@ -80,6 +80,10 @@ func (w *Writer) Write(p []byte) (i int, err error) {
 				if span == string(name) {
 					w.id[sid] = 0
 				}
+
+				if l := len(span); l <= len(tlog.ID{})*2 && sid.StringFull()[:l] == span {
+					w.id[sid] = 0
+				}
 			}
 		}
 

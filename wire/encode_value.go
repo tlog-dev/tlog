@@ -39,7 +39,7 @@ func init() {
 // called through linkname hack as appendValue from (*Encoder).AppendValue
 func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	if v == nil {
-		return append(b, Special|Null)
+		return append(b, Special|Nil)
 	}
 
 	// fast path
@@ -70,7 +70,7 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 		b = e.AppendString(b, String, v.Error())
 	case *error: // nil error is not catched by prev case
 		b = append(b, Semantic|Error)
-		b = append(b, Special|Null)
+		b = append(b, Special|Nil)
 
 	case time.Time:
 		b = e.AppendTime(b, v)
@@ -131,7 +131,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		return e.AppendFloat(b, r.Float())
 	case reflect.Ptr, reflect.Interface:
 		if r.IsNil() {
-			return append(b, Special|Null)
+			return append(b, Special|Nil)
 		}
 
 		if r.Kind() == reflect.Ptr {

@@ -108,6 +108,8 @@ func autoKey(kvs []interface{}) (k string) {
 		k = KeyLabels
 	case loc.PC:
 		k = KeyCaller
+	case loc.PCs:
+		k = KeyCaller
 	default:
 		k = "UNSUPPORTED_AUTO_KEY"
 	}

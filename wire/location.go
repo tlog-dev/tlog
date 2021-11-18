@@ -30,7 +30,7 @@ func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
 
 func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 	if pc == 0 {
-		return append(b, Special|Null)
+		return append(b, Special|Nil)
 	}
 
 	locmu.Lock()

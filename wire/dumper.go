@@ -125,7 +125,7 @@ func (d *Dumper) dump(p []byte, st, depth int) (i int) {
 			d.b = low.AppendPrintf(d.b, "false\n")
 		case True:
 			d.b = low.AppendPrintf(d.b, "true\n")
-		case Null:
+		case Nil:
 			d.b = low.AppendPrintf(d.b, "null\n")
 		case Undefined:
 			d.b = low.AppendPrintf(d.b, "undefined\n")

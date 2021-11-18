@@ -48,7 +48,7 @@ const (
 const (
 	False = 20 + iota
 	True
-	Null
+	Nil
 	Undefined
 
 	Float8
@@ -88,6 +88,10 @@ func (e *Encoder) AppendArray(b []byte, l int) []byte {
 
 func (e *Encoder) AppendBreak(b []byte) []byte {
 	return append(b, Special|Break)
+}
+
+func (e *Encoder) AppendNil(b []byte) []byte {
+	return append(b, Special|Nil)
 }
 
 func (e *Encoder) AppendKey(b []byte, k string) []byte {
@@ -168,7 +172,7 @@ func (e *Encoder) AppendError(b []byte, err error) []byte {
 	b = append(b, Semantic|Error)
 
 	if err == nil {
-		return append(b, Special|Null)
+		return append(b, Special|Nil)
 	}
 
 	return e.AppendString(b, String, err.Error())
@@ -196,7 +200,7 @@ func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
 	b = append(b, Semantic|Big)
 
 	if x == nil {
-		return append(b, Special|Null)
+		return append(b, Special|Nil)
 	}
 
 	if false {
@@ -231,7 +235,7 @@ func (e *Encoder) AppendBigRat(b []byte, x *big.Rat) []byte {
 	b = append(b, Semantic|Big)
 
 	if x == nil {
-		return append(b, Special|Null)
+		return append(b, Special|Nil)
 	}
 
 	if false {
@@ -257,7 +261,7 @@ func (e *Encoder) AppendBigFloat(b []byte, x *big.Float) []byte {
 	b = append(b, Semantic|Big)
 
 	if x == nil {
-		return append(b, Special|Null)
+		return append(b, Special|Nil)
 	}
 
 	if v, a := x.Float64(); a == big.Exact {

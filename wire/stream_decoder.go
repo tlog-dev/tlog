@@ -128,7 +128,7 @@ func (d *StreamDecoder) skip(st int) (i int) {
 		switch sub {
 		case False,
 			True,
-			Null,
+			Nil,
 			Undefined,
 			Break:
 		case Float8:

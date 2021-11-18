@@ -130,6 +130,8 @@ func New(w io.Writer) *Logger {
 	return l
 }
 
+func Root() Span { return Span{Logger: DefaultLogger} }
+
 func newmessage(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	if l == nil {
 		return

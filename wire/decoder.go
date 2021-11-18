@@ -58,7 +58,7 @@ func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 		return d.caller(p, st+1)
 	}
 
-	if tag == Special && sub == Null {
+	if tag == Special && sub == Nil {
 		return
 	}
 
@@ -176,7 +176,7 @@ func (d *Decoder) BigWhich(p []byte, st int) BigType {
 	}
 
 	switch {
-	case tag == Special && sub == Null:
+	case tag == Special && sub == Nil:
 		return BigNil
 	case tag == Bytes || tag == Int || tag == Neg:
 		return BigInt
@@ -296,7 +296,7 @@ func (d *LowDecoder) SkipTag(b []byte, st int) (tag byte, sub int64, i int) {
 		switch sub {
 		case False,
 			True,
-			Null,
+			Nil,
 			Undefined,
 			Break:
 		case Float8:
