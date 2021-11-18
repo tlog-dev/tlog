@@ -70,7 +70,7 @@ func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 		case string:
 			b = e.AppendString(b, wire.String, v)
 		case int:
-			b = e.AppendSigned(b, int64(v))
+			b = e.AppendInt(b, v)
 		case FormatNext:
 			i++
 			if i == len(kvs) {
@@ -142,7 +142,7 @@ func (id *ID) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 func (l LogLevel) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = append(b, wire.Semantic|WireLogLevel)
-	return e.AppendSigned(b, int64(l))
+	return e.AppendInt(b, int(l))
 }
 
 func (l *LogLevel) TlogParse(d *wire.Decoder, p []byte, i int) int {
@@ -216,7 +216,7 @@ func (ls *Labels) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 func (x Hex) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = append(b, wire.Semantic|wire.Hex)
-	return e.AppendInt(b, wire.Int, uint64(x))
+	return e.AppendInt64(b, int64(x))
 }
 
 func (x *Hex) TlogParse(d *wire.Decoder, p []byte, i int) int {
@@ -259,7 +259,7 @@ func (m *Message) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 func (ts Timestamp) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = append(b, wire.Semantic|wire.Time)
-	return e.AppendInt(b, wire.Int, uint64(ts))
+	return e.AppendInt64(b, int64(ts))
 }
 
 func (ts *Timestamp) TlogParse(d *wire.Decoder, p []byte, i int) int {
@@ -269,7 +269,7 @@ func (ts *Timestamp) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 	i++
 
-	v, i := d.Int(p, i)
+	v, i := d.Signed(p, i)
 
 	*ts = Timestamp(v)
 

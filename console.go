@@ -610,7 +610,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 	switch tag {
 	case wire.Int, wire.Neg:
 		var v uint64
-		v, i = w.d.Int(p, st)
+		v, i = w.d.Unsigned(p, st)
 
 		base := 10
 		if tag == wire.Neg {
@@ -734,8 +734,8 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			}
 			b = t.AppendFormat(b, w.TimeFormat)
 		case wire.Duration:
-			var v uint64
-			v, i = w.d.Int(p, i)
+			var v int64
+			v, i = w.d.Signed(p, i)
 
 			switch {
 			case w.DurationFormat != "" && w.DurationDiv != 0:

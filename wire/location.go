@@ -53,7 +53,7 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 	b = append(b, Map|l)
 
 	b = e.AppendString(b, String, "p")
-	b = e.AppendInt(b, Int, uint64(pc))
+	b = e.AppendUint64(b, uint64(pc))
 
 	name, file, line := pc.NameFileLine()
 
@@ -64,11 +64,11 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 	b = e.AppendString(b, String, file)
 
 	b = e.AppendString(b, String, "l")
-	b = e.AppendSigned(b, int64(line))
+	b = e.AppendInt(b, line)
 
 	if fe != pc {
 		b = e.AppendString(b, String, "e")
-		b = e.AppendInt(b, Int, uint64(fe))
+		b = e.AppendUint64(b, uint64(fe))
 	}
 
 	c = make([]byte, len(b)-st)

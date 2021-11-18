@@ -96,7 +96,7 @@ type A2 int
 func (a A1) TlogAppend(e *Encoder, b []byte) []byte {
 	b = e.AppendMap(b, 1)
 
-	b = e.AppendKeyInt(b, "a", int64(a))
+	b = e.AppendKeyInt(b, "a", int(a))
 
 	return b
 }
@@ -104,7 +104,7 @@ func (a A1) TlogAppend(e *Encoder, b []byte) []byte {
 func (a *A2) TlogAppend(e *Encoder, b []byte) []byte {
 	b = e.AppendMap(b, 1)
 
-	b = e.AppendKeyInt(b, "b", int64(*a))
+	b = e.AppendKeyInt(b, "b", int(*a))
 
 	return b
 }

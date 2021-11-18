@@ -110,15 +110,27 @@ func (e *Encoder) AppendKeyBytes(b []byte, k string, v []byte) []byte {
 	return b
 }
 
-func (e *Encoder) AppendKeyInt(b []byte, k string, v int64) []byte {
+func (e *Encoder) AppendKeyInt(b []byte, k string, v int) []byte {
 	b = e.AppendString(b, String, k)
-	b = e.AppendSigned(b, v)
+	b = e.AppendInt(b, v)
 	return b
 }
 
-func (e *Encoder) AppendKeyUint(b []byte, k string, v uint64) []byte {
+func (e *Encoder) AppendKeyUint(b []byte, k string, v uint) []byte {
 	b = e.AppendString(b, String, k)
-	b = e.AppendInt(b, Int, v)
+	b = e.AppendUint(b, v)
+	return b
+}
+
+func (e *Encoder) AppendKeyInt64(b []byte, k string, v int64) []byte {
+	b = e.AppendString(b, String, k)
+	b = e.AppendInt64(b, v)
+	return b
+}
+
+func (e *Encoder) AppendKeyUint64(b []byte, k string, v uint64) []byte {
+	b = e.AppendString(b, String, k)
+	b = e.AppendUint64(b, v)
 	return b
 }
 
@@ -180,19 +192,19 @@ func (e *Encoder) AppendError(b []byte, err error) []byte {
 
 func (e *Encoder) AppendTime(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
-	b = e.AppendInt(b, Int, uint64(t.UnixNano()))
+	b = e.AppendTagInt(b, Int, uint64(t.UnixNano()))
 	return b
 }
 
 func (e *Encoder) AppendTimestamp(b []byte, t int64) []byte {
 	b = append(b, Semantic|Time)
-	b = e.AppendInt(b, Int, uint64(t))
+	b = e.AppendInt64(b, t)
 	return b
 }
 
 func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 	b = append(b, Semantic|Duration)
-	b = e.AppendInt(b, Int, uint64(d.Nanoseconds()))
+	b = e.AppendInt64(b, d.Nanoseconds())
 	return b
 }
 
@@ -212,11 +224,11 @@ func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
 
 func (e *Encoder) appendBigInt(b []byte, x *big.Int) []byte {
 	if x.IsUint64() {
-		return e.AppendInt(b, Int, x.Uint64())
+		return e.AppendUint64(b, x.Uint64())
 	}
 
 	if x.IsInt64() {
-		return e.AppendSigned(b, x.Int64())
+		return e.AppendInt64(b, x.Int64())
 	}
 
 	b = append(b, Semantic|byte(BigInt))
@@ -355,19 +367,31 @@ func (e *LowEncoder) AppendTag(b []byte, tag byte, v int64) []byte {
 	}
 }
 
-func (e *LowEncoder) AppendSigned(b []byte, v int64) []byte {
+func (e *LowEncoder) AppendInt(b []byte, v int) []byte {
 	if v < 0 {
-		return e.AppendInt(b, Neg, uint64(-v))
+		return e.AppendTagInt(b, Neg, uint64(-v))
 	}
 
-	return e.AppendInt(b, Int, uint64(v))
+	return e.AppendTagInt(b, Int, uint64(v))
 }
 
-func (e *LowEncoder) AppendUnsigned(b []byte, v uint64) []byte {
-	return e.AppendInt(b, Int, v)
+func (e *LowEncoder) AppendUint(b []byte, v uint) []byte {
+	return e.AppendTagInt(b, Int, uint64(v))
 }
 
-func (e *LowEncoder) AppendInt(b []byte, tag byte, v uint64) []byte {
+func (e *LowEncoder) AppendInt64(b []byte, v int64) []byte {
+	if v < 0 {
+		return e.AppendTagInt(b, Neg, uint64(-v))
+	}
+
+	return e.AppendTagInt(b, Int, uint64(v))
+}
+
+func (e *LowEncoder) AppendUint64(b []byte, v uint64) []byte {
+	return e.AppendTagInt(b, Int, v)
+}
+
+func (e *LowEncoder) AppendTagInt(b []byte, tag byte, v uint64) []byte {
 	switch {
 	case v < Len1:
 		return append(b, tag|byte(v))

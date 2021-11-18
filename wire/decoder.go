@@ -135,11 +135,11 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 
 		switch string(k) {
 		case "p":
-			v, i = d.Int(p, i)
+			v, i = d.Unsigned(p, i)
 
 			pc = loc.PC(v)
 		case "l":
-			v, i = d.Int(p, i)
+			v, i = d.Unsigned(p, i)
 
 			line = int(v)
 		case "n":
@@ -275,7 +275,7 @@ func (d *LowDecoder) SkipTag(b []byte, st int) (tag byte, sub int64, i int) {
 
 	switch tag {
 	case Int, Neg:
-		_, i = d.Int(b, st)
+		_, i = d.Unsigned(b, st)
 	case String, Bytes:
 		_, i = d.String(b, st)
 	case Array, Map:
@@ -405,7 +405,7 @@ func (d *LowDecoder) Signed(b []byte, st int) (v int64, i int) {
 	return
 }
 
-func (d *LowDecoder) Int(b []byte, st int) (v uint64, i int) {
+func (d *LowDecoder) Unsigned(b []byte, st int) (v uint64, i int) {
 	i = st
 
 	v = uint64(b[i]) & TagDetMask

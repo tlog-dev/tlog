@@ -109,8 +109,10 @@ func (w *Writer) value(p []byte) {
 			}
 
 			switch tag {
-			case wire.Int, wire.Neg:
-				val, i = w.d.Int(p, i)
+			case wire.Int:
+				val, i = w.d.Unsigned(p, i)
+			case wire.Neg:
+				val, i = w.d.Signed(p, i)
 			case wire.Special:
 				switch sub {
 				case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
@@ -128,8 +130,10 @@ func (w *Writer) value(p []byte) {
 		switch tag {
 		case wire.String:
 			s, i = w.d.String(p, i)
-		case wire.Int, wire.Neg:
-			v, i = w.d.Int(p, i)
+		case wire.Int:
+			v, i = w.d.Unsigned(p, i)
+		case wire.Neg:
+			v, i = w.d.Signed(p, i)
 		case wire.Special:
 			switch sub {
 			case wire.Float64, wire.Float32, wire.Float16, wire.Float8:

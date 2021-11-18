@@ -47,7 +47,7 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	case string:
 		return e.AppendString(b, String, v)
 	case int:
-		return e.AppendSigned(b, int64(v))
+		return e.AppendInt(b, v)
 	case float64:
 		return e.AppendFloat(b, v)
 	}
@@ -124,9 +124,9 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	case reflect.String:
 		return e.AppendString(b, String, r.String())
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		return e.AppendSigned(b, r.Int())
+		return e.AppendInt64(b, r.Int())
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		return e.AppendInt(b, Int, r.Uint())
+		return e.AppendTagInt(b, Int, r.Uint())
 	case reflect.Float64, reflect.Float32:
 		return e.AppendFloat(b, r.Float())
 	case reflect.Ptr, reflect.Interface:
@@ -200,10 +200,10 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		return append(b, Special|Undefined)
 	case reflect.Uintptr:
 		b = append(b, Semantic|Hex)
-		return e.AppendInt(b, Int, r.Uint())
+		return e.AppendTagInt(b, Int, r.Uint())
 	case reflect.UnsafePointer:
 		b = append(b, Semantic|Hex)
-		return e.AppendInt(b, Int, uint64(r.Pointer()))
+		return e.AppendTagInt(b, Int, uint64(r.Pointer()))
 	default:
 		panic(r)
 	}
