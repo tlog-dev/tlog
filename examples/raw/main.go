@@ -36,7 +36,7 @@ func main() {
 	tlog.Printw("raw kv pair", tlog.RawMessage(kvs))
 
 	// pre encode value
-	val1 := e.AppendString(nil, wire.String, "_value_")
+	val1 := e.AppendString(nil, "_value_")
 
 	tlog.Printw("raw value", "raw_value", tlog.RawMessage(val1))
 
@@ -50,6 +50,6 @@ func main() {
 
 func (x ValueEncoder) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = e.AppendTag(b, wire.Semantic, wire.Hex)
-	b = e.AppendStringBytes(b, wire.Bytes, x.b)
+	b = e.AppendBytes(b, x.b)
 	return b
 }

@@ -52,22 +52,22 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 
 	b = append(b, Map|l)
 
-	b = e.AppendString(b, String, "p")
+	b = e.AppendString(b, "p")
 	b = e.AppendUint64(b, uint64(pc))
 
 	name, file, line := pc.NameFileLine()
 
-	b = e.AppendString(b, String, "n")
-	b = e.AppendString(b, String, name)
+	b = e.AppendString(b, "n")
+	b = e.AppendString(b, name)
 
-	b = e.AppendString(b, String, "f")
-	b = e.AppendString(b, String, file)
+	b = e.AppendString(b, "f")
+	b = e.AppendString(b, file)
 
-	b = e.AppendString(b, String, "l")
+	b = e.AppendString(b, "l")
 	b = e.AppendInt(b, line)
 
 	if fe != pc {
-		b = e.AppendString(b, String, "e")
+		b = e.AppendString(b, "e")
 		b = e.AppendUint64(b, uint64(fe))
 	}
 

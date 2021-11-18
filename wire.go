@@ -59,7 +59,7 @@ func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 			k = "MISSING_KEY"
 		}
 
-		b = e.AppendString(b, wire.String, k)
+		b = e.AppendString(b, k)
 
 		if i == len(kvs) {
 			b = append(b, wire.Special|wire.Undefined)
@@ -68,7 +68,7 @@ func appendKVs(e *wire.Encoder, b []byte, kvs []interface{}) []byte {
 
 		switch v := kvs[i].(type) {
 		case string:
-			b = e.AppendString(b, wire.String, v)
+			b = e.AppendString(b, v)
 		case int:
 			b = e.AppendInt(b, v)
 		case FormatNext:
@@ -119,7 +119,7 @@ func autoKey(kvs []interface{}) (k string) {
 
 func (id ID) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = append(b, wire.Semantic|WireID)
-	return e.AppendStringBytes(b, wire.Bytes, id[:])
+	return e.AppendBytes(b, id[:])
 }
 
 func (id *ID) TlogParse(d *wire.Decoder, p []byte, i int) int {
@@ -161,7 +161,7 @@ func (l *LogLevel) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 func (et EventType) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = append(b, wire.Semantic|WireEventType)
-	return e.AppendString(b, wire.String, string(et))
+	return e.AppendString(b, string(et))
 }
 
 func (e *EventType) TlogParse(d *wire.Decoder, p []byte, i int) int {
@@ -187,7 +187,7 @@ func (ls Labels) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = e.AppendArray(b, len(ls))
 
 	for _, l := range ls {
-		b = e.AppendString(b, wire.String, l)
+		b = e.AppendString(b, l)
 	}
 
 	return b
@@ -240,7 +240,7 @@ func (x HexAny) TlogAppend(e *wire.Encoder, b []byte) []byte {
 
 func (m Message) TlogAppend(e *wire.Encoder, b []byte) []byte {
 	b = append(b, wire.Semantic|WireMessage)
-	return e.AppendString(b, wire.String, string(m))
+	return e.AppendString(b, string(m))
 }
 
 func (m *Message) TlogParse(d *wire.Decoder, p []byte, i int) int {

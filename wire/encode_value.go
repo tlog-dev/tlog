@@ -45,7 +45,7 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	// fast path
 	switch v := v.(type) {
 	case string:
-		return e.AppendString(b, String, v)
+		return e.AppendString(b, v)
 	case int:
 		return e.AppendInt(b, v)
 	case float64:
@@ -67,7 +67,7 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 
 	case error:
 		b = append(b, Semantic|Error)
-		b = e.AppendString(b, String, v.Error())
+		b = e.AppendString(b, v.Error())
 	case *error: // nil error is not catched by prev case
 		b = append(b, Semantic|Error)
 		b = append(b, Special|Nil)
@@ -94,7 +94,7 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 		b = e.AppendBigFloat(b, v)
 
 	case fmt.Stringer:
-		b = e.AppendString(b, String, v.String())
+		b = e.AppendString(b, v.String())
 
 	default:
 		ok = false
@@ -122,7 +122,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 
 	switch r.Kind() {
 	case reflect.String:
-		return e.AppendString(b, String, r.String())
+		return e.AppendString(b, r.String())
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
 		return e.AppendInt64(b, r.Int())
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
@@ -159,11 +159,11 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 				if r.CanAddr() {
 					r = r.Slice(0, r.Len())
 				} else {
-					return e.AppendString(b, Bytes, low.UnsafeString(low.InterfaceData(r.Interface()), r.Len()))
+					return e.AppendTagString(b, Bytes, low.UnsafeString(low.InterfaceData(r.Interface()), r.Len()))
 				}
 			}
 
-			return e.AppendString(b, Bytes, low.UnsafeBytesToString(r.Bytes()))
+			return e.AppendBytes(b, r.Bytes())
 		}
 
 		l := r.Len()
@@ -241,7 +241,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 			continue
 		}
 
-		b = e.AppendString(b, String, fc.Name)
+		b = e.AppendString(b, fc.Name)
 
 		if fc.Hex {
 			b = append(b, Semantic|Hex)

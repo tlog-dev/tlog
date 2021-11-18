@@ -95,47 +95,47 @@ func (e *Encoder) AppendNil(b []byte) []byte {
 }
 
 func (e *Encoder) AppendKey(b []byte, k string) []byte {
-	return e.AppendString(b, String, k)
+	return e.AppendTagString(b, String, k)
 }
 
 func (e *Encoder) AppendKeyString(b []byte, k, v string) []byte {
-	b = e.AppendString(b, String, k)
-	b = e.AppendString(b, String, v)
+	b = e.AppendString(b, k)
+	b = e.AppendString(b, v)
 	return b
 }
 
 func (e *Encoder) AppendKeyBytes(b []byte, k string, v []byte) []byte {
-	b = e.AppendString(b, String, k)
-	b = e.AppendStringBytes(b, Bytes, v)
+	b = e.AppendString(b, k)
+	b = e.AppendBytes(b, v)
 	return b
 }
 
 func (e *Encoder) AppendKeyInt(b []byte, k string, v int) []byte {
-	b = e.AppendString(b, String, k)
+	b = e.AppendString(b, k)
 	b = e.AppendInt(b, v)
 	return b
 }
 
 func (e *Encoder) AppendKeyUint(b []byte, k string, v uint) []byte {
-	b = e.AppendString(b, String, k)
+	b = e.AppendString(b, k)
 	b = e.AppendUint(b, v)
 	return b
 }
 
 func (e *Encoder) AppendKeyInt64(b []byte, k string, v int64) []byte {
-	b = e.AppendString(b, String, k)
+	b = e.AppendString(b, k)
 	b = e.AppendInt64(b, v)
 	return b
 }
 
 func (e *Encoder) AppendKeyUint64(b []byte, k string, v uint64) []byte {
-	b = e.AppendString(b, String, k)
+	b = e.AppendString(b, k)
 	b = e.AppendUint64(b, v)
 	return b
 }
 
 func (e *Encoder) AppendKeyValue(b []byte, k string, v interface{}) []byte {
-	b = e.AppendString(b, String, k)
+	b = e.AppendString(b, k)
 	b = e.AppendValue(b, v)
 	return b
 }
@@ -187,7 +187,7 @@ func (e *Encoder) AppendError(b []byte, err error) []byte {
 		return append(b, Special|Nil)
 	}
 
-	return e.AppendString(b, String, err.Error())
+	return e.AppendString(b, err.Error())
 }
 
 func (e *Encoder) AppendTime(b []byte, t time.Time) []byte {
@@ -216,7 +216,7 @@ func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
 	}
 
 	if false {
-		return e.AppendStringBytes(b, Bytes, x.Bytes())
+		return e.AppendBytes(b, x.Bytes())
 	}
 
 	return e.appendBigInt(b, x)
@@ -253,11 +253,11 @@ func (e *Encoder) AppendBigRat(b []byte, x *big.Rat) []byte {
 	if false {
 		b = append(b, Array|2)
 
-		b = e.AppendStringBytes(b, Bytes, x.Num().Bytes())
-		b = e.AppendStringBytes(b, Bytes, x.Denom().Bytes())
+		b = e.AppendBytes(b, x.Num().Bytes())
+		b = e.AppendBytes(b, x.Denom().Bytes())
 	}
 
-	if x.IsInt() {
+	if false && x.IsInt() {
 		return e.appendBigInt(b, x.Num())
 	}
 
@@ -340,12 +340,22 @@ func (e *Encoder) InsertLen(b []byte, st, l int) []byte {
 	return b
 }
 
-func (e *LowEncoder) AppendString(b []byte, tag byte, s string) []byte {
+func (e *LowEncoder) AppendString(b []byte, s string) []byte {
+	b = e.AppendTag(b, String, int64(len(s)))
+	return append(b, s...)
+}
+
+func (e *LowEncoder) AppendBytes(b, s []byte) []byte {
+	b = e.AppendTag(b, Bytes, int64(len(s)))
+	return append(b, s...)
+}
+
+func (e *LowEncoder) AppendTagString(b []byte, tag byte, s string) []byte {
 	b = e.AppendTag(b, tag, int64(len(s)))
 	return append(b, s...)
 }
 
-func (e *LowEncoder) AppendStringBytes(b []byte, tag byte, s []byte) []byte {
+func (e *LowEncoder) AppendTagStringBytes(b []byte, tag byte, s []byte) []byte {
 	b = e.AppendTag(b, tag, int64(len(s)))
 	return append(b, s...)
 }

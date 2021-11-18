@@ -37,7 +37,7 @@ func TestDumper(t *testing.T) {
 
 	b = e.AppendKeyInt(b, "key_b", 2)
 
-	b = e.AppendString(b, String, "key_c")
+	b = e.AppendString(b, "key_c")
 	b = e.AppendDuration(b, time.Second)
 
 	b = e.AppendBreak(b)

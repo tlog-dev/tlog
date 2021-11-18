@@ -74,7 +74,7 @@ func main() {
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			cli.NewFlag("tail", 0, "skip all except last n events"),
 			cli.NewFlag("filter", "", "span filter"),
-			cli.NewFlag("filter-max-depth", 0, "span filter max depth"),
+			cli.NewFlag("filter-depth", 0, "span filter max depth"),
 		},
 	}
 
@@ -415,7 +415,7 @@ func cat(c *cli.Command) (err error) {
 
 	if q := c.String("filter"); q != "" {
 		p := processor.New(w, strings.Split(q, ",")...)
-		p.MaxDepth = c.Int("filter-max-depth")
+		p.MaxDepth = c.Int("filter-depth")
 
 		w = tlio.WriteCloser{
 			Writer: p,
