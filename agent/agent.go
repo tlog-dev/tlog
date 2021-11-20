@@ -293,7 +293,7 @@ func (w *connWriter) findLabels(p []byte) (ls []byte, err error) {
 		return
 	}
 
-	var e tlog.EventType
+	var e tlog.EventKind
 
 	var k []byte
 	var sub int64
@@ -316,7 +316,7 @@ func (w *connWriter) findLabels(p []byte) (ls []byte, err error) {
 		tag, sub, _ = w.d.Tag(p, i)
 
 		switch {
-		case sub == tlog.WireEventType && string(k) == tlog.KeyEventType:
+		case sub == tlog.WireEventKind && string(k) == tlog.KeyEventKind:
 			i = e.TlogParse(&w.d, p, i)
 		case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
 			end := w.d.Skip(p, i)

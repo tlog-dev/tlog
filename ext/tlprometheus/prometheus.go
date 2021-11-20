@@ -63,7 +63,7 @@ func New() *Writer {
 }
 
 func (w *Writer) Write(p []byte) (n int, err error) {
-	e := w.getEventType(p)
+	e := w.getEventKind(p)
 
 	switch e {
 	case tlog.EventValue:
@@ -296,8 +296,8 @@ func (m *metric) observe(v interface{}, ls []byte) {
 	o.Observe(v)
 }
 
-func (w *Writer) getEventType(p []byte) (e tlog.EventType) {
-	i := w.find(p, tlog.WireEventType, tlog.KeyEventType)
+func (w *Writer) getEventKind(p []byte) (e tlog.EventKind) {
+	i := w.find(p, tlog.WireEventKind, tlog.KeyEventKind)
 	if i == -1 {
 		return
 	}

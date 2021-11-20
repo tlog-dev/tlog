@@ -16,16 +16,16 @@ type (
 
 	LowDecoder struct{}
 
-	BigType int8
+	BigKind int8
 )
 
 const (
-	BigNil BigType = iota
+	BigNil BigKind = iota
 	BigInt
 	BigRat
 	BigFloat
 
-	NotBig BigType = -1
+	NotBig BigKind = -1
 )
 
 func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
@@ -164,7 +164,7 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 	return
 }
 
-func (d *Decoder) BigWhich(p []byte, st int) BigType {
+func (d *Decoder) BigWhich(p []byte, st int) BigKind {
 	if p[st] != Semantic|Big {
 		return NotBig
 	}
@@ -172,7 +172,7 @@ func (d *Decoder) BigWhich(p []byte, st int) BigType {
 	tag, sub, _ := d.Tag(p, st+1)
 
 	if tag == Semantic {
-		return BigType(sub)
+		return BigKind(sub)
 	}
 
 	switch {

@@ -191,7 +191,7 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 	var t time.Time
 	var pc loc.PC
 	var lv LogLevel
-	var tp EventType
+	var tp EventKind
 	var m []byte
 	b := w.b
 
@@ -238,7 +238,7 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 			m, i = w.d.String(p, i)
 		case sub == WireLogLevel && ks == KeyLogLevel && w.Flags&Lloglevel != 0:
 			i = lv.TlogParse(&w.d, p, st)
-		case sub == WireEventType && ks == KeyEventType:
+		case sub == WireEventKind && ks == KeyEventKind:
 			_ = tp.TlogParse(&w.d, p, st)
 
 			b, i = w.appendPair(b, p, k, st)

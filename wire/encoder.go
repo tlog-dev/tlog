@@ -377,6 +377,10 @@ func (e *LowEncoder) AppendTag(b []byte, tag byte, v int64) []byte {
 	}
 }
 
+func (e *LowEncoder) AppendSemantic(b []byte, s int64) []byte {
+	return e.AppendTag(b, Semantic, s)
+}
+
 func (e *LowEncoder) AppendInt(b []byte, v int) []byte {
 	if v < 0 {
 		return e.AppendTagInt(b, Neg, uint64(-v))

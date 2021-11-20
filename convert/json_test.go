@@ -41,7 +41,7 @@ func TestJSON(t *testing.T) {
 		B: 9,
 	})
 
-	exp := `{"t":"2020-12-25T22:08:13\+03:00","T":"L","L":\["a=b","c"\]}
+	exp := `{"t":"2020-12-25T22:08:13\+03:00","K":"L","L":\["a=b","c"\]}
 {"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:\d+","m":"user labels","L":\["user_label"\],"L":\["a=b","c"\]}
 {"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:\d+","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
 `
@@ -75,7 +75,7 @@ func TestJSONRename(t *testing.T) {
 
 	j.Rename = map[KeyTagSub]string{
 		{Tag: wire.Semantic, Key: tlog.KeyLabels, Sub: tlog.WireLabels}:       "Labels",
-		{Tag: wire.Semantic, Key: tlog.KeyEventType, Sub: tlog.WireEventType}: "EventType",
+		{Tag: wire.Semantic, Key: tlog.KeyEventKind, Sub: tlog.WireEventKind}: "Kind",
 		{Tag: wire.Semantic, Key: tlog.KeyTime, Sub: wire.Time}:               "time",
 		{Tag: wire.Semantic, Key: tlog.KeyCaller, Sub: wire.Caller}:           "caller",
 		{Tag: wire.String, Key: "str"}:                                        "str_key",
@@ -98,7 +98,7 @@ func TestJSONRename(t *testing.T) {
 		B: 9,
 	})
 
-	exp := `{"time":"2020-12-25T22:08:13\+03:00","EventType":"L","Labels":\["a=b","c"\]}
+	exp := `{"time":"2020-12-25T22:08:13\+03:00","Kind":"L","Labels":\["a=b","c"\]}
 {"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","m":"user labels","Labels":\["user_label"\],"Labels":\["a=b","c"\]}
 {"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","m":"message","str_key":"arg","int":5,"struct":{"a":"A field","bb":9},"Labels":\["a=b","c"\]}
 `
@@ -133,7 +133,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 		return b
 	}
 
-	buf = appendMap(buf, tlog.KeyTime, 10000000000, tlog.KeyEventType, tlog.EventLabels, tlog.KeyLabels, tlog.Labels{"a=b", "c=d", "e=f", "g=h"})
+	buf = appendMap(buf, tlog.KeyTime, 10000000000, tlog.KeyEventKind, tlog.EventLabels, tlog.KeyLabels, tlog.Labels{"a=b", "c=d", "e=f", "g=h"})
 	buf = appendMap(buf, tlog.KeySpan, tlog.ID{}, tlog.KeyTime, 10000000000, tlog.KeyMessage, "message text", "arg", "value", "arg2", 5)
 
 	var d wire.Decoder

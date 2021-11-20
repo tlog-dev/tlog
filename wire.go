@@ -9,7 +9,7 @@ const (
 	WireLabels = wire.SemanticExtBase + iota
 	WireID
 	WireMessage
-	WireEventType
+	WireEventKind
 	WireLogLevel
 
 	_
@@ -25,7 +25,7 @@ var KeyAuto = ""
 
 var (
 	_l  LogLevel
-	_e  EventType
+	_e  EventKind
 	_h  Hex
 	_m  Message
 	_ts Timestamp
@@ -102,8 +102,8 @@ func autoKey(kvs []interface{}) (k string) {
 		k = KeySpan
 	case LogLevel:
 		k = KeyLogLevel
-	case EventType:
-		k = KeyEventType
+	case EventKind:
+		k = KeyEventKind
 	case Labels:
 		k = KeyLabels
 	case loc.PC:
@@ -159,13 +159,13 @@ func (l *LogLevel) TlogParse(d *wire.Decoder, p []byte, i int) int {
 	return i
 }
 
-func (et EventType) TlogAppend(e *wire.Encoder, b []byte) []byte {
-	b = append(b, wire.Semantic|WireEventType)
+func (et EventKind) TlogAppend(e *wire.Encoder, b []byte) []byte {
+	b = append(b, wire.Semantic|WireEventKind)
 	return e.AppendString(b, string(et))
 }
 
-func (e *EventType) TlogParse(d *wire.Decoder, p []byte, i int) int {
-	if p[i] != wire.Semantic|WireEventType {
+func (e *EventKind) TlogParse(d *wire.Decoder, p []byte, i int) int {
+	if p[i] != wire.Semantic|WireEventKind {
 		panic("not an event type")
 	}
 
@@ -173,7 +173,7 @@ func (e *EventType) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 	v, i := d.String(p, i)
 
-	*e = EventType(v[0])
+	*e = EventKind(v[0])
 
 	return i
 }

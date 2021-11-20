@@ -43,7 +43,7 @@ type (
 
 	Message string
 
-	EventType rune
+	EventKind rune
 
 	LogLevel int
 
@@ -97,24 +97,24 @@ var (
 	KeyElapsed   = "e"
 	KeyCaller    = "c"
 	KeyLabels    = "L"
-	KeyEventType = "T"
+	KeyEventKind = "K"
 	KeyLogLevel  = "l"
 )
 
-// Metric types
+// Metric kinds
 const (
 	MetricGauge   = "gauge"
 	MetricCounter = "counter"
 	MetricSummary = "summary"
 )
 
-// Event Types
+// Event kinds
 const (
-	EventLabels     EventType = 'L'
-	EventSpanStart  EventType = 's'
-	EventSpanFinish EventType = 'f'
-	EventValue      EventType = 'v'
-	EventMetricDesc EventType = 'm'
+	EventLabels     EventKind = 'L'
+	EventSpanStart  EventKind = 's'
+	EventSpanFinish EventKind = 'f'
+	EventValue      EventKind = 'v'
+	EventMetricDesc EventKind = 'm'
 )
 
 var DefaultLogger = New(NewConsoleWriter(Stderr, LstdFlags))
@@ -225,7 +225,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	}
 
 	{
-		l.b = l.Encoder.AppendString(l.b, KeyEventType)
+		l.b = l.Encoder.AppendString(l.b, KeyEventKind)
 		l.b = EventSpanStart.TlogAppend(&l.Encoder, l.b)
 	}
 
@@ -272,7 +272,7 @@ func newvalue(l *Logger, id ID, name string, v interface{}, kvs []interface{}) {
 	}
 
 	{
-		l.b = l.Encoder.AppendString(l.b, KeyEventType)
+		l.b = l.Encoder.AppendString(l.b, KeyEventKind)
 		l.b = EventValue.TlogAppend(&l.Encoder, l.b)
 	}
 
@@ -315,7 +315,7 @@ func (s Span) Finish(kvs ...interface{}) {
 	}
 
 	{
-		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, KeyEventType)
+		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, KeyEventKind)
 		s.Logger.b = EventSpanFinish.TlogAppend(&s.Logger.Encoder, s.Logger.b)
 	}
 
@@ -406,7 +406,7 @@ func (l *Logger) SetLabels(ls Labels) {
 		l.b = l.Encoder.AppendTimestamp(l.b, l.nano())
 	}
 
-	l.b = l.Encoder.AppendString(l.b, KeyEventType)
+	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
 	l.b = EventLabels.TlogAppend(&l.Encoder, l.b)
 
 	st := len(l.b)
@@ -704,7 +704,7 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 
 	l.b = l.Encoder.AppendMap(l.b[:0], -1)
 
-	l.b = l.Encoder.AppendString(l.b, KeyEventType)
+	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
 	l.b = EventMetricDesc.TlogAppend(&l.Encoder, l.b)
 
 	l.b = l.Encoder.AppendString(l.b, "name")
