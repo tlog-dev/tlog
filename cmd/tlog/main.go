@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
+	"github.com/nikandfor/graceful"
 	"go.etcd.io/bbolt"
 
 	"github.com/nikandfor/tlog"
@@ -27,10 +28,13 @@ import (
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/ext/tlbolt"
+	"github.com/nikandfor/tlog/ext/tlclickhouse"
 	"github.com/nikandfor/tlog/ext/tlflag"
+	"github.com/nikandfor/tlog/ext/tlgin"
 	"github.com/nikandfor/tlog/processor"
 	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
+	"github.com/nikandfor/tlog/web"
 	"github.com/nikandfor/tlog/wire"
 )
 
@@ -71,7 +75,9 @@ func main() {
 		Args:   cli.Args{},
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
+			cli.NewFlag("clickhouse", "", "send logs to clickhouse (in addition to output)"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
+			cli.NewFlag("head", 0, "skip all except first n events"),
 			cli.NewFlag("tail", 0, "skip all except last n events"),
 			cli.NewFlag("filter", "", "span filter"),
 			cli.NewFlag("filter-depth", 0, "span filter max depth"),
@@ -106,8 +112,17 @@ func main() {
 	}
 
 	agentCmd := &cli.Command{
-		Name:   "agent",
-		Action: agentFn,
+		Name:   "agent,run",
+		Action: agentRun,
+		Flags: []*cli.Flag{
+			cli.NewFlag("http", ":8000", "http listen address"),
+			cli.NewFlag("http-net", "tcp", "http listen network"),
+		},
+	}
+
+	agentCmd0 := &cli.Command{
+		Name:   "agent0",
+		Action: agentRun0,
 		Flags: []*cli.Flag{
 			cli.NewFlag("listen-packet,p", "", "listen packet address"),
 			cli.NewFlag("listen-packet-net,P", "unixgram", "listen packet network"),
@@ -125,6 +140,7 @@ func main() {
 			cli.NewFlag("tolog", false, "dump events to log"),
 		},
 	}
+	_ = agentCmd0
 
 	cli.App = cli.Command{
 		Name:   "tlog",
@@ -188,10 +204,51 @@ func before(c *cli.Command) error {
 		}()
 	}
 
+	gin.SetMode(gin.ReleaseMode)
+
 	return nil
 }
 
-func agentFn(c *cli.Command) (err error) {
+func agentRun(c *cli.Command) (err error) {
+	ctx := context.Background()
+
+	s := web.New()
+
+	r := gin.New()
+
+	r.Use(tlgin.Tracer)
+
+	r.GET("/", s.HandleIndex)
+	r.GET("/query", s.HandleQuery)
+
+	g := graceful.New()
+
+	if q := c.String("http"); q != "" {
+		l, err := net.Listen(c.String("http-net"), q)
+		if err != nil {
+			return errors.Wrap(err, "listen http: %v", q)
+		}
+
+		tlog.Printw("listen http", "addr", l.Addr())
+
+		g.Add(ctx, "listener", func(ctx context.Context) error {
+			err := r.RunListener(l)
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				return err
+			}
+		}, graceful.WithStop(func(ctx context.Context) error {
+			err := l.Close()
+			return errors.Wrap(err, "close")
+		}), graceful.WithCancelContext())
+	}
+
+	return g.Run(ctx)
+}
+
+func agentRun0(c *cli.Command) (err error) {
 	errc := make(chan error, 10)
 
 	a := agent.New()
@@ -408,9 +465,23 @@ func ticker(c *cli.Command) error {
 func cat(c *cli.Command) (err error) {
 	var w io.WriteCloser
 
-	w, err = tlflag.OpenWriter(c.String("out"))
-	if err != nil {
-		return err
+	var click *tlclickhouse.Writer
+	if q := c.String("clickhouse"); q != "" {
+		click, err = tlclickhouse.New(q)
+		if err != nil {
+			return errors.Wrap(err, "clickhouse")
+		}
+
+		w = tlio.NewTeeWriter(w, click)
+	}
+
+	if f := c.Flag("out"); click == nil || f.IsSet {
+		wout, err := tlflag.OpenWriter(c.String("out"))
+		if err != nil {
+			return err
+		}
+
+		w = tlio.NewTeeWriter(w, wout)
 	}
 
 	if q := c.String("filter"); q != "" {
@@ -472,8 +543,22 @@ func cat(c *cli.Command) (err error) {
 		rs[a] = wire.NewStreamDecoder(r)
 
 		var w0 io.Writer = w
-		if t := c.Int("tail"); t > 0 {
-			w0 = tlio.NewTailWriter(w, t)
+
+		if f := c.Flag("tail"); f.IsSet {
+			w0 = tlio.NewTailWriter(w0, *f.Value.(*int))
+		}
+
+		if f := c.Flag("head"); f.IsSet {
+			fl, _ := w0.(tlio.Flusher)
+
+			w0 = tlio.NewHeadWriter(w0, *f.Value.(*int))
+
+			if _, ok := w0.(tlio.Flusher); !ok && fl != nil {
+				w0 = tlio.WriteFlusher{
+					Writer:  w0,
+					Flusher: fl,
+				}
+			}
 		}
 
 		_, err = rs[a].WriteTo(w0)

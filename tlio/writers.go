@@ -12,6 +12,10 @@ import (
 )
 
 type (
+	Flusher interface {
+		Flush() error
+	}
+
 	TeeWriter []io.Writer
 
 	NopCloser struct {
@@ -22,6 +26,11 @@ type (
 	WriteCloser struct {
 		io.Writer
 		io.Closer
+	}
+
+	WriteFlusher struct {
+		io.Writer
+		Flusher
 	}
 
 	ReWriter struct {
@@ -40,11 +49,16 @@ type (
 	}
 
 	TailWriter struct {
-		w io.Writer
+		io.Writer
 		n int
 
 		i   int
 		buf [][]byte
+	}
+
+	HeadWriter struct {
+		io.Writer
+		N int
 	}
 
 	// CountableIODiscard discards data but counts operations and bytes.
@@ -60,6 +74,10 @@ func NewTeeWriter(ws ...io.Writer) (w TeeWriter) {
 
 func (w TeeWriter) Append(ws ...io.Writer) TeeWriter {
 	for _, s := range ws {
+		if s == nil {
+			continue
+		}
+
 		if tee, ok := s.(TeeWriter); ok {
 			w = append(w, tee...)
 		} else {
@@ -225,9 +243,9 @@ func (w *DeLabels) Write(p []byte) (i int, err error) {
 
 func NewTailWriter(w io.Writer, n int) *TailWriter {
 	return &TailWriter{
-		w:   w,
-		n:   n,
-		buf: make([][]byte, n),
+		Writer: w,
+		n:      n,
+		buf:    make([][]byte, n),
 	}
 }
 
@@ -248,7 +266,7 @@ func (w *TailWriter) Flush() (err error) {
 			continue
 		}
 
-		_, err = w.w.Write(b)
+		_, err = w.Writer.Write(b)
 		if err != nil {
 			return err
 		}
@@ -256,7 +274,28 @@ func (w *TailWriter) Flush() (err error) {
 		w.buf[i%w.n] = b[:0]
 	}
 
+	if f, ok := w.Writer.(Flusher); ok {
+		return f.Flush()
+	}
+
 	return nil
+}
+
+func NewHeadWriter(w io.Writer, n int) *HeadWriter {
+	return &HeadWriter{
+		Writer: w,
+		N:      n,
+	}
+}
+
+func (w *HeadWriter) Write(p []byte) (int, error) {
+	if w.N > 0 {
+		w.N--
+
+		return w.Writer.Write(p)
+	}
+
+	return len(p), nil
 }
 
 func Fd(f interface{}) uintptr {

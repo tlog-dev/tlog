@@ -18,9 +18,10 @@ type (
 	JSON struct {
 		io.Writer
 
-		AppendSafe bool
-		TimeFormat string
-		TimeZone   *time.Location
+		AppendNewLine bool
+		AppendSafe    bool
+		TimeFormat    string
+		TimeZone      *time.Location
 
 		Rename map[KeyTagSub]string
 
@@ -38,10 +39,11 @@ type (
 
 func NewJSONWriter(w io.Writer) *JSON {
 	return &JSON{
-		Writer:     w,
-		AppendSafe: true,
-		TimeFormat: time.RFC3339Nano,
-		TimeZone:   time.Local,
+		Writer:        w,
+		AppendNewLine: true,
+		AppendSafe:    true,
+		TimeFormat:    time.RFC3339Nano,
+		TimeZone:      time.Local,
 	}
 }
 
@@ -109,7 +111,10 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 		b, i = w.convertValue(b, p, i)
 	}
 
-	b = append(b, '}', '\n')
+	b = append(b, '}')
+	if w.AppendNewLine {
+		b = append(b, '\n')
+	}
 
 	w.b = b[:0]
 

@@ -1,627 +1,287 @@
-//+build ignore
-
 package tlclickhouse
 
 import (
-	"bytes"
-	"database/sql"
-	"encoding/base64"
+	"context"
 	"fmt"
-	"strconv"
-	"strings"
-	"text/template"
 	"time"
 
+	click "github.com/nikandfor/clickhouse"
+	"github.com/nikandfor/clickhouse/binary"
+	"github.com/nikandfor/clickhouse/clpool"
+	"github.com/nikandfor/clickhouse/dsn"
 	"github.com/nikandfor/errors"
-	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/low"
+	"github.com/nikandfor/tlog/wire"
 )
 
 type (
 	Writer struct {
-		db    *sql.DB
-		tx    *sql.Tx
-		s     *sql.Stmt
-		count int
+		Compress bool
 
 		table string
 
-		d tlog.Decoder
+		pool click.ClientPool
 
-		cols []string
-		vals []interface{}
+		*convert.JSON
 
-		allcols map[string]int
-		dbcols  []*sql.ColumnType
+		b *batch
 
-		b []byte
+		jb, cb low.Buf
+	}
 
-		ls, tmpls tlog.Labels
+	batch struct {
+		cl   click.Client
+		q    *click.Query
+		meta click.QueryMeta
+
+		e *binary.Encoder
+
+		b *click.Block
 	}
 )
 
-var ( // templates
-	addCol = template.Must(template.New("add_col").Parse("ALTER TABLE {{ .table }} ADD COLUMN `{{ .name }}` {{ .type }}"))
+func New(d string) (w *Writer, err error) {
+	dd, err := dsn.Parse(d)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse dsn")
+	}
 
-	addRow = template.Must(template.New("add_row").Parse("INSERT INTO {{ .table }} (" +
-		"{{ range $idx, $el := .cols }}{{ if ne $idx 0 }}, {{ end }}" +
-		"`{{ . }}`" +
-		"{{ end }}" +
-		")"))
-)
+	pool := clpool.NewBinaryPool(dd.Hosts[0])
 
-func New(db *sql.DB, table string) (w *Writer) {
 	w = &Writer{
-		db:    db,
-		table: table,
+		pool:     pool,
+		Compress: dd.Compress,
+		table:    "logs",
 	}
 
-	return w
+	w.JSON = convert.NewJSONWriter(&w.jb)
+
+	w.JSON.AppendNewLine = false
+
+	w.JSON.TimeZone = time.UTC
+	w.JSON.TimeFormat = "2006-01-02T15:04:05.999999999"
+
+	w.JSON.Rename = map[convert.KeyTagSub]string{
+		{Key: tlog.KeyTime, Tag: wire.Semantic, Sub: wire.Time}:               "Timestamp",
+		{Key: tlog.KeyElapsed, Tag: wire.Semantic, Sub: wire.Duration}:        "Elapsed",
+		{Key: tlog.KeySpan, Tag: wire.Semantic, Sub: tlog.WireID}:             "Span",
+		{Key: tlog.KeyParent, Tag: wire.Semantic, Sub: tlog.WireID}:           "Parent",
+		{Key: tlog.KeyLabels, Tag: wire.Semantic, Sub: tlog.WireLabels}:       "Labels",
+		{Key: tlog.KeyEventKind, Tag: wire.Semantic, Sub: tlog.WireEventKind}: "EventKind",
+		{Key: tlog.KeyMessage, Tag: wire.Semantic, Sub: tlog.WireMessage}:     "Message",
+		{Key: tlog.KeyLogLevel, Tag: wire.Semantic, Sub: tlog.WireLogLevel}:   "LogLevel",
+		{Key: tlog.KeyCaller, Tag: wire.Semantic, Sub: wire.Caller}:           "Caller",
+	}
+
+	if q := dd.Query.Get("table"); q != "" {
+		w.table = q
+	}
+
+	err = w.createTable(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "create table")
+	}
+
+	return w, nil
 }
 
-func (w *Writer) Write(p []byte) (_ int, err error) {
-	defer func() {
-		p := recover()
-		if p == nil {
-			return
-		}
-
-		tlog.Printw("panic", "panic", p)
-
-		panic(p)
-	}()
-
-	w.d.ResetBytes(p)
-
-	var i int64
-
-	defer w.resetVals()
-
-again:
-	tag, els, i := w.d.Tag(i)
-	if err = w.d.Err(); err != nil {
-		return
-	}
-
-	if tag == tlog.Semantic && els == tlog.WireMeta {
-		i = w.d.Skip(i)
-		goto again
-	}
-
-	if tag != tlog.Map {
-		return 0, errors.New("expected map")
-	}
-
-	err = w.prepare()
+func (w *Writer) createTable(ctx context.Context) (err error) {
+	cl, err := w.pool.Get(ctx)
 	if err != nil {
-		return 0, err
+		return errors.Wrap(err, "get client")
 	}
 
-	err = w.begin()
+	defer func() { w.pool.Put(ctx, cl, err) }()
+
+	qq := "CREATE TABLE IF NOT EXISTS %s (" +
+		"  `raw`    String          CODEC(ZSTD(9))," +
+		"  `labels` Array(String)   MATERIALIZED JSONExtract(raw, 'Labels', 'Array(String)') CODEC(LZ4)," +
+		"  `ts`     DateTime64(9, 'UTC') MATERIALIZED toDateTime64(JSONExtractString(raw, 'Timestamp'), 9) CODEC(Delta, ZSTD(9))," +
+		"  `el`     Int64           MATERIALIZED JSONExtractInt(raw, 'Elapsed') CODEC(ZSTD(9))," +
+		"  `s`      String          MATERIALIZED JSONExtractString(raw, 'Span') CODEC(ZSTD(9))," +
+		"  `p`      String          MATERIALIZED JSONExtractString(raw, 'Parent') CODEC(ZSTD(9))," +
+		"  `msg`    String          MATERIALIZED JSONExtractString(raw, 'Message') CODEC(ZSTD(9))," +
+		"  `kind`    String         MATERIALIZED JSONExtractString(raw, 'EventKind') CODEC(ZSTD(9))," +
+		"  `log_level` Int8         MATERIALIZED JSONExtract(raw, 'LogLevel', 'Int8') CODEC(ZSTD(9))," +
+		"  `err`    String          MATERIALIZED JSONExtractString(raw, 'err') CODEC(ZSTD(9))," +
+		"  `date`   Date            DEFAULT if(ts != 0, toDate(ts), today()) CODEC(Delta, ZSTD(9))" +
+		") " +
+		"ENGINE = MergeTree() " +
+		"PARTITION BY date " +
+		"ORDER BY ts "
+
+	qq = fmt.Sprintf(qq, w.table)
+
+	q := &click.Query{
+		Query: qq,
+	}
+
+	_, err = cl.SendQuery(ctx, q)
+	tlog.V("create_table").Printw("create table", "err", err)
 	if err != nil {
-		return 0, err
+		return errors.Wrap(err, "send query")
 	}
 
-	for el := 0; els == -1 || el < els; el++ {
-		if els == -1 && w.d.Break(&i) {
-			break
-		}
+	return nil
+}
 
-		i, err = w.appendPair(i)
-		if err != nil {
-			return 0, err
-		}
-	}
+func (w *Writer) Write(p []byte) (n int, err error) {
+	w.jb = w.jb[:0]
 
-	err = w.addRow()
+	_, err = w.JSON.Write(p)
 	if err != nil {
-		return 0, errors.Wrap(err, "add row")
+		return 0, errors.Wrap(err, "convert to json")
 	}
 
-	if w.count == 1000 {
-		err = w.commit()
+	b, err := w.batch()
+	if err != nil {
+		return 0, errors.Wrap(err, "batch")
+	}
+
+	err = w.addRow(b, w.jb)
+	if err != nil {
+		return 0, errors.Wrap(err, "encode string")
+	}
+
+	if b.b.Rows >= 1000000 {
+		err = w.commit(b)
 		if err != nil {
 			return 0, errors.Wrap(err, "commit")
 		}
-	}
 
-	if w.tmpls != nil {
-		w.ls = w.tmpls
-		w.tmpls = nil
+		w.b = nil
 	}
 
 	return len(p), nil
 }
 
-func (w *Writer) resetVals() {
-	for i := range w.vals {
-		col := w.dbcols[i]
-		tp := col.DatabaseTypeName()
-
-		tlog.Printw("reset vals", "i", i, "name", col.Name(), "type", tp)
-
-		switch {
-		case strings.HasPrefix(tp, "DateTime") || tp == "Date":
-			w.vals[i] = time.Time{}
-		case tp == "String":
-			w.vals[i] = ""
-		case strings.HasPrefix(tp, "Int"):
-			w.vals[i] = 0
-		case strings.HasPrefix(tp, "UInt"):
-			w.vals[i] = uint64(0)
-		case tp == "L":
-			w.vals[i] = w.ls
-		case strings.HasPrefix(tp, "Array"):
-			w.vals[i] = []interface{}{}
-		default:
-			w.vals[i] = nil
-		}
-	}
-}
-
-func (w *Writer) appendPair(st int64) (i int64, err error) {
-	tlog.V("pairs").Printw("append pair", "st", tlog.Hex(st))
-
-	k, i := w.d.String(st)
-	if err := w.d.Err(); err != nil {
-		return 0, errors.Wrap(err, "read key")
-	}
-
-	var tp string
-	var suff string
-
-	var v interface{}
-
-	st = i
-
-	tag, sub, i := w.d.Tag(st)
-	switch tag {
-	case tlog.Int, tlog.Neg:
-		tp = "Int64"
-		suff = "_int"
-
-		v, i = w.d.Int(st)
-	case tlog.String, tlog.Bytes:
-		tp = "String"
-		suff = "_str"
-
-		var s []byte
-		s, i = w.d.String(st)
-
-		v = string(s)
-	case tlog.Array, tlog.Map:
-		tp = "String"
-		suff = "_json"
-
-	case tlog.Special:
-		switch sub {
-		case tlog.False:
-			tp = "Int8"
-			suff = "_bool"
-
-			v = 0
-		case tlog.True:
-			tp = "Int8"
-			suff = "_bool"
-
-			v = 1
-		case tlog.Null:
-			// do not add
-			return i, nil
-		case tlog.Undefined:
-			// do not add
-			return i, nil
-		case tlog.Float64, tlog.Float32, tlog.FloatInt8:
-			tp = "Float64"
-			suff = "_flt"
-
-			v, i = w.d.Float(st)
-		default:
-			panic(sub)
-		}
-	case tlog.Semantic:
-		switch sub {
-		case tlog.WireLabels:
-			w.tmpls, i = w.d.Labels(st)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read lables")
-			}
-
-			v = w.tmpls
-		case tlog.WireTime:
-			tp = "DateTime64"
-			suff = "_time"
-
-			var ts tlog.Timestamp
-			ts, i = w.d.Time(st)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read time")
-			}
-
-			v = ts.Time()
-		case tlog.WireCaller:
-			tp = "String"
-			suff = "_loc"
-
-			var pc loc.PC
-			pc, _, i = w.d.Caller(st)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read time")
-			}
-
-			v = fmt.Sprintf("%+v", pc)
-		case tlog.WireMessage:
-			tp = "String"
-			suff = "_msg"
-
-			var s []byte
-			s, i = w.d.String(i)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read time")
-			}
-
-			v = string(s)
-		case tlog.WireID:
-			tp = "String"
-			suff = "_id"
-
-			var id tlog.ID
-			id, i = w.d.ID(st)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read id")
-			}
-
-			v = id.StringFull()
-		case tlog.WireError:
-			tp = "String"
-			suff = "_err"
-
-			var s []byte
-			s, i = w.d.String(i)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read error")
-			}
-
-			v = string(s)
-		case tlog.WireHex:
-			tp = "UInt64"
-			suff = "_hex"
-
-			var s int64
-			s, i = w.d.Int(i)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read int")
-			}
-
-			v = uint64(s)
-		case tlog.WireEventType:
-			tp = "String"
-			suff = "_evtype"
-
-			var s []byte
-			s, i = w.d.String(i)
-			if err = w.d.Err(); err != nil {
-				return i, errors.Wrap(err, "read string")
-			}
-
-			v = string(s)
-		default:
-			tp = "String"
-			suff += fmt.Sprintf("_%02x", sub)
-
-			w.b, i = w.appendJSONValue(w.b[:0], i)
-
-			v = string(w.b)
-		}
-	}
-
-	col := string(k) + suff
-	coln, ok := w.allcols[col]
-
-	if !ok {
-		err := w.addColumn(tp, col)
-		if err != nil {
-			return 0, errors.Wrap(err, "add column")
-		}
-
-		coln = w.allcols[col]
-	}
-
-	tlog.V("column").Printw("set column value", "name", col, "coln", coln, "val", v, "oldval", w.vals[coln])
-
-	if w.vals[coln] != nil {
-		// duplicated column
-		return i, nil
-	}
-
-	w.vals[coln] = v
-
-	return i, nil
-}
-
-func (w *Writer) appendJSONValue(b []byte, st int64) (_ []byte, i int64) {
-	tag, sub, i := w.d.Tag(st)
-	if w.d.Err() != nil {
+func (w *Writer) Close() (err error) {
+	if w.b == nil {
 		return
 	}
 
-	var v int64
-	var s []byte
-	var f float64
+	err = w.commit(w.b)
+	if err != nil {
+		return errors.Wrap(err, "commit")
+	}
 
-	switch tag {
-	case tlog.Int:
-		v, i = w.d.Int(st)
+	w.b = nil
 
-		b = strconv.AppendUint(b, uint64(v), 10)
-	case tlog.Neg:
-		v, i = w.d.Int(st)
+	return nil
+}
 
-		b = strconv.AppendInt(b, v, 10)
-	case tlog.Bytes:
-		s, i = w.d.String(st)
+func (w *Writer) batch() (b *batch, err error) {
+	if w.b != nil {
+		return w.b, nil
+	}
 
-		b = append(b, '"')
+	w.b, err = w.newBatch()
 
-		m := base64.StdEncoding.EncodedLen(len(s))
-		d := len(b)
+	return w.b, err
+}
 
-		for cap(b)-d < m {
-			b = append(b[:cap(b)], 0, 0, 0, 0)
+func (w *Writer) newBatch() (b *batch, err error) {
+	ctx := context.Background()
+
+	cl, err := w.pool.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "get click client")
+	}
+
+	defer func() {
+		if err == nil {
+			return
+		}
+		w.pool.Put(ctx, cl, err)
+	}()
+
+	q := &click.Query{
+		Query:      fmt.Sprintf("INSERT INTO %s (`raw`) VALUES", w.table),
+		Compressed: w.Compress,
+	}
+
+	meta, err := cl.SendQuery(ctx, q)
+	if err != nil {
+		tlog.Printw("send query", "q", q, "err", err)
+		return nil, errors.Wrap(err, "send query")
+	}
+
+	if len(meta) != 1 || meta[0].Type != "String" {
+		return nil, errors.New("unexpected meta: %v", meta)
+	}
+
+	b = &batch{
+		cl:   cl,
+		q:    q,
+		meta: meta,
+	}
+
+	b.b = &click.Block{
+		Rows: 0,
+		Cols: meta,
+	}
+
+	w.cb = w.cb[:0]
+
+	b.e = binary.NewEncoder(context.Background(), &w.cb)
+
+	return b, nil
+}
+
+func (w *Writer) addRow(b *batch, row []byte) (err error) {
+	err = b.e.RawString(w.jb)
+	if err != nil {
+		return errors.Wrap(err, "encode")
+	}
+
+	b.b.Rows++
+
+	return
+}
+
+func (w *Writer) commit(b *batch) (err error) {
+	ctx := context.Background()
+
+	b.b.Cols[0].RawData = w.cb
+
+	defer func() { w.pool.Put(ctx, b.cl, err) }()
+
+	defer func() { tlog.Printw("commit", "rows", b.b.Rows, "err", err) }()
+
+	err = b.cl.SendBlock(ctx, b.b, b.q.Compressed)
+	if err != nil {
+		return errors.Wrap(err, "send block")
+	}
+
+	err = b.cl.SendBlock(ctx, nil, b.q.Compressed)
+	if err != nil {
+		return errors.Wrap(err, "send nil block")
+	}
+
+	err = w.recvResponse(ctx, b.cl)
+	if err != nil {
+		return errors.Wrap(err, "recv response")
+	}
+
+	return nil
+}
+
+func (w *Writer) recvResponse(ctx context.Context, cl click.Client) (err error) {
+	for {
+		tp, err := cl.NextPacket(ctx)
+		if err != nil {
+			return errors.Wrap(err, "next packet")
 		}
 
-		b = b[:d+m]
-
-		base64.StdEncoding.Encode(b[d:], s)
-
-		b = append(b, '"')
-	case tlog.String:
-		s, i = w.d.String(st)
-
-		b = low.AppendQuote(b, low.UnsafeBytesToString(s))
-
-	case tlog.Array:
-		b = append(b, '[')
-
-		for el := 0; sub == -1 || el < sub; el++ {
-			if sub == -1 && w.d.Break(&i) {
-				break
-			}
-
-			if el != 0 {
-				b = append(b, ',')
-			}
-
-			b, i = w.appendJSONValue(b, i)
-		}
-
-		b = append(b, ']')
-	case tlog.Map:
-		b = append(b, '{')
-
-		for el := 0; sub == -1 || el < sub; el++ {
-			if sub == -1 && w.d.Break(&i) {
-				break
-			}
-
-			if el != 0 {
-				b = append(b, ',')
-			}
-
-			b, i = w.appendJSONValue(b, i)
-
-			b = append(b, ':')
-
-			b, i = w.appendJSONValue(b, i)
-		}
-
-		b = append(b, '}')
-	case tlog.Semantic:
-		b, i = w.appendJSONValue(b, i)
-	case tlog.Special:
-		switch sub {
-		case tlog.False:
-			b = append(b, "false"...)
-		case tlog.True:
-			b = append(b, "true"...)
-		case tlog.Null, tlog.Undefined:
-			b = append(b, "null"...)
-		case tlog.Float64, tlog.Float32, tlog.Float16, tlog.FloatInt8:
-			f, i = w.d.Float(st)
-
-			b = strconv.AppendFloat(b, f, 'f', -1, 64)
+		switch tp {
+		case click.ServerEndOfStream:
+			return nil
+		case click.ServerException:
+			return cl.RecvException(ctx)
 		default:
-			panic(sub)
+			return errors.New("unexpected packet: %x", tp)
 		}
 	}
-
-	return b, i
-}
-
-func (w *Writer) begin() (err error) {
-	if w.tx != nil {
-		return nil
-	}
-
-	w.tx, err = w.db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "begin")
-	}
-
-	var buf bytes.Buffer
-	err = addRow.Execute(&buf, map[string]interface{}{
-		"table": w.table,
-		"cols":  w.cols,
-	})
-	if err != nil {
-		return errors.Wrap(err, "qeury template")
-	}
-
-	q := buf.String()
-
-	w.s, err = w.tx.Prepare(q)
-	tlog.V("query").NewMessage(1, tlog.ID{}, "prepare", "q", q, "err", err)
-	if err != nil {
-		return errors.Wrap(err, "prepare")
-	}
-
-	return nil
-}
-
-func (w *Writer) prepare() (err error) {
-	if w.allcols != nil {
-		return nil
-	}
-
-	w.allcols = make(map[string]int)
-
-	q := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-		t_time DateTime64(9) NOT NULL,
-		date_ Date DEFAULT toDate(t_time),
-		L Array(String)
-	) ENGINE = MergeTree() PARTITION BY date_ ORDER BY (t_time, L)`, w.table)
-
-	_, err = w.db.Exec(q)
-	tlog.V("query").Printw("create table", "q", q, "err", err)
-	if err != nil {
-		return errors.Wrap(err, "create table")
-	}
-
-	q = fmt.Sprintf(`SELECT * FROM %s LIMIT 1`, w.table)
-
-	rows, err := w.db.Query(q)
-	tlog.V("query").Printw("get columns", "q", q, "err", err)
-	if err != nil {
-		return errors.Wrap(err, "get columns")
-	}
-
-	w.dbcols, err = rows.ColumnTypes()
-	if err != nil {
-		return errors.Wrap(err, "get db column types")
-	}
-
-	cols, err := rows.Columns()
-	if err != nil {
-		return errors.Wrap(err, "get column names")
-	}
-
-	tlog.Printw("cols", "cols", cols)
-
-	p := -1
-	for i, c := range cols {
-		if c == "date_" {
-			p = i
-			break
-		}
-	}
-
-	if p != -1 {
-		l := len(cols) - 1
-
-		copy(cols[p:], cols[p+1:])
-		copy(w.dbcols[p:], w.dbcols[p+1:])
-
-		cols = cols[:l]
-		w.dbcols = w.dbcols[:l]
-	}
-
-	for i, c := range cols {
-		w.allcols[c] = i
-		w.cols = append(w.cols, c)
-	}
-
-	w.vals = make([]interface{}, len(w.cols))
-
-	w.resetVals()
-
-	return nil
-}
-
-func (w *Writer) addColumn(tp, name string) (err error) {
-	err = w.commit()
-	if err != nil {
-		return errors.Wrap(err, "commit")
-	}
-
-	var buf bytes.Buffer
-
-	err = addCol.Execute(&buf, map[string]interface{}{
-		"table": w.table,
-		"name":  name,
-		"type":  tp,
-	})
-	if err != nil {
-		return errors.Wrap(err, "qeury template")
-	}
-
-	q := buf.String()
-
-	_, err = w.db.Query(q)
-	tlog.V("query").Printw("query", "q", q, "err", err)
-	if err != nil {
-		return errors.Wrap(err, "prepare")
-	}
-
-	w.allcols[name] = len(w.cols)
-	w.cols = append(w.cols, name)
-	w.vals = append(w.vals, nil)
-
-	err = w.begin()
-	if err != nil {
-		return errors.Wrap(err, "begin")
-	}
-
-	w.resetVals()
-
-	return nil
-}
-
-func (w *Writer) addRow() (err error) {
-	_, err = w.s.Exec(w.vals...)
-	tlog.V("query").NewMessage(1, tlog.ID{}, "add row", "args", w.vals, "err", err)
-	if err != nil {
-		return errors.Wrap(err, "exec")
-	}
-
-	w.count++
-
-	return nil
-}
-
-func (w *Writer) commit() (err error) {
-	if w.tx == nil {
-		return nil
-	}
-
-	if w.count != 0 {
-		err = w.tx.Commit()
-		err = errors.Wrap(err, "commit")
-	} else {
-		err = w.tx.Rollback()
-		err = errors.Wrap(err, "rollback")
-	}
-
-	w.tx = nil
-	w.s = nil
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (w *Writer) Close() (err error) {
-	err = w.commit()
-	if err != nil {
-		return errors.Wrap(err, "commit")
-	}
-
-	err = w.db.Close()
-	if err != nil {
-		return errors.Wrap(err, "close db")
-	}
-
-	return nil
 }

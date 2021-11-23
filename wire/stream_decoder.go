@@ -35,7 +35,7 @@ func (d *StreamDecoder) Decode() (data []byte, err error) {
 	st := d.i
 	d.i = end
 
-	return d.b[st:end], nil
+	return d.b[st:end:end], nil
 }
 
 func (d *StreamDecoder) Read(p []byte) (n int, err error) {
@@ -89,7 +89,7 @@ func (d *StreamDecoder) skipRead() (end int, err error) {
 }
 
 func (d *StreamDecoder) skip(st int) (i int) {
-	tag, sub, i := d.tag(d.b, st)
+	tag, sub, i := readTag(d.b, st)
 	//	println("tag", st, tag, sub, i)
 	if i < 0 {
 		return i
@@ -151,62 +151,6 @@ func (d *StreamDecoder) skip(st int) (i int) {
 	return i
 }
 
-func (d *StreamDecoder) tag(b []byte, st int) (tag byte, sub int64, i int) {
-	if st >= len(b) {
-		return tag, sub, eUnexpectedEOF
-	}
-
-	i = st
-
-	tag = b[i] & TagMask
-	sub = int64(b[i] & TagDetMask)
-	i++
-
-	if tag == Special {
-		return
-	}
-
-	switch {
-	case sub < Len1:
-		// we are ok
-	case sub == LenBreak:
-		sub = -1
-	case sub == Len1:
-		if i+1 > len(b) {
-			return tag, sub, eUnexpectedEOF
-		}
-
-		sub = int64(b[i])
-		i++
-	case sub == Len2:
-		if i+2 > len(b) {
-			return tag, sub, eUnexpectedEOF
-		}
-
-		sub = int64(b[i])<<8 | int64(b[i+1])
-		i += 2
-	case sub == Len4:
-		if i+4 > len(b) {
-			return tag, sub, eUnexpectedEOF
-		}
-
-		sub = int64(b[i])<<24 | int64(b[i+1])<<16 | int64(b[i+2])<<8 | int64(b[i+3])
-		i += 4
-	case sub == Len8:
-		if i+8 > len(b) {
-			return tag, sub, eUnexpectedEOF
-		}
-
-		sub = int64(b[i])<<56 | int64(b[i+1])<<48 | int64(b[i+2])<<40 | int64(b[i+3])<<32 |
-			int64(b[i+4])<<24 | int64(b[i+5])<<16 | int64(b[i+6])<<8 | int64(b[i+7])
-		i += 8
-	default:
-		return tag, sub, eBadFormat
-	}
-
-	return tag, sub, i
-}
-
 func (d *StreamDecoder) more() (err error) {
 	{
 		copy(d.b, d.b[d.i:])
@@ -234,4 +178,62 @@ func (d *StreamDecoder) more() (err error) {
 	}
 
 	return err
+}
+
+func readTag(b []byte, st int) (tag byte, sub int64, i int) {
+	if st >= len(b) {
+		return tag, sub, eUnexpectedEOF
+	}
+
+	i = st
+
+	tag = b[i] & TagMask
+	sub = int64(b[i] & TagDetMask)
+	i++
+
+	if tag == Special {
+		return
+	}
+
+	if sub < Len1 {
+		return
+	}
+
+	switch sub {
+	case LenBreak:
+		sub = -1
+	case Len1:
+		if i+1 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])
+		i++
+	case Len2:
+		if i+2 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])<<8 | int64(b[i+1])
+		i += 2
+	case Len4:
+		if i+4 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])<<24 | int64(b[i+1])<<16 | int64(b[i+2])<<8 | int64(b[i+3])
+		i += 4
+	case Len8:
+		if i+8 > len(b) {
+			return tag, sub, eUnexpectedEOF
+		}
+
+		sub = int64(b[i])<<56 | int64(b[i+1])<<48 | int64(b[i+2])<<40 | int64(b[i+3])<<32 |
+			int64(b[i+4])<<24 | int64(b[i+5])<<16 | int64(b[i+6])<<8 | int64(b[i+7])
+		i += 8
+	default:
+		return tag, sub, eBadFormat
+	}
+
+	return tag, sub, i
 }
