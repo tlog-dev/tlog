@@ -704,6 +704,19 @@ func (l *Logger) RegisterMetric(name, typ, help string, kvs ...interface{}) {
 
 	l.b = l.Encoder.AppendMap(l.b[:0], -1)
 
+	if !l.NoTime {
+		l.b = l.Encoder.AppendString(l.b, KeyTime)
+		l.b = l.Encoder.AppendTimestamp(l.b, l.nano())
+	}
+
+	if !l.NoCaller {
+		var c loc.PC
+		caller1(1, &c, 1, 1)
+
+		l.b = l.Encoder.AppendString(l.b, KeyCaller)
+		l.b = l.Encoder.AppendPC(l.b, c)
+	}
+
 	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
 	l.b = EventMetricDesc.TlogAppend(&l.Encoder, l.b)
 

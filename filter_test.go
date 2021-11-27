@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/nikandfor/loc"
@@ -156,4 +157,90 @@ func BenchmarkMatchFilter(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		f.matchFilter(c, "a,b")
 	}
+}
+
+func BenchmarkMutex(b *testing.B) {
+	b.Skip()
+
+	b.Run("MutexSingleThread", func(b *testing.B) {
+		var mu sync.Mutex
+
+		for i := 0; i < b.N; i++ {
+			mu.Lock()
+			mu.Unlock()
+		}
+	})
+
+	b.Run("RWMutexSingleThread", func(b *testing.B) {
+		var mu sync.RWMutex
+
+		for i := 0; i < b.N; i++ {
+			mu.RLock()
+			mu.RUnlock()
+		}
+	})
+
+	b.Run("MutexParallel", func(b *testing.B) {
+		var mu sync.Mutex
+
+		b.RunParallel(func(b *testing.PB) {
+			for b.Next() {
+				mu.Lock()
+				mu.Unlock()
+			}
+		})
+	})
+
+	b.Run("RWMutexParallel", func(b *testing.B) {
+		var mu sync.RWMutex
+
+		b.RunParallel(func(b *testing.PB) {
+			for b.Next() {
+				mu.RLock()
+				mu.RUnlock()
+			}
+		})
+	})
+
+	const M = 4
+
+	b.Run("MutexParallel2", func(b *testing.B) {
+		var mu sync.Mutex
+
+		var wg sync.WaitGroup
+		wg.Add(M)
+
+		defer wg.Wait()
+
+		for j := 0; j < M; j++ {
+			go func() {
+				defer wg.Done()
+
+				for i := 0; i < b.N/M; i++ {
+					mu.Lock()
+					mu.Unlock()
+				}
+			}()
+		}
+	})
+
+	b.Run("RWMutexParallel2", func(b *testing.B) {
+		var mu sync.RWMutex
+
+		var wg sync.WaitGroup
+		wg.Add(M)
+
+		defer wg.Wait()
+
+		for j := 0; j < M; j++ {
+			go func() {
+				defer wg.Done()
+
+				for i := 0; i < b.N/M; i++ {
+					mu.RLock()
+					mu.RUnlock()
+				}
+			}()
+		}
+	})
 }

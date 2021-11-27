@@ -42,18 +42,16 @@ type (
 	}
 )
 
-func New(d string) (w *Writer, err error) {
-	dd, err := dsn.Parse(d)
+func New(addr string) (w *Writer, err error) {
+	d, err := dsn.Parse(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse dsn")
 	}
 
-	pool := clpool.NewBinaryPool(dd.Hosts[0])
-
 	w = &Writer{
-		pool:     pool,
-		Compress: dd.Compress,
-		table:    "logs",
+		pool:     clpool.NewBinaryPool(d.Hosts[0]),
+		Compress: d.Compress,
+		table:    "events",
 	}
 
 	w.JSON = convert.NewJSONWriter(&w.jb)
@@ -75,7 +73,7 @@ func New(d string) (w *Writer, err error) {
 		{Key: tlog.KeyCaller, Tag: wire.Semantic, Sub: wire.Caller}:           "Caller",
 	}
 
-	if q := dd.Query.Get("table"); q != "" {
+	if q := d.Query.Get("table"); q != "" {
 		w.table = q
 	}
 
@@ -103,14 +101,14 @@ func (w *Writer) createTable(ctx context.Context) (err error) {
 		"  `s`      String          MATERIALIZED JSONExtractString(raw, 'Span') CODEC(ZSTD(9))," +
 		"  `p`      String          MATERIALIZED JSONExtractString(raw, 'Parent') CODEC(ZSTD(9))," +
 		"  `msg`    String          MATERIALIZED JSONExtractString(raw, 'Message') CODEC(ZSTD(9))," +
-		"  `kind`    String         MATERIALIZED JSONExtractString(raw, 'EventKind') CODEC(ZSTD(9))," +
+		"  `kind`   String          MATERIALIZED JSONExtractString(raw, 'EventKind') CODEC(ZSTD(9))," +
 		"  `log_level` Int8         MATERIALIZED JSONExtract(raw, 'LogLevel', 'Int8') CODEC(ZSTD(9))," +
 		"  `err`    String          MATERIALIZED JSONExtractString(raw, 'err') CODEC(ZSTD(9))," +
 		"  `date`   Date            DEFAULT if(ts != 0, toDate(ts), today()) CODEC(Delta, ZSTD(9))" +
 		") " +
-		"ENGINE = MergeTree() " +
+		"ENGINE = ReplacingMergeTree() " +
 		"PARTITION BY date " +
-		"ORDER BY ts "
+		"ORDER BY (ts, raw)"
 
 	qq = fmt.Sprintf(qq, w.table)
 

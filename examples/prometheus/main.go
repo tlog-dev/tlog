@@ -52,8 +52,7 @@ func main() {
 	}, []string{"path"})
 
 	l.RegisterMetric("fully_qualified_metric_name_with_units", tlog.MetricSummary, "help message that describes metric",
-		"quantile", []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1},
-		tlog.KeyLabels, tlog.Labels{"const=label"})
+		"quantiles", []float64{0.1, 0.5, 0.9, 0.95, 0.99, 1}, "labels", tlog.Labels{"const=label"})
 
 	prometheus.MustRegister(pm)
 	//	prometheus.MustRegister(pw)

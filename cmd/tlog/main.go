@@ -34,7 +34,6 @@ import (
 	"github.com/nikandfor/tlog/processor"
 	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
-	"github.com/nikandfor/tlog/web"
 	"github.com/nikandfor/tlog/wire"
 )
 
@@ -57,15 +56,6 @@ type (
 		net.Listener
 		def []func() error
 	}
-
-	Flusher interface {
-		Flush()
-	}
-
-	WriteFlusher struct {
-		io.Writer
-		Flusher
-	}
 )
 
 func main() {
@@ -75,7 +65,7 @@ func main() {
 		Args:   cli.Args{},
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
-			cli.NewFlag("clickhouse", "", "send logs to clickhouse (in addition to output)"),
+			cli.NewFlag("clickhouse", "", "send logs to clickhouse"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			cli.NewFlag("head", 0, "skip all except first n events"),
 			cli.NewFlag("tail", 0, "skip all except last n events"),
@@ -115,32 +105,16 @@ func main() {
 		Name:   "agent,run",
 		Action: agentRun,
 		Flags: []*cli.Flag{
-			cli.NewFlag("http", ":8000", "http listen address"),
-			cli.NewFlag("http-net", "tcp", "http listen network"),
-		},
-	}
-
-	agentCmd0 := &cli.Command{
-		Name:   "agent0",
-		Action: agentRun0,
-		Flags: []*cli.Flag{
-			cli.NewFlag("listen-packet,p", "", "listen packet address"),
-			cli.NewFlag("listen-packet-net,P", "unixgram", "listen packet network"),
 			cli.NewFlag("listen,l", "", "listen address"),
 			cli.NewFlag("listen-net,L", "unix", "listen network"),
 
+			cli.NewFlag("listen-packet,p", "", "listen packet address"),
+			cli.NewFlag("listen-packet-net,P", "unixgram", "listen packet network"),
+
 			cli.NewFlag("http", ":8000", "http listen address"),
 			cli.NewFlag("http-net", "tcp", "http listen network"),
-
-			cli.NewFlag("max-events", 100000, "max events to keep in memory"),
-
-			cli.NewFlag("db", "/var/log/tlog.db", "db address"),
-			cli.NewFlag("db-max-size", "1G", "max db size"),
-			cli.NewFlag("db-max-age", 30*24*time.Hour, "max logs age"),
-			cli.NewFlag("tolog", false, "dump events to log"),
 		},
 	}
-	_ = agentCmd0
 
 	cli.App = cli.Command{
 		Name:   "tlog",
@@ -212,14 +186,14 @@ func before(c *cli.Command) error {
 func agentRun(c *cli.Command) (err error) {
 	ctx := context.Background()
 
-	s := web.New()
+	a := agent.New()
 
 	r := gin.New()
 
 	r.Use(tlgin.Tracer)
 
-	r.GET("/", s.HandleIndex)
-	r.GET("/query", s.HandleQuery)
+	//	r.GET("/", s.HandleIndex)
+	//	r.GET("/query", s.HandleQuery)
 
 	g := graceful.New()
 
@@ -231,7 +205,7 @@ func agentRun(c *cli.Command) (err error) {
 
 		tlog.Printw("listen http", "addr", l.Addr())
 
-		g.Add(ctx, "listener", func(ctx context.Context) error {
+		g.Add(ctx, "listen http", func(ctx context.Context) error {
 			err := r.RunListener(l)
 			select {
 			case <-ctx.Done():
@@ -245,121 +219,51 @@ func agentRun(c *cli.Command) (err error) {
 		}), graceful.WithCancelContext())
 	}
 
-	return g.Run(ctx)
-}
-
-func agentRun0(c *cli.Command) (err error) {
-	errc := make(chan error, 10)
-
-	a := agent.New()
-
-	a.MaxEvents = c.Int("max-events")
-
-	if q := c.String("http"); q != "" {
-		l, err := net.Listen(c.String("http-net"), q)
+	if q := c.String("listen"); q != "" {
+		l, err := listen(c.String("listen-net"), q)
 		if err != nil {
-			return errors.Wrap(err, "listen http: %v", q)
+			return errors.Wrap(err, "listen stream")
 		}
 
-		tlog.Printw("listen http", "addr", l.Addr())
+		tlog.Printw("listen stream", "addr", l.Addr())
 
-		go func() {
-			err := http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				ctx := context.Background()
-
-				var follow, addlabels bool
-				n := 10
-
-				cw := tlog.NewConsoleWriter(w, tlog.LdetFlags)
-
-				vs := req.URL.Query()
-
-				if _, ok := vs["color"]; ok {
-					cw.Colorize = true
-				}
-
-				if _, ok := vs["follow"]; ok {
-					follow = true
-				}
-
-				if _, ok := vs["addlabels"]; ok {
-					addlabels = true
-				}
-
-				if q := vs.Get("n"); q != "" {
-					n, err = strconv.Atoi(q)
-					if err != nil {
-						fmt.Fprintf(w, "parse n: %v\n", err)
-						return
-					}
-				}
-
-				err = a.Subscribe(ctx, WriteFlusher{
-					Writer:  cw,
-					Flusher: w.(Flusher),
-				}, n, follow, addlabels)
-				if err != nil {
-					tlog.Printw("http client", "err", err)
-				}
-			}))
-
-			tlog.Printw("http server done", "err", err)
-
-			errc <- errors.Wrap(err, "serve http")
-		}()
+		g.Add(ctx, "listen stream", func(ctx context.Context) error {
+			err := a.Listen(l)
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				return err
+			}
+		}, graceful.WithStop(func(ctx context.Context) error {
+			err := l.Close()
+			return errors.Wrap(err, "close stream listener")
+		}), graceful.WithCancelContext())
 	}
 
 	if q := c.String("listen-packet"); q != "" {
-		p, err := listenPacket(c.String("listen-packet-net"), q)
+		l, err := listenPacket(c.String("listen-packet-net"), q)
 		if err != nil {
 			return errors.Wrap(err, "listen packet")
 		}
 
-		defer func() {
-			e := p.Close()
-			if err == nil {
-				err = errors.Wrap(e, "close")
+		tlog.Printw("listen packet", "addr", l.LocalAddr())
+
+		g.Add(ctx, "listen packet", func(ctx context.Context) error {
+			err := a.ListenPacket(l)
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				return err
 			}
-		}()
-
-		tlog.Printw("listening", "addr", p.LocalAddr())
-
-		go func() {
-			err := a.ListenPacket(p)
-
-			tlog.Printw("packet listener done", "err", err)
-
-			errc <- errors.Wrap(err, "listen packet")
-		}()
+		}, graceful.WithStop(func(ctx context.Context) error {
+			err := l.Close()
+			return errors.Wrap(err, "close packet listener")
+		}), graceful.WithCancelContext())
 	}
 
-	if q := c.String("listen"); q != "" {
-		l, err := listen(c.String("listen-net"), q)
-		if err != nil {
-			return errors.Wrap(err, "listen")
-		}
-
-		defer func() {
-			e := l.Close()
-			if err == nil {
-				err = errors.Wrap(e, "close")
-			}
-		}()
-
-		tlog.Printw("listening", "addr", l.Addr())
-
-		go func() {
-			err := a.Listen(l)
-
-			tlog.Printw("listener done", "err", err)
-
-			errc <- errors.Wrap(err, "listen packet")
-		}()
-	}
-
-	err = <-errc
-
-	return err
+	return g.Run(ctx)
 }
 
 func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {

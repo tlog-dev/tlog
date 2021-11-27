@@ -108,7 +108,7 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 
 		b = append(b, '"', ':')
 
-		b, i = w.convertValue(b, p, i)
+		b, i = w.ConvertValue(b, p, i)
 	}
 
 	b = append(b, '}')
@@ -126,7 +126,7 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 	return len(p), nil
 }
 
-func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
+func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	switch tag {
@@ -175,7 +175,7 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 				b = append(b, ',')
 			}
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.ConvertValue(b, p, i)
 		}
 
 		b = append(b, ']')
@@ -205,7 +205,7 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 
 			b = append(b, '"', ':')
 
-			b, i = w.convertValue(b, p, i)
+			b, i = w.ConvertValue(b, p, i)
 		}
 
 		b = append(b, '}')
@@ -256,7 +256,7 @@ func (w *JSON) convertValue(b, p []byte, st int) (_ []byte, i int) {
 				b = low.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
 			}
 		default:
-			b, i = w.convertValue(b, p, i)
+			b, i = w.ConvertValue(b, p, i)
 		}
 	case wire.Special:
 		switch sub {

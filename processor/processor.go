@@ -8,7 +8,24 @@ import (
 	"github.com/nikandfor/tlog/wire"
 )
 
-// (select(.m == "peer_syncer") | .s) as $sid
+/*
+=	jq style
+
+	select( .s in
+		[ $ | select( .T = "s" and .s in
+			[ $ | select( .err ~= "recv block: EOF") | .[s] ]
+		) | .[p] ]
+	) | .[remote_addr]
+
+=	Clickhouse
+
+	SELECT remote_addr FROM logs
+	WHERE remote_addr != "" AND s IN
+		(SELECT p FROM logs
+		WHERE T = 's' AND s IN
+			(SELECT s FROM logs WHERE err = 'recv block: EOF')
+		)
+*/
 
 type (
 	Writer struct {

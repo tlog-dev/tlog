@@ -12,36 +12,19 @@ import (
 )
 
 type (
-	Flusher interface {
-		Flush() error
-	}
-
 	TeeWriter []io.Writer
 
-	NopCloser struct {
-		io.Reader
-		io.Writer
-	}
-
-	WriteCloser struct {
+	ReWriter struct {
 		io.Writer
 		io.Closer
-	}
-
-	WriteFlusher struct {
-		io.Writer
-		Flusher
-	}
-
-	ReWriter struct {
-		w io.Writer
-		c io.Closer
 
 		Open func(io.Writer, error) (io.Writer, error)
 	}
 
+	// DeLabels removes repeating labels from events
 	DeLabels struct {
-		w io.Writer
+		io.Writer
+
 		d wire.Decoder
 		e wire.Encoder
 
@@ -62,9 +45,30 @@ type (
 	}
 
 	// CountableIODiscard discards data but counts operations and bytes.
-	// It's safe to use simultaneously (atimic operations are used).
+	// It's safe to use simultaneously (atomic operations are used).
 	CountableIODiscard struct {
 		Bytes, Operations int64
+	}
+
+	// base interfaces
+
+	Flusher interface {
+		Flush() error
+	}
+
+	NopCloser struct {
+		io.Reader
+		io.Writer
+	}
+
+	WriteCloser struct {
+		io.Writer
+		io.Closer
+	}
+
+	WriteFlusher struct {
+		io.Writer
+		Flusher
 	}
 )
 
@@ -144,20 +148,20 @@ func NewReWriter(open func(io.Writer, error) (io.Writer, error)) *ReWriter {
 }
 
 func (w *ReWriter) Write(p []byte) (n int, err error) {
-	if w.w != nil {
-		n, err = w.w.Write(p)
+	if w.Writer != nil {
+		n, err = w.Writer.Write(p)
 
 		if err == nil {
 			return
 		}
 	}
 
-	n, err = w.open()
+	err = w.open()
 	if err != nil {
 		return
 	}
 
-	n, err = w.w.Write(p)
+	n, err = w.Writer.Write(p)
 	if err != nil {
 		return
 	}
@@ -165,28 +169,28 @@ func (w *ReWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (w *ReWriter) open() (n int, err error) {
-	w.w, err = w.Open(w.w, err)
+func (w *ReWriter) open() (err error) {
+	w.Writer, err = w.Open(w.Writer, err)
 	if err != nil {
-		return 0, errors.Wrap(err, "open")
+		return errors.Wrap(err, "open")
 	}
 
-	w.c, _ = w.w.(io.Closer)
+	w.Closer, _ = w.Writer.(io.Closer)
 
-	return 0, nil
+	return nil
 }
 
 func (w *ReWriter) Close() error {
-	if w.c == nil {
+	if w.Closer == nil {
 		return nil
 	}
 
-	return w.c.Close()
+	return w.Closer.Close()
 }
 
 func NewDeLabels(w io.Writer) *DeLabels {
 	return &DeLabels{
-		w: w,
+		Writer: w,
 	}
 }
 
@@ -219,7 +223,7 @@ func (w *DeLabels) Write(p []byte) (i int, err error) {
 	if !bytes.Equal(w.ls, p[st:i]) {
 		w.ls = append(w.ls[:0], p[st:i]...)
 
-		return w.w.Write(p)
+		return w.Writer.Write(p)
 	}
 
 	w.b = w.b[:0]
@@ -233,7 +237,7 @@ func (w *DeLabels) Write(p []byte) (i int, err error) {
 	w.b = append(w.b, p[gst:st]...)
 	w.b = append(w.b, p[i:]...)
 
-	i, err = w.w.Write(w.b)
+	i, err = w.Writer.Write(w.b)
 	if err != nil {
 		return i, err
 	}

@@ -203,12 +203,12 @@ func (w *Writer) metric(p []byte) {
 			s, i = w.d.String(p, i)
 
 			m.Help = string(s)
-		case tag == wire.Semantic && sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
+		case tag == wire.Semantic && sub == tlog.WireLabels && string(k) == "labels":
 			var ls tlog.Labels
 			i = ls.TlogParse(&w.d, p, i)
 
 			m.constls = w.encodeLabels(m.constls, ls)
-		case tag == wire.Array && string(k) == "quantile":
+		case tag == wire.Array && string(k) == "quantiles":
 			st := i
 
 			_, _, i = w.d.Tag(p, i)
