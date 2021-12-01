@@ -3,6 +3,7 @@ package tlclickhouse
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	click "github.com/nikandfor/clickhouse"
@@ -22,13 +23,16 @@ type (
 
 		table string
 
+		d  wire.Decoder
+		ts int64
+
 		pool click.ClientPool
 
 		*convert.JSON
 
 		b *batch
 
-		jb, cb low.Buf
+		bjson, braw, bts low.Buf
 	}
 
 	batch struct {
@@ -36,7 +40,8 @@ type (
 		q    *click.Query
 		meta click.QueryMeta
 
-		e *binary.Encoder
+		eraw *binary.Encoder
+		ets  *binary.Encoder
 
 		b *click.Block
 	}
@@ -54,7 +59,7 @@ func New(addr string) (w *Writer, err error) {
 		table:    "events",
 	}
 
-	w.JSON = convert.NewJSONWriter(&w.jb)
+	w.JSON = convert.NewJSONWriter(&w.bjson)
 
 	w.JSON.AppendNewLine = false
 
@@ -94,21 +99,21 @@ func (w *Writer) createTable(ctx context.Context) (err error) {
 	defer func() { w.pool.Put(ctx, cl, err) }()
 
 	qq := "CREATE TABLE IF NOT EXISTS %s (" +
-		"  `raw`    String          CODEC(ZSTD(9))," +
-		"  `labels` Array(String)   MATERIALIZED JSONExtract(raw, 'Labels', 'Array(String)') CODEC(LZ4)," +
-		"  `ts`     DateTime64(9, 'UTC') MATERIALIZED toDateTime64(JSONExtractString(raw, 'Timestamp'), 9) CODEC(Delta, ZSTD(9))," +
-		"  `el`     Int64           MATERIALIZED JSONExtractInt(raw, 'Elapsed') CODEC(ZSTD(9))," +
-		"  `s`      String          MATERIALIZED JSONExtractString(raw, 'Span') CODEC(ZSTD(9))," +
-		"  `p`      String          MATERIALIZED JSONExtractString(raw, 'Parent') CODEC(ZSTD(9))," +
-		"  `msg`    String          MATERIALIZED JSONExtractString(raw, 'Message') CODEC(ZSTD(9))," +
-		"  `kind`   String          MATERIALIZED JSONExtractString(raw, 'EventKind') CODEC(ZSTD(9))," +
-		"  `log_level` Int8         MATERIALIZED JSONExtract(raw, 'LogLevel', 'Int8') CODEC(ZSTD(9))," +
-		"  `err`    String          MATERIALIZED JSONExtractString(raw, 'err') CODEC(ZSTD(9))," +
-		"  `date`   Date            DEFAULT if(ts != 0, toDate(ts), today()) CODEC(Delta, ZSTD(9))" +
+		"  `raw`    String," +
+		"  `ts`     DateTime64(9, 'UTC') DEFAULT toDateTime64(JSONExtractString(raw, 'Timestamp'), 9) CODEC(Delta, Default)," +
+		"  `labels` Array(String)   MATERIALIZED JSONExtract(raw, 'Labels', 'Array(String)')," +
+		"  `el`     Int64           MATERIALIZED JSONExtractInt(raw, 'Elapsed')," +
+		"  `s`      String          MATERIALIZED JSONExtractString(raw, 'Span')," +
+		"  `p`      String          MATERIALIZED JSONExtractString(raw, 'Parent')," +
+		"  `msg`    String          MATERIALIZED JSONExtractString(raw, 'Message')," +
+		"  `kind`   String          MATERIALIZED JSONExtractString(raw, 'EventKind')," +
+		"  `log_level` Int8         MATERIALIZED JSONExtract(raw, 'LogLevel', 'Int8')," +
+		"  `err`    String          MATERIALIZED JSONExtractString(raw, 'err')," +
+		"  `date`   Date            DEFAULT if(ts != 0, toDate(ts), today()) CODEC(Delta, Default)" +
 		") " +
 		"ENGINE = ReplacingMergeTree() " +
 		"PARTITION BY date " +
-		"ORDER BY (ts, raw)"
+		"ORDER BY (date, ts, raw)"
 
 	qq = fmt.Sprintf(qq, w.table)
 
@@ -126,11 +131,19 @@ func (w *Writer) createTable(ctx context.Context) (err error) {
 }
 
 func (w *Writer) Write(p []byte) (n int, err error) {
-	w.jb = w.jb[:0]
+	w.bjson = w.bjson[:0]
 
 	_, err = w.JSON.Write(p)
 	if err != nil {
 		return 0, errors.Wrap(err, "convert to json")
+	}
+
+	ts := w.getts(p)
+	if ts == 0 {
+		w.ts++
+		ts = w.ts
+	} else {
+		w.ts = ts
 	}
 
 	b, err := w.batch()
@@ -138,7 +151,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 		return 0, errors.Wrap(err, "batch")
 	}
 
-	err = w.addRow(b, w.jb)
+	err = w.addRow(b, w.bjson, ts)
 	if err != nil {
 		return 0, errors.Wrap(err, "encode string")
 	}
@@ -196,7 +209,7 @@ func (w *Writer) newBatch() (b *batch, err error) {
 	}()
 
 	q := &click.Query{
-		Query:      fmt.Sprintf("INSERT INTO %s (`raw`) VALUES", w.table),
+		Query:      fmt.Sprintf("INSERT INTO %s (`raw`, `ts`) VALUES", w.table),
 		Compressed: w.Compress,
 	}
 
@@ -206,7 +219,7 @@ func (w *Writer) newBatch() (b *batch, err error) {
 		return nil, errors.Wrap(err, "send query")
 	}
 
-	if len(meta) != 1 || meta[0].Type != "String" {
+	if len(meta) != 2 || meta[0].Type != "String" || !strings.HasPrefix(meta[1].Type, "DateTime64(9,") {
 		return nil, errors.New("unexpected meta: %v", meta)
 	}
 
@@ -221,17 +234,24 @@ func (w *Writer) newBatch() (b *batch, err error) {
 		Cols: meta,
 	}
 
-	w.cb = w.cb[:0]
+	w.braw = w.braw[:0]
+	w.bts = w.bts[:0]
 
-	b.e = binary.NewEncoder(context.Background(), &w.cb)
+	b.eraw = binary.NewEncoder(context.Background(), &w.braw)
+	b.ets = binary.NewEncoder(context.Background(), &w.bts)
 
 	return b, nil
 }
 
-func (w *Writer) addRow(b *batch, row []byte) (err error) {
-	err = b.e.RawString(w.jb)
+func (w *Writer) addRow(b *batch, raw []byte, ts int64) (err error) {
+	err = b.eraw.RawString(raw)
 	if err != nil {
-		return errors.Wrap(err, "encode")
+		return errors.Wrap(err, "encode raw")
+	}
+
+	err = b.ets.Int64(ts)
+	if err != nil {
+		return errors.Wrap(err, "encode ts")
 	}
 
 	b.b.Rows++
@@ -242,7 +262,8 @@ func (w *Writer) addRow(b *batch, row []byte) (err error) {
 func (w *Writer) commit(b *batch) (err error) {
 	ctx := context.Background()
 
-	b.b.Cols[0].RawData = w.cb
+	b.b.Cols[0].RawData = w.braw
+	b.b.Cols[1].RawData = w.bts
 
 	defer func() { w.pool.Put(ctx, b.cl, err) }()
 
@@ -282,4 +303,30 @@ func (w *Writer) recvResponse(ctx context.Context, cl click.Client) (err error) 
 			return errors.New("unexpected packet: %x", tp)
 		}
 	}
+}
+
+func (w *Writer) getts(p []byte) (ts int64) {
+	tag, els, i := w.d.Tag(p, 0)
+	if tag != wire.Map {
+		return
+	}
+
+	var k []byte
+	var sub int64
+
+	for el := 0; els == -1 || el < int(els); el++ {
+		k, i = w.d.String(p, i)
+
+		st := i
+
+		tag, sub, i = w.d.SkipTag(p, i)
+
+		if tag == wire.Semantic && sub == wire.Time && string(k) == tlog.KeyTime {
+			ts, i = w.d.Timestamp(p, st)
+
+			return ts
+		}
+	}
+
+	return
 }

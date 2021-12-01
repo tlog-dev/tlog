@@ -29,6 +29,16 @@ const (
 )
 
 func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
+	ts, i := d.Timestamp(p, st)
+
+	if ts != 0 {
+		t = time.Unix(0, ts)
+	}
+
+	return
+}
+
+func (d *Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
 	if p[st] != Semantic|Time {
 		panic("not a time")
 	}
@@ -39,7 +49,7 @@ func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
 
 	switch tag {
 	case Int:
-		t = time.Unix(0, sub)
+		ts = sub
 	default:
 		panic("unsupported time")
 	}
