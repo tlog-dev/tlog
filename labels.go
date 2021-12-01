@@ -200,15 +200,13 @@ func (ls *Labels) Merge(b Labels) {
 		if add == "" {
 			continue
 		}
-		kv := strings.SplitN(add, "=", 2)
 
-		switch {
-		case len(kv) == 1:
-			ls.Set(kv[0], "")
-		case kv[0] == "":
-			ls.Del(kv[1])
-		default:
-			ls.Set(kv[0], kv[1])
+		k, v := ls.Split(add)
+
+		if k == "" {
+			ls.Del(v)
+		} else {
+			ls.Set(k, v)
 		}
 	}
 }
@@ -218,4 +216,13 @@ func (ls Labels) Copy() Labels {
 	r := make(Labels, len(ls))
 	copy(r, ls)
 	return r
+}
+
+func (ls Labels) Split(kv string) (k, v string) {
+	p := strings.IndexByte(kv, '=')
+	if p == -1 {
+		return kv, ""
+	}
+
+	return kv[:p], kv[p+1:]
 }

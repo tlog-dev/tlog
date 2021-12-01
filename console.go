@@ -51,6 +51,8 @@ type (
 		CallerFormat   string
 		BytesFormat    string
 
+		StringOnNewLineMinLen int
+
 		PairSeparator string
 		KVSeparator   string
 
@@ -137,6 +139,8 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		FloatChar:      'f',
 		FloatPrecision: 5,
 		CallerFormat:   "%v",
+
+		StringOnNewLineMinLen: 71,
 
 		PairSeparator: "  ",
 		KVSeparator:   "=",
@@ -626,6 +630,25 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 	case wire.Bytes, wire.String:
 		var s []byte
 		s, i = w.d.String(p, st)
+
+		if len(s) >= w.StringOnNewLineMinLen {
+			b = append(b, '\\', '\n')
+
+			if tag == wire.Bytes {
+				h := hex.Dumper((*low.Buf)(&b))
+
+				_, _ = h.Write(s)
+				_ = h.Close()
+			} else {
+				b = append(b, s...)
+
+				if s[len(s)-1] != '\n' {
+					b = append(b, '\n')
+				}
+			}
+
+			break
+		}
 
 		if tag == wire.Bytes {
 			if w.BytesFormat != "" {

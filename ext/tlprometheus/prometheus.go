@@ -1,10 +1,11 @@
 package tlprometheus
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/nikandfor/quantile"
@@ -19,13 +20,8 @@ type (
 
 		mu sync.Mutex
 
-		vs map[string]*metric
-
-		lsbuf []byte
-	}
-
-	observer interface {
-		Observe(v interface{})
+		metrics []*metric
+		byname  map[string]*metric
 	}
 
 	metric struct {
@@ -33,117 +29,100 @@ type (
 		Type string
 		Help string
 
-		constls []byte
+		ls string
 
-		q []float64
-
-		ls map[uintptr][]byte
-		o  map[uintptr]observer
+		vals map[string]observer // labels -> observer
 	}
 
-	summary struct {
-		q     *quantile.Stream
-		sum   float64
-		count int
+	observer interface {
+		Observe(v float64)
 	}
 
 	gauge struct {
-		v interface{}
+		v float64
 	}
 
 	counter struct {
 		v float64
 	}
+
+	summary struct {
+		v *quantile.Stream
+
+		sum   float64
+		count int64
+
+		quantiles []float64
+	}
 )
 
 func New() *Writer {
 	return &Writer{
-		vs: make(map[string]*metric),
+		byname: make(map[string]*metric),
 	}
 }
 
-func (w *Writer) Write(p []byte) (n int, err error) {
-	e := w.getEventKind(p)
+func (w *Writer) Write(p []byte) (_ int, err error) {
+	ev := w.getEventKind(p)
 
-	switch e {
+	switch ev {
 	case tlog.EventValue:
-		w.value(p)
+		err = w.value(p)
 	case tlog.EventMetricDesc:
-		w.metric(p)
+		err = w.metric(p)
+	}
+	if err != nil {
+		return 0, err
 	}
 
 	return len(p), nil
 }
 
-func (w *Writer) value(p []byte) {
-	_, els, i := w.d.Tag(p, 0)
+func (w *Writer) value(p []byte) error {
+	tag, els, i := w.d.Tag(p, 0)
+	if tag != wire.Map {
+		return errors.New("map expected")
+	}
 
-	var m *metric
-	var val interface{}
+	var name []byte
+	var val float64
 	var ls []byte
 
-	var k, s []byte
-	var v interface{}
 	for el := 0; els == -1 || el < int(els); el++ {
 		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
+		var k []byte
 		k, i = w.d.String(p, i)
 
 		tag, sub, _ := w.d.Tag(p, i)
-		if tag == wire.Semantic {
-			i = w.d.Skip(p, i)
 
-			continue
+		if tag == wire.Semantic {
+			switch {
+			case sub == wire.Time && string(k) == tlog.KeyTime,
+				sub == tlog.WireID && string(k) == tlog.KeySpan,
+				sub == tlog.WireID && string(k) == tlog.KeyParent,
+				sub == tlog.WireEventKind && string(k) == tlog.KeyEventKind,
+				false:
+
+				i = w.d.Skip(p, i)
+				continue
+			}
 		}
 
-		if m == nil {
-			var ok bool
-			m, ok = w.vs[string(k)]
+		if name == nil {
+			name = k
 
-			if !ok {
-				m = w.initMetric(&metric{
-					Name: string(k),
-				})
-			}
-
-			switch tag {
-			case wire.Int:
-				val, i = w.d.Unsigned(p, i)
-			case wire.Neg:
-				val, i = w.d.Signed(p, i)
-			case wire.Special:
-				switch sub {
-				case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
-					val, i = w.d.Float(p, i)
-				default:
-					i = w.d.Skip(p, i)
-				}
-			default:
-				i = w.d.Skip(p, i)
-			}
+			val, i = w.val(p, i)
 
 			continue
 		}
 
 		switch tag {
-		case wire.String:
-			s, i = w.d.String(p, i)
-		case wire.Int:
-			v, i = w.d.Unsigned(p, i)
-		case wire.Neg:
-			v, i = w.d.Signed(p, i)
-		case wire.Special:
-			switch sub {
-			case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
-				v, i = w.d.Float(p, i)
-			default:
-				i = w.d.Skip(p, i)
-			}
+		case wire.Int, wire.Neg, wire.String:
 		default:
 			i = w.d.Skip(p, i)
-
 			continue
 		}
 
@@ -152,148 +131,258 @@ func (w *Writer) value(p []byte) {
 		}
 
 		ls = append(ls, k...)
-		ls = append(ls, '=', '"')
+		ls = append(ls, '=')
 
-		if s != nil {
-			ls = low.AppendSafe(ls, s)
-		} else {
-			switch v := v.(type) {
-			case int64:
-				ls = strconv.AppendInt(ls, v, 10)
-			case float64:
-				ls = strconv.AppendFloat(ls, v, 'f', -1, 64)
-			default:
-				panic(v)
+		switch tag {
+		case wire.Int, wire.Neg:
+			if tag == wire.Neg {
+				ls = append(ls, '-')
 			}
+
+			var x uint64
+			x, i = w.d.Unsigned(p, i)
+
+			ls = strconv.AppendUint(ls, x, 10)
+		case wire.String:
+			k, i = w.d.String(p, i)
+
+			ls = low.AppendQuote(ls, k)
+		default:
+			panic(tag)
 		}
 
-		ls = append(ls, '"')
+		_ = sub
 	}
 
-	//	tlog.Printw("value", "val", val, "ls", ls)
+	if name == nil {
+		return nil
+	}
 
-	m.observe(val, ls)
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	m, ok := w.byname[string(name)]
+	if !ok {
+		m = &metric{
+			Name: string(name),
+			Type: "gauge",
+			Help: "unexpected metric",
+			vals: make(map[string]observer),
+		}
+
+		w.byname[string(name)] = m
+
+		w.metrics = append(w.metrics, m)
+
+		sort.Slice(w.metrics, w.byNameSorter)
+	}
+
+	o, ok := m.vals[string(ls)]
+	if !ok {
+		o = w.newObserver(m.Type)
+		m.vals[string(ls)] = o
+	}
+
+	o.Observe(val)
+
+	return nil
 }
 
-func (w *Writer) metric(p []byte) {
-	_, els, i := w.d.Tag(p, 0)
+func (w *Writer) val(p []byte, st int) (val float64, i int) {
+	tag, sub, i := w.d.Tag(p, st)
 
-	m := &metric{}
+	switch tag {
+	case wire.Int, wire.Neg:
+		val = float64(sub)
 
-	var k, s []byte
+		return
+	case wire.Special:
+		switch sub {
+		case wire.Float64, wire.Float32, wire.Float16, wire.Float8:
+			return w.d.Float(p, st)
+		}
+	case wire.Semantic:
+		return w.val(p, i)
+	}
+
+	panic(fmt.Sprintf("val %v %x  st %x\n%v", wire.Tag(tag), sub, st, wire.Dump(p)))
+}
+
+func (w *Writer) metric(p []byte) error {
+	tag, els, i := w.d.Tag(p, 0)
+	if tag != wire.Map {
+		return errors.New("map expected")
+	}
+
+	var name, typ, help []byte
+
 	for el := 0; els == -1 || el < int(els); el++ {
 		if els == -1 && w.d.Break(p, &i) {
 			break
 		}
 
+		var k []byte
+
 		k, i = w.d.String(p, i)
 
-		tag, sub, _ := w.d.Tag(p, i)
-
-		switch {
-		case tag == wire.String && string(k) == "name":
-			s, i = w.d.String(p, i)
-
-			m.Name = string(s)
-		case tag == wire.String && string(k) == "type":
-			s, i = w.d.String(p, i)
-
-			m.Type = string(s)
-		case tag == wire.String && string(k) == "help":
-			s, i = w.d.String(p, i)
-
-			m.Help = string(s)
-		case tag == wire.Semantic && sub == tlog.WireLabels && string(k) == "labels":
-			var ls tlog.Labels
-			i = ls.TlogParse(&w.d, p, i)
-
-			m.constls = w.encodeLabels(m.constls, ls)
-		case tag == wire.Array && string(k) == "quantiles":
-			st := i
-
-			_, _, i = w.d.Tag(p, i)
-
-			for el := 0; sub == -1 || el < int(sub); el++ {
-				if sub == -1 && w.d.Break(p, &i) {
-					break
-				}
-
-				var f float64
-				f, i = w.d.Float(p, i)
-
-				m.q = append(m.q, f)
-			}
-
-			i = w.d.Skip(p, st)
+		switch string(k) {
+		case "name":
+			name, i = w.d.String(p, i)
+		case "type":
+			typ, i = w.d.String(p, i)
+		case "help":
+			help, i = w.d.String(p, i)
 		default:
 			i = w.d.Skip(p, i)
 		}
 	}
 
-	if m.q == nil {
-		m.q = []float64{0, 0.1, 0.5, 0.9, 0.99, 1}
+	if name == nil || typ == nil {
+		return nil
 	}
 
-	w.initMetric(m)
+	defer w.mu.Unlock()
+	w.mu.Lock()
 
-	//	tlog.Printw("desc", "name", m.Name, "global", w.labels, "const", m.constls, "q", m.q)
-}
-
-func (w *Writer) initMetric(m *metric) *metric {
-	m.ls = make(map[uintptr][]byte)
-	m.o = make(map[uintptr]observer)
-
-	w.vs[m.Name] = m
-
-	return m
-}
-
-func (w *Writer) encodeLabels(b []byte, ls tlog.Labels) []byte {
-	for _, l := range ls {
-		if len(b) != 0 {
-			b = append(b, ',')
+	m, ok := w.byname[string(name)]
+	if !ok {
+		m = &metric{
+			Name: string(name),
+			vals: make(map[string]observer),
 		}
 
-		kv := strings.SplitN(l, "=", 2)
+		w.byname[string(name)] = m
 
-		b = append(b, kv[0]...)
-		b = append(b, '=', '"')
-		b = append(b, kv[1]...)
-		b = append(b, '"')
+		w.metrics = append(w.metrics, m)
+
+		sort.Slice(w.metrics, w.byNameSorter)
 	}
 
-	return b
+	m.Type = string(typ)
+	if help != nil {
+		m.Help = string(help)
+	}
+
+	return nil
 }
 
-func (m *metric) observe(v interface{}, ls []byte) {
-	if m == nil {
-		return
+func (w *Writer) newObserver(tp string) observer {
+	switch tp {
+	case tlog.MetricGauge:
+		return &gauge{}
+	case tlog.MetricCounter:
+		return &counter{}
+	case tlog.MetricSummary:
+		return &summary{
+			v: quantile.New(0.1),
+
+			quantiles: []float64{0.1, 0.5, 0.9, 0.95, 0.99},
+		}
+	default:
+		return &gauge{}
 	}
+}
 
-	sum := low.BytesHash(ls, 0)
+func (w *Writer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	var b []byte
 
-	_, ok := m.ls[sum]
-	if !ok {
-		m.ls[sum] = ls
-	}
-
-	o, ok := m.o[sum]
-	if !ok {
-		switch m.Type {
-		case "", tlog.MetricSummary:
-			o = newSummary()
-		case tlog.MetricGauge:
-			o = &gauge{}
-		case tlog.MetricCounter:
-			o = &counter{}
-		default:
+	labels := func(ls0, ls string, q float64) {
+		if ls0 == "" && ls == "" && q < 0 {
+			b = append(b, ' ')
 			return
 		}
 
-		m.o[sum] = o
+		b = append(b, '{')
+
+		if ls0 != "" {
+			b = append(b, ls0...)
+		}
+
+		if ls0 != "" && ls != "" {
+			b = append(b, ',')
+		}
+
+		if ls != "" {
+			b = append(b, ls...)
+		}
+
+		if ls != "" && q >= 0 {
+			b = append(b, ',')
+		}
+
+		if q >= 0 {
+			b = append(b, "quantile=\""...)
+
+			b = strconv.AppendFloat(b, q, 'f', -1, 32)
+
+			b = append(b, '"')
+		}
+
+		b = append(b, '}', ' ')
 	}
 
-	o.Observe(v)
+	value := func(v float64) {
+		b = strconv.AppendFloat(b, v, 'f', -1, 64)
+		b = append(b, '\n')
+
+		_, _ = rw.Write(b)
+	}
+
+	count := func(v int64) {
+		b = strconv.AppendUint(b, uint64(v), 10)
+		b = append(b, '\n')
+
+		_, _ = rw.Write(b)
+	}
+
+	line := func(n, ls0, ls string, v float64) {
+		b = append(b[:0], n...)
+		labels(ls0, ls, -1)
+		value(v)
+	}
+
+	summline := func(n, ls0, ls string, q, v float64) {
+		b = append(b[:0], n...)
+		labels(ls0, ls, q)
+		value(v)
+	}
+
+	defer w.mu.Unlock()
+	w.mu.Lock()
+
+	for _, m := range w.metrics {
+		if len(m.vals) == 0 {
+			continue
+		}
+
+		fmt.Fprintf(rw, "# HELP %v %v\n", m.Name, m.Help)
+		fmt.Fprintf(rw, "# TYPE %v %v\n", m.Name, m.Type)
+
+		for ls, o := range m.vals {
+			switch v := o.(type) {
+			case *gauge:
+				line(m.Name, m.ls, ls, v.v)
+			case *counter:
+				line(m.Name, m.ls, ls, v.v)
+			case *summary:
+				for _, q := range v.quantiles {
+					summline(m.Name, m.ls, ls, q, v.v.Query(q))
+				}
+
+				b = append(b[:0], m.Name...)
+				b = append(b, "_sum"...)
+				labels(m.ls, ls, -1)
+				value(v.sum)
+
+				b = append(b[:0], m.Name...)
+				b = append(b, "_count"...)
+				labels(m.ls, ls, -1)
+				count(v.count)
+			default:
+				fmt.Fprintf(rw, "# error: unsupported type: %T\n", v)
+			}
+		}
+	}
 }
 
 func (w *Writer) getEventKind(p []byte) (e tlog.EventKind) {
@@ -333,110 +422,20 @@ func (w *Writer) find(p []byte, typ int64, key string) (i int) {
 	return -1
 }
 
-func (w *Writer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	defer w.mu.Unlock()
-	w.mu.Lock()
-
-	for _, m := range w.vs {
-		fmt.Fprintf(rw, "# HELP %v %v\n", m.Name, m.Help)
-		fmt.Fprintf(rw, "# TYPE %v %v\n", m.Name, m.Type)
-
-		for sum, o := range m.o {
-			switch o := o.(type) {
-			case *summary:
-				ls := w.catLabels(m, sum)
-
-				for _, q := range m.q {
-					v := o.q.Query(q)
-
-					//	tlog.Printw("metric", "name", m.Name, "global", w.labels, "const", m.constls, "val", m.ls[sum])
-
-					fmt.Fprintf(rw, "%v{%s%squantile=\"%v\"} %v\n", m.Name, ls, ",", q, v)
-				}
-
-				fmt.Fprintf(rw, "%v_sum{%s} %v\n", m.Name, ls, o.sum)
-				fmt.Fprintf(rw, "%v_count{%s} %v\n", m.Name, ls, o.count)
-			case *counter:
-				fmt.Fprintf(rw, "%v %v\n", m.Name, o.v)
-			case *gauge:
-				fmt.Fprintf(rw, "%v %v\n", m.Name, o.v)
-			default:
-				fmt.Fprintf(rw, "# error: unsupported type: %T\n", o)
-			}
-		}
-	}
+func (w *Writer) byNameSorter(i, j int) bool {
+	return w.metrics[i].Name < w.metrics[j].Name
 }
 
-func (w *Writer) catLabels(m *metric, sum uintptr) (ls []byte) {
-	var comma bool
-	ls = w.lsbuf[:0]
-
-	tlog.Printw("metric", "m", m, "sum", sum, "constls", m.constls, "m.ls", m.ls[sum])
-
-	if len(m.constls) != 0 {
-		if comma {
-			ls = append(ls, ',')
-		}
-
-		comma = true
-
-		ls = append(ls, m.constls...)
-	}
-
-	if q := m.ls[sum]; len(q) != 0 {
-		if comma {
-			ls = append(ls, ',')
-		}
-
-		ls = append(ls, q...)
-	}
-
-	if comma {
-		w.lsbuf = append(ls, ',')
-
-		ls = ls[:len(w.lsbuf)-1]
-	}
-
-	return
+func (v *gauge) Observe(val float64) {
+	v.v = val
 }
 
-func newSummary() *summary {
-	return &summary{
-		q: quantile.New(0.01),
-	}
+func (v *counter) Observe(val float64) {
+	v.v += val
 }
 
-func (o *summary) Observe(v interface{}) {
-	switch v := v.(type) {
-	case float64:
-		o.q.Insert(v)
-		o.sum += v
-	case float32:
-		o.q.Insert(float64(v))
-		o.sum += float64(v)
-	case int64:
-		o.q.Insert(float64(v))
-		o.sum += float64(v)
-	default:
-		panic("unsupported type")
-	}
-
-	o.count++
-}
-
-func (o *gauge) Observe(v interface{}) {
-	o.v = v
-}
-
-func (o *counter) Observe(v interface{}) {
-	switch v := v.(type) {
-	case float64:
-		o.v += v
-	case float32:
-		o.v += float64(v)
-	case int64:
-		o.v += float64(v)
-	default:
-		panic("unsupported type")
-	}
+func (v *summary) Observe(val float64) {
+	v.v.Insert(val)
+	v.sum += val
+	v.count++
 }

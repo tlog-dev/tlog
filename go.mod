@@ -11,7 +11,7 @@ require (
 	github.com/nikandfor/graceful v0.0.0-20211115215916-d1e69cb51d77
 	github.com/nikandfor/loc v0.1.1-0.20210914135013-829520244234
 	github.com/nikandfor/quantile v0.0.0-20201109213849-4905a12df281
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/stretchr/testify v1.7.0
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1

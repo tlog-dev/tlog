@@ -333,18 +333,28 @@ func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, e
 
 			exec, _ := os.Executable()
 
-			name := fmt.Sprintf("/tmp/%s.%d.tl.sock", filepath.Base(exec), os.Getpid())
+			name := fmt.Sprintf("/tmp/%s.%d.tlog.sock", filepath.Base(exec), os.Getpid())
 
 			_ = os.Remove(name)
 
-			c, err := net.DialUnix("unix", &net.UnixAddr{Name: name, Net: "unixgram"}, &net.UnixAddr{Name: fn, Net: "unixgram"})
+			c, err := net.DialUnix("unix", &net.UnixAddr{Name: name, Net: "unix"}, &net.UnixAddr{Name: fn, Net: "unix"})
 			if err != nil {
 				return nil, errors.Wrap(err, "connect")
 			}
 
-			return c, err
+			return tlio.WriteCloser{
+				Writer: c,
+				Closer: tlio.CloserFunc(func() (err error) {
+					err = c.Close()
 
-			//	return net.Dial("unix", fn)
+					e := os.Remove(name)
+					if err == nil {
+						err = errors.Wrap(e, "remove socket file")
+					}
+
+					return
+				}),
+			}, nil
 		})
 
 		w = rew

@@ -188,16 +188,16 @@ func agentRun(c *cli.Command) (err error) {
 
 	a := agent.New()
 
-	r := gin.New()
-
-	r.Use(tlgin.Tracer)
-
-	//	r.GET("/", s.HandleIndex)
-	//	r.GET("/query", s.HandleQuery)
-
 	g := graceful.New()
 
 	if q := c.String("http"); q != "" {
+		r := gin.New()
+
+		r.Use(tlgin.Tracer)
+
+		//	r.GET("/", s.HandleIndex)
+		r.GET("/events", gin.WrapH(a))
+
 		l, err := net.Listen(c.String("http-net"), q)
 		if err != nil {
 			return errors.Wrap(err, "listen http: %v", q)
@@ -228,7 +228,7 @@ func agentRun(c *cli.Command) (err error) {
 		tlog.Printw("listen stream", "addr", l.Addr())
 
 		g.Add(ctx, "listen stream", func(ctx context.Context) error {
-			err := a.Listen(l)
+			err := a.Listen(ctx, l)
 			select {
 			case <-ctx.Done():
 				return nil
@@ -250,7 +250,7 @@ func agentRun(c *cli.Command) (err error) {
 		tlog.Printw("listen packet", "addr", l.LocalAddr())
 
 		g.Add(ctx, "listen packet", func(ctx context.Context) error {
-			err := a.ListenPacket(l)
+			err := a.ListenPacket(ctx, l)
 			select {
 			case <-ctx.Done():
 				return nil

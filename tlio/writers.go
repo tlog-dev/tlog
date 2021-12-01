@@ -50,6 +50,10 @@ type (
 		Bytes, Operations int64
 	}
 
+	WriterFunc func(p []byte) (int, error)
+
+	CloserFunc func() error
+
 	// base interfaces
 
 	Flusher interface {
@@ -301,6 +305,10 @@ func (w *HeadWriter) Write(p []byte) (int, error) {
 
 	return len(p), nil
 }
+
+func (w WriterFunc) Write(p []byte) (int, error) { return w(p) }
+
+func (c CloserFunc) Close() error { return c() }
 
 func Fd(f interface{}) uintptr {
 	const ffff = ^uintptr(0)
