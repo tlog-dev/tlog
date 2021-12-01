@@ -168,7 +168,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 
 		l := r.Len()
 
-		b = e.AppendTag(b, Array, int64(l))
+		b = e.AppendTag(b, Array, l)
 
 		for i := 0; i < l; i++ {
 			b = e.appendRaw(b, r.Index(i), visited)
@@ -178,7 +178,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	case reflect.Map:
 		l := r.Len()
 
-		b = e.AppendTag(b, Map, int64(l))
+		b = e.AppendTag(b, Map, l)
 
 		it := r.MapRange()
 

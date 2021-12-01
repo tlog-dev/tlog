@@ -399,7 +399,7 @@ func (l *Logger) SetLabels(ls Labels) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], wire.Map, int64(sz))
+	l.b = l.Encoder.AppendTag(l.b[:0], wire.Map, sz)
 
 	if !l.NoTime {
 		l.b = l.Encoder.AppendString(l.b, KeyTime)

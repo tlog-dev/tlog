@@ -79,11 +79,11 @@ const (
 )
 
 func (e *Encoder) AppendMap(b []byte, l int) []byte {
-	return e.AppendTag(b, Map, int64(l))
+	return e.AppendTag(b, Map, l)
 }
 
 func (e *Encoder) AppendArray(b []byte, l int) []byte {
-	return e.AppendTag(b, Array, int64(l))
+	return e.AppendTag(b, Array, l)
 }
 
 func (e *Encoder) AppendBreak(b []byte) []byte {
@@ -175,7 +175,7 @@ func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte
 	b = append(b, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}[:sz]...)
 	copy(b[st+sz:], b[st:])
 
-	_ = e.AppendTag(b[:st], String, int64(l))
+	_ = e.AppendTag(b[:st], String, l)
 
 	return b
 }
@@ -341,26 +341,26 @@ func (e *Encoder) InsertLen(b []byte, st, l int) []byte {
 }
 
 func (e *LowEncoder) AppendString(b []byte, s string) []byte {
-	b = e.AppendTag(b, String, int64(len(s)))
+	b = e.AppendTag(b, String, len(s))
 	return append(b, s...)
 }
 
 func (e *LowEncoder) AppendBytes(b, s []byte) []byte {
-	b = e.AppendTag(b, Bytes, int64(len(s)))
+	b = e.AppendTag(b, Bytes, len(s))
 	return append(b, s...)
 }
 
 func (e *LowEncoder) AppendTagString(b []byte, tag byte, s string) []byte {
-	b = e.AppendTag(b, tag, int64(len(s)))
+	b = e.AppendTag(b, tag, len(s))
 	return append(b, s...)
 }
 
 func (e *LowEncoder) AppendTagStringBytes(b []byte, tag byte, s []byte) []byte {
-	b = e.AppendTag(b, tag, int64(len(s)))
+	b = e.AppendTag(b, tag, len(s))
 	return append(b, s...)
 }
 
-func (e *LowEncoder) AppendTag(b []byte, tag byte, v int64) []byte {
+func (e *LowEncoder) AppendTag(b []byte, tag byte, v int) []byte {
 	switch {
 	case v == -1:
 		return append(b, tag|LenBreak)
@@ -377,7 +377,24 @@ func (e *LowEncoder) AppendTag(b []byte, tag byte, v int64) []byte {
 	}
 }
 
-func (e *LowEncoder) AppendSemantic(b []byte, s int64) []byte {
+func (e *LowEncoder) AppendTag64(b []byte, tag byte, v int64) []byte {
+	switch {
+	case v == -1:
+		return append(b, tag|LenBreak)
+	case v < Len1:
+		return append(b, tag|byte(v))
+	case v <= 0xff:
+		return append(b, tag|Len1, byte(v))
+	case v <= 0xffff:
+		return append(b, tag|Len2, byte(v>>8), byte(v))
+	case v <= 0xffff_ffff:
+		return append(b, tag|Len4, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	default:
+		return append(b, tag|Len8, byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32), byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	}
+}
+
+func (e *LowEncoder) AppendSemantic(b []byte, s int) []byte {
 	return e.AppendTag(b, Semantic, s)
 }
 

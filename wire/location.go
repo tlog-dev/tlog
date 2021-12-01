@@ -19,7 +19,7 @@ func (e *Encoder) AppendPC(b []byte, pc loc.PC) []byte {
 
 func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
 	b = append(b, Semantic|Caller)
-	b = e.AppendTag(b, Array, int64(len(pcs)))
+	b = e.AppendTag(b, Array, len(pcs))
 
 	for _, pc := range pcs {
 		b = e.appendPC(b, pc)
