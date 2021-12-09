@@ -11,6 +11,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -146,6 +147,7 @@ func main() {
 			}, {
 				Name:   "test",
 				Action: test,
+				Args:   cli.Args{},
 			}},
 	}
 
@@ -624,6 +626,13 @@ func (f *filereader) Read(p []byte) (n int, err error) {
 }
 
 func test(c *cli.Command) (err error) {
+	//	low.Printw = tlog.Printw
+	//	low.LoadGoTypes(c.Args.First())
+
+	inf, ok := debug.ReadBuildInfo()
+
+	tlog.Printw("build info", "info", inf, "ok", ok)
+
 	return nil
 }
 

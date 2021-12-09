@@ -452,3 +452,7 @@ func (e *LowEncoder) AppendFloat(b []byte, v float64) []byte {
 
 	return append(b, Special|Float64, byte(r>>56), byte(r>>48), byte(r>>40), byte(r>>32), byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
 }
+
+func (e *LowEncoder) AppendSpecial(b []byte, x byte) []byte {
+	return append(b, Special|x)
+}

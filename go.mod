@@ -3,6 +3,7 @@ module github.com/nikandfor/tlog
 go 1.16
 
 require (
+	github.com/PaesslerAG/gval v1.1.2 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.7.2
 	github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747

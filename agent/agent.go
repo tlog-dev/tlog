@@ -25,8 +25,6 @@ type (
 		evs []*event
 
 		d wire.Decoder
-
-		now func() time.Time
 	}
 
 	event struct {
@@ -61,9 +59,7 @@ type (
 )
 
 func New() *Agent {
-	a := &Agent{
-		now: time.Now,
-	}
+	a := &Agent{}
 
 	a.Sink.Writer = a
 
