@@ -503,7 +503,8 @@ func cat(c *cli.Command) (err error) {
 
 		//	tlog.Printw("fs event", "name", ev.Name, "op", ev.Op)
 
-		if ev.Op&fsnotify.Write != 0 {
+		switch {
+		case ev.Op&fsnotify.Write != 0:
 			r, ok := rs[ev.Name]
 			if !ok {
 				return errors.New("unexpected event: %v", ev.Name)

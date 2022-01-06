@@ -40,7 +40,7 @@ const (
 
 var (
 	SubstChar  = '@'
-	TimeFormat = "2006-01-02_15-04-05.000"
+	TimeFormat = "2006-01-02_15-04"
 )
 
 func Create(name string) (f *File) {

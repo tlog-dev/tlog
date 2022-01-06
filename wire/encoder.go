@@ -355,7 +355,7 @@ func (e *LowEncoder) AppendTagString(b []byte, tag byte, s string) []byte {
 	return append(b, s...)
 }
 
-func (e *LowEncoder) AppendTagStringBytes(b []byte, tag byte, s []byte) []byte {
+func (e *LowEncoder) AppendTagBytes(b []byte, tag byte, s []byte) []byte {
 	b = e.AppendTag(b, tag, len(s))
 	return append(b, s...)
 }
@@ -455,4 +455,8 @@ func (e *LowEncoder) AppendFloat(b []byte, v float64) []byte {
 
 func (e *LowEncoder) AppendSpecial(b []byte, x byte) []byte {
 	return append(b, Special|x)
+}
+
+func (e *LowEncoder) AppendBreak(b []byte) []byte {
+	return append(b, Special|Break)
 }
