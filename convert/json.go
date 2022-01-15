@@ -19,7 +19,7 @@ type (
 		io.Writer
 
 		AppendNewLine bool
-		AppendSafe    bool
+		AppendKeySafe bool
 		TimeFormat    string
 		TimeZone      *time.Location
 
@@ -41,7 +41,7 @@ func NewJSONWriter(w io.Writer) *JSON {
 	return &JSON{
 		Writer:        w,
 		AppendNewLine: true,
-		AppendSafe:    true,
+		AppendKeySafe: true,
 		TimeFormat:    time.RFC3339Nano,
 		TimeZone:      time.Local,
 	}
@@ -90,7 +90,7 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 			key, renamed = w.Rename[kts]
 
 			if renamed {
-				if w.AppendSafe {
+				if w.AppendKeySafe {
 					b = low.AppendSafeString(b, key)
 				} else {
 					b = append(b, key...)
@@ -99,7 +99,7 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 		}
 
 		if !renamed {
-			if w.AppendSafe {
+			if w.AppendKeySafe {
 				b = low.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)
@@ -154,11 +154,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	case wire.String:
 		b = append(b, '"')
 
-		if w.AppendSafe {
-			b = low.AppendSafe(b, p[i:i+int(sub)])
-		} else {
-			b = append(b, p[i:i+int(sub)]...)
-		}
+		b = low.AppendSafe(b, p[i:i+int(sub)])
 
 		b = append(b, '"')
 
@@ -197,7 +193,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 
 			b = append(b, '"')
 
-			if w.AppendSafe {
+			if w.AppendKeySafe {
 				b = low.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)

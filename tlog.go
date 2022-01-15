@@ -499,6 +499,22 @@ func (s Span) NewMessage(d int, msg interface{}, kvs ...interface{}) {
 	newmessage(s.Logger, s.ID, d, msg, kvs)
 }
 
+func (l *Logger) Or(l2 *Logger) *Logger {
+	if l != nil {
+		return l
+	}
+
+	return l2
+}
+
+func (s Span) Or(s2 Span) Span {
+	if s.Logger != nil {
+		return s
+	}
+
+	return s2
+}
+
 func (l *Logger) ifv(d int, tp string) (ok bool) {
 	if l == nil {
 		return false

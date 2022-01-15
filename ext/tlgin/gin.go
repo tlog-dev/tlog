@@ -52,6 +52,10 @@ func tracer(l *tlog.Logger, c *gin.Context) {
 		tr.Printw("bad parent trace id", "id", xtr, "err", err)
 	}
 
+	ctx := c.Request.Context()
+	ctx = tlog.ContextWithSpan(ctx, tr)
+	c.Request = c.Request.WithContext(ctx)
+
 	c.Set("tlog.par", trid)
 
 	c.Set("tlog.span", tr)
