@@ -106,7 +106,8 @@ var (
 )
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
-	var fd int
+	fd := -1
+
 	switch f := w.(type) {
 	case interface {
 		Fd() uintptr

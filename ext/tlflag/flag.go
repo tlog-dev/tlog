@@ -216,7 +216,7 @@ func openw(fn string, opts string) (wc io.Writer, err error) {
 	fmt := fn
 	for { // pop extensions to find out if it's a file or stderr
 		switch ext := filepath.Ext(fmt); ext {
-		case ".tlog", ".tl", ".dump", ".log", "", ".json", ".tlzdump":
+		case ".tlog", ".tl", ".dump", ".log", "", ".json", ".logfmt", ".tlzdump":
 			switch strings.TrimSuffix(fmt, ext) {
 			case "", "stderr":
 				w = tlog.Stderr
@@ -272,6 +272,10 @@ loop2:
 			updateJSONOptions(jw, opts)
 
 			w = jw
+		case ".logfmt":
+			fw := convert.NewLogfmt(w)
+
+			w = fw
 		case ".sock":
 		default:
 			panic("missed extension switch case")
