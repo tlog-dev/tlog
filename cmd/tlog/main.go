@@ -11,7 +11,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -86,7 +85,7 @@ func main() {
 			Action: tlz,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("block,b", 1*rotated.MB, "compression block size"),
+				cli.NewFlag("block,b", 1*rotated.MiB, "compression block size"),
 			},
 		}, {
 			Name:   "decompress,d",
@@ -106,6 +105,8 @@ func main() {
 		Name:   "agent,run",
 		Action: agentRun,
 		Flags: []*cli.Flag{
+			cli.NewFlag("db", "tlogdb", "path to logs db"),
+
 			cli.NewFlag("listen,l", "", "listen address"),
 			cli.NewFlag("listen-net,L", "unix", "listen network"),
 
@@ -180,7 +181,7 @@ func before(c *cli.Command) error {
 		}()
 	}
 
-	gin.SetMode(gin.ReleaseMode)
+	//	gin.SetMode(gin.ReleaseMode)
 
 	return nil
 }
@@ -188,7 +189,10 @@ func before(c *cli.Command) error {
 func agentRun(c *cli.Command) (err error) {
 	ctx := context.Background()
 
-	a := agent.New()
+	a, err := agent.New(c.String("db"))
+	if err != nil {
+		return errors.Wrap(err, "new agent")
+	}
 
 	g := graceful.New()
 
@@ -198,7 +202,11 @@ func agentRun(c *cli.Command) (err error) {
 		r.Use(tlgin.Tracer)
 
 		//	r.GET("/", s.HandleIndex)
-		r.GET("/events", gin.WrapH(a))
+		r.GET("/v0/*any", gin.WrapH(
+			http.StripPrefix("/v0",
+				a,
+			),
+		))
 
 		l, err := net.Listen(c.String("http-net"), q)
 		if err != nil {
@@ -342,26 +350,27 @@ func ticker(c *cli.Command) error {
 	t := time.NewTicker(c.Duration("interval"))
 	defer t.Stop()
 
-	ls := strings.Split(c.String("labels"), ",")
-	ls = tlog.FillLabelsWithDefaults(ls...)
+	ls := tlog.ParseLabels(c.String("labels"))
 
 	l.SetLabels(ls)
 
-	var first int
-	var drift float64
+	var first time.Time
+	dur := c.Duration("interval")
+	drift := 0.
 	i := 0
 
-	for t := range t.C {
-		var diff int
-		if i == 0 {
-			first = t.Nanosecond()
-		} else {
-			diff = t.Nanosecond() - first
+	const alpha = 0.0001
 
-			drift = drift*0.9999 + float64(diff)*0.0001
+	for t := range t.C {
+		if i == 0 {
+			first = t
 		}
 
-		l.Printw("tick", "i", i, "time", t, "diff", time.Duration(diff), "drift", time.Duration(drift))
+		diff := t.Sub(first) - time.Duration(i)*dur
+		drift := drift*(1-alpha) + float64(diff)*alpha
+
+		l.Printw("tick", "i", i, "time", t, "diff", diff, "drift", time.Duration(drift))
+
 		i++
 	}
 
@@ -630,9 +639,8 @@ func test(c *cli.Command) (err error) {
 	//	low.Printw = tlog.Printw
 	//	low.LoadGoTypes(c.Args.First())
 
-	inf, ok := debug.ReadBuildInfo()
-
-	tlog.Printw("build info", "info", inf, "ok", ok)
+	//	inf, ok := debug.ReadBuildInfo()
+	//	tlog.Printw("build info", "info", inf, "ok", ok)
 
 	return nil
 }

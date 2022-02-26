@@ -35,8 +35,8 @@ func TestContextWithID(t *testing.T) {
 
 	tr = SpawnFromContext(ctx, "spawn_2")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, `spawn_or_start_1              s=52fdfc07  K=s
-spawn_2                       s=9566c74d  K=s  p=0a140000
+		assert.Equal(t, `spawn_or_start_1              _s=52fdfc07  _K=s
+spawn_2                       _s=9566c74d  _K=s  _p=0a140000
 `, buf.String())
 	}
 
@@ -72,7 +72,7 @@ func TestContextWithSpan(t *testing.T) {
 
 	tr = SpawnFromContext(ctx, "spawn_1")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "spawn_1                       s=2f8282cb  K=s  p=0a140000\n", string(buf))
+		assert.Equal(t, "spawn_1                       _s=2f8282cb  _K=s  _p=0a140000\n", string(buf))
 	}
 
 	//
@@ -99,14 +99,14 @@ func TestContextWithSpan(t *testing.T) {
 
 	tr = SpawnFromContext(ctx, "spawn_2")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "spawn_2                       s=d967dc28  K=s  p=0a140000\n", string(bufl))
+		assert.Equal(t, "spawn_2                       _s=d967dc28  _K=s  _p=0a140000\n", string(bufl))
 	}
 
 	bufl = bufl[:0]
 
 	tr = SpawnOrStartFromContext(ctx, "spawn_or_start_1")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "spawn_or_start_1              s=686ba0dc  K=s  p=0a140000\n", string(bufl))
+		assert.Equal(t, "spawn_or_start_1              _s=686ba0dc  _K=s  _p=0a140000\n", string(bufl))
 	}
 }
 

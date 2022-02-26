@@ -41,9 +41,9 @@ func TestJSON(t *testing.T) {
 		B: 9,
 	})
 
-	exp := `{"t":"2020-12-25T22:08:13\+03:00","K":"L","L":\["a=b","c"\]}
-{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:\d+","m":"user labels","L":\["user_label"\],"L":\["a=b","c"\]}
-{"t":"2020-12-25T22:08:13\+03:00","c":"[\w./-]*json_test.go:\d+","m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"L":\["a=b","c"\]}
+	exp := `{"_t":"2020-12-25T22:08:13\+03:00","_K":"L","_L":\["a=b","c"\]}
+{"_t":"2020-12-25T22:08:13\+03:00","_c":"[\w./-]*json_test.go:\d+","_m":"user labels","_L":\["user_label"\],"_L":\["a=b","c"\]}
+{"_t":"2020-12-25T22:08:13\+03:00","_c":"[\w./-]*json_test.go:\d+","_m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"_L":\["a=b","c"\]}
 `
 
 	exps := strings.Split(exp, "\n")
@@ -78,6 +78,7 @@ func TestJSONRename(t *testing.T) {
 		{Tag: wire.Semantic, Key: tlog.KeyEventKind, Sub: tlog.WireEventKind}: "Kind",
 		{Tag: wire.Semantic, Key: tlog.KeyTime, Sub: wire.Time}:               "time",
 		{Tag: wire.Semantic, Key: tlog.KeyCaller, Sub: wire.Caller}:           "caller",
+		{Tag: wire.Semantic, Key: tlog.KeyMessage, Sub: tlog.WireMessage}:     "message",
 		{Tag: wire.String, Key: "str"}:                                        "str_key",
 	}
 
@@ -99,8 +100,8 @@ func TestJSONRename(t *testing.T) {
 	})
 
 	exp := `{"time":"2020-12-25T22:08:13\+03:00","Kind":"L","Labels":\["a=b","c"\]}
-{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","m":"user labels","Labels":\["user_label"\],"Labels":\["a=b","c"\]}
-{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","m":"message","str_key":"arg","int":5,"struct":{"a":"A field","bb":9},"Labels":\["a=b","c"\]}
+{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","message":"user labels","Labels":\["user_label"\],"Labels":\["a=b","c"\]}
+{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","message":"message","str_key":"arg","int":5,"struct":{"a":"A field","bb":9},"Labels":\["a=b","c"\]}
 `
 
 	exps := strings.Split(exp, "\n")

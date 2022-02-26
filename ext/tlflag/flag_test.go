@@ -21,7 +21,7 @@ func TestFileExtWriter(t *testing.T) {
 	OpenFileWriter = func(n string, f int, m os.FileMode) (io.Writer, error) {
 		return testFile(n), nil
 	}
-	CompressorBlockSize = 1 * compress.KB
+	CompressorBlockSize = 1 * compress.KiB
 
 	w, err := OpenWriter("stderr")
 	assert.NoError(t, err)
@@ -163,7 +163,7 @@ func TestFileExtReader(t *testing.T) {
 	OpenFileReader = func(n string, f int, m os.FileMode) (io.Reader, error) {
 		return testFile(n), nil
 	}
-	CompressorBlockSize = 1 * compress.KB
+	CompressorBlockSize = 1 * compress.KiB
 
 	r, err := OpenReader("stdin")
 	assert.NoError(t, err)

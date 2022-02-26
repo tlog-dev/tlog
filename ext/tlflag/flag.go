@@ -26,7 +26,7 @@ var (
 
 	OpenFileReader = OpenFileReaderWithReReader
 
-	CompressorBlockSize = compress.MB
+	CompressorBlockSize = compress.MiB
 
 	JSONDefaultTimeFormat = "2006-01-02T15:04:05.999999Z07:00"
 )
@@ -372,8 +372,9 @@ func openwfile(fn string, of int, mode os.FileMode) (w io.Writer, c io.Closer, e
 
 	if strings.ContainsRune(fn, rotated.SubstChar) {
 		f := rotated.Create(fn)
+		f.ErrorOnRotate = nil
 		f.Flags = of
-		f.MaxSize = 128 * rotated.MB
+		f.MaxSize = 128 * rotated.MiB
 
 		w = f
 		c = f

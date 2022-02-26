@@ -90,15 +90,15 @@ const (
 
 // Predefined keys
 var (
-	KeyTime      = "t"
-	KeySpan      = "s"
-	KeyParent    = "p"
-	KeyMessage   = "m"
-	KeyElapsed   = "e"
-	KeyCaller    = "c"
-	KeyLabels    = "L"
-	KeyEventKind = "K"
-	KeyLogLevel  = "l"
+	KeyTime      = "_t"
+	KeySpan      = "_s"
+	KeyParent    = "_p"
+	KeyMessage   = "_m"
+	KeyElapsed   = "_e"
+	KeyCaller    = "_c"
+	KeyLabels    = "_L"
+	KeyEventKind = "_K"
+	KeyLogLevel  = "_l"
 )
 
 // Metric kinds

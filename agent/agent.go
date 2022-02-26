@@ -2,11 +2,14 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
@@ -18,6 +21,12 @@ import (
 type (
 	Agent struct {
 		Sink
+
+		db *DB
+
+		router *httprouter.Router
+
+		//
 
 		mu   sync.RWMutex
 		cond sync.Cond
@@ -58,17 +67,71 @@ type (
 	}
 )
 
-func New() *Agent {
+func New(dbpath string) (*Agent, error) {
 	a := &Agent{}
 
 	a.Sink.Writer = a
 
+	if dbpath != "" {
+		db, err := NewDB(dbpath)
+		if err != nil {
+			return nil, errors.Wrap(err, "open db")
+		}
+
+		a.db = db
+	}
+
+	a.setupRoutes()
+
 	a.cond.L = a.mu.RLocker()
 
-	return a
+	return a, nil
+}
+
+func (a *Agent) setupRoutes() {
+	a.router = httprouter.New()
+
+	a.router.HandlerFunc("GET", "/labels", a.ServeLabels)
+	a.router.HandlerFunc("GET", "/streams", a.ServeStreams)
+	a.router.HandlerFunc("GET", "/events", a.ServeEvents)
+
+	a.router.HandlerFunc("GET", "/", func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprintf(w, "%slabels - list of known labels\n", req.RequestURI)
+		fmt.Fprintf(w, "%sstreams - list of streams\n", req.RequestURI)
+		fmt.Fprintf(w, "%sevents - stream of events\n", req.RequestURI)
+	})
 }
 
 func (a *Agent) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	tr := tlog.SpanFromContext(req.Context())
+	tr.Printw("request", "uri", req.RequestURI, "path", req.URL.Path)
+
+	a.router.ServeHTTP(w, req)
+}
+
+func (a *Agent) ServeLabels(w http.ResponseWriter, req *http.Request) {
+	if a.db == nil {
+		http.Error(w, "no persistance", http.StatusServiceUnavailable)
+		return
+	}
+
+	ls := a.db.allLabels()
+
+	_ = json.NewEncoder(w).Encode(ls)
+}
+
+func (a *Agent) ServeStreams(w http.ResponseWriter, req *http.Request) {
+	if a.db == nil {
+		http.Error(w, "no persistance", http.StatusServiceUnavailable)
+		return
+	}
+
+	ss := a.db.allStreams()
+
+	_ = json.NewEncoder(w).Encode(ss)
+}
+
+func (a *Agent) ServeEvents(w http.ResponseWriter, req *http.Request) {
 	err := a.Serve(req.Context(), w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -76,6 +139,23 @@ func (a *Agent) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Agent) Serve(ctx context.Context, w io.Writer) (err error) {
+	return nil
+}
+
+func (a *Agent) Write(p []byte) (_ int, err error) {
+	if a.db == nil {
+		return len(p), nil
+	}
+
+	_, err = a.db.Write(p)
+	if err != nil {
+		return 0, errors.Wrap(err, "db")
+	}
+
+	return len(p), nil
+}
+
+func (a *Agent) Serve0(ctx context.Context, w io.Writer) (err error) {
 	defer a.mu.RUnlock()
 	a.mu.RLock()
 
@@ -114,7 +194,7 @@ func (a *Agent) Serve(ctx context.Context, w io.Writer) (err error) {
 	}
 }
 
-func (a *Agent) Write(p []byte) (_ int, err error) {
+func (a *Agent) Write0(p []byte) (_ int, err error) {
 	tlog.V("events").Printw("event", "raw", wire.Dump(p), "from", loc.Callers(1, 3))
 
 	ev := new(event)

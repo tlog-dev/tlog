@@ -33,9 +33,9 @@ type (
 
 const (
 	B = 1 << (iota * 10)
-	KB
-	MB
-	GB
+	KiB
+	MiB
+	GiB
 )
 
 var (
@@ -45,9 +45,9 @@ var (
 
 func Create(name string) (f *File) {
 	f = &File{
-		name:          name,
-		MaxSize:       128 * MB,
-		ErrorOnRotate: RotatedError{},
+		name:    name,
+		MaxSize: 128 * MiB,
+		//	ErrorOnRotate: RotatedError{},
 
 		Flags:    os.O_CREATE | os.O_APPEND | os.O_WRONLY,
 		Mode:     0644,

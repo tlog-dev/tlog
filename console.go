@@ -598,7 +598,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 		w.addpad = nw - vw
 	}
 
-	if nw < vw && nw < w.MaxValPad {
+	if nw < vw && vw <= w.MaxValPad {
 		if vw > w.MaxValPad {
 			vw = w.MaxValPad
 		}

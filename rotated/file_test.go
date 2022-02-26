@@ -1,4 +1,4 @@
-package integration
+package rotated
 
 import (
 	"io"
@@ -9,7 +9,6 @@ import (
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/compress"
 	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/wire"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,18 +16,18 @@ import (
 func TestRotation(t *testing.T) {
 	var f1, f2 low.Buf
 
-	f := rotated.Create("name.tlog.ez")
-	f.OpenFile = func(n string, ff int, m os.FileMode) (io.Writer, error) {
+	f := Create("name.tlog.ez")
+	f.OpenFile = func(n string, ff int, m os.FileMode) (w io.Writer, _ error) {
 		if f1 == nil {
-			return &f1, nil
+			w = &f1
+		} else {
+			w = &f2
 		}
 
-		return &f2, nil
+		return compress.NewEncoder(w, 1<<16), nil
 	}
 
-	c := compress.NewEncoder(f, 1<<16)
-
-	l := tlog.New(c)
+	l := tlog.New(f)
 
 	l.SetLabels(tlog.Labels{"a=b", "c"})
 
@@ -46,6 +45,10 @@ func TestRotation(t *testing.T) {
 
 	dumpFile(t, f1, "first")
 	dumpFile(t, f2, "second")
+
+	if len(f1) < 20 || len(f2) < 20 {
+		t.Errorf("one of files is too small")
+	}
 }
 
 func dumpFile(t *testing.T, f low.Buf, name string) {

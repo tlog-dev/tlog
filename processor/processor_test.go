@@ -17,7 +17,6 @@ func TestProcessor(t *testing.T) {
 	var count tlio.CountableIODiscard
 
 	w := New(tlio.NewTeeWriter(cw, &count), "selected")
-	w.NonTraced = false
 	w.MaxDepth = 0
 
 	l := tlog.New(w)

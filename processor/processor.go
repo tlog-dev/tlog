@@ -3,6 +3,7 @@ package processor
 import (
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/wire"
@@ -31,8 +32,8 @@ type (
 	Writer struct {
 		io.Writer
 
-		NonTraced bool
-		MaxDepth  int
+		//	NonTraced bool
+		MaxDepth int
 
 		d wire.Decoder
 
@@ -89,32 +90,33 @@ func (w *Writer) Write(p []byte) (i int, err error) {
 
 	var selected bool
 
-	if sid == (tlog.ID{}) {
-		selected = w.NonTraced
-	} else {
-		if name != nil {
-			for _, span := range w.span {
-				if span == string(name) {
-					w.id[sid] = 0
-				}
-
-				if l := len(span); l <= len(tlog.ID{})*2 && sid.StringFull()[:l] == span {
-					w.id[sid] = 0
-				}
-			}
+	for _, span := range w.span {
+		if name != nil && span == string(name) {
+			w.id[sid] = 0
+			break
 		}
 
-		if par != (tlog.ID{}) {
-			if d, ok := w.id[par]; ok && d < w.MaxDepth {
-				w.id[sid] = d + 1
-			}
+		if strings.HasPrefix(sid.StringFull(), span) {
+			w.id[sid] = 0
+			break
 		}
 
-		_, selected = w.id[sid]
-
-		if !selected && par != (tlog.ID{}) {
-			_, selected = w.id[par]
+		if par != (tlog.ID{}) && w.MaxDepth >= 1 && strings.HasPrefix(par.StringFull(), span) {
+			w.id[sid] = 0
+			break
 		}
+	}
+
+	if par != (tlog.ID{}) {
+		if d, ok := w.id[par]; ok && d < w.MaxDepth {
+			w.id[sid] = d + 1
+		}
+	}
+
+	_, selected = w.id[sid]
+
+	if !selected && par != (tlog.ID{}) {
+		_, selected = w.id[par]
 	}
 
 	if w.Writer == nil {

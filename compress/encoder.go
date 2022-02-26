@@ -29,9 +29,9 @@ type (
 // Byte multipliers.
 const (
 	B = 1 << (iota * 10)
-	KB
-	MB
-	GB
+	KiB
+	MiB
+	GiB
 )
 
 // Tags.
