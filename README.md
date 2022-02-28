@@ -8,9 +8,9 @@
 
 # tlog
 
-**Project is in process of rewriting.**
+At least it is a logger at most it is much more than that. I think of it as an observability events system. Event is an log or tracing message, tracing span start or finish, metric value or anything you need. Tons of work have done to make it effective yet comfortable to use. The events are encoded in a machine readable format to be processed in any ways instant or later. Evets could be printed as logs, combined to build distributed traces, filtered and sent to an alerting service, processed and analysed and more.
 
-TraceLog is a new way of instrumentation. Log once use everywhere: logs, distributed traces, metrics, analytics and more.
+tlog is a new way of instrumentation. Log once use bright.
 
 Explore [examples](examples) and [extensions](ext).
 
@@ -40,9 +40,9 @@ Explore [examples](examples) and [extensions](ext).
 
 # Status
 
-It evolves as I use it. I still can change anything, but for now I'm quiet satisfied with most of details.
+For now it's a reasearch project but logging API is pretty crystallized.
 
-It's tested a bit but bugs are possible. Please report if find.
+Description below is a bit outdated. Most of the concepts are the same but my view have become wider.
 
 # Benifits
 
