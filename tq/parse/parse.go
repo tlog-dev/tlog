@@ -27,7 +27,7 @@ type (
 
 	KV struct {
 		K String
-		V interface{}
+		V []byte
 	}
 
 	Semantic struct {
@@ -175,7 +175,6 @@ func (n Map) Parse(ctx context.Context, p []byte, st int) (x interface{}, i int,
 	}
 
 	var k []byte
-	var v interface{}
 
 	for el := 0; els == -1 || el < int(els); el++ {
 		if els == -1 && d.Break(p, &i) {
@@ -183,12 +182,11 @@ func (n Map) Parse(ctx context.Context, p []byte, st int) (x interface{}, i int,
 		}
 
 		k, i = d.String(p, i)
-		v, i, err = Value{}.Parse(ctx, p, i)
-		if err != nil {
-			return nil, i, errors.Wrap(err, "%q", k)
-		}
 
-		n = append(n, KV{K: k, V: v})
+		vst := i
+		i = d.Skip(p, i)
+
+		n = append(n, KV{K: k, V: p[vst:i]})
 	}
 
 	return n, i, nil

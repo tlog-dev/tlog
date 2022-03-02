@@ -14,21 +14,14 @@ type (
 
 		Spans []tlog.ID
 
-		KVs []LazyKV
+		KVs []KV
 
 		Labels Labels
 
 		raw []byte
 
 		spansbuf [1]tlog.ID
-		kvbuf    [2]LazyKV
-	}
-
-	LazyKV struct {
-		K String
-
-		v interface{}
-		r []byte
+		kvbuf    [2]KV
 	}
 
 	Labels []byte
@@ -106,9 +99,9 @@ func (e *Event) parseKV(ctx context.Context, p, k []byte, st, vst int) (i int, e
 
 	i = d.Skip(p, vst)
 
-	kv := LazyKV{
+	kv := KV{
 		K: String(k),
-		r: p[vst:i],
+		V: p[vst:i],
 	}
 
 	e.KVs = append(e.KVs, kv)
@@ -122,7 +115,7 @@ func (e *Event) Reset() {
 	e.raw = nil
 
 	for i := range e.KVs {
-		e.KVs[i] = LazyKV{}
+		e.KVs[i] = KV{}
 	}
 
 	if len(e.Spans) > 0 {

@@ -29,7 +29,7 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, len(b), i)
 
 	assert.Equal(t, Map{
-		KV{K: String("t"), V: Semantic{Code: wire.Time, V: Int{0x1a, 0x3b, 0x9a, 0xca, 0x00}}},
-		KV{K: String("m"), V: String("message")},
+		KV{K: String("t"), V: []byte{wire.Semantic | wire.Time, 0x1a, 0x3b, 0x9a, 0xca, 0x00}},
+		KV{K: String("m"), V: append([]byte{wire.String | 7}, "message"...)},
 	}, x)
 }
