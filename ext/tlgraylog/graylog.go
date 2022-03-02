@@ -70,6 +70,7 @@ func (w *Writer) Write(p []byte) (i int, err error) {
 
 	var lvl tlog.LogLevel
 	var msg []byte
+	var kind tlog.EventKind
 
 	var k []byte
 	var sub int64
@@ -141,6 +142,8 @@ func (w *Writer) Write(p []byte) (i int, err error) {
 			}
 
 			continue
+		case sub == tlog.WireEventKind && ks == tlog.KeyEventKind:
+			_ = kind.TlogParse(&w.d, p, i)
 		}
 
 		b = append(b, '"')
@@ -161,7 +164,11 @@ func (w *Writer) Write(p []byte) (i int, err error) {
 	}
 
 	if len(msg) == 0 {
-		b = append(b, `,"short_message":"_no_message_"`...)
+		if kind == tlog.EventSpanFinish {
+			b = append(b, `,"short_message":"_span_finish_"`...)
+		} else {
+			b = append(b, `,"short_message":"_no_message_"`...)
+		}
 	}
 
 	{
