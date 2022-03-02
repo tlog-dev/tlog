@@ -94,6 +94,11 @@ func (e *Encoder) appendSpecials(b []byte, v interface{}) (_ []byte, ok bool) {
 		b = e.AppendBigFloat(b, v)
 
 	case fmt.Stringer:
+		if low.IsNil(v) {
+			b = append(b, Special|Nil)
+			break
+		}
+
 		b = e.AppendString(b, v.String())
 
 	default:
