@@ -454,7 +454,7 @@ func (d *LowDecoder) Float(b []byte, st int) (v float64, i int) {
 
 	switch {
 	case st == Float8:
-		v = float64(b[i])
+		v = float64(int8(b[i]))
 		i++
 	case st == Float32:
 		v = float64(math.Float32frombits(
