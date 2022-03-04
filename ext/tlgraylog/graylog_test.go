@@ -32,7 +32,7 @@ func TestGraylog(t *testing.T) {
 
 	c = c[:0]
 
-	b = encode(b[:0], &ts, "arr", []int{1, 2, 3}, "obj", map[string]int{"one": 1, "two": 2}, tlog.KeyLogLevel, tlog.Error)
+	b = encode(b[:0], &ts, "arr", []int{1, 2, 3}, "obj", encobj("one", 1, "two", 2), tlog.KeyLogLevel, tlog.Error)
 	_, err = w.Write(b)
 	assert.NoError(t, err)
 	assert.Equal(t, `{"version":"1.1","host":"myhost","timestamp":1642195092.300,"_arr":"[1,2,3]","_obj":"{one:1,two:2}","short_message":"_no_message_","level":3}`+"\n", string(c))
@@ -64,6 +64,18 @@ func encode(b []byte, ts *time.Time, kvs ...interface{}) []byte {
 
 	b = tlog.AppendKVs(&e, b, kvs)
 
+	b = e.AppendBreak(b)
+
+	return b
+}
+
+func encobj(kvs ...interface{}) tlog.RawMessage {
+	var e wire.Encoder
+
+	var b []byte
+
+	b = e.AppendMap(b, -1)
+	b = tlog.AppendKVs(&e, b, kvs)
 	b = e.AppendBreak(b)
 
 	return b

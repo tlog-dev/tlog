@@ -206,13 +206,13 @@ func (w *Writer) convertValue(b, p []byte, st int, esc bool) (_ []byte, i int) {
 		m := base64.StdEncoding.EncodedLen(int(sub))
 		st := len(b)
 
-		for st+m < cap(b) {
+		for cap(b) < st+m {
 			b = append(b[:cap(b)], 0, 0, 0, 0)
 		}
 
 		b = b[:st+m]
 
-		base64.StdEncoding.Encode(b[st:], p[i:])
+		base64.StdEncoding.Encode(b[st:], p[i:i+int(sub)])
 
 		if !esc {
 			b = append(b, '"')
