@@ -2,6 +2,7 @@ package parse
 
 import (
 	"context"
+	"sync"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
@@ -14,18 +15,142 @@ type (
 
 		Spans []tlog.ID
 
-		KVs []KV
+		KVs []LazyKV
 
 		Labels Labels
 
-		raw []byte
+		raw []byte `deep:"-"`
 
-		spansbuf [1]tlog.ID
-		kvbuf    [2]KV
+		spansbuf [1]tlog.ID `deep:"-"`
+		kvbuf    [2]LazyKV  `deep:"-"`
+	}
+
+	LazyKV struct {
+		K String
+		V []byte
 	}
 
 	Labels []byte
+
+	LowParser struct {
+		New func() *LowEvent
+	}
+
+	LowEvent struct {
+		ts int64
+		ls []byte
+
+		kv []int
+
+		raw []byte
+
+		kvbuf [6]int
+	}
 )
+
+var lowEvents = sync.Pool{
+	New: func() interface{} {
+		return new(LowEvent)
+	},
+}
+
+func NewLowEvent() (e *LowEvent) {
+	return lowEvents.Get().(*LowEvent)
+}
+
+func FreeLowEvent(e *LowEvent) {
+	e.Reset()
+
+	lowEvents.Put(e)
+}
+
+func (n *LowParser) Parse(ctx context.Context, p []byte, st int) (x interface{}, i int, err error) {
+	var d wire.Decoder
+
+	e := n.New()
+
+	tag, els, i := d.Tag(p, st)
+	if tag != wire.Map {
+		return nil, st, errors.New("Event expected")
+	}
+
+	e.kv = append(e.kv, i)
+
+	var k []byte
+	var sub int64
+	for el := 0; els == -1 || el < int(els); el++ {
+		if els == -1 && d.Break(p, &i) {
+			break
+		}
+
+		// key
+		k, i = d.String(p, i)
+
+		// value
+		st := i
+		tag, sub, i = d.SkipTag(p, i)
+
+		e.kv = append(e.kv, i) // end of pair
+
+		if tag != wire.Semantic {
+			continue
+		}
+
+		switch {
+		case sub == wire.Time && string(k) == tlog.KeyTime:
+			e.ts, _ = d.Timestamp(p, st)
+		case sub == tlog.WireLabels && string(k) == tlog.KeyLabels:
+			if e.ls == nil {
+				e.ls = p[st:i:i]
+				break
+			}
+
+			e.ls = append(e.ls, p[st:i]...)
+		}
+	}
+
+	e.raw = p
+
+	return e, i, nil
+}
+
+func (e *LowEvent) Reset() {
+	e.ts = 0
+	e.raw = nil
+
+	if e.kv != nil {
+		e.kv = e.kv[:0]
+	} else {
+		e.kv = e.kvbuf[:0]
+	}
+}
+
+func (e *LowEvent) Timestamp() int64 {
+	return e.ts
+}
+
+func (e *LowEvent) Labels() []byte {
+	return e.ls
+}
+
+func (e *LowEvent) Len() int {
+	return len(e.kv)
+}
+
+func (e *LowEvent) Index(i int) (keyContent, rawValue []byte) {
+	var d wire.LowDecoder
+
+	off := e.kv[i]
+
+	keyContent, off = d.String(e.raw, off)
+	rawValue = e.raw[off:e.kv[i+1]]
+
+	return
+}
+
+func (e *LowEvent) Slice(st, end int) []byte {
+	return e.raw[e.kv[st]:e.kv[end]]
+}
 
 func (e *Event) Parse(ctx context.Context, p []byte, st int) (x interface{}, i int, err error) {
 	defer func() {
@@ -99,7 +224,7 @@ func (e *Event) parseKV(ctx context.Context, p, k []byte, st, vst int) (i int, e
 
 	i = d.Skip(p, vst)
 
-	kv := KV{
+	kv := LazyKV{
 		K: String(k),
 		V: p[vst:i],
 	}
@@ -115,7 +240,7 @@ func (e *Event) Reset() {
 	e.raw = nil
 
 	for i := range e.KVs {
-		e.KVs[i] = KV{}
+		e.KVs[i] = LazyKV{}
 	}
 
 	if len(e.Spans) > 0 {

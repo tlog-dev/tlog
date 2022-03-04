@@ -10,11 +10,6 @@ import (
 type (
 	Value struct{}
 
-	Lazy struct {
-		c interface{}
-		r []byte
-	}
-
 	Int []byte
 
 	Bytes []byte
@@ -27,7 +22,7 @@ type (
 
 	KV struct {
 		K String
-		V []byte
+		V interface{}
 	}
 
 	Semantic struct {
@@ -174,19 +169,21 @@ func (n Map) Parse(ctx context.Context, p []byte, st int) (x interface{}, i int,
 		return nil, st, errors.New("Map expected")
 	}
 
-	var k []byte
-
 	for el := 0; els == -1 || el < int(els); el++ {
 		if els == -1 && d.Break(p, &i) {
 			break
 		}
 
-		k, i = d.String(p, i)
+		kv := KV{}
 
-		vst := i
-		i = d.Skip(p, i)
+		kv.K, i = d.String(p, i)
 
-		n = append(n, KV{K: k, V: p[vst:i]})
+		kv.V, i, err = Value{}.Parse(ctx, p, i)
+		if err != nil {
+			return nil, i, err
+		}
+
+		n = append(n, kv)
 	}
 
 	return n, i, nil

@@ -10,7 +10,7 @@ import (
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/wire"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/nikandfor/assert"
 )
 
 func TestEvent(t *testing.T) {
@@ -31,15 +31,10 @@ func TestEvent(t *testing.T) {
 	assert.Equal(t, &Event{
 		Timestamp: tm.UnixNano(),
 		Spans:     []tlog.ID{id},
-		KVs: []KV{
+		KVs: []LazyKV{
 			{K: String("a"), V: String("b").TlogAppend(&wire.Encoder{}, nil)},
 		},
-		Labels:   tlog.Labels{"a=b", "c"}.TlogAppend(&wire.Encoder{}, nil),
-		raw:      b,
-		spansbuf: [1]tlog.ID{id},
-		kvbuf: [2]KV{
-			{K: String("a"), V: String("b").TlogAppend(&wire.Encoder{}, nil)},
-		},
+		Labels: tlog.Labels{"a=b", "c"}.TlogAppend(&wire.Encoder{}, nil),
 	}, x)
 
 	if t.Failed() {
