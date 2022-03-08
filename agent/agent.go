@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,9 +98,9 @@ func (a *Agent) setupRoutes() {
 	a.router.HandlerFunc("GET", "/events", a.ServeEvents)
 
 	a.router.HandlerFunc("GET", "/", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintf(w, "%slabels - list of known labels\n", req.RequestURI)
+		fmt.Fprintf(w, "%slabels  - list of known labels\n", req.RequestURI)
 		fmt.Fprintf(w, "%sstreams - list of streams\n", req.RequestURI)
-		fmt.Fprintf(w, "%sevents - stream of events\n", req.RequestURI)
+		fmt.Fprintf(w, "%sevents  - stream of events\n", req.RequestURI)
 	})
 }
 
@@ -132,9 +134,71 @@ func (a *Agent) ServeStreams(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Agent) ServeEvents(w http.ResponseWriter, req *http.Request) {
-	err := a.Serve(req.Context(), w)
+	tr := tlog.SpanFromContext(req.Context())
+
+	q := req.URL.Query()
+
+	var start int64
+	if q := q.Get("start"); q != "" {
+		var err error
+		start, err = strconv.ParseInt(q, 10, 64)
+		if err != nil {
+			err = errors.Wrap(err, "start")
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		start = time.Now().UnixNano()
+	}
+
+	var sid uint32
+	if l, ok := q["stream"]; !ok || len(l) == 0 {
+		http.Error(w, "stream is required", http.StatusBadRequest)
+		return
+	} else {
+		l[0] = strings.TrimPrefix(l[0], "0x")
+
+		x, err := strconv.ParseUint(l[0], 16, 32)
+		if err != nil {
+			err = errors.Wrap(err, "stream")
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		sid = uint32(x)
+	}
+
+	var ww io.Writer = w
+
+	switch q.Get("format") {
+	case "text":
+		ww = tlog.NewConsoleWriter(ww, tlog.LstdFlags|tlog.Lmilliseconds)
+	default: // json
+		ww = convert.NewJSONWriter(ww)
+	}
+
+	f, ok := w.(tlio.Flusher)
+	if !ok {
+		f2, ok2 := w.(tlio.FlusherNoError)
+		if ok2 {
+			f = tlio.WrapFlusherNoError(f2)
+			ok = true
+		}
+	}
+
+	tr.V("flusher").Printw("writer is flusher", "ok", ok)
+
+	if ok && ww != w {
+		ww = tlio.WriteFlusher{
+			Writer:  ww,
+			Flusher: f,
+		}
+	}
+
+	err := a.db.Stream(req.Context(), ww, start, sid)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 

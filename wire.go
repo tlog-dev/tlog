@@ -202,7 +202,7 @@ func (ls *Labels) TlogParse(d *wire.Decoder, p []byte, i int) int {
 
 	_, els, i := d.Tag(p, i)
 
-	*ls = (*ls)[:0]
+	//	*ls = (*ls)[:0]
 
 	var v []byte
 	for el := 0; el < int(els); el++ {

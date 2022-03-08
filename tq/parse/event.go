@@ -125,6 +125,10 @@ func (e *LowEvent) Reset() {
 	}
 }
 
+func (e *LowEvent) Bytes() []byte {
+	return e.raw
+}
+
 func (e *LowEvent) Timestamp() int64 {
 	return e.ts
 }
@@ -134,7 +138,11 @@ func (e *LowEvent) Labels() []byte {
 }
 
 func (e *LowEvent) Len() int {
-	return len(e.kv)
+	if len(e.kv) == 0 {
+		return 0
+	}
+
+	return len(e.kv) - 1
 }
 
 func (e *LowEvent) Index(i int) (keyContent, rawValue []byte) {

@@ -52,12 +52,14 @@ type (
 
 	WriterFunc func(p []byte) (int, error)
 
-	CloserFunc func() error
-
 	// base interfaces
 
 	Flusher interface {
 		Flush() error
+	}
+
+	FlusherNoError interface {
+		Flush()
 	}
 
 	NopCloser struct {
@@ -73,6 +75,10 @@ type (
 	WriteFlusher struct {
 		io.Writer
 		Flusher
+	}
+
+	wrapFlusher struct {
+		FlusherNoError
 	}
 )
 
@@ -308,7 +314,14 @@ func (w *HeadWriter) Write(p []byte) (int, error) {
 
 func (w WriterFunc) Write(p []byte) (int, error) { return w(p) }
 
-func (c CloserFunc) Close() error { return c() }
+func WrapFlusherNoError(f FlusherNoError) Flusher {
+	return wrapFlusher{FlusherNoError: f}
+}
+
+func (f wrapFlusher) Flush() error {
+	f.FlusherNoError.Flush()
+	return nil
+}
 
 func Fd(f interface{}) uintptr {
 	const ffff = ^uintptr(0)

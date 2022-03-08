@@ -48,12 +48,12 @@ type (
 
 	pConnClose struct {
 		net.PacketConn
-		def []func() error
+		def []io.Closer
 	}
 
 	listenerClose struct {
 		net.Listener
-		def []func() error
+		def []io.Closer
 	}
 )
 
@@ -187,7 +187,9 @@ func before(c *cli.Command) error {
 		}()
 	}
 
-	//	gin.SetMode(gin.ReleaseMode)
+	if c.String("debug") == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	return nil
 }
@@ -207,11 +209,13 @@ func agentRun(c *cli.Command) (err error) {
 
 		r.Use(tlgin.Tracer)
 
+		r.GET("/", func(c *gin.Context) {
+			c.Redirect(http.StatusSeeOther, "/v0")
+		})
+
 		//	r.GET("/", s.HandleIndex)
 		r.GET("/v0/*any", gin.WrapH(
-			http.StripPrefix("/v0",
-				a,
-			),
+			http.StripPrefix("/v0", a),
 		))
 
 		l, err := net.Listen(c.String("http-net"), q)
@@ -651,10 +655,6 @@ func test(c *cli.Command) (err error) {
 	return nil
 }
 
-func flock(f *os.File) (err error) {
-	return syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
-}
-
 func (w perrWriter) Write(p []byte) (n int, err error) {
 	n, err = w.WriteCloser.Write(p)
 
@@ -678,15 +678,20 @@ func (w perrWriter) Close() (err error) {
 func listenPacket(netw, addr string) (p net.PacketConn, err error) {
 	unix := strings.HasPrefix(netw, "unix")
 
-	var def []func() error
+	var def []io.Closer
 
 	if unix {
-		cl, err := flockLock(addr)
+		cl, err := flockLock(addr + ".lock")
 		if err != nil {
 			return nil, errors.Wrap(err, "lock")
 		}
 
 		def = append(def, cl)
+
+		err = os.Remove(addr)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, errors.Wrap(err, "remove old socket file")
+		}
 	}
 
 	p, err = net.ListenPacket(netw, addr)
@@ -695,10 +700,12 @@ func listenPacket(netw, addr string) (p net.PacketConn, err error) {
 	}
 
 	if unix {
-		def = append(def, func() (err error) {
+		cf := func() (err error) {
 			err = os.Remove(addr)
-			return errors.Wrap(err, "remote socket file")
-		})
+			return errors.Wrap(err, "remove unix socket file")
+		}
+
+		def = append(def, tlio.CloserFunc(cf))
 	}
 
 	if def != nil {
@@ -714,15 +721,20 @@ func listenPacket(netw, addr string) (p net.PacketConn, err error) {
 func listen(netw, addr string) (l net.Listener, err error) {
 	unix := strings.HasPrefix(netw, "unix")
 
-	var def []func() error
+	var def []io.Closer
 
 	if unix {
-		cl, err := flockLock(addr)
+		cl, err := flockLock(addr + ".lock")
 		if err != nil {
 			return nil, errors.Wrap(err, "lock")
 		}
 
 		def = append(def, cl)
+
+		err = os.Remove(addr)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, errors.Wrap(err, "remove old socket file")
+		}
 	}
 
 	l, err = net.Listen(netw, addr)
@@ -730,12 +742,7 @@ func listen(netw, addr string) (l net.Listener, err error) {
 		return nil, errors.Wrap(err, "listen: %v", addr)
 	}
 
-	if unix {
-		def = append(def, func() (err error) {
-			err = os.Remove(addr)
-			return errors.Wrap(err, "remote socket file")
-		})
-	}
+	// unix listener removed by close
 
 	if def != nil {
 		return listenerClose{
@@ -747,47 +754,51 @@ func listen(netw, addr string) (l net.Listener, err error) {
 	return l, nil
 }
 
-func flockLock(addr string) (cl func() error, err error) {
-	lock, err := os.Create(addr + ".lock")
+func flockLock(addr string) (_ io.Closer, err error) {
+	lock, err := os.OpenFile(addr, os.O_CREATE|syscall.O_EXLOCK|syscall.O_NONBLOCK, 0644)
 	if err != nil {
 		return nil, errors.Wrap(err, "open lock")
 	}
-	cl = func() (err error) {
+
+	cl := func() (err error) {
 		err = lock.Close()
-		return errors.Wrap(err, "close lock")
-	}
-
-	err = flock(lock)
-	if err != nil {
-		return cl, errors.Wrap(err, "lock file")
-	}
-
-	inf, err := os.Stat(addr)
-	switch {
-	case os.IsNotExist(err):
-		// ok: all clear
-		err = nil
-	case err == nil && inf.Mode().Type() == os.ModeSocket:
-		tlog.Printw("remove old socket file", "addr", addr)
+		if err != nil {
+			return errors.Wrap(err, "close lock")
+		}
 
 		err = os.Remove(addr)
 		if err != nil {
-			return cl, errors.Wrap(err, "remove socket file")
+			return errors.Wrap(err, "remove lock")
 		}
-	case err != nil:
-		return cl, errors.Wrap(err, "socket file info")
-	default:
-		return cl, errors.New("not a socket file")
+
+		return nil
 	}
 
-	return
+	return tlio.CloserFunc(cl), nil
+}
+
+func flock(f *os.File) (err error) {
+	return syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
 }
 
 func (p pConnClose) Close() (err error) {
 	err = p.PacketConn.Close()
 
 	for i := len(p.def) - 1; i >= 0; i-- {
-		e := p.def[i]()
+		e := p.def[i].Close()
+		if err == nil {
+			err = e
+		}
+	}
+
+	return
+}
+
+func (p listenerClose) Close() (err error) {
+	err = p.Listener.Close()
+
+	for i := len(p.def) - 1; i >= 0; i-- {
+		e := p.def[i].Close()
 		if err == nil {
 			err = e
 		}
