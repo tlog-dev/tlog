@@ -34,6 +34,8 @@ type (
 
 	LowParser struct {
 		New func() *LowEvent
+
+		Static *LowEvent
 	}
 
 	LowEvent struct {
@@ -65,13 +67,25 @@ func FreeLowEvent(e *LowEvent) {
 }
 
 func (n *LowParser) Parse(ctx context.Context, p []byte, st int) (x interface{}, i int, err error) {
-	var d wire.Decoder
+	var e *LowEvent
 
-	e := n.New()
+	if n.New != nil {
+		e = n.New()
+	} else {
+		e = n.Static
+	}
+
+	i, err = e.Parse(p, st)
+
+	return e, i, err
+}
+
+func (e *LowEvent) Parse(p []byte, st int) (i int, err error) {
+	var d wire.Decoder
 
 	tag, els, i := d.Tag(p, st)
 	if tag != wire.Map {
-		return nil, st, errors.New("Event expected")
+		return st, errors.New("Event expected")
 	}
 
 	e.kv = append(e.kv, i)
@@ -111,7 +125,7 @@ func (n *LowParser) Parse(ctx context.Context, p []byte, st int) (x interface{},
 
 	e.raw = p
 
-	return e, i, nil
+	return i, nil
 }
 
 func (e *LowEvent) Reset() {

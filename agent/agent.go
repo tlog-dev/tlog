@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,18 +69,14 @@ type (
 	}
 )
 
-func New(dbpath string) (*Agent, error) {
-	a := &Agent{}
+func New(fs fs.ReadDirFS) (a *Agent, err error) {
+	a = &Agent{}
 
 	a.Sink.Writer = a
 
-	if dbpath != "" {
-		db, err := NewDB(dbpath)
-		if err != nil {
-			return nil, errors.Wrap(err, "open db")
-		}
-
-		a.db = db
+	a.db, err = NewDB(fs)
+	if err != nil {
+		return nil, errors.Wrap(err, "open db")
 	}
 
 	a.setupRoutes()
@@ -88,6 +84,14 @@ func New(dbpath string) (*Agent, error) {
 	a.cond.L = a.mu.RLocker()
 
 	return a, nil
+}
+
+func (a *Agent) Close() error {
+	if a.db == nil {
+		return nil
+	}
+
+	return a.db.Close()
 }
 
 func (a *Agent) setupRoutes() {
@@ -134,9 +138,16 @@ func (a *Agent) ServeStreams(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Agent) ServeEvents(w http.ResponseWriter, req *http.Request) {
-	tr := tlog.SpanFromContext(req.Context())
+	ctx := req.Context()
+	tr := tlog.SpanFromContext(ctx)
 
 	q := req.URL.Query()
+
+	sid := q.Get("stream")
+	if sid == "" {
+		http.Error(w, "stream is required", http.StatusBadRequest)
+		return
+	}
 
 	var start int64
 	if q := q.Get("start"); q != "" {
@@ -151,30 +162,15 @@ func (a *Agent) ServeEvents(w http.ResponseWriter, req *http.Request) {
 		start = time.Now().UnixNano()
 	}
 
-	var sid uint32
-	if l, ok := q["stream"]; !ok || len(l) == 0 {
-		http.Error(w, "stream is required", http.StatusBadRequest)
-		return
-	} else {
-		l[0] = strings.TrimPrefix(l[0], "0x")
-
-		x, err := strconv.ParseUint(l[0], 16, 32)
-		if err != nil {
-			err = errors.Wrap(err, "stream")
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		sid = uint32(x)
-	}
+	_, follow := q["follow"]
 
 	var ww io.Writer = w
 
 	switch q.Get("format") {
-	case "text":
-		ww = tlog.NewConsoleWriter(ww, tlog.LstdFlags|tlog.Lmilliseconds)
-	default: // json
+	case "json":
 		ww = convert.NewJSONWriter(ww)
+	default:
+		ww = tlog.NewConsoleWriter(ww, tlog.LstdFlags|tlog.Lmilliseconds)
 	}
 
 	f, ok := w.(tlio.Flusher)
@@ -188,22 +184,54 @@ func (a *Agent) ServeEvents(w http.ResponseWriter, req *http.Request) {
 
 	tr.V("flusher").Printw("writer is flusher", "ok", ok)
 
-	if ok && ww != w {
-		ww = tlio.WriteFlusher{
-			Writer:  ww,
-			Flusher: f,
-		}
-	}
+	//	if ok && ww != w {
+	//		ww = tlio.WriteFlusher{
+	//			Writer:  ww,
+	//			Flusher: f,
+	//		}
+	//	}
 
-	err := a.db.Stream(req.Context(), ww, start, sid)
+	s, err := a.db.ReadStream(ctx, sid)
 	if err != nil {
+		err = errors.Wrap(err, "open stream")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
 
-func (a *Agent) Serve(ctx context.Context, w io.Writer) (err error) {
-	return nil
+	if s == nil {
+		http.Error(w, "no such stream", http.StatusNotFound)
+		return
+	}
+
+	_, _ = start, sid
+
+	for {
+		_, err = s.WriteTo(ww)
+		if err != nil {
+			err = errors.Wrap(err, "reading")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if !follow {
+			break
+		}
+
+		if f != nil {
+			err = f.Flush()
+			if err != nil {
+				err = errors.Wrap(err, "flush")
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		select {
+		case <-time.After(time.Second / 4):
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (a *Agent) Write(p []byte) (_ int, err error) {
@@ -213,6 +241,7 @@ func (a *Agent) Write(p []byte) (_ int, err error) {
 
 	_, err = a.db.Write(p)
 	if err != nil {
+		tlog.Printw("agent.write", "err", err)
 		return 0, errors.Wrap(err, "db")
 	}
 

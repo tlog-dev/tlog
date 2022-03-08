@@ -59,9 +59,10 @@ type (
 
 func App() *cli.Command {
 	catCmd := &cli.Command{
-		Name:   "convert,cat,c",
-		Action: cat,
-		Args:   cli.Args{},
+		Name:        "convert,cat,c",
+		Description: "read tlog encoded logs",
+		Action:      cat,
+		Args:        cli.Args{},
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
 			cli.NewFlag("clickhouse", "", "send logs to clickhouse"),
@@ -101,8 +102,9 @@ func App() *cli.Command {
 	}
 
 	agentCmd := &cli.Command{
-		Name:   "agent,run",
-		Action: agentRun,
+		Name:        "agent,run",
+		Description: "run agent",
+		Action:      agentRun,
 		Flags: []*cli.Flag{
 			cli.NewFlag("db", "tlogdb", "path to logs db"),
 
@@ -118,8 +120,9 @@ func App() *cli.Command {
 	}
 
 	app := &cli.Command{
-		Name:   "tlog",
-		Before: before,
+		Name:        "tlog",
+		Description: "tlog cli",
+		Before:      before,
 		Flags: []*cli.Flag{
 			cli.NewFlag("log", "stderr", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
@@ -132,8 +135,9 @@ func App() *cli.Command {
 			tlzCmd,
 			agentCmd,
 			{
-				Name:   "ticker",
-				Action: ticker,
+				Name:        "ticker",
+				Description: "simple test app that prints current time once in an interval",
+				Action:      ticker,
 				Flags: []*cli.Flag{
 					cli.NewFlag("output,o", "-", "output file (or stdout)"),
 					cli.NewFlag("interval,int,i", time.Second, "interval to tick on"),
@@ -144,10 +148,12 @@ func App() *cli.Command {
 				Description: "core dump memory dumper",
 				Args:        cli.Args{},
 				Action:      coredump,
+				Hidden:      true,
 			}, {
 				Name:   "test",
 				Action: test,
 				Args:   cli.Args{},
+				Hidden: true,
 			}},
 	}
 
@@ -197,10 +203,19 @@ func before(c *cli.Command) error {
 func agentRun(c *cli.Command) (err error) {
 	ctx := context.Background()
 
-	a, err := agent.New(c.String("db"))
+	root := agent.NewOSFS(c.String("db"))
+
+	a, err := agent.New(root)
 	if err != nil {
 		return errors.Wrap(err, "new agent")
 	}
+
+	defer func() {
+		e := a.Close()
+		if err == nil {
+			err = errors.Wrap(e, "close agent")
+		}
+	}()
 
 	g := graceful.New()
 

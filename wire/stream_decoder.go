@@ -57,6 +57,9 @@ func (d *StreamDecoder) Read(p []byte) (n int, err error) {
 func (d *StreamDecoder) WriteTo(w io.Writer) (n int64, err error) {
 	for {
 		data, err := d.Decode()
+		if errors.Is(err, io.EOF) {
+			return n, nil
+		}
 		if err != nil {
 			return n, errors.Wrap(err, "decode")
 		}
