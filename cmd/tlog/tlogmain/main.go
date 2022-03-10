@@ -3,14 +3,12 @@ package tlogmain
 import (
 	"context"
 	"debug/elf"
-	"encoding/hex"
 	"io"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -20,13 +18,10 @@ import (
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/graceful"
-	"go.etcd.io/bbolt"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/agent"
 	"github.com/nikandfor/tlog/compress"
-	"github.com/nikandfor/tlog/convert"
-	"github.com/nikandfor/tlog/ext/tlbolt"
 	"github.com/nikandfor/tlog/ext/tlclickhouse"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/ext/tlgin"
@@ -240,7 +235,7 @@ func agentRun(c *cli.Command) (err error) {
 
 		tlog.Printw("listen http", "addr", l.Addr())
 
-		g.Add(ctx, "listen http", func(ctx context.Context) error {
+		g.Add(func(ctx context.Context) error {
 			err := r.RunListener(l)
 			select {
 			case <-ctx.Done():
@@ -262,7 +257,7 @@ func agentRun(c *cli.Command) (err error) {
 
 		tlog.Printw("listen stream", "addr", l.Addr())
 
-		g.Add(ctx, "listen stream", func(ctx context.Context) error {
+		g.Add(func(ctx context.Context) error {
 			err := a.Listen(ctx, l)
 			select {
 			case <-ctx.Done():
@@ -284,7 +279,7 @@ func agentRun(c *cli.Command) (err error) {
 
 		tlog.Printw("listen packet", "addr", l.LocalAddr())
 
-		g.Add(ctx, "listen packet", func(ctx context.Context) error {
+		g.Add(func(ctx context.Context) error {
 			err := a.ListenPacket(ctx, l)
 			select {
 			case <-ctx.Done():
@@ -299,65 +294,6 @@ func agentRun(c *cli.Command) (err error) {
 	}
 
 	return g.Run(ctx)
-}
-
-func setupHTTPDB(c *cli.Command, db *bbolt.DB) (err error) {
-	tldb := tlbolt.NewWriter(db)
-
-	h := func(c *gin.Context) {
-		var n int
-
-		if q := c.Query("n"); q != "" {
-			v, err := strconv.ParseInt(q, 10, 32)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": errors.Wrap(err, "parse n").Error()})
-				return
-			}
-
-			n = int(v)
-		} else {
-			n = -10
-		}
-
-		var token []byte
-		if q := c.Query("token"); q != "" {
-			token, err = hex.DecodeString(q)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": errors.Wrap(err, "parse token").Error()})
-				return
-			}
-		}
-
-		evs, next, err := tldb.Events("", int(n), token, nil)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.Header("X-Token-Next", hex.EncodeToString(next))
-		c.Header("Content-Type", "application/json")
-
-		w := convert.NewJSONWriter(c.Writer)
-
-		w.TimeFormat = time.RFC3339Nano
-
-		for _, ev := range evs {
-			_, err = w.Write(ev)
-			if err != nil {
-				break
-			}
-		}
-	}
-
-	r := gin.New()
-
-	v1 := r.Group("/v1/")
-
-	v1.GET("/events", h)
-
-	http.Handle("/v1/", r)
-
-	return nil
 }
 
 func ticker(c *cli.Command) error {
