@@ -706,9 +706,14 @@ func listen(netw, addr string) (l net.Listener, err error) {
 }
 
 func flockLock(addr string) (_ io.Closer, err error) {
-	lock, err := os.OpenFile(addr, os.O_CREATE|O_EXCL|syscall.O_NONBLOCK, 0644)
+	lock, err := os.OpenFile(addr, os.O_CREATE, 0644)
 	if err != nil {
 		return nil, errors.Wrap(err, "open lock")
+	}
+
+	err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err != nil {
+		return nil, errors.Wrap(err, "flock")
 	}
 
 	cl := func() (err error) {

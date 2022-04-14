@@ -40,7 +40,7 @@ type (
 	}
 )
 
-var eUnexpectedEOF = errors.NewNoLoc("need more")
+var eUnexpectedEOF = errors.NewNoCaller("need more")
 
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
