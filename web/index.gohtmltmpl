@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+	<div class=logs>
+	</div>
+</body>
+<script>
+	function queryLogs(q, token) {
+			load("/query", {}, function () { resp = this; console.log("ok", this, arguments)}, () => console.log("error", this, arguments))
+	}
+
+	function load(path, data, cb, err) {
+		let req = new XMLHttpRequest()
+
+		req.onerror = err
+		req.onload = cb
+
+		let u = new URL(path, window.location.href)
+
+		for ([k, v] of Object.entries(data || {})) {
+			if (Array.isArray(v)) {
+				v.forEach(e => u.searchParams.append(k, e))
+			} else {
+				u.searchParams.append(k, v)
+			}
+		}
+
+		//	console.log("path", path, "data", data, "url", u.href, "u", u)
+
+		req.open("get", u.href, true)
+		req.send()
+	}
+</script>
+</html>
