@@ -1,6 +1,9 @@
 package tlwire
 
-import "math"
+import (
+	"math"
+	"time"
+)
 
 type (
 	Decoder struct {
@@ -9,6 +12,30 @@ type (
 
 	LowDecoder struct{}
 )
+
+func (d Decoder) Time(p []byte, st int) (t time.Time, i int) {
+	ts, i := d.Timestamp(p, st)
+
+	if ts != 0 {
+		t = time.Unix(0, ts)
+	}
+
+	return
+}
+
+func (d Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
+	if p[st] != Semantic|Time {
+		panic("not a time")
+	}
+
+	tag, sub, i := d.Tag(p, st+1)
+
+	if tag == Int {
+		return sub, i
+	}
+
+	panic("unsupported time")
+}
 
 func (d LowDecoder) Skip(b []byte, st int) (i int) {
 	_, _, i = d.SkipTag(b, st)

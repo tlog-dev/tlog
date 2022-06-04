@@ -173,8 +173,7 @@ func BenchmarkReWriter(b *testing.B) {
 	})
 
 	l := tlog.New(w)
-	l.AppendTimestamp = func(b []byte) []byte { return b }
-	l.AppendCaller = func(b []byte, d int) []byte { return b }
+	tlog.LoggerSetTime(l, nil, nil)
 
 	l.SetLabels(
 		"a", "b",

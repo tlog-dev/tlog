@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"unsafe"
 
+	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -14,7 +15,7 @@ type (
 
 	ptrSet map[unsafe.Pointer]struct{}
 
-	valueEncoder func(b []byte, val interface{}) []byte
+	ValueEncoder func(b []byte, val interface{}) []byte
 
 	eface struct {
 		typ unsafe.Pointer
@@ -22,7 +23,19 @@ type (
 	}
 )
 
-var encoders = map[unsafe.Pointer]valueEncoder{}
+var encoders = map[unsafe.Pointer]ValueEncoder{}
+
+func SetEncoder(tp interface{}, encoder ValueEncoder) {
+	ef := *(*eface)(unsafe.Pointer(&tp))
+
+	encoders[ef.typ] = encoder
+}
+
+func init() {
+	SetEncoder(loc.PC(0), func(b []byte, x interface{}) []byte {
+		return Encoder{}.AppendCaller(b, x.(loc.PC))
+	})
+}
 
 //go:linkname appendValue github.com/nikandfor/tlog/tlwire.(*Encoder).appendValue
 //go:noescape
@@ -50,6 +63,11 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit
 	if r.CanInterface() {
 		v := r.Interface()
+
+		if a, ok := v.(TlogAppender); ok {
+			return a.TlogAppend(b)
+		}
+
 		ef := *(*eface)(unsafe.Pointer(&v))
 
 		if enc, ok := encoders[ef.typ]; ok {

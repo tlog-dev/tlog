@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -19,10 +20,8 @@ type (
 
 		NewID func() ID // must be threadsafe
 
-		AppendTimestamp func([]byte) []byte
-		AppendCaller    func([]byte, int) []byte
-
-		now func() time.Time
+		now  func() time.Time
+		nano func() int64
 
 		filter *filter // atomic access
 
@@ -33,7 +32,7 @@ type (
 	}
 
 	Span struct {
-		Logger    *Logger
+		Logger    *Logger `deep:"cmp=ptr"`
 		ID        ID
 		StartedAt time.Time
 	}
@@ -48,6 +47,11 @@ type (
 
 		d int
 	}
+)
+
+var (
+	Stdout = os.Stdout
+	Stderr = os.Stderr
 )
 
 // Log levels
@@ -81,17 +85,16 @@ const (
 	EventMetricDesc EventKind = 'm'
 )
 
-var DefaultLogger = New(nil)
+var DefaultLogger = New(NewConsoleWriter(os.Stderr, LdetFlags))
 
 func Root() Span { return Span{Logger: DefaultLogger} }
 
 func New(w io.Writer) *Logger {
 	return &Logger{
-		Writer:          w,
-		NewID:           MathRandID,
-		AppendTimestamp: AppendTimestamp,
-		AppendCaller:    AppendCaller,
-		now:             time.Now,
+		Writer: w,
+		NewID:  MathRandID,
+		now:    time.Now,
+		nano:   htime.UnixNano,
 	}
 }
 
@@ -110,10 +113,19 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		l.b = id.TlogAppend(l.b)
 	}
 
-	l.b = l.AppendTimestamp(l.b)
+	if l.nano != nil {
+		now := l.nano()
+
+		l.b = l.Encoder.AppendString(l.b, KeyTimestamp)
+		l.b = l.Encoder.AppendTimestamp(l.b, now)
+	}
 
 	if d >= 0 {
-		l.b = l.AppendCaller(l.b, 2+d)
+		var c loc.PC
+		caller1(2+d, &c, 1, 1)
+
+		l.b = e.AppendKey(l.b, KeyCaller)
+		l.b = e.AppendCaller(l.b, c)
 	}
 
 	if msg != nil {
@@ -126,6 +138,8 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 			l.b = l.Encoder.AppendString(l.b, msg)
 		case []byte:
 			l.b = l.Encoder.AppendTagBytes(l.b, tlwire.String, msg)
+		case format:
+			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
 		default:
 			l.b = l.Encoder.AppendFormat(l.b, "%v", msg)
 		}
@@ -147,7 +161,9 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 
 	s.Logger = l
 	s.ID = l.NewID()
-	s.StartedAt = l.now()
+	if l.now != nil {
+		s.StartedAt = l.now()
+	}
 
 	defer l.Unlock()
 	l.Lock()
@@ -157,10 +173,17 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	l.b = l.Encoder.AppendString(l.b, KeySpan)
 	l.b = s.ID.TlogAppend(l.b)
 
-	l.b = l.AppendTimestamp(l.b)
+	if l.now != nil {
+		l.b = l.Encoder.AppendString(l.b, KeyTimestamp)
+		l.b = l.Encoder.AppendTimestamp(l.b, s.StartedAt.UnixNano())
+	}
 
 	if d >= 0 {
-		l.b = l.AppendCaller(l.b, 2+d)
+		var c loc.PC
+		caller1(2+d, &c, 1, 1)
+
+		l.b = e.AppendKey(l.b, KeyCaller)
+		l.b = e.AppendCaller(l.b, c)
 	}
 
 	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
@@ -188,16 +211,54 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	return
 }
 
+func (s Span) Finish(kvs ...interface{}) {
+	if s.Logger == nil {
+		return
+	}
+
+	l := s.Logger
+
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.Encoder.AppendTag(l.b[:0], tlwire.Map, -1)
+
+	if s.ID != (ID{}) {
+		l.b = l.Encoder.AppendString(l.b, KeySpan)
+		l.b = s.ID.TlogAppend(l.b)
+	}
+
+	var now time.Time
+	if l.now != nil {
+		now = l.now()
+
+		l.b = l.Encoder.AppendString(l.b, KeyTimestamp)
+		l.b = l.Encoder.AppendTimestamp(l.b, now.UnixNano())
+	}
+
+	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
+	l.b = EventSpanFinish.TlogAppend(l.b)
+
+	if l.now != nil {
+		l.b = l.Encoder.AppendString(l.b, KeyElapsed)
+		l.b = l.Encoder.AppendDuration(l.b, now.Sub(s.StartedAt))
+	}
+
+	l.b = AppendKVs(l.b, kvs)
+
+	l.b = append(l.b, l.ls...)
+
+	l.b = l.Encoder.AppendBreak(l.b)
+
+	_, _ = l.Writer.Write(l.b)
+}
+
 func SetLabels(kvs ...interface{}) {
 	DefaultLogger.SetLabels(kvs...)
 }
 
 func Start(name string, kvs ...interface{}) Span {
 	return newspan(DefaultLogger, ID{}, 0, name, kvs)
-}
-
-func Printw(msg string, kvs ...interface{}) {
-	message(DefaultLogger, ID{}, 0, msg, kvs)
 }
 
 func (l *Logger) Or(l2 *Logger) *Logger {
@@ -319,12 +380,28 @@ func (s Span) Spawn(name string, kvs ...interface{}) Span {
 	return newspan(s.Logger, s.ID, 0, name, kvs)
 }
 
+func Printw(msg string, kvs ...interface{}) {
+	message(DefaultLogger, ID{}, 0, msg, kvs)
+}
+
 func (l *Logger) Printw(msg string, kvs ...interface{}) {
 	message(l, ID{}, 0, msg, kvs)
 }
 
 func (s Span) Printw(msg string, kvs ...interface{}) {
 	message(s.Logger, s.ID, 0, msg, kvs)
+}
+
+func Printf(fmt string, args ...interface{}) {
+	message(DefaultLogger, ID{}, 0, format{Fmt: fmt, Args: args}, nil)
+}
+
+func (l *Logger) Printf(fmt string, args ...interface{}) {
+	message(l, ID{}, 0, format{Fmt: fmt, Args: args}, nil)
+}
+
+func (s Span) Printf(fmt string, args ...interface{}) {
+	message(s.Logger, s.ID, 0, format{Fmt: fmt, Args: args}, nil)
 }
 
 func (l *Logger) IOWriter(d int) io.Writer {
@@ -349,16 +426,7 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func AppendTimestamp(b []byte) []byte {
-	b = e.AppendKey(b, KeyTimestamp)
-	return e.AppendTimestamp(b, htime.UnixNano())
-}
-
-func AppendCaller(b []byte, d int) []byte {
-	var c loc.PC
-	caller1(1+d, &c, 1, 1)
-
-	b = e.AppendKey(b, KeyCaller)
-
-	return e.AppendPC(b, c)
+func LoggerSetTime(l *Logger, now func() time.Time, nano func() int64) {
+	l.now = now
+	l.nano = nano
 }

@@ -30,3 +30,7 @@ func InterfaceData(v interface{}) unsafe.Pointer {
 func UnsafeString(ptr unsafe.Pointer, l int) string {
 	return *(*string)(unsafe.Pointer(&sh{p: ptr, l: l}))
 }
+
+func UnsafeBytesToString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}

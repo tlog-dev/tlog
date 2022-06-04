@@ -72,14 +72,14 @@ func (e Encoder) AppendError(b []byte, err error) []byte {
 
 func (e Encoder) AppendTime(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
-	return e.AppendTag64(b, Int, uint64(t.UnixNano()))
+	return e.AppendInt64(b, t.UnixNano())
 }
 
 func (e Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
 	b = append(b, Array|2)
 
-	b = e.AppendTag64(b, Int, uint64(t.UnixNano()))
+	b = e.AppendInt64(b, t.UnixNano())
 
 	b = append(b, Array|2)
 

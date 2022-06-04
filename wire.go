@@ -4,21 +4,29 @@ import (
 	"unicode/utf8"
 	_ "unsafe"
 
+	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/tlwire"
 )
 
 type (
 	RawMessage []byte
 
-	FormatNext string
+	Modify []byte
 
 	Timestamp int64
+
+	FormatNext string
+
+	format struct {
+		Fmt  string
+		Args []interface{}
+	}
 )
 
 const KeyAuto = ""
 
 var (
-	HexNext = RawMessage{tlwire.Semantic | tlwire.Hex}
+	HexNext = Modify{tlwire.Semantic | tlwire.Hex}
 )
 
 const (
@@ -73,6 +81,7 @@ func appendKVs(b []byte, kvs []interface{}) []byte {
 
 		b = e.AppendString(b, k)
 
+	value:
 		if i == len(kvs) {
 			b = append(b, tlwire.Special|tlwire.Undefined)
 			break
@@ -83,6 +92,11 @@ func appendKVs(b []byte, kvs []interface{}) []byte {
 			b = e.AppendString(b, v)
 		case int:
 			b = e.AppendInt(b, v)
+		case Modify:
+			b = append(b, v...)
+			i++
+
+			goto value
 		case FormatNext:
 			i++
 			if i == len(kvs) {
@@ -111,14 +125,14 @@ func autoKey(kvs []interface{}) (k string) {
 	//		k = KeyMessage
 	case ID:
 		k = KeySpan
-		//	case LogLevel:
-		//		k = KeyLogLevel
-		//	case EventKind:
-		//		k = KeyEventKind
-		//	case loc.PC:
-		//		k = KeyCaller
-		//	case loc.PCs:
-		//		k = KeyCaller
+	case LogLevel:
+		k = KeyLogLevel
+	case EventKind:
+		k = KeyEventKind
+	case loc.PC:
+		k = KeyCaller
+	case loc.PCs:
+		k = KeyCaller
 	default:
 		k = "UNSUPPORTED_AUTO_KEY"
 	}
@@ -169,6 +183,25 @@ func (ek *EventKind) TlogParse(p []byte, i int) int {
 	}
 
 	*ek = EventKind(r)
+
+	return i
+}
+
+func (l LogLevel) TlogAppend(b []byte) []byte {
+	b = append(b, tlwire.Semantic|WireLogLevel)
+	return e.AppendInt(b, int(l))
+}
+
+func (l *LogLevel) TlogParse(p []byte, i int) int {
+	if p[i] != tlwire.Semantic|WireLogLevel {
+		panic("not a log level")
+	}
+
+	i++
+
+	v, i := d.Signed(p, i)
+
+	*l = LogLevel(v)
 
 	return i
 }
