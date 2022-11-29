@@ -15,8 +15,8 @@ type (
 	filter struct {
 		f string
 
-		mu sync.RWMutex
-		c  map[fkey]bool
+		mu sync.RWMutex  `deep:-`
+		c  map[fkey]bool `deep:-`
 	}
 
 	fkey struct {
@@ -24,6 +24,10 @@ type (
 		topics string
 	}
 )
+
+func SetVerbosity(verbosityFilter string) {
+	DefaultLogger.SetVerbosity(verbosityFilter)
+}
 
 func (l *Logger) SetVerbosity(verbosityFilter string) {
 	var f *filter
@@ -38,6 +42,14 @@ func (l *Logger) SetVerbosity(verbosityFilter string) {
 	atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter)), unsafe.Pointer(f))
 }
 
+func V(topics string) *Logger {
+	if DefaultLogger.ifv(0, topics) {
+		return DefaultLogger
+	}
+
+	return nil
+}
+
 func (l *Logger) V(topics string) *Logger {
 	if l.ifv(0, topics) {
 		return l
@@ -46,8 +58,16 @@ func (l *Logger) V(topics string) *Logger {
 	return nil
 }
 
+func If(topics string) bool {
+	return DefaultLogger.ifv(0, topics)
+}
+
 func (l *Logger) If(topics string) bool {
 	return l.ifv(0, topics)
+}
+
+func IfDepth(d int, topics string) bool {
+	return DefaultLogger.ifv(d, topics)
 }
 
 func (l *Logger) IfDepth(d int, topics string) bool {

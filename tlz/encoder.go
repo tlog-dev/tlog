@@ -69,7 +69,7 @@ const (
 	MetaTagMask = 0xf0
 )
 
-const Version = "000"
+const Version = "000" // must be less than 16 bytes
 
 var zeros = make([]byte, 1024)
 
@@ -218,7 +218,7 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 func (w *Encoder) appendHeader(b []byte) []byte {
 	b = append(b, Literal|Meta, MetaMagic|3, 't', 'l', 'z')
 
-	b = append(b, Literal|Meta, MetaVer|3)
+	b = append(b, Literal|Meta, MetaVer|byte(len(Version)))
 	b = append(b, Version...)
 
 	bs := 0

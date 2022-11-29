@@ -26,6 +26,7 @@ type (
 const KeyAuto = ""
 
 var (
+	None    = RawMessage{tlwire.Special | tlwire.None}
 	HexNext = Modify{tlwire.Semantic | tlwire.Hex}
 )
 
@@ -92,6 +93,8 @@ func appendKVs(b []byte, kvs []interface{}) []byte {
 			b = e.AppendString(b, v)
 		case int:
 			b = e.AppendInt(b, v)
+		case RawMessage:
+			b = append(b, v...)
 		case Modify:
 			b = append(b, v...)
 			i++

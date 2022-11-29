@@ -18,10 +18,10 @@ type (
 
 		tlwire.Encoder
 
-		NewID func() ID // must be threadsafe
+		NewID func() ID `deep:"compare=pointer"` // must be threadsafe
 
-		now  func() time.Time
-		nano func() int64
+		now  func() time.Time `deep:"compare=pointer"`
+		nano func() int64     `deep:"compare=pointer"`
 
 		filter *filter // atomic access
 
@@ -32,7 +32,7 @@ type (
 	}
 
 	Span struct {
-		Logger    *Logger `deep:"cmp=ptr"`
+		Logger    *Logger
 		ID        ID
 		StartedAt time.Time
 	}
