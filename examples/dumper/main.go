@@ -31,7 +31,7 @@ func copyStream(ctx context.Context, w io.Writer, r io.Reader) (err error) {
 
 	// Here is the trick
 	lw := tlio.WriterFunc(func(p []byte) (int, error) {
-		tr.Printw("copied block", "len", tlog.HexNext, len(p), "block", p)
+		tr.Printw("copied block", "len", tlog.NextIsHex, len(p), "block", p)
 
 		return len(p), nil
 	})

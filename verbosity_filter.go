@@ -25,16 +25,16 @@ type (
 	}
 )
 
-func SetVerbosity(verbosityFilter string) {
-	DefaultLogger.SetVerbosity(verbosityFilter)
+func SetVerbosity(vfilter string) {
+	DefaultLogger.SetVerbosity(vfilter)
 }
 
-func (l *Logger) SetVerbosity(verbosityFilter string) {
+func (l *Logger) SetVerbosity(vfilter string) {
 	var f *filter
 
-	if verbosityFilter != "" {
+	if vfilter != "" {
 		f = &filter{
-			f: verbosityFilter,
+			f: vfilter,
 			c: make(map[fkey]bool),
 		}
 	}

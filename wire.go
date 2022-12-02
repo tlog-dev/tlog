@@ -26,8 +26,15 @@ type (
 const KeyAuto = ""
 
 var (
-	None    = RawMessage{tlwire.Special | tlwire.None}
-	HexNext = Modify{tlwire.Semantic | tlwire.Hex}
+	None          = RawMessage{tlwire.Special | tlwire.None}
+	NextIsHex     = Modify{tlwire.Semantic | tlwire.Hex}
+	NextIsMessage = Modify{tlwire.Semantic | WireMessage}
+
+//	None          = RawMessage(tlwire.LowEncoder{}.AppendSpecial(nil, tlwire.None))
+//	HexNext       = SemanticNext(tlwire.Hex)
+//	MessageNext   = SemanticNext(WireMessage)
+//	NextIsHex     = Modify(tlwire.LowEncoder{}.AppendSemantic(nil, tlwire.Hex))
+//	NextIsMessage = Modify(tlwire.LowEncoder{}.AppendSemantic(nil, WireMessage))
 )
 
 const (
@@ -53,6 +60,14 @@ var (
 
 func AppendKVs(b []byte, kvs []interface{}) []byte {
 	return appendKVs0(b, kvs)
+}
+
+func NextIs(tag int) Modify {
+	return Modify(tlwire.LowEncoder{}.AppendSemantic(nil, tag))
+}
+
+func Special(tag byte) RawMessage {
+	return RawMessage(tlwire.LowEncoder{}.AppendSpecial(nil, tag))
 }
 
 //go:linkname appendKVs0 github.com/nikandfor/tlog.appendKVs

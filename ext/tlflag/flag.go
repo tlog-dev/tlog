@@ -1,7 +1,6 @@
 package tlflag
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -66,7 +65,7 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 }
 
 func openw(fname, opts string) (io.Writer, error) {
-	fmt.Fprintf(os.Stderr, "openw %q\n", fname)
+	//	fmt.Fprintf(os.Stderr, "openw %q\n", fname)
 
 	w, c, err := openwc(fname, fname, opts)
 	if err != nil {
@@ -95,7 +94,7 @@ func openwc(fname, base, opts string) (w io.Writer, c io.Closer, err error) {
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
-	fmt.Fprintf(os.Stderr, "openwc %q %q\n", base, ext)
+	//	fmt.Fprintf(os.Stderr, "openwc %q %q\n", base, ext)
 
 	switch ext {
 	case ".tlog", ".tl", ".tlogdump", ".tldump", ".log", "":

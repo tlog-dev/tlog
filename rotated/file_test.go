@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/nikandfor/assert"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRotation(t *testing.T) {
