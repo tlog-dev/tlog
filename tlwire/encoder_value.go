@@ -2,6 +2,7 @@ package tlwire
 
 import (
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/nikandfor/loc"
@@ -34,6 +35,20 @@ func SetEncoder(tp interface{}, encoder ValueEncoder) {
 func init() {
 	SetEncoder(loc.PC(0), func(b []byte, x interface{}) []byte {
 		return Encoder{}.AppendCaller(b, x.(loc.PC))
+	})
+
+	SetEncoder(time.Time{}, func(b []byte, x interface{}) []byte {
+		return Encoder{}.AppendTimeTZ(b, x.(time.Time))
+	})
+	SetEncoder(&time.Time{}, func(b []byte, x interface{}) []byte {
+		return Encoder{}.AppendTimeTZ(b, *x.(*time.Time))
+	})
+
+	SetEncoder(time.Duration(0), func(b []byte, x interface{}) []byte {
+		return Encoder{}.AppendDuration(b, x.(time.Duration))
+	})
+	SetEncoder(new(time.Duration), func(b []byte, x interface{}) []byte {
+		return Encoder{}.AppendDuration(b, *x.(*time.Duration))
 	})
 }
 

@@ -77,9 +77,11 @@ func (e Encoder) AppendTime(b []byte, t time.Time) []byte {
 
 func (e Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
-	b = append(b, Array|2)
+	b = append(b, Map|2)
 
-	b = e.AppendInt64(b, t.UnixNano())
+	b = e.AppendKeyInt64(b, "t", t.UnixNano())
+
+	b = e.AppendKey(b, "z")
 
 	b = append(b, Array|2)
 
@@ -93,7 +95,7 @@ func (e Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
 
 func (e Encoder) AppendTimestamp(b []byte, t int64) []byte {
 	b = append(b, Semantic|Time)
-	return e.AppendTag64(b, Int, uint64(t))
+	return e.AppendInt64(b, t)
 }
 
 func (e Encoder) AppendDuration(b []byte, d time.Duration) []byte {

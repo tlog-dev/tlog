@@ -14,10 +14,53 @@ type (
 )
 
 func (d Decoder) Time(p []byte, st int) (t time.Time, i int) {
-	ts, i := d.Timestamp(p, st)
+	if p[st] != Semantic|Time {
+		panic("not a time")
+	}
+
+	tag, sub, i := d.Tag(p, st+1)
+
+	if tag == Int {
+		return time.Unix(0, sub), i
+	}
+
+	if tag != Map || sub == -1 {
+		panic("unsupported time")
+	}
+
+	var (
+		k     []byte
+		ts    int64
+		tzN   []byte
+		tzOff int64
+	)
+
+	for el := 0; el < int(sub); el++ {
+		k, i = d.Bytes(p, i)
+
+		switch string(k) {
+		case "t":
+			ts, i = d.Signed(p, i)
+		case "z":
+			if p[i] != Array|2 {
+				panic("unsupported time zone")
+			}
+			i++
+
+			tzN, i = d.Bytes(p, i)
+			tzOff, i = d.Signed(p, i)
+		default:
+			i = d.Skip(p, i)
+		}
+	}
 
 	if ts != 0 {
 		t = time.Unix(0, ts)
+	}
+
+	if tzN != nil || tzOff != 0 {
+		l := time.FixedZone(string(tzN), int(tzOff))
+		t = t.In(l)
 	}
 
 	return
@@ -34,7 +77,38 @@ func (d Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
 		return sub, i
 	}
 
-	panic("unsupported time")
+	if tag != Map || sub == -1 {
+		panic("unsupported time")
+	}
+
+	var k []byte
+
+	for el := 0; el < int(sub); el++ {
+		k, i = d.Bytes(p, i)
+
+		switch string(k) {
+		case "t":
+			ts, i = d.Signed(p, i)
+		default:
+			i = d.Skip(p, i)
+		}
+	}
+
+	return
+}
+
+func (d Decoder) Duration(p []byte, st int) (dr time.Duration, i int) {
+	if p[st] != Semantic|Duration {
+		panic("not a duration")
+	}
+
+	tag, sub, i := d.Tag(p, st+1)
+
+	if tag != Int {
+		panic("unsupported duration")
+	}
+
+	return time.Duration(sub), i
 }
 
 func (d LowDecoder) Skip(b []byte, st int) (i int) {

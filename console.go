@@ -45,6 +45,7 @@ type (
 		MaxValPad    int
 
 		TimeFormat     string
+		TimeLocation   *time.Location
 		DurationFormat string
 		DurationDiv    time.Duration
 		FloatFormat    string
@@ -137,7 +138,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		IDWidth:      8,
 		MaxValPad:    24,
 
-		TimeFormat:     "2006-01-02_15:04:05.000",
+		TimeFormat:     "2006-01-02_15:04:05.000Z0700",
 		DurationFormat: "%v",
 		FloatChar:      'f',
 		FloatPrecision: 5,
@@ -769,9 +770,10 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			var t time.Time
 			t, i = w.d.Time(p, st)
 
-			if w.Flags&LUTC != 0 {
-				t = t.UTC()
+			if w.TimeLocation != nil {
+				t = t.In(w.TimeLocation)
 			}
+
 			b = t.AppendFormat(b, w.TimeFormat)
 		case tlwire.Duration:
 			var v int64
@@ -783,7 +785,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			case w.DurationFormat != "":
 				b = hfmt.AppendPrintf(b, w.DurationFormat, time.Duration(v))
 			default:
-				b = strconv.AppendInt(b, int64(v), 10)
+				b = strconv.AppendInt(b, v, 10)
 			}
 		case WireID:
 			var id ID
