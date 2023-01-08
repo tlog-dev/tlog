@@ -257,26 +257,6 @@ func SetLabels(kvs ...interface{}) {
 	DefaultLogger.SetLabels(kvs...)
 }
 
-func Start(name string, kvs ...interface{}) Span {
-	return newspan(DefaultLogger, ID{}, 0, name, kvs)
-}
-
-func (l *Logger) Or(l2 *Logger) *Logger {
-	if l != nil {
-		return l
-	}
-
-	return l2
-}
-
-func (s Span) Or(s2 Span) Span {
-	if s.Logger != nil {
-		return s
-	}
-
-	return s2
-}
-
 func (l *Logger) SetLabels(kvs ...interface{}) {
 	if l == nil {
 		return
@@ -287,7 +267,7 @@ func (l *Logger) SetLabels(kvs ...interface{}) {
 
 	const tag = tlwire.Semantic | WireLabel
 
-	l.ls = append(l.ls[:0], low.Spaces[:len(kvs)/2]...)
+	l.ls = append(l.ls[:0], low.Spaces[:len(kvs)/2+1]...)
 
 	w, r := 0, len(l.ls)
 
@@ -311,6 +291,26 @@ func (l *Logger) SetLabels(kvs ...interface{}) {
 	}
 
 	l.ls = l.ls[:w]
+}
+
+func Start(name string, kvs ...interface{}) Span {
+	return newspan(DefaultLogger, ID{}, 0, name, kvs)
+}
+
+func (l *Logger) Or(l2 *Logger) *Logger {
+	if l != nil {
+		return l
+	}
+
+	return l2
+}
+
+func (s Span) Or(s2 Span) Span {
+	if s.Logger != nil {
+		return s
+	}
+
+	return s2
 }
 
 func (l *Logger) Event(kvs ...interface{}) (err error) {

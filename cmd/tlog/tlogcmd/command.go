@@ -386,7 +386,7 @@ func ticker(c *cli.Command) error {
 
 	ls := tlog.ParseLabels(c.String("labels"))
 
-	l.SetLabels(ls)
+	l.SetLabels(ls...)
 
 	var first time.Time
 	dur := c.Duration("interval")

@@ -215,6 +215,8 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 			break
 		}
 
+		pairst := i
+
 		k, i = w.d.Bytes(p, i)
 		if len(k) == 0 {
 			return 0, errors.New("empty key")
@@ -250,7 +252,8 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 
 			b, i = w.appendPair(b, p, k, st)
 		case sub == WireLabel:
-			w.ls, i = w.appendPair(w.ls, p, k, st)
+			i = w.d.Skip(p, st)
+			w.ls = append(w.ls, p[pairst:i]...)
 		default:
 			b, i = w.appendPair(b, p, k, st)
 		}
@@ -261,8 +264,8 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 
 	h = append(h, b...)
 
-	if w.AllLabels || bytes.Equal(w.lastls, w.ls) {
-		h = append(h, w.ls...)
+	if w.AllLabels || !bytes.Equal(w.lastls, w.ls) {
+		h = w.convertLabels(h, w.ls)
 		w.lastls = append(w.lastls[:0], w.ls...)
 	}
 
@@ -274,6 +277,22 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 	_, err = w.Writer.Write(h)
 
 	return len(p), err
+}
+
+func (w *ConsoleWriter) convertLabels(b, p []byte) []byte {
+	var k []byte
+	i := 0
+
+	for i != len(p) {
+		k, i = w.d.Bytes(p, i)
+		if len(k) == 0 {
+			panic("empty key")
+		}
+
+		b, i = w.appendPair(b, p, k, i)
+	}
+
+	return b
 }
 
 func (w *ConsoleWriter) appendHeader(b []byte, t time.Time, lv LogLevel, pc loc.PC, m []byte, blen int) []byte {

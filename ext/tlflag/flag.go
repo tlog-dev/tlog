@@ -44,6 +44,9 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 		if p := strings.IndexByte(d, ':'); p != -1 {
 			opts = d[p+1:]
 			d = d[:p]
+		} else if p = strings.IndexByte(d, '+'); p != -1 {
+			opts = d[p+1:]
+			d = d[:p]
 		}
 
 		w, err := openw(d, opts)
@@ -126,7 +129,7 @@ func openwc(fname, base, opts string) (w io.Writer, c io.Closer, err error) {
 		blockSize := tlz.MiB
 
 		w = tlz.NewEncoder(w, blockSize)
-	case ".dump":
+	case ".tlogdump", ".tldump":
 		w = tlwire.NewDumper(w)
 	case ".log", "":
 		ff := tlog.LstdFlags
