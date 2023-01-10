@@ -238,6 +238,8 @@ github.com/nikandfor/loc v0.1.1-0.20210914135013-829520244234/go.mod h1:LZpmiieV
 github.com/nikandfor/loc v0.2.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.3.0 h1:PwQfg5GmFwarMc2GoU5dgq03xBAUrmqIEmgMg0O7Qis=
 github.com/nikandfor/loc v0.3.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
+github.com/nikandfor/loc v0.3.1-0.20230110131254-a7ae68f03681 h1:zA09Y+yxxss/h+w+pyH1thSy7B9UrxA5YW64NYBRAww=
+github.com/nikandfor/loc v0.3.1-0.20230110131254-a7ae68f03681/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/netpoll v0.0.0-20211115220203-25e4df8e6e67/go.mod h1:JGUOkE/wHwm3g+8+KRIA9gFsVuegqf1zJsJNtjpuuA4=
 github.com/nikandfor/netpoll v0.0.0-20211124145858-9739b0b763d8/go.mod h1:JGUOkE/wHwm3g+8+KRIA9gFsVuegqf1zJsJNtjpuuA4=
 github.com/nikandfor/quantile v0.0.0-20201109213849-4905a12df281/go.mod h1:APrhtjJLhkjWbXluFo//uObr4wqeUN+frTIb0RJaLyE=

@@ -164,7 +164,7 @@ func (d Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 
 	var v uint64
 	var k []byte
-	var name, file string
+	var name, file []byte
 	var line int
 
 	for el := 0; el < int(sub); el++ {
@@ -180,13 +180,9 @@ func (d Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 
 			line = int(v)
 		case "n":
-			k, i = d.Bytes(p, i)
-
-			name = string(k)
+			name, i = d.Bytes(p, i)
 		case "f":
-			k, i = d.Bytes(p, i)
-
-			file = string(k)
+			file, i = d.Bytes(p, i)
 		default:
 			i = d.Skip(p, i)
 		}
@@ -196,7 +192,7 @@ func (d Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 		return
 	}
 
-	loc.SetCache(pc, name, file, line)
+	loc.SetCacheBytes(pc, name, file, line)
 
 	return
 }

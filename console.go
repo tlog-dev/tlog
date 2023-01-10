@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hfmt"
@@ -193,6 +194,14 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 		s := debug.Stack()
 		fmt.Fprintf(w.Writer, "%s", s)
 	}()
+
+	if w.PairSeparator == "" {
+		w.PairSeparator = "  "
+	}
+
+	if w.KVSeparator == "" {
+		w.KVSeparator = "="
+	}
 
 	w.addpad = 0
 
@@ -648,11 +657,11 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 		var s []byte
 		s, i = w.d.Bytes(p, st)
 
-		if len(s) >= w.StringOnNewLineMinLen {
+		if w.StringOnNewLineMinLen != 0 && len(s) >= w.StringOnNewLineMinLen {
 			b = append(b, '\\', '\n')
 
 			if tag == tlwire.Bytes {
-				h := hex.Dumper((*low.Buf)(&b))
+				h := hex.Dumper(noescapeByteWriter(&b))
 
 				_, _ = h.Write(s)
 				_ = h.Close()
@@ -763,12 +772,13 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 	case tlwire.Semantic:
 		switch sub {
 		case tlwire.Time:
-			if w.TimeFormat == "" {
-				break
-			}
-
 			var t time.Time
 			t, i = w.d.Time(p, st)
+
+			if w.TimeFormat == "" {
+				b = strconv.AppendInt(b, t.UnixNano(), 10)
+				break
+			}
 
 			if w.TimeLocation != nil {
 				t = t.In(w.TimeLocation)
@@ -851,4 +861,9 @@ func Color(c ...int) (r []byte) {
 	r = append(r, 'm')
 
 	return r
+}
+
+func noescapeByteWriter(b *[]byte) *low.Buf {
+	//	return (*low.Buf)(b)
+	return (*low.Buf)(noescape(unsafe.Pointer(b)))
 }
