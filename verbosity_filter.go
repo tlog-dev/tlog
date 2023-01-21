@@ -218,7 +218,6 @@ func (f *filter) matchType(pt, name string) bool {
 	tp := path.Base(name)
 
 	var b strings.Builder
-	end := "$"
 	for i, n := range strings.Split(pt, ".") {
 		if i != 0 {
 			b.WriteByte('.')
@@ -227,21 +226,18 @@ func (f *filter) matchType(pt, name string) bool {
 		switch {
 		case n == "*":
 			b.WriteString(`[\w\.]+`)
-			end = ""
 		case regexp.MustCompile(`\(\*?\w+\)`).MatchString(n):
 			n = regexp.QuoteMeta(n)
 			b.WriteString(n)
-			end = ""
 		case regexp.MustCompile(`[\w\*]+`).MatchString(n):
 			n = strings.ReplaceAll(n, "*", `.*`)
 			b.WriteString(n)
-			end = "$"
 		default:
 			return false
 		}
 	}
 
-	re := regexp.MustCompile(`(^|\.)` + b.String() + end)
+	re := regexp.MustCompile(`(^|\.)` + b.String() + "\\b")
 
 	if re.MatchString(tp) {
 		return true

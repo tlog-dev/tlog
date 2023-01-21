@@ -29,6 +29,7 @@ var (
 	None          = RawMessage{tlwire.Special | tlwire.None}
 	NextIsHex     = Modify{tlwire.Semantic | tlwire.Hex}
 	NextIsMessage = Modify{tlwire.Semantic | WireMessage}
+	NextIsType    = FormatNext("%T")
 
 //	None          = RawMessage(tlwire.LowEncoder{}.AppendSpecial(nil, tlwire.None))
 //	HexNext       = SemanticNext(tlwire.Hex)
@@ -62,12 +63,16 @@ func AppendKVs(b []byte, kvs []interface{}) []byte {
 	return appendKVs0(b, kvs)
 }
 
-func NextIs(tag int) Modify {
-	return Modify(tlwire.LowEncoder{}.AppendSemantic(nil, tag))
+func NextIs(semantic int) Modify {
+	return Modify(tlwire.LowEncoder{}.AppendTag(nil, tlwire.Semantic, semantic))
 }
 
-func Special(tag byte) RawMessage {
-	return RawMessage(tlwire.LowEncoder{}.AppendSpecial(nil, tag))
+func RawTag(tag byte, sub int) RawMessage {
+	return RawMessage(tlwire.LowEncoder{}.AppendTag(nil, tag, sub))
+}
+
+func Special(value int) RawMessage {
+	return RawMessage(tlwire.LowEncoder{}.AppendTag(nil, tlwire.Special, value))
 }
 
 //go:linkname appendKVs0 github.com/nikandfor/tlog.appendKVs

@@ -341,7 +341,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, t time.Time, lv LogLevel, pc loc.
 			b[i+8] = byte(D) + '0'
 		}
 		if w.Flags&Ltime != 0 {
-			if len(b) != 0 {
+			if w.Flags&Ldate != 0 {
 				b = append(b, '_')
 			}
 

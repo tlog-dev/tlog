@@ -83,6 +83,10 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			return a.TlogAppend(b)
 		}
 
+		if err, ok := v.(error); ok {
+			return e.AppendError(b, err)
+		}
+
 		ef := *(*eface)(unsafe.Pointer(&v))
 
 		if enc, ok := encoders[ef.typ]; ok {

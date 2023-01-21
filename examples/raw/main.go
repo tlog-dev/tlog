@@ -30,6 +30,10 @@ func main() {
 	}
 
 	tlog.Printw("custom value encoder", "custom_formatted", val2)
+
+	tlog.Printw("modifyer", "want_in_hex", tlog.NextIsHex, 42)
+
+	tlog.Printw("inline object", "object", tlog.RawTag(tlwire.Map, 2), "first_key", 42, "second_key", "val")
 }
 
 func (x ValueEncoder) TlogAppend(b []byte) []byte {

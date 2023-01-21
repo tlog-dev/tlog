@@ -171,15 +171,9 @@ func agentRun(c *cli.Command) (err error) {
 }
 
 func cat(c *cli.Command) (err error) {
-	var w io.WriteCloser
-
-	if f := c.Flag("out"); f.IsSet {
-		wout, err := tlflag.OpenWriter(c.String("out"))
-		if err != nil {
-			return err
-		}
-
-		w = tlio.NewTeeWriter(w, wout)
+	w, err := tlflag.OpenWriter(c.String("out"))
+	if err != nil {
+		return err
 	}
 
 	defer func() {

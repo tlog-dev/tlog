@@ -57,7 +57,7 @@ const (
 	_
 	Hex
 	_
-	_
+	Represent // ?
 
 	SemanticTlogBase
 )
