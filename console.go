@@ -820,7 +820,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			b = append(b, '[')
 			for i, pc := range pcs {
 				if i != 0 {
-					b = append(b, ',', ' ')
+					b = append(b, ' ')
 				}
 
 				b = hfmt.AppendPrintf(b, w.CallerFormat, pc)

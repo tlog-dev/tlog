@@ -1,6 +1,7 @@
 package tlwire
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 	"unsafe"
@@ -35,6 +36,9 @@ func SetEncoder(tp interface{}, encoder ValueEncoder) {
 func init() {
 	SetEncoder(loc.PC(0), func(b []byte, x interface{}) []byte {
 		return Encoder{}.AppendCaller(b, x.(loc.PC))
+	})
+	SetEncoder(loc.PCs(nil), func(b []byte, x interface{}) []byte {
+		return Encoder{}.AppendCallers(b, x.(loc.PCs))
 	})
 
 	SetEncoder(time.Time{}, func(b []byte, x interface{}) []byte {
@@ -83,14 +87,17 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			return a.TlogAppend(b)
 		}
 
-		if err, ok := v.(error); ok {
-			return e.AppendError(b, err)
-		}
-
 		ef := *(*eface)(unsafe.Pointer(&v))
 
 		if enc, ok := encoders[ef.typ]; ok {
 			return enc(b, v)
+		}
+
+		switch v := v.(type) {
+		case error:
+			return e.AppendError(b, v)
+		case fmt.Stringer:
+			return e.AppendString(b, v.String())
 		}
 	}
 
