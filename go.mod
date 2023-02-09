@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/gin-gonic/gin v1.7.2
+	github.com/gin-gonic/gin v1.7.7
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/nikandfor/assert v0.0.0-20220310091831-57b3fdb27159
 	github.com/nikandfor/cli v0.0.0-20220414143810-caca4acd49c1
