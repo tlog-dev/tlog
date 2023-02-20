@@ -436,7 +436,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, t time.Time, lv LogLevel, pc loc.
 		case Fatal:
 			copy(b[i:], "FATAL")
 		default:
-			b = hfmt.AppendPrintf(b[:i], "%*x", w.LevelWidth, lv)
+			b = hfmt.Appendf(b[:i], "%*x", w.LevelWidth, lv)
 		}
 
 		end := len(b)
@@ -678,12 +678,12 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 
 		if tag == tlwire.Bytes {
 			if w.BytesFormat != "" {
-				b = hfmt.AppendPrintf(b, w.BytesFormat, s)
+				b = hfmt.Appendf(b, w.BytesFormat, s)
 				break
 			}
 
 			if ff&cfHex != 0 {
-				b = hfmt.AppendPrintf(b, "%x", s)
+				b = hfmt.Appendf(b, "%x", s)
 				break
 			}
 		}
@@ -762,7 +762,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			f, i = w.d.Float(p, st)
 
 			if w.FloatFormat != "" {
-				b = hfmt.AppendPrintf(b, w.FloatFormat, f)
+				b = hfmt.Appendf(b, w.FloatFormat, f)
 			} else {
 				b = strconv.AppendFloat(b, f, w.FloatChar, w.FloatPrecision, 64)
 			}
@@ -791,9 +791,9 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 
 			switch {
 			case w.DurationFormat != "" && w.DurationDiv != 0:
-				b = hfmt.AppendPrintf(b, w.DurationFormat, float64(time.Duration(v)/w.DurationDiv))
+				b = hfmt.Appendf(b, w.DurationFormat, float64(time.Duration(v)/w.DurationDiv))
 			case w.DurationFormat != "":
-				b = hfmt.AppendPrintf(b, w.DurationFormat, time.Duration(v))
+				b = hfmt.Appendf(b, w.DurationFormat, time.Duration(v))
 			default:
 				b = strconv.AppendInt(b, v, 10)
 			}
@@ -813,7 +813,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 			pc, pcs, i = w.d.Callers(p, st)
 
 			if pcs == nil {
-				b = hfmt.AppendPrintf(b, w.CallerFormat, pc)
+				b = hfmt.Appendf(b, w.CallerFormat, pc)
 				break
 			}
 
@@ -823,7 +823,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 					b = append(b, ' ')
 				}
 
-				b = hfmt.AppendPrintf(b, w.CallerFormat, pc)
+				b = hfmt.Appendf(b, w.CallerFormat, pc)
 			}
 			b = append(b, ']')
 		default:

@@ -109,9 +109,9 @@ func (e Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte 
 	b = append(b, String)
 
 	if fmt == "" {
-		b = hfmt.AppendPrint(b, args...)
+		b = hfmt.Append(b, args...)
 	} else {
-		b = hfmt.AppendPrintf(b, fmt, args...)
+		b = hfmt.Appendf(b, fmt, args...)
 	}
 
 	l := len(b) - st - 1

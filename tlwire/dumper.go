@@ -43,7 +43,7 @@ func Dump(p []byte) (r string) {
 
 	_, _ = d.Write(p)
 
-	d.b = hfmt.AppendPrintf(d.b, "%4x\n", len(p))
+	d.b = hfmt.Appendf(d.b, "%4x\n", len(p))
 
 	return string(d.b)
 }
@@ -74,25 +74,25 @@ func (d *Dumper) dump(p []byte, st, depth int) (i int) {
 	tag, sub, i := d.Tag(p, st)
 
 	if !d.NoGlobalOffset {
-		d.b = hfmt.AppendPrintf(d.b, "%8x  ", d.pos+int64(st))
+		d.b = hfmt.Appendf(d.b, "%8x  ", d.pos+int64(st))
 	}
 
-	d.b = hfmt.AppendPrintf(d.b, "%4x  %s% x  -  ", st, low.Spaces[:depth*2], p[st:i])
+	d.b = hfmt.Appendf(d.b, "%4x  %s% x  -  ", st, low.Spaces[:depth*2], p[st:i])
 
 	switch tag {
 	case Int, Neg:
 		var v int64
 		v, i = d.Signed(p, st)
 
-		d.b = hfmt.AppendPrintf(d.b, "int %10v\n", v)
+		d.b = hfmt.Appendf(d.b, "int %10v\n", v)
 	case Bytes, String:
 		var s []byte
 		s, i = d.Bytes(p, st)
 
 		if tag == Bytes {
-			d.b = hfmt.AppendPrintf(d.b, "% x\n", s)
+			d.b = hfmt.Appendf(d.b, "% x\n", s)
 		} else {
-			d.b = hfmt.AppendPrintf(d.b, "%q\n", s)
+			d.b = hfmt.Appendf(d.b, "%q\n", s)
 		}
 	case Array, Map:
 		tg := "array"
@@ -100,7 +100,7 @@ func (d *Dumper) dump(p []byte, st, depth int) (i int) {
 			tg = "map"
 		}
 
-		d.b = hfmt.AppendPrintf(d.b, "%v: len %v\n", tg, sub)
+		d.b = hfmt.Appendf(d.b, "%v: len %v\n", tg, sub)
 
 		for el := 0; sub == -1 || el < int(sub); el++ {
 			if sub == -1 && d.Break(p, &i) {
@@ -115,29 +115,29 @@ func (d *Dumper) dump(p []byte, st, depth int) (i int) {
 			}
 		}
 	case Semantic:
-		d.b = hfmt.AppendPrintf(d.b, "semantic %2x\n", sub)
+		d.b = hfmt.Appendf(d.b, "semantic %2x\n", sub)
 
 		i = d.dump(p, i, depth+1)
 	case Special:
 		switch sub {
 		case False:
-			d.b = hfmt.AppendPrintf(d.b, "false\n")
+			d.b = hfmt.Appendf(d.b, "false\n")
 		case True:
-			d.b = hfmt.AppendPrintf(d.b, "true\n")
+			d.b = hfmt.Appendf(d.b, "true\n")
 		case Nil:
-			d.b = hfmt.AppendPrintf(d.b, "null\n")
+			d.b = hfmt.Appendf(d.b, "null\n")
 		case Undefined:
-			d.b = hfmt.AppendPrintf(d.b, "undefined\n")
+			d.b = hfmt.Appendf(d.b, "undefined\n")
 		case Float8, Float16, Float32, Float64:
 			var f float64
 
 			f, i = d.Float(p, st)
 
-			d.b = hfmt.AppendPrintf(d.b, "%v\n", f)
+			d.b = hfmt.Appendf(d.b, "%v\n", f)
 		case Break:
-			d.b = hfmt.AppendPrintf(d.b, "break\n")
+			d.b = hfmt.Appendf(d.b, "break\n")
 		default:
-			d.b = hfmt.AppendPrintf(d.b, "special: %x\n", sub)
+			d.b = hfmt.Appendf(d.b, "special: %x\n", sub)
 
 			panic("unsupported special")
 		}

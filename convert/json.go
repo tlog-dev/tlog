@@ -237,13 +237,13 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 					}
 
 					_, file, line := pc.NameFileLine()
-					b = hfmt.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
+					b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 				}
 				b = append(b, ']')
 			} else {
 				_, file, line := pc.NameFileLine()
 
-				b = hfmt.AppendPrintf(b, `"%v:%d"`, filepath.Base(file), line)
+				b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 			}
 		default:
 			b, i = w.ConvertValue(b, p, i)

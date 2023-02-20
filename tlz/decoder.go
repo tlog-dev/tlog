@@ -397,12 +397,12 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 	var tag, l int
 	for i < len(p) {
 		if w.GlobalOffset >= 0 {
-			w.b = hfmt.AppendPrintf(w.b, "%6x  ", int(w.GlobalOffset)+i)
+			w.b = hfmt.Appendf(w.b, "%6x  ", int(w.GlobalOffset)+i)
 		}
 
-		w.b = hfmt.AppendPrintf(w.b, "%4x  ", i)
+		w.b = hfmt.Appendf(w.b, "%4x  ", i)
 
-		w.b = hfmt.AppendPrintf(w.b, "%6x  ", w.d.pos)
+		w.b = hfmt.Appendf(w.b, "%6x  ", w.d.pos)
 
 		tag, l, i, err = w.d.tag(p, i)
 		if err != nil {
@@ -422,18 +422,18 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 			case MetaMagic, MetaVer:
 				l = tag &^ MetaTagMask
 
-				w.b = hfmt.AppendPrintf(w.b, "meta %4x  %q\n", tag, p[i:i+l])
+				w.b = hfmt.Appendf(w.b, "meta %4x  %q\n", tag, p[i:i+l])
 
 				i += l
 			case MetaReset:
 				l, i, err = w.d.roff(p, i)
 
-				w.b = hfmt.AppendPrintf(w.b, "meta %4x  %x\n", tag, l)
+				w.b = hfmt.Appendf(w.b, "meta %4x  %x\n", tag, l)
 			default:
 				return i, errors.New("unsupported meta tag: %x", tag)
 			}
 		case tag == Literal:
-			w.b = hfmt.AppendPrintf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
+			w.b = hfmt.Appendf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
 
 			i += l
 			w.d.pos += int64(l)
@@ -447,7 +447,7 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 			w.d.pos += int64(l)
 
-			w.b = hfmt.AppendPrintf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
+			w.b = hfmt.Appendf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
 
 			off += l
 		default:
