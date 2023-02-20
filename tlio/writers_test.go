@@ -173,7 +173,7 @@ func BenchmarkReWriter(b *testing.B) {
 	})
 
 	l := tlog.New(w)
-	tlog.LoggerSetTime(l, nil, nil)
+	tlog.LoggerSetTimeNow(l, nil, nil)
 
 	l.SetLabels(
 		"a", "b",
