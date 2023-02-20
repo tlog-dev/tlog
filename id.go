@@ -15,7 +15,7 @@ type (
 
 	// ShortIDError is an ID parsing error.
 	ShortIDError struct {
-		N int
+		Bytes int
 	}
 
 	concurrentRand struct {
@@ -50,7 +50,7 @@ func IDFromBytes(b []byte) (id ID, err error) {
 	n := copy(id[:], b)
 
 	if n < len(id) {
-		err = ShortIDError{N: n}
+		err = ShortIDError{Bytes: n}
 	}
 
 	return
@@ -86,7 +86,7 @@ func IDFromString(s string) (id ID, err error) {
 	}
 
 	if i < 2*len(id) {
-		err = ShortIDError{N: i / 2}
+		err = ShortIDError{Bytes: i / 2}
 	}
 
 	return
@@ -104,7 +104,7 @@ func IDFromStringAsBytes(s []byte) (id ID, err error) {
 	}
 
 	if n < len(id) {
-		return id, ShortIDError{N: n}
+		return id, ShortIDError{Bytes: n}
 	}
 
 	return id, nil
@@ -126,7 +126,7 @@ func MustID(id ID, err error) ID {
 
 // Error is an error interface implementation.
 func (e ShortIDError) Error() string {
-	return fmt.Sprintf("too short id: %d, wanted %d", e.N, len(ID{}))
+	return fmt.Sprintf("too short id: %d bytes, wanted %d", e.Bytes, len(ID{}))
 }
 
 // Format is fmt.Formatter interface implementation.
