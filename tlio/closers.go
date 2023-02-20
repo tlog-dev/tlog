@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	WrapperCloser struct {
+	WrappedCloser struct {
 		io.Closer
 		Msg  string
 		Args []interface{}
@@ -17,7 +17,7 @@ type (
 )
 
 func WrapCloser(c io.Closer, msg string, args ...interface{}) io.Closer {
-	return WrapperCloser{
+	return WrappedCloser{
 		Closer: c,
 		Msg:    msg,
 		Args:   args,
@@ -25,14 +25,14 @@ func WrapCloser(c io.Closer, msg string, args ...interface{}) io.Closer {
 }
 
 func WrapCloserFunc(cf func() error, msg string, args ...interface{}) io.Closer {
-	return WrapperCloser{
+	return WrappedCloser{
 		Closer: CloserFunc(cf),
 		Msg:    msg,
 		Args:   args,
 	}
 }
 
-func (c WrapperCloser) Close() (err error) {
+func (c WrappedCloser) Close() (err error) {
 	err = c.Closer.Close()
 	if err != nil {
 		return errors.WrapDepth(err, 1, c.Msg, c.Args...)

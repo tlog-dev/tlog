@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-func (w TeeWriter) String() string {
+func (w MultiWriter) String() string {
 	var b strings.Builder
 
-	_, _ = b.WriteString("TeeWriter{")
+	_, _ = b.WriteString("MultiWriter{")
 
 	for i, w := range w {
 		if i != 0 {
-			_, _ = b.WriteString(", ")
+			_, _ = b.WriteString(" ")
 		}
 
 		writeWriter(&b, w)
@@ -31,7 +31,7 @@ func (w WriteCloser) String() string {
 	_, _ = b.WriteString("Writer:")
 	writeWriter(&b, w.Writer)
 
-	_, _ = b.WriteString(", Closer:")
+	_, _ = b.WriteString(" Closer:")
 	writeWriter(&b, w.Closer)
 
 	_, _ = b.WriteString("}")

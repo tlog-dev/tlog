@@ -13,7 +13,7 @@ import (
 )
 
 type (
-	TeeWriter []io.Writer
+	MultiWriter []io.Writer
 
 	ReWriter struct {
 		io.Writer
@@ -22,8 +22,8 @@ type (
 		Open func(io.Writer, error) (io.Writer, error)
 	}
 
-	// DeContext removes repeating context from events
-	DeContext struct {
+	// DeLabels removes repeating Labels from events
+	DeLabels struct {
 		io.Writer
 
 		d tlwire.Decoder
@@ -45,10 +45,10 @@ type (
 		N int
 	}
 
-	// CountableIODiscard discards data but counts operations and bytes.
+	// CountingIODiscard discards data but counts writes and bytes.
 	// It's safe to use simultaneously (atomic operations are used).
-	CountableIODiscard struct {
-		Bytes, Operations int64
+	CountingIODiscard struct {
+		Bytes, Writes atomic.Int64
 	}
 
 	WriterFunc func(p []byte) (int, error)
@@ -83,17 +83,19 @@ type (
 	}
 )
 
-func NewTeeWriter(ws ...io.Writer) (w TeeWriter) {
+func NewMultiWriter(ws ...io.Writer) (w MultiWriter) {
 	return w.Append(ws...)
 }
 
-func (w TeeWriter) Append(ws ...io.Writer) TeeWriter {
+func (w MultiWriter) Append(ws ...io.Writer) MultiWriter {
+	w = make(MultiWriter, 0, len(ws))
+
 	for _, s := range ws {
 		if s == nil {
 			continue
 		}
 
-		if tee, ok := s.(TeeWriter); ok {
+		if tee, ok := s.(MultiWriter); ok {
 			w = append(w, tee...)
 		} else {
 			w = append(w, s)
@@ -103,7 +105,7 @@ func (w TeeWriter) Append(ws ...io.Writer) TeeWriter {
 	return w
 }
 
-func (w TeeWriter) Write(p []byte) (n int, err error) {
+func (w MultiWriter) Write(p []byte) (n int, err error) {
 	for i, w := range w {
 		m, e := w.Write(p)
 
@@ -119,7 +121,7 @@ func (w TeeWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (w TeeWriter) Close() (err error) {
+func (w MultiWriter) Close() (err error) {
 	for _, w := range w {
 		c, ok := w.(io.Closer)
 		if !ok {
@@ -141,13 +143,13 @@ func (c NopCloser) Fd() uintptr {
 	return Fd(c.Writer)
 }
 
-func (w *CountableIODiscard) ReportDisk(b *testing.B) {
-	b.ReportMetric(float64(w.Bytes)/float64(b.N), "disk_B/op")
+func (w *CountingIODiscard) ReportDisk(b *testing.B) {
+	b.ReportMetric(float64(w.Bytes.Load())/float64(b.N), "disk_B/op")
 }
 
-func (w *CountableIODiscard) Write(p []byte) (int, error) {
-	atomic.AddInt64(&w.Operations, 1)
-	atomic.AddInt64(&w.Bytes, int64(len(p)))
+func (w *CountingIODiscard) Write(p []byte) (int, error) {
+	w.Writes.Add(1)
+	w.Bytes.Add(int64(len(p)))
 
 	return len(p), nil
 }
@@ -199,13 +201,13 @@ func (w *ReWriter) Close() error {
 	return w.Closer.Close()
 }
 
-func NewDeContext(w io.Writer) *DeContext {
-	return &DeContext{
+func NewDeLabels(w io.Writer) *DeLabels {
+	return &DeLabels{
 		Writer: w,
 	}
 }
 
-func (w *DeContext) Write(p []byte) (i int, err error) {
+func (w *DeLabels) Write(p []byte) (i int, err error) {
 	tag, els, i := w.d.Tag(p, i)
 	if tag != tlwire.Map {
 		return i, errors.New("map expected")

@@ -25,7 +25,7 @@ var (
 )
 
 func OpenWriter(dst string) (wc io.WriteCloser, err error) {
-	var ws tlio.TeeWriter
+	var ws tlio.MultiWriter
 
 	defer func() {
 		if err == nil {

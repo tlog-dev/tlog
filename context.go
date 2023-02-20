@@ -38,3 +38,13 @@ func SpawnFromContext(ctx context.Context, name string, kvs ...interface{}) Span
 
 	return Span{}
 }
+
+func SpawnFromContextOrStart(ctx context.Context, name string, kvs ...interface{}) Span {
+	v := ctx.Value(ctxspankey{})
+	s, ok := v.(Span)
+	if ok {
+		return newspan(s.Logger, s.ID, 0, name, kvs)
+	}
+
+	return newspan(DefaultLogger, ID{}, 0, name, kvs)
+}

@@ -9,9 +9,9 @@ import (
 type StreamDecoder struct {
 	io.Reader
 
-	b   []byte
-	i   int
-	ref int64
+	b    []byte
+	i    int
+	boff int64
 }
 
 const (
@@ -158,7 +158,7 @@ func (d *StreamDecoder) more() (err error) {
 	{
 		copy(d.b, d.b[d.i:])
 		d.b = d.b[:len(d.b)-d.i]
-		d.ref += int64(d.i)
+		d.boff += int64(d.i)
 		d.i = 0
 	}
 

@@ -44,14 +44,14 @@ func init() {
 	SetEncoder(time.Time{}, func(b []byte, x interface{}) []byte {
 		return Encoder{}.AppendTimeTZ(b, x.(time.Time))
 	})
-	SetEncoder(&time.Time{}, func(b []byte, x interface{}) []byte {
+	SetEncoder((*time.Time)(nil), func(b []byte, x interface{}) []byte {
 		return Encoder{}.AppendTimeTZ(b, *x.(*time.Time))
 	})
 
 	SetEncoder(time.Duration(0), func(b []byte, x interface{}) []byte {
 		return Encoder{}.AppendDuration(b, x.(time.Duration))
 	})
-	SetEncoder(new(time.Duration), func(b []byte, x interface{}) []byte {
+	SetEncoder((*time.Duration)(nil), func(b []byte, x interface{}) []byte {
 		return Encoder{}.AppendDuration(b, *x.(*time.Duration))
 	})
 }

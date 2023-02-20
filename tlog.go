@@ -32,7 +32,7 @@ type (
 	}
 
 	Span struct {
-		Logger    *Logger
+		*Logger
 		ID        ID
 		StartedAt time.Time
 	}
@@ -88,6 +88,8 @@ const (
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LdetFlags))
 
 func Root() Span { return Span{Logger: DefaultLogger} }
+
+func (l *Logger) Root() Span { return Span{Logger: l} }
 
 func New(w io.Writer) *Logger {
 	return &Logger{
@@ -321,13 +323,13 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendMap(l.b[:0], -1)
+	l.b = l.AppendMap(l.b[:0], -1)
 
 	l.b = AppendKVs(l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
-	l.b = l.Encoder.AppendBreak(l.b)
+	l.b = l.AppendBreak(l.b)
 
 	_, err = l.Writer.Write(l.b)
 
@@ -339,23 +341,23 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 		return nil
 	}
 
-	defer s.Logger.Unlock()
-	s.Logger.Lock()
+	defer s.Unlock()
+	s.Lock()
 
-	s.Logger.b = s.Logger.Encoder.AppendMap(s.Logger.b[:0], -1)
+	s.b = s.AppendMap(s.b[:0], -1)
 
 	if s.ID != (ID{}) {
-		s.Logger.b = s.Logger.Encoder.AppendString(s.Logger.b, KeySpan)
-		s.Logger.b = s.ID.TlogAppend(s.Logger.b)
+		s.b = s.AppendString(s.b, KeySpan)
+		s.b = s.ID.TlogAppend(s.b)
 	}
 
-	s.Logger.b = AppendKVs(s.Logger.b, kvs)
+	s.b = AppendKVs(s.b, kvs)
 
-	s.Logger.b = append(s.Logger.b, s.Logger.ls...)
+	s.b = append(s.b, s.ls...)
 
-	s.Logger.b = s.Logger.Encoder.AppendBreak(s.Logger.b)
+	s.b = s.AppendBreak(s.b)
 
-	_, err = s.Logger.Writer.Write(s.Logger.b)
+	_, err = s.Writer.Write(s.b)
 
 	return
 }

@@ -26,7 +26,7 @@ func main() {
 }
 
 func copyStream(ctx context.Context, w io.Writer, r io.Reader) (err error) {
-	tr := tlog.SpawnOrStartFromContext(ctx, "copy_stream")
+	tr := tlog.SpawnFromContextOrStart(ctx, "copy_stream")
 	defer func() { tr.Finish("err", err, tlog.KeyCaller, loc.Caller(1)) }()
 
 	// Here is the trick

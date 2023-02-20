@@ -15,7 +15,7 @@ type (
 
 	// ShortIDError is an ID parsing error.
 	ShortIDError struct {
-		Bytes int
+		Bytes int // Bytes successfully parsed
 	}
 
 	concurrentRand struct {
@@ -193,6 +193,20 @@ func MathRandID() (id ID) {
 	rnd.mu.Unlock()
 
 	return
+}
+
+func RandIDFromReader(read func(p []byte) (int, error)) func() ID {
+	return func() (id ID) {
+		n, err := read(id[:])
+		if err != nil {
+			panic(err)
+		}
+		if n != len(id) {
+			panic(n)
+		}
+
+		return id
+	}
 }
 
 /* will repeat at most after 2 ** (32 - 2) ids

@@ -24,26 +24,26 @@ func TestFileWriter(t *testing.T) {
 
 	w, err := OpenWriter("stderr")
 	assert.NoError(t, err)
-	assert.Equal(t, tlio.TeeWriter{
+	assert.Equal(t, tlio.MultiWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags),
 	}, w)
 
 	w, err = OpenWriter("stderr:dm")
 	assert.NoError(t, err)
-	assert.Equal(t, tlio.TeeWriter{
+	assert.Equal(t, tlio.MultiWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
 	}, w)
 
 	w, err = OpenWriter(".tl,-.tl")
 	assert.NoError(t, err)
-	assert.Equal(t, tlio.TeeWriter{
+	assert.Equal(t, tlio.MultiWriter{
 		tlio.NopCloser{Writer: tlog.Stderr},
 		tlio.NopCloser{Writer: tlog.Stdout},
 	}, w)
 
 	w, err = OpenWriter(".tlz")
 	assert.NoError(t, err)
-	assert.Equal(t, tlio.TeeWriter{
+	assert.Equal(t, tlio.MultiWriter{
 		tlz.NewEncoder(tlog.Stderr, CompressorBlockSize),
 	}, w)
 
