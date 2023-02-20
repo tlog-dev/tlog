@@ -428,7 +428,7 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func LoggerSetTime(l *Logger, now func() time.Time, nano func() int64) {
+func LoggerSetTimeNow(l *Logger, now func() time.Time, nano func() int64) {
 	l.now = now
 	l.nano = nano
 }
