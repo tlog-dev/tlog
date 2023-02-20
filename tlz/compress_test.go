@@ -37,6 +37,7 @@ func TestLiteral(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Logf("buf pos %x ht %x\n%v", w.pos, w.ht, hex.Dump(w.block))
+	t.Logf("res\n%v", Dump(buf))
 	t.Logf("res\n%v", hex.Dump(buf))
 
 	r := &Decoder{
@@ -51,6 +52,8 @@ func TestLiteral(t *testing.T) {
 	assert.Equal(t, 10, n)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("very_first"), p[:n])
+
+	copy(p[:10], zeros)
 
 	n, err = r.Read(p[:10])
 	assert.Equal(t, 8, n)
@@ -112,7 +115,7 @@ func TestCopy(t *testing.T) {
 
 	t.Logf("buf  pos %x\n%v", r.pos, hex.Dump(r.block))
 
-	t.Logf("compression ratio: %.3f", float64(18+17)/float64(len(buf)))
+	//	t.Logf("compression ratio: %.3f", float64(18+17)/float64(len(buf)))
 }
 
 func TestDumpOnelineText(t *testing.T) {
@@ -123,7 +126,7 @@ func TestDumpOnelineText(t *testing.T) {
 	d := NewDumper(&dump)
 	e := newEncoder(d, 1*1024, 2)
 
-	cw := tlog.NewConsoleWriter(tlio.NewTeeWriter(e, &text), tlog.LstdFlags)
+	cw := tlog.NewConsoleWriter(tlio.NewMultiWriter(e, &text), tlog.LstdFlags)
 
 	l := tlog.New(cw)
 	tr := l.Start("span_name")
@@ -172,7 +175,7 @@ func BenchmarkLogCompressOneline(b *testing.B) {
 
 	var buf low.Buf
 	w := NewEncoder(&buf, 128*1024)
-	var c tlio.CountableIODiscard
+	var c tlio.CountingIODiscard
 
 	l := tlog.New(io.MultiWriter(w, &c))
 	tr := l.Start("span_name")
@@ -185,9 +188,9 @@ func BenchmarkLogCompressOneline(b *testing.B) {
 		//	tr.Finish()
 	}
 
-	b.SetBytes(c.Bytes / int64(b.N))
+	b.SetBytes(c.Bytes.Load() / int64(b.N))
 
-	b.ReportMetric(float64(c.Bytes)/float64(len(buf)), "ratio")
+	b.ReportMetric(float64(c.Bytes.Load())/float64(len(buf)), "ratio")
 }
 
 func BenchmarkLogCompressOnelineText(b *testing.B) {
@@ -195,7 +198,7 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 
 	var buf low.Buf
 	w := NewEncoder(&buf, 128*1024)
-	var c tlio.CountableIODiscard
+	var c tlio.CountingIODiscard
 
 	cw := tlog.NewConsoleWriter(io.MultiWriter(w, &c), tlog.LstdFlags)
 
@@ -210,9 +213,9 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 		//	tr.Finish()
 	}
 
-	b.SetBytes(c.Bytes / int64(b.N))
+	b.SetBytes(c.Bytes.Load() / int64(b.N))
 
-	b.ReportMetric(float64(c.Bytes)/float64(len(buf)), "ratio")
+	b.ReportMetric(float64(c.Bytes.Load())/float64(len(buf)), "ratio")
 }
 
 func BenchmarkEncodeFile(b *testing.B) {
@@ -224,7 +227,7 @@ func BenchmarkEncodeFile(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	var c tlio.CountableIODiscard
+	var c tlio.CountingIODiscard
 	w := newEncoder(&c, 1024*1024, 6)
 
 	//	b.Logf("block %x  ht %x (%x * %x)", len(w.block), len(w.ht)*int(unsafe.Sizeof(w.ht[0])), len(w.ht), unsafe.Sizeof(w.ht[0]))
@@ -247,13 +250,13 @@ func BenchmarkEncodeFile(b *testing.B) {
 
 	//	b.Logf("total written: %x  %x", w.pos, w.pos/len(w.block))
 
-	b.ReportMetric(float64(written)/float64(c.Bytes), "ratio")
+	b.ReportMetric(float64(written)/float64(c.Bytes.Load()), "ratio")
 	//	b.ReportMetric(float64(c.Operations)/float64(b.N), "writes/op")
 	b.SetBytes(int64(written / b.N))
 }
 
 func BenchmarkDecodeFile(b *testing.B) {
-	err := loadTestFile(b, "../log.tlog")
+	err := loadTestFile(b, *fileFlag)
 	if err != nil {
 		b.Skipf("loading data: %v", err)
 	}

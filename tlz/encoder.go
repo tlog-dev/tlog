@@ -61,10 +61,10 @@ const (
 
 // Meta tags.
 const (
-	MetaMagic    = iota << 4 // "tlz"
-	MetaVer                  // Version
-	MetaReset                // block size log
-	MetaChecksum             // [...]byte
+	MetaMagic    = iota << 4 // len "tlz"
+	MetaVer                  // len Version
+	MetaReset                // 0   block_size_log
+	MetaChecksum             // 0   [...]byte
 
 	MetaTagMask = 0xf0
 )

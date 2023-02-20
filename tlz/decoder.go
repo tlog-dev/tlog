@@ -2,10 +2,10 @@ package tlz
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/nikandfor/errors"
-	"github.com/nikandfor/hacked/hfmt"
 
 	"github.com/nikandfor/tlog/low"
 )
@@ -24,9 +24,9 @@ type (
 		off, len int
 
 		// input
-		b   []byte
-		i   int
-		ref int64 // input stream pos
+		b    []byte
+		i    int
+		boff int64 // input stream offset to b[0]
 	}
 
 	Dumper struct {
@@ -68,7 +68,7 @@ func (r *Decoder) ResetBytes(b []byte) {
 
 	r.i = 0
 	r.b = r.b[:len(b)]
-	r.ref = 0
+	r.boff = 0
 
 	r.state = 0
 }
@@ -107,48 +107,36 @@ func (d *Decoder) read(p []byte, st int) (n, i int, err error) {
 
 	i = st
 
-	switch d.state {
-	case 0:
+	if d.state == 0 {
 		i, err = d.readTag(i)
 		if err != nil {
 			return
 		}
-	case 'l':
-		if i == len(d.b) {
-			return n, i, eUnexpectedEOF
-		}
+	}
 
-		end := d.len
-		if end > len(p) {
-			end = len(p)
-		}
+	if d.state == 'l' && i == len(d.b) {
+		return 0, i, eUnexpectedEOF
+	}
 
-		m := copy(p[n:end], d.b[i:])
+	end := d.len
+	if end > len(p) {
+		end = len(p)
+	}
+
+	if d.state == 'l' {
+		end = copy(p[:end], d.b[i:])
+		i += end
+	} else {
+		end = copy(p[:end], d.block[d.off&d.mask:])
+		d.off += end
+	}
+
+	d.len -= end
+
+	for n < end {
+		m := copy(d.block[int(d.pos)&d.mask:], p[n:end])
 		n += m
-		d.len -= m
-
-		end = i + m
-		for i < end {
-			m = copy(d.block[int(d.pos)&d.mask:], d.b[i:end])
-			i += m
-			d.pos += int64(m)
-		}
-	case 'c':
-		end := d.len
-		if end > len(p) {
-			end = len(p)
-		}
-
-		m := copy(p[:end], d.block[d.off&d.mask:])
-		d.off += m
-		d.len -= m
-
-		end = n + m
-		for n < end {
-			m = copy(d.block[int(d.pos)&d.mask:], p[n:end])
-			n += m
-			d.pos += int64(m)
-		}
+		d.pos += int64(m)
 	}
 
 	if d.len == 0 {
@@ -361,7 +349,7 @@ func (d *Decoder) more() (err error) {
 	{
 		copy(d.b, d.b[d.i:])
 		d.b = d.b[:len(d.b)-d.i]
-		d.ref += int64(d.i)
+		d.boff += int64(d.i)
 		d.i = 0
 	}
 
@@ -386,6 +374,17 @@ func (d *Decoder) more() (err error) {
 	return err
 }
 
+func Dump(p []byte) string {
+	var d Dumper
+
+	_, err := d.Write(p)
+	if err != nil {
+		return err.Error()
+	}
+
+	return string(d.b)
+}
+
 func NewDumper(w io.Writer) *Dumper {
 	return &Dumper{
 		Writer: w,
@@ -398,12 +397,12 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 	var tag, l int
 	for i < len(p) {
 		if w.GlobalOffset >= 0 {
-			w.b = hfmt.AppendPrintf(w.b, "%6x  ", int(w.GlobalOffset)+i)
+			w.b = fmt.Appendf(w.b, "%6x  ", int(w.GlobalOffset)+i)
 		}
 
-		w.b = hfmt.AppendPrintf(w.b, "%4x  ", i)
+		w.b = fmt.Appendf(w.b, "%4x  ", i)
 
-		w.b = hfmt.AppendPrintf(w.b, "%6x  ", w.d.pos)
+		w.b = fmt.Appendf(w.b, "%6x  ", w.d.pos)
 
 		tag, l, i, err = w.d.tag(p, i)
 		if err != nil {
@@ -423,18 +422,18 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 			case MetaMagic, MetaVer:
 				l = tag &^ MetaTagMask
 
-				w.b = hfmt.AppendPrintf(w.b, "meta %4x  %q\n", tag, p[i:i+l])
+				w.b = fmt.Appendf(w.b, "meta %4x  %q\n", tag, p[i:i+l])
 
 				i += l
 			case MetaReset:
 				l, i, err = w.d.roff(p, i)
 
-				w.b = hfmt.AppendPrintf(w.b, "meta %4x  %x\n", tag, l)
+				w.b = fmt.Appendf(w.b, "meta %4x  %x\n", tag, l)
 			default:
 				return i, errors.New("unsupported meta tag: %x", tag)
 			}
 		case tag == Literal:
-			w.b = hfmt.AppendPrintf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
+			w.b = fmt.Appendf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
 
 			i += l
 			w.d.pos += int64(l)
@@ -448,7 +447,7 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 			w.d.pos += int64(l)
 
-			w.b = hfmt.AppendPrintf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
+			w.b = fmt.Appendf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
 
 			off += l
 		default:
