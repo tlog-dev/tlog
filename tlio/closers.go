@@ -25,7 +25,12 @@ func Close(f interface{}) error {
 	return c.Close()
 }
 
-func CloseWrap(c io.Closer, name string, err *error) {
+func CloseWrap(f interface{}, name string, err *error) {
+	c, ok := f.(io.Closer)
+	if !ok {
+		return
+	}
+
 	e := c.Close()
 	if *err == nil {
 		*err = errors.Wrap(e, "close %v", name)

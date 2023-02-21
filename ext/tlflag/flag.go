@@ -2,7 +2,9 @@ package tlflag
 
 import (
 	"io"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -40,16 +42,14 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 			continue
 		}
 
-		var opts string
-		if p := strings.IndexByte(d, ':'); p != -1 {
-			opts = d[p+1:]
-			d = d[:p]
-		} else if p = strings.IndexByte(d, '+'); p != -1 {
-			opts = d[p+1:]
-			d = d[:p]
+		u, err := parseURL(d)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse %v", d)
 		}
 
-		w, err := openw(d, opts)
+		//tlog.Printw(d, "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery, "from", loc.Caller(1))
+
+		w, err := openw(u)
 		if err != nil {
 			return nil, errors.Wrap(err, "%v", d)
 		}
@@ -67,10 +67,10 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 	return ws, nil
 }
 
-func openw(fname, opts string) (io.Writer, error) {
+func openw(u *url.URL) (io.Writer, error) {
 	//	fmt.Fprintf(os.Stderr, "openw %q\n", fname)
 
-	w, c, err := openwc(fname, fname, opts)
+	w, c, err := openwc(u, u.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func openw(fname, opts string) (io.Writer, error) {
 	}, nil
 }
 
-func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)) (w io.Writer, c io.Closer, err error) {
+func openwc(u *url.URL, base string, wrap ...func(io.Writer) (io.Writer, error)) (w io.Writer, c io.Closer, err error) {
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
@@ -112,13 +112,13 @@ func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)
 			return tlz.NewEncoder(w, tlz.MiB), nil
 		})
 
-		return openwc(fname, base, opts, wrap...)
+		return openwc(u, base, wrap...)
 	case ".eazydump", ".ezdump":
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
 
-	w, c, err = openwriter(fname, base, opts)
+	w, c, err = openwriter(u, base)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,7 +138,7 @@ func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)
 		w = tlz.NewEncoder(w, blockSize)
 	case ".log", "":
 		ff := tlog.LstdFlags
-		ff = updateConsoleFlags(ff, opts)
+		ff = updateConsoleFlags(ff, u.RawQuery)
 
 		w = tlog.NewConsoleWriter(w, ff)
 	case ".json":
@@ -156,36 +156,60 @@ func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)
 	return w, c, nil
 }
 
-func openwriter(fname, base, opts string) (io.Writer, io.Closer, error) {
+func openwriter(u *url.URL, base string) (w io.Writer, c io.Closer, err error) {
 	switch base {
 	case "-", "stdout":
 		return os.Stdout, nil, nil
 	case "", "stderr":
 		return os.Stderr, nil, nil
+	case "discard":
+		return io.Discard, nil, nil
 	}
 
-	f, err := openwfile(fname, opts)
+	var f interface{}
+
+	if u.Scheme != "" {
+		f, err = openwurl(u)
+	} else {
+		f, err = openwfile(u)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	w := f.(io.Writer)
-	c, _ := f.(io.Closer)
+	w = f.(io.Writer)
+	c, _ = f.(io.Closer)
 
 	return w, c, nil
 }
 
-func openwfile(fname, opts string) (interface{}, error) {
+func openwfile(u *url.URL) (interface{}, error) {
+	fname := u.Path
+
 	of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
-	of = updateFileFlags(of, opts)
+	of = updateFileFlags(of, u.RawQuery)
 
 	mode := os.FileMode(0644)
 
 	return OpenFileWriter(fname, of, mode)
 }
 
+func openwurl(u *url.URL) (interface{}, error) {
+	switch u.Scheme {
+	case "file":
+		return openwfile(u)
+	default:
+		return nil, errors.New("unsupported scheme: %v", u.Scheme)
+	}
+}
+
 func OpenReader(src string) (rc io.ReadCloser, err error) {
-	r, err := openr(src, "")
+	u, err := parseURL(src)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse %v", src)
+	}
+
+	r, err := openr(u)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +224,8 @@ func OpenReader(src string) (rc io.ReadCloser, err error) {
 	}, nil
 }
 
-func openr(fname, opts string) (io.Reader, error) {
-	r, c, err := openrc(fname, fname, opts)
+func openr(u *url.URL) (io.Reader, error) {
+	r, c, err := openrc(u, u.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +248,7 @@ func openr(fname, opts string) (io.Reader, error) {
 	}, nil
 }
 
-func openrc(fname, base, opts string, wrap ...func(io.Reader) (io.Reader, error)) (r io.Reader, c io.Closer, err error) {
+func openrc(u *url.URL, base string, wrap ...func(io.Reader) (io.Reader, error)) (r io.Reader, c io.Closer, err error) {
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
@@ -236,12 +260,12 @@ func openrc(fname, base, opts string, wrap ...func(io.Reader) (io.Reader, error)
 			return tlz.NewDecoder(r), nil
 		})
 
-		return openrc(fname, base, opts, wrap...)
+		return openrc(u, base, wrap...)
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
 
-	r, c, err = openreader(fname, base, opts)
+	r, c, err = openreader(u, base)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -264,29 +288,44 @@ func openrc(fname, base, opts string, wrap ...func(io.Reader) (io.Reader, error)
 	return r, c, nil
 }
 
-func openreader(fname, base, opts string) (io.Reader, io.Closer, error) {
+func openreader(u *url.URL, base string) (r io.Reader, c io.Closer, err error) {
 	switch base {
 	case "-", "", "stdin":
 		return os.Stdin, nil, nil
 	}
 
-	f, err := openrfile(fname, opts)
+	var f interface{}
+
+	if u.Scheme != "" {
+		f, err = openrurl(u)
+	} else {
+		f, err = openrfile(u)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	r := f.(io.Reader)
-	c, _ := f.(io.Closer)
+	r = f.(io.Reader)
+	c, _ = f.(io.Closer)
 
 	return r, c, nil
 }
 
-func openrfile(fname, opts string) (interface{}, error) {
-	return OpenFileReader(fname, os.O_RDONLY, 0)
+func openrfile(u *url.URL) (interface{}, error) {
+	return OpenFileReader(u.Path, os.O_RDONLY, 0)
 }
 
-func updateFileFlags(of int, s string) int {
-	for _, c := range s {
+func openrurl(u *url.URL) (interface{}, error) {
+	switch u.Scheme {
+	case "file":
+		return openrfile(u)
+	default:
+		return nil, errors.New("unsupported scheme: %v", u.Scheme)
+	}
+}
+
+func updateFileFlags(of int, q string) int {
+	for c := range q {
 		if c == '0' {
 			of |= os.O_TRUNC
 		}
@@ -295,8 +334,8 @@ func updateFileFlags(of int, s string) int {
 	return of
 }
 
-func updateConsoleFlags(ff int, s string) int {
-	for _, c := range s {
+func updateConsoleFlags(ff int, q string) int {
+	for _, c := range q {
 		switch c {
 		case 'd':
 			ff |= tlog.LdetFlags
@@ -372,4 +411,18 @@ func OpenFileDumpReader(open FileOpener) FileOpener {
 
 		return r, nil
 	}
+}
+
+func parseURL(d string) (u *url.URL, err error) {
+	u, err = url.Parse(d)
+	if err != nil {
+		return nil, err
+	}
+
+	if u.Scheme == "file" && u.Host != "" {
+		u.Path = path.Join(u.Host, u.Path)
+		u.Host = ""
+	}
+
+	return u, nil
 }

@@ -1,7 +1,6 @@
 package tlflag
 
 import (
-	"io"
 	"os"
 	"testing"
 
@@ -16,10 +15,12 @@ import (
 
 type testFile string
 
+func TestingFileOpener(n string, f int, m os.FileMode) (interface{}, error) {
+	return testFile(n), nil
+}
+
 func TestFileWriter(t *testing.T) {
-	OpenFileWriter = func(n string, f int, m os.FileMode) (io.WriteCloser, error) {
-		return testFile(n), nil
-	}
+	OpenFileWriter = TestingFileOpener
 
 	const CompressorBlockSize = 1 * tlz.MiB
 
@@ -29,9 +30,10 @@ func TestFileWriter(t *testing.T) {
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags),
 	}, w)
 
-	w, err = OpenWriter("stderr:dm")
+	w, err = OpenWriter("stderr?dm,stderr?dm")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.MultiWriter{
+		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),
 	}, w)
 
@@ -87,10 +89,28 @@ func TestFileWriter(t *testing.T) {
 	}, w)
 }
 
-func TestFileReader(t *testing.T) {
-	OpenFileReader = func(n string, f int, m os.FileMode) (io.ReadCloser, error) {
+func TestURLWriter(t *testing.T) {
+	OpenFileWriter = func(n string, f int, m os.FileMode) (interface{}, error) {
 		return testFile(n), nil
 	}
+
+	const CompressorBlockSize = 1 * tlz.MiB
+
+	w, err := OpenWriter("relative/path.tlog")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("relative/path.tlog"), w)
+
+	w, err = OpenWriter("file://relative/path.tlog")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("relative/path.tlog"), w)
+
+	w, err = OpenWriter("file:///absolute/path.tlog")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("/absolute/path.tlog"), w)
+}
+
+func TestFileReader(t *testing.T) {
+	OpenFileReader = TestingFileOpener
 
 	const CompressorBlockSize = 1 * tlz.MiB
 
@@ -107,6 +127,26 @@ func TestFileReader(t *testing.T) {
 	r, err = OpenReader(".tlog.ez")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.NopCloser{Reader: tlz.NewDecoder(os.Stdin)}, r)
+}
+
+func TestURLReader(t *testing.T) {
+	OpenFileReader = func(n string, f int, m os.FileMode) (interface{}, error) {
+		return testFile(n), nil
+	}
+
+	const CompressorBlockSize = 1 * tlz.MiB
+
+	w, err := OpenReader("relative/path.tlog")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("relative/path.tlog"), w)
+
+	w, err = OpenReader("file://relative/path.tlog")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("relative/path.tlog"), w)
+
+	w, err = OpenReader("file:///absolute/path.tlog")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("/absolute/path.tlog"), w)
 }
 
 func (testFile) Write(p []byte) (int, error) { return len(p), nil }
