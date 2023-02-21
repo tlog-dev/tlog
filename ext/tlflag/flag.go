@@ -15,14 +15,13 @@ import (
 	"github.com/nikandfor/tlog/tlz"
 )
 
-var (
-	OpenFileWriter = func(name string, flags int, mode os.FileMode) (io.WriteCloser, error) {
-		return os.OpenFile(name, flags, mode)
-	}
+type (
+	FileOpener func(name string, flags int, mode os.FileMode) (interface{}, error)
+)
 
-	OpenFileReader = func(name string, flags int, mode os.FileMode) (io.ReadCloser, error) {
-		return os.OpenFile(name, flags, mode)
-	}
+var (
+	OpenFileWriter = OSOpenFile
+	OpenFileReader = OpenFileReReader(OSOpenFile)
 )
 
 func OpenWriter(dst string) (wc io.WriteCloser, err error) {
@@ -107,6 +106,7 @@ func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)
 	switch ext {
 	case ".tlog", ".tl", ".tlogdump", ".tldump", ".log", "":
 	case ".tlz":
+	case ".json", ".logfmt":
 	case ".eazy", ".ez":
 		wrap = append(wrap, func(w io.Writer) (io.Writer, error) {
 			return tlz.NewEncoder(w, tlz.MiB), nil
@@ -114,7 +114,6 @@ func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)
 
 		return openwc(fname, base, opts, wrap...)
 	case ".eazydump", ".ezdump":
-	case ".json", ".logfmt":
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
@@ -137,19 +136,19 @@ func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)
 		blockSize := tlz.MiB
 
 		w = tlz.NewEncoder(w, blockSize)
-	case ".tlogdump", ".tldump":
-		w = tlwire.NewDumper(w)
 	case ".log", "":
 		ff := tlog.LstdFlags
 		ff = updateConsoleFlags(ff, opts)
 
 		w = tlog.NewConsoleWriter(w, ff)
-	case ".eazydump", ".ezdump":
-		w = tlz.NewDumper(w)
 	case ".json":
 		w = convert.NewJSON(w)
 	case ".logfmt":
 		w = convert.NewLogfmt(w)
+	case ".tlogdump", ".tldump":
+		w = tlwire.NewDumper(w)
+	case ".eazydump", ".ezdump":
+		w = tlz.NewDumper(w)
 	default:
 		panic(ext)
 	}
@@ -170,10 +169,13 @@ func openwriter(fname, base, opts string) (io.Writer, io.Closer, error) {
 		return nil, nil, err
 	}
 
-	return f, f, nil
+	w := f.(io.Writer)
+	c, _ := f.(io.Closer)
+
+	return w, c, nil
 }
 
-func openwfile(fname, opts string) (io.WriteCloser, error) {
+func openwfile(fname, opts string) (interface{}, error) {
 	of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
 	of = updateFileFlags(of, opts)
 
@@ -273,10 +275,13 @@ func openreader(fname, base, opts string) (io.Reader, io.Closer, error) {
 		return nil, nil, err
 	}
 
-	return f, f, nil
+	r := f.(io.Reader)
+	c, _ := f.(io.Closer)
+
+	return r, c, nil
 }
 
-func openrfile(fname, opts string) (io.ReadCloser, error) {
+func openrfile(fname, opts string) (interface{}, error) {
 	return OpenFileReader(fname, os.O_RDONLY, 0)
 }
 
@@ -313,4 +318,58 @@ func updateConsoleFlags(ff int, s string) int {
 	}
 
 	return ff
+}
+
+func OSOpenFile(name string, flags int, mode os.FileMode) (interface{}, error) {
+	return os.OpenFile(name, flags, mode)
+}
+
+func OpenFileReReader(open FileOpener) FileOpener {
+	return func(name string, flags int, mode os.FileMode) (interface{}, error) {
+		f, err := open(name, flags, mode)
+		if err != nil {
+			return nil, err
+		}
+
+		rs := f.(tlio.ReadSeeker)
+
+		r, err := tlio.NewReReader(rs)
+		if err != nil {
+			return nil, errors.Wrap(err, "open ReReader")
+		}
+
+		r.Hook = func(old, cur int64) {
+			tlog.Printw("file truncated", "name", name, "old_len", old)
+		}
+
+		c, ok := f.(io.Closer)
+		if !ok {
+			return r, nil
+		}
+
+		return tlio.ReadCloser{
+			Reader: r,
+			Closer: c,
+		}, nil
+	}
+}
+
+func OpenFileDumpReader(open FileOpener) FileOpener {
+	tr := tlog.Start("read dumper")
+
+	return func(name string, flags int, mode os.FileMode) (interface{}, error) {
+		f, err := open(name, flags, mode)
+		if err != nil {
+			return nil, err
+		}
+
+		r := f.(io.Reader)
+
+		r = &tlio.DumpReader{
+			Reader: r,
+			Span:   tr.Spawn("open dump reader", "file", name),
+		}
+
+		return r, nil
+	}
 }

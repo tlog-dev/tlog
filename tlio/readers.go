@@ -70,6 +70,11 @@ func (r *ReReader) Read(p []byte) (n int, err error) {
 				r.Hook(r.pos, end)
 			}
 
+			end, err = r.ReadSeeker.Seek(0, os.SEEK_SET)
+			if err != nil {
+				return n, errors.Wrap(err, "seek")
+			}
+
 			r.pos = end
 		case end > r.pos:
 			_, err = r.ReadSeeker.Seek(r.pos, os.SEEK_SET)
@@ -88,6 +93,29 @@ func (r *DumpReader) Read(p []byte) (n int, err error) {
 	r.Span.Printw("read", "n", n, "err", err, "p_len", len(p), "pos", r.Pos, "data", p[:n])
 
 	r.Pos += int64(n)
+
+	return
+}
+
+func (r *DumpReader) Close() (err error) {
+	c, ok := r.Reader.(io.Closer)
+	if ok {
+		err = c.Close()
+	}
+
+	r.Span.Printw("close", "err", err, "pos", r.Pos, "closer", ok)
+
+	return
+}
+
+func (r *DumpReader) Seek(off int64, whence int) (pos int64, err error) {
+	c, ok := r.Reader.(Seeker)
+	if ok {
+		pos, err = c.Seek(off, whence)
+		r.Pos = pos
+	}
+
+	r.Span.Printw("seek", "pos", pos, "err", err, "off", off, "whence", whence, "seeker", ok)
 
 	return
 }

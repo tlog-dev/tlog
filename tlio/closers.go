@@ -16,6 +16,22 @@ type (
 	CloserFunc func() error
 )
 
+func Close(f interface{}) error {
+	c, ok := f.(io.Closer)
+	if !ok {
+		return nil
+	}
+
+	return c.Close()
+}
+
+func CloseWrap(c io.Closer, name string, err *error) {
+	e := c.Close()
+	if *err == nil {
+		*err = errors.Wrap(e, "close %v", name)
+	}
+}
+
 func WrapCloser(c io.Closer, msg string, args ...interface{}) io.Closer {
 	return WrappedCloser{
 		Closer: c,

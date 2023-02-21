@@ -428,6 +428,14 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func (l *Logger) Write(p []byte) (int, error) {
+	if l == nil || l.Writer == nil {
+		return len(p), nil
+	}
+
+	return l.Writer.Write(p)
+}
+
 func LoggerSetTimeNow(l *Logger, now func() time.Time, nano func() int64) {
 	l.now = now
 	l.nano = nano
