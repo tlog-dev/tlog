@@ -9,6 +9,7 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/tlog"
 
+	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
 	"github.com/nikandfor/tlog/tlz"
@@ -93,27 +94,27 @@ func openw(fname, opts string) (io.Writer, error) {
 	}, nil
 }
 
-func openwc(fname, base, opts string) (w io.Writer, c io.Closer, err error) {
+func openwc(fname, base, opts string, wrap ...func(io.Writer) (io.Writer, error)) (w io.Writer, c io.Closer, err error) {
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
 	//	fmt.Fprintf(os.Stderr, "openwc %q %q\n", base, ext)
 
+	// w := os.Create("file.json.ez")
+	// w = tlz.NewEncoder(w)
+	// w = convert.NewJSON(w)
+
 	switch ext {
 	case ".tlog", ".tl", ".tlogdump", ".tldump", ".log", "":
 	case ".tlz":
 	case ".eazy", ".ez":
-		w, c, err = openwc(fname, base, opts)
-		if err != nil {
-			return
-		}
+		wrap = append(wrap, func(w io.Writer) (io.Writer, error) {
+			return tlz.NewEncoder(w, tlz.MiB), nil
+		})
 
-		blockSize := tlz.MiB
-
-		w = tlz.NewEncoder(w, blockSize)
-
-		return w, c, nil
+		return openwc(fname, base, opts, wrap...)
 	case ".eazydump", ".ezdump":
+	case ".json", ".logfmt":
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
@@ -121,6 +122,13 @@ func openwc(fname, base, opts string) (w io.Writer, c io.Closer, err error) {
 	w, c, err = openwriter(fname, base, opts)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	for _, wrap := range wrap {
+		w, err = wrap(w)
+		if err != nil {
+			return
+		}
 	}
 
 	switch ext {
@@ -138,6 +146,10 @@ func openwc(fname, base, opts string) (w io.Writer, c io.Closer, err error) {
 		w = tlog.NewConsoleWriter(w, ff)
 	case ".eazydump", ".ezdump":
 		w = tlz.NewDumper(w)
+	case ".json":
+		w = convert.NewJSON(w)
+	case ".logfmt":
+		w = convert.NewLogfmt(w)
 	default:
 		panic(ext)
 	}
@@ -210,7 +222,7 @@ func openr(fname, opts string) (io.Reader, error) {
 	}, nil
 }
 
-func openrc(fname, base, opts string) (r io.Reader, c io.Closer, err error) {
+func openrc(fname, base, opts string, wrap ...func(io.Reader) (io.Reader, error)) (r io.Reader, c io.Closer, err error) {
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
@@ -218,14 +230,11 @@ func openrc(fname, base, opts string) (r io.Reader, c io.Closer, err error) {
 	case ".tlog", ".tl", "":
 	case ".tlz":
 	case ".eazy", ".ez":
-		r, c, err = openrc(fname, base, opts)
-		if err != nil {
-			return
-		}
+		wrap = append(wrap, func(r io.Reader) (io.Reader, error) {
+			return tlz.NewDecoder(r), nil
+		})
 
-		r = tlz.NewDecoder(r)
-
-		return r, c, nil
+		return openrc(fname, base, opts, wrap...)
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
@@ -233,6 +242,13 @@ func openrc(fname, base, opts string) (r io.Reader, c io.Closer, err error) {
 	r, c, err = openreader(fname, base, opts)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	for _, wrap := range wrap {
+		r, err = wrap(r)
+		if err != nil {
+			return
+		}
 	}
 
 	switch ext {

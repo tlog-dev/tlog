@@ -9,6 +9,7 @@ import (
 	"github.com/nikandfor/errors"
 
 	"github.com/nikandfor/tlog"
+	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlz"
 )
@@ -66,6 +67,23 @@ func TestFileWriter(t *testing.T) {
 	assert.Equal(t, tlio.WriteCloser{
 		Writer: tlz.NewDumper(testFile("file.ezdump")),
 		Closer: testFile("file.ezdump"),
+	}, w)
+
+	w, err = OpenWriter("file.json")
+	assert.NoError(t, err)
+	assert.Equal(t, tlio.WriteCloser{
+		Writer: convert.NewJSON(testFile("file.json")),
+		Closer: testFile("file.json"),
+	}, w)
+
+	w, err = OpenWriter("file.json.ez")
+	assert.NoError(t, err)
+	assert.Equal(t, tlio.WriteCloser{
+		Writer: convert.NewJSON(
+			tlz.NewEncoder(
+				testFile("file.json.ez"),
+				CompressorBlockSize)),
+		Closer: testFile("file.json.ez"),
 	}, w)
 }
 
