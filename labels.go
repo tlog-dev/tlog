@@ -133,7 +133,7 @@ func ParseLabels(s string) []interface{} {
 			if f, ok := AutoLabels[l]; ok {
 				res = append(res, l, f())
 			} else {
-				res = append(res, l, None)
+				res = append(res, l, "")
 			}
 
 			continue

@@ -26,7 +26,7 @@ type (
 const KeyAuto = ""
 
 var (
-	None          = RawMessage{tlwire.Special | tlwire.None}
+	Nil           = RawMessage{tlwire.Special | tlwire.Nil}
 	NextIsHex     = Modify{tlwire.Semantic | tlwire.Hex}
 	NextIsMessage = Modify{tlwire.Semantic | WireMessage}
 	NextIsType    = FormatNext("%T")

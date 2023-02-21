@@ -52,7 +52,7 @@ type (
 	}
 )
 
-func NewJSONWriter(w io.Writer) *JSON {
+func NewJSON(w io.Writer) *JSON {
 	return &JSON{
 		Writer:        w,
 		AppendNewLine: true,
@@ -254,7 +254,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 			b = append(b, "false"...)
 		case tlwire.True:
 			b = append(b, "true"...)
-		case tlwire.Nil, tlwire.Undefined, tlwire.None:
+		case tlwire.Nil, tlwire.Undefined:
 			b = append(b, "null"...)
 		case tlwire.Float64, tlwire.Float32, tlwire.Float16, tlwire.Float8:
 			var f float64

@@ -748,7 +748,6 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i i
 		b = append(b, '}')
 	case tlwire.Special:
 		switch sub {
-		case tlwire.None:
 		case tlwire.False:
 			b = append(b, "false"...)
 		case tlwire.True:

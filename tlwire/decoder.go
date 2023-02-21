@@ -146,7 +146,6 @@ func (d LowDecoder) SkipTag(b []byte, st int) (tag byte, sub int64, i int) {
 			True,
 			Nil,
 			Undefined,
-			None,
 			Break:
 		case Float8:
 			i += 1 //nolint:revive

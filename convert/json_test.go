@@ -20,7 +20,7 @@ func TestJSON(t *testing.T) {
 
 	var b low.Buf
 
-	j := NewJSONWriter(&b)
+	j := NewJSON(&b)
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
@@ -41,13 +41,13 @@ func TestJSON(t *testing.T) {
 		B: 9,
 	})
 
-	exp := `{"_t":"2020-12-25T22:08:13\+03:00","_c":"[\w./-]*json_test.go:\d+","_m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"a":"b","c":null}
+	exp := `{"_t":"2020-12-25T22:08:13\+03:00","_c":"[\w./-]*json_test.go:\d+","_m":"message","str":"arg","int":5,"struct":{"a":"A field","bb":9},"a":"b","c":""}
 `
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
 	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile(exps[i])
+		re := regexp.MustCompile("^" + exps[i] + "$")
 
 		var have string
 		if i < len(ls) {
@@ -67,7 +67,7 @@ func TestJSONRename(t *testing.T) {
 
 	var b low.Buf
 
-	j := NewJSONWriter(&b)
+	j := NewJSON(&b)
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
@@ -115,13 +115,13 @@ func TestJSONRename(t *testing.T) {
 		B: 9,
 	})
 
-	exp := `{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","message":"message","str_key":"arg","int":5,"struct":{"a":"A field","bb":9},"L_a":"b","L_c":null}
+	exp := `{"time":"2020-12-25T22:08:13\+03:00","caller":"[\w./-]*json_test.go:\d+","message":"message","str_key":"arg","int":5,"struct":{"a":"A field","bb":9},"L_a":"b","L_c":""}
 `
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
 	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile(exps[i])
+		re := regexp.MustCompile("^" + exps[i] + "$")
 
 		var have string
 		if i < len(ls) {
@@ -155,7 +155,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 
 	st := d.Skip(buf, 0)
 
-	w := NewJSONWriter(ioutil.Discard)
+	w := NewJSON(ioutil.Discard)
 
 	_, err := w.Write(buf[:st])
 	require.NoError(b, err)
@@ -172,7 +172,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 }
 
 func BenchmarkJSONPrintw(b *testing.B) {
-	w := NewJSONWriter(ioutil.Discard)
+	w := NewJSON(ioutil.Discard)
 	l := tlog.New(w)
 	//	l.NoCaller = true
 	//	l.NoTime = true

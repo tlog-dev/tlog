@@ -29,20 +29,23 @@ const (
 
 // Specials.
 const (
-	None = 19 + iota
-	False
-	True
-	Nil
-	Undefined
+	_ = 1<<5 - iota
 
-	Float8
-	Float16
-	Float32
+	Break
+
+	_
+	_
+	_
+
 	Float64
-	_
-	_
-	_
-	Break = 1<<5 - 1
+	Float32
+	Float16
+	Float8
+
+	Undefined
+	Nil
+	True
+	False // 20
 )
 
 // Semantics.
