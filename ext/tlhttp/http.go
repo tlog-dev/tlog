@@ -8,7 +8,15 @@ import (
 
 var TraceIDKey = "Traceid"
 
-func SpawnOrStart(l *tlog.Logger, req *http.Request, kvs ...interface{}) tlog.Span {
+func SpawnOrStart(w http.ResponseWriter, req *http.Request, kvs ...interface{}) tlog.Span {
+	return spawnOrStart(tlog.DefaultLogger, w, req, kvs)
+}
+
+func SpawnOrStartLogger(l *tlog.Logger, w http.ResponseWriter, req *http.Request, kvs ...interface{}) tlog.Span {
+	return spawnOrStart(l, w, req, kvs)
+}
+
+func spawnOrStart(l *tlog.Logger, w http.ResponseWriter, req *http.Request, kvs []interface{}) tlog.Span {
 	var trid tlog.ID
 	var err error
 
@@ -17,11 +25,17 @@ func SpawnOrStart(l *tlog.Logger, req *http.Request, kvs ...interface{}) tlog.Sp
 		trid, err = tlog.IDFromString(xtr)
 	}
 
-	tr := l.NewSpan(1, trid, "http_request", kvs...)
+	tr := l.NewSpan(2, trid, "http_request", append([]interface{}{
+		"client", req.RemoteAddr,
+		"method", req.Method,
+		"path", req.URL.Path,
+	}, kvs...)...)
 
 	if err != nil {
 		tr.Printw("bad parent trace id", "id", xtr, "err", err)
 	}
+
+	w.Header().Set(TraceIDKey, tr.ID.StringFull())
 
 	return tr
 }

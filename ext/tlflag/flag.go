@@ -42,7 +42,7 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 			continue
 		}
 
-		u, err := parseURL(d)
+		u, err := ParseURL(d)
 		if err != nil {
 			return nil, errors.Wrap(err, "parse %v", d)
 		}
@@ -204,7 +204,7 @@ func openwurl(u *url.URL) (interface{}, error) {
 }
 
 func OpenReader(src string) (rc io.ReadCloser, err error) {
-	u, err := parseURL(src)
+	u, err := ParseURL(src)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse %v", src)
 	}
@@ -413,7 +413,7 @@ func OpenFileDumpReader(open FileOpener) FileOpener {
 	}
 }
 
-func parseURL(d string) (u *url.URL, err error) {
+func ParseURL(d string) (u *url.URL, err error) {
 	u, err = url.Parse(d)
 	if err != nil {
 		return nil, err

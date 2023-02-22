@@ -29,23 +29,19 @@ const (
 
 // Specials.
 const (
-	_ = 1<<5 - iota
-
-	Break
-
-	_
-	_
-	_
-
-	Float64
-	Float32
-	Float16
-	Float8
-
-	Undefined
-	Nil
+	False = 20 + iota
 	True
-	False // 20
+	Nil
+	Undefined
+
+	Float8
+	Float16
+	Float32
+	Float64
+	_
+	_
+	_
+	Break
 )
 
 // Semantics.
@@ -60,7 +56,7 @@ const (
 	_
 	Hex
 	_
-	Represent // ?
+	_
 
 	SemanticTlogBase
 )

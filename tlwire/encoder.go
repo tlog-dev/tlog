@@ -104,9 +104,8 @@ func (e Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 }
 
 func (e Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
-	st := len(b)
-
 	b = append(b, String)
+	st := len(b)
 
 	if fmt == "" {
 		b = hfmt.Append(b, args...)
@@ -114,10 +113,23 @@ func (e Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte 
 		b = hfmt.Appendf(b, fmt, args...)
 	}
 
-	l := len(b) - st - 1
+	l := len(b) - st
+
+	return e.InsertLen(b, st, l)
+}
+
+// InsertLen inserts length l before value starting at st copying l bytes forward if needed.
+// It is created for AppendFormat because we don't know the final message length.
+// But it can be also used in other similar situations.
+func (e Encoder) InsertLen(b []byte, st, l int) []byte {
+	if l < 0 {
+		panic(l)
+	}
+
+	b[st-1] = b[st-1] & TagMask
 
 	if l < Len1 {
-		b[st] |= byte(l)
+		b[st-1] |= byte(l)
 
 		return b
 	}
@@ -135,47 +147,12 @@ func (e Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte 
 		sz = 8
 	}
 
-	b = append(b, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}[:sz]...)
+	b = append(b, "        "[:sz]...)
 	copy(b[st+sz:], b[st:])
-
-	_ = e.AppendTag(b[:st], String, l)
-
-	return b
-}
-
-func (e Encoder) InsertLen(b []byte, st, l int) []byte {
-	if l < 0 {
-		panic(l)
-	}
-
-	if l < Len1 {
-		b[st-1] = b[st-1]&TagMask | byte(l)
-
-		return b
-	}
-
-	m := 0
-	switch {
-	case l < 0xff:
-		m = 1
-	case l < 0xffff:
-		m = 2
-	case l < 0xffff_ffff:
-		m = 4
-	default:
-		m = 8
-	}
-
-	b = append(b, "        "[:m]...)
-
-	copy(b[st+m:], b[st:])
-
-	b[st-1] = b[st-1] & TagMask
 
 	switch {
 	case l < 0xff:
 		b[st-1] |= Len1
-
 		b[st] = byte(l)
 	case l < 0xffff:
 		b[st-1] |= Len2

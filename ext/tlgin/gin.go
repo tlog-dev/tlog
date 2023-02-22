@@ -32,7 +32,7 @@ func tracer(l *tlog.Logger, c *gin.Context) {
 		trid, err = tlog.IDFromString(xtr)
 	}
 
-	tr := l.NewSpan(0, trid, "http_request", "client_ip", c.ClientIP(), "meth", c.Request.Method, "path", c.Request.URL.Path)
+	tr := l.NewSpan(0, trid, "http_request", "client_ip", c.ClientIP(), "method", c.Request.Method, "path", c.Request.URL.Path)
 	defer func() {
 		if p := recover(); p != nil {
 			s := debug.Stack()
@@ -72,7 +72,7 @@ func SpanFromContext(c *gin.Context) (tr tlog.Span) {
 func Dumper(c *gin.Context) {
 	tr := SpanFromContext(c)
 
-	if tr.If("rawbody,rawrequest") {
+	if tr.Is("rawbody,rawrequest") {
 		data, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
 			tr.Printw("read body", "err", err)
@@ -92,7 +92,7 @@ func Dumper(c *gin.Context) {
 
 	var rw *respWriter
 
-	if tr.If("rawbody,rawresponse") {
+	if tr.Is("rawbody,rawresponse") {
 		rw = &respWriter{ResponseWriter: c.Writer}
 
 		c.Writer = rw
@@ -100,7 +100,7 @@ func Dumper(c *gin.Context) {
 
 	c.Next()
 
-	if tr.If("rawbody,rawresponse") {
+	if tr.Is("rawbody,rawresponse") {
 		tr.Printw("response", "len", rw.cp.Len(), "data", rw.cp.Bytes())
 	}
 }
