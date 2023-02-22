@@ -23,6 +23,12 @@ type (
 		typ unsafe.Pointer
 		ptr unsafe.Pointer
 	}
+
+	reflectValue struct {
+		typ  unsafe.Pointer
+		ptr  unsafe.Pointer
+		flag uintptr
+	}
 )
 
 var encoders = map[unsafe.Pointer]ValueEncoder{}
@@ -81,7 +87,12 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 
 func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit
 	if r.CanInterface() {
-		v := r.Interface()
+		//v := r.Interface()
+		v := valueInterface(r)
+
+		//	if r.Type().Comparable() && v != r.Interface() {
+		//		panic(fmt.Sprintf("not equal interface %v: %x %v %v", r, value(r), rawiface(v), rawiface(r.Interface())))
+		//	}
 
 		if a, ok := v.(TlogAppender); ok {
 			return a.TlogAppend(b)
@@ -234,4 +245,37 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 	}
 
 	return b
+}
+
+func value(v reflect.Value) reflectValue {
+	return *(*reflectValue)(unsafe.Pointer(&v))
+}
+
+func valueInterface(r reflect.Value) interface{} {
+	v := value(r)
+
+	if r.Kind() == reflect.Interface {
+		// Special case: return the element inside the interface.
+		// Empty interface has one layout, all interfaces with
+		// methods have a second layout.
+		if r.NumMethod() == 0 {
+			return *(*interface{})(v.ptr)
+		}
+		return *(*interface {
+			M()
+		})(v.ptr)
+	}
+
+	const flagAddr = 1 << 8
+
+	v.flag &^= flagAddr
+
+	return reflect_packEface(v)
+}
+
+//go:linkname reflect_packEface reflect.packEface
+func reflect_packEface(reflectValue) interface{}
+
+func rawiface(x interface{}) eface {
+	return *(*eface)(unsafe.Pointer(&x))
 }
