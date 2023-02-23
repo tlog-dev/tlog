@@ -1,33 +1,33 @@
 version: 2
 jobs:
-  go1.18: &base
+  go1.20: &base
     docker:
-      - image: cimg/go:1.18
+      - image: cimg/go:1.20
     steps:
       - run: go version
       - checkout
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
       - run: bash <(curl -s https://codecov.io/bash)
 
-  go1.17: &base_next
+  go1.19: &base_next
     <<: *base
     docker:
-      - image: cimg/go:1.17
+      - image: cimg/go:1.19
     steps:
       - run: go version
       - checkout
       - run: go test -race -v ./...
 
-  go1.16:
+  go1.18:
     <<: *base_next
     docker:
-      - image: circleci/golang:1.16
+      - image: circleci/golang:1.18
     working_directory: /go/wd
 
 workflows:
   version: 2
   build:
     jobs:
-      - go1.18
-      - go1.17
+      - go1.20
+      - go1.19
       #- go1.16
