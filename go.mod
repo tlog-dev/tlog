@@ -7,10 +7,10 @@ require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/nikandfor/assert v0.0.0-20221129185021-704c04a067ef
 	github.com/nikandfor/cli v0.0.0-20220929151258-fb151fc0dc3c
-	github.com/nikandfor/errors v0.6.0
+	github.com/nikandfor/errors v0.7.0
 	github.com/nikandfor/graceful v0.0.0-20220414142156-2d7797928a5e
 	github.com/nikandfor/hacked v0.0.0-20230220212011-8d60788f06cb
-	github.com/nikandfor/loc v0.3.1-0.20230110131254-a7ae68f03681
+	github.com/nikandfor/loc v0.4.0
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
 	golang.org/x/term v0.5.0
