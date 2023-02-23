@@ -67,7 +67,7 @@ func (d *Dumper) Write(p []byte) (n int, err error) {
 		n, err = d.Writer.Write(d.b)
 	}
 
-	return
+	return len(p), err
 }
 
 func (d *Dumper) dump(p []byte, st, depth int) (i int) {
