@@ -21,8 +21,7 @@ jobs:
   go1.18:
     <<: *base_next
     docker:
-      - image: circleci/golang:1.18
-    working_directory: /go/wd
+      - image: cimg/go:1.18
 
 workflows:
   version: 2
@@ -30,4 +29,3 @@ workflows:
     jobs:
       - go1.20
       - go1.19
-      #- go1.16
