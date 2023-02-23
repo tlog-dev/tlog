@@ -27,7 +27,9 @@ type (
 		FloatChar      byte
 		FloatPrecision int
 
-		QuoteChars string
+		QuoteChars      string
+		QuoteAnyValue   bool
+		QuoteEmptyValue bool
 
 		PairSeparator  string
 		KVSeparator    string
@@ -147,11 +149,7 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	}
 
 	if !renamed {
-		if w.AppendKeySafe {
-			b = low.AppendSafe(b, k)
-		} else {
-			b = append(b, k...)
-		}
+		b = w.appendAndQuote(b, k, tlwire.String)
 	}
 
 	b = append(b, w.KVSeparator...)
@@ -204,28 +202,7 @@ func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
 		var s []byte
 		s, i = w.d.Bytes(p, st)
 
-		quote := tag == tlwire.Bytes || len(s) == 0
-		if !quote {
-			for _, c := range s {
-				if c < 0x20 || c >= 0x80 {
-					quote = true
-					break
-				}
-				for _, q := range w.QuoteChars {
-					if byte(q) == c {
-						quote = true
-						break
-					}
-				}
-			}
-		}
-
-		if quote {
-			ss := low.UnsafeBytesToString(s)
-			b = strconv.AppendQuote(b, ss)
-		} else {
-			b = append(b, s...)
-		}
+		b = w.appendAndQuote(b, s, tag)
 	case tlwire.Array:
 		b, i = w.convertArray(b, p, k, st)
 	case tlwire.Map:
@@ -306,6 +283,35 @@ func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
 	}
 
 	return b, i
+}
+
+func (w *Logfmt) appendAndQuote(b, s []byte, tag byte) []byte {
+	quote := tag == tlwire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
+	if !quote {
+		for _, c := range s {
+			if c < 0x20 || c >= 0x80 {
+				quote = true
+				break
+			}
+			for _, q := range w.QuoteChars {
+				if byte(q) == c {
+					quote = true
+					break
+				}
+			}
+		}
+	}
+
+	if quote {
+		ss := low.UnsafeBytesToString(s)
+		b = strconv.AppendQuote(b, ss)
+	} else if w.AppendKeySafe {
+		b = low.AppendSafe(b, s)
+	} else {
+		b = append(b, s...)
+	}
+
+	return b
 }
 
 func (w *Logfmt) convertArray(b, p, k []byte, st int) (_ []byte, i int) {

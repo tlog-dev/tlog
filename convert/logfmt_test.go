@@ -19,6 +19,7 @@ func TestLogfmtSubObj(t *testing.T) {
 
 	j := NewLogfmt(&b)
 	j.SubObjects = true
+	j.QuoteEmptyValue = true
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
@@ -65,6 +66,7 @@ func TestLogfmtFlatObj(t *testing.T) {
 
 	j := NewLogfmt(&b)
 	j.SubObjects = false
+	j.QuoteEmptyValue = true
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
@@ -111,6 +113,7 @@ func TestLogfmtRename(t *testing.T) {
 
 	j := NewLogfmt(&b)
 	j.SubObjects = true
+	j.QuoteEmptyValue = true
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
@@ -175,4 +178,15 @@ func TestLogfmtRename(t *testing.T) {
 	for i := len(exps); i < len(ls); i++ {
 		assert.True(t, false, "expected\n%s\ngot\n%s", "", ls[i])
 	}
+}
+
+func TestLogfmtKeyWithSpace(t *testing.T) {
+	var b low.Buf
+
+	j := NewLogfmt(&b)
+	j.QuoteEmptyValue = true
+
+	_, err := j.Write(tlog.AppendKVs(nil, []interface{}{tlog.RawTag(tlwire.Map, 1), "key with spaces", "value"}))
+	assert.NoError(t, err)
+	assert.Equal(t, `"key with spaces"=value`+"\n", string(b))
 }
