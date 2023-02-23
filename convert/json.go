@@ -38,15 +38,15 @@ type (
 		Sub int64
 	}
 
-	RenameRule struct {
+	SimpleRenameRule struct {
 		Tags []TagSub
 		Key  string
 	}
 
-	Renamer struct {
+	SimpleRenamer struct {
 		tlwire.Decoder
 
-		Rules map[string]RenameRule
+		Rules map[string]SimpleRenameRule
 
 		Fallback RenameFunc
 	}
@@ -269,7 +269,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	return b, i
 }
 
-func (r Renamer) Rename(b, p, k []byte, i int) ([]byte, bool) {
+func (r SimpleRenamer) Rename(b, p, k []byte, i int) ([]byte, bool) {
 	rule, ok := r.Rules[string(k)]
 	if !ok {
 		return r.fallback(b, p, k, i)
@@ -292,7 +292,7 @@ func (r Renamer) Rename(b, p, k []byte, i int) ([]byte, bool) {
 	return append(b, rule.Key...), true
 }
 
-func (r Renamer) fallback(b, p, k []byte, i int) ([]byte, bool) {
+func (r SimpleRenamer) fallback(b, p, k []byte, i int) ([]byte, bool) {
 	if r.Fallback == nil {
 		return b, false
 	}

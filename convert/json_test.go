@@ -71,8 +71,8 @@ func TestJSONRename(t *testing.T) {
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
-	renamer := Renamer{
-		Rules: map[string]RenameRule{
+	renamer := SimpleRenamer{
+		Rules: map[string]SimpleRenameRule{
 			tlog.KeyEventKind: {Tags: []TagSub{{tlwire.Semantic, tlog.WireEventKind}}, Key: "kind"},
 			tlog.KeyTimestamp: {Tags: []TagSub{{tlwire.Semantic, tlwire.Time}}, Key: "time"},
 			tlog.KeyCaller:    {Tags: []TagSub{{tlwire.Semantic, tlwire.Caller}}, Key: "caller"},

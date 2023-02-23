@@ -38,6 +38,7 @@ type (
 		MaxValPad int
 
 		AppendKeySafe bool
+		SubObjects    bool
 
 		Rename RenameFunc
 
@@ -123,6 +124,14 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 		w.addpad = 0
 	}
 
+	if !w.SubObjects {
+		tag := w.d.TagOnly(p, st)
+
+		if tag == tlwire.Array || tag == tlwire.Map {
+			return w.convertArray(b, p, k, st)
+		}
+	}
+
 	if len(b) != 0 {
 		b = append(b, w.PairSeparator...)
 	}
@@ -155,7 +164,7 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 
 	vst := len(b)
 
-	b, i = w.convertValue(b, p, st, 0)
+	b, i = w.convertValue(b, p, k, st)
 
 	vw := len(b) - vst
 
@@ -183,7 +192,7 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	return b, i
 }
 
-func (w *Logfmt) convertValue(b, p []byte, st int, ff int) (_ []byte, i int) {
+func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	switch tag {
@@ -218,49 +227,9 @@ func (w *Logfmt) convertValue(b, p []byte, st int, ff int) (_ []byte, i int) {
 			b = append(b, s...)
 		}
 	case tlwire.Array:
-		b = append(b, '[')
-
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.d.Break(p, &i) {
-				break
-			}
-
-			if el != 0 {
-				b = append(b, w.ArrSeparator...)
-			}
-
-			b, i = w.convertValue(b, p, i, ff)
-		}
-
-		b = append(b, ']')
+		b, i = w.convertArray(b, p, k, st)
 	case tlwire.Map:
-		var k []byte
-
-		b = append(b, '{')
-
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.d.Break(p, &i) {
-				break
-			}
-
-			if el != 0 {
-				b = append(b, w.MapSeparator...)
-			}
-
-			k, i = w.d.Bytes(p, i)
-
-			if w.AppendKeySafe {
-				b = low.AppendSafe(b, k)
-			} else {
-				b = append(b, k...)
-			}
-
-			b = append(b, w.MapKVSeparator...)
-
-			b, i = w.convertValue(b, p, i, ff)
-		}
-
-		b = append(b, '}')
+		b, i = w.convertArray(b, p, k, st)
 	case tlwire.Semantic:
 		switch sub {
 		case tlwire.Time:
@@ -308,7 +277,7 @@ func (w *Logfmt) convertValue(b, p []byte, st int, ff int) (_ []byte, i int) {
 				b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 			}
 		default:
-			b, i = w.convertValue(b, p, i, ff)
+			b, i = w.convertValue(b, p, k, i)
 		}
 	case tlwire.Special:
 		switch sub {
@@ -334,6 +303,73 @@ func (w *Logfmt) convertValue(b, p []byte, st int, ff int) (_ []byte, i int) {
 		}
 	default:
 		panic(tag)
+	}
+
+	return b, i
+}
+
+func (w *Logfmt) convertArray(b, p, k []byte, st int) (_ []byte, i int) {
+	tag, sub, i := w.d.Tag(p, st)
+
+	subk := k[:len(k):len(k)]
+
+	if w.SubObjects {
+		if tag == tlwire.Map {
+			b = append(b, '{')
+		} else {
+			b = append(b, '[')
+		}
+	}
+
+	for el := 0; sub == -1 || el < int(sub); el++ {
+		if sub == -1 && w.d.Break(p, &i) {
+			break
+		}
+
+		if !w.SubObjects {
+			if tag == tlwire.Map {
+				var kk []byte
+
+				kk, i = w.d.Bytes(p, i)
+
+				subk = append(subk[:len(k)], '.')
+				subk = append(subk, kk...)
+			}
+
+			b, i = w.appendPair(b, p, subk, i)
+
+			continue
+		}
+
+		if tag == tlwire.Map {
+			if el != 0 {
+				b = append(b, w.MapSeparator...)
+			}
+
+			k, i = w.d.Bytes(p, i)
+
+			if w.AppendKeySafe {
+				b = low.AppendSafe(b, k)
+			} else {
+				b = append(b, k...)
+			}
+
+			b = append(b, w.MapKVSeparator...)
+		} else {
+			if el != 0 {
+				b = append(b, w.ArrSeparator...)
+			}
+		}
+
+		b, i = w.convertValue(b, p, subk, i)
+	}
+
+	if w.SubObjects {
+		if tag == tlwire.Map {
+			b = append(b, '}')
+		} else {
+			b = append(b, ']')
+		}
 	}
 
 	return b, i
