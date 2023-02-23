@@ -5,6 +5,7 @@ import (
 	_ "unsafe"
 
 	"github.com/nikandfor/loc"
+	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
 
@@ -27,6 +28,7 @@ const KeyAuto = ""
 
 var (
 	Nil           = RawMessage{tlwire.Special | tlwire.Nil}
+	Break         = RawMessage{tlwire.Special | tlwire.Break}
 	NextIsHex     = Modify{tlwire.Semantic | tlwire.Hex}
 	NextIsMessage = Modify{tlwire.Semantic | WireMessage}
 	NextIsType    = FormatNext("%T")
@@ -58,6 +60,35 @@ var (
 	e tlwire.Encoder
 	d tlwire.Decoder
 )
+
+func AppendLabels(b []byte, kvs []interface{}) []byte {
+	const tag = tlwire.Semantic | WireLabel
+
+	w := len(b)
+	b = append(b, low.Spaces[:len(kvs)/2+1]...)
+	r := len(b)
+
+	b = AppendKVs(b, kvs)
+
+	for r < len(b) {
+		end := d.Skip(b, r)
+
+		w += copy(b[w:], b[r:end])
+		r = end
+
+		end = d.Skip(b, r)
+
+		if b[r] != tag {
+			b[w] = tag
+			w++
+		}
+
+		w += copy(b[w:], b[r:end])
+		r = end
+	}
+
+	return b[:w]
+}
 
 func AppendKVs(b []byte, kvs []interface{}) []byte {
 	return appendKVs0(b, kvs)

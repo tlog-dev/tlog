@@ -8,7 +8,6 @@ import (
 
 	"github.com/nikandfor/hacked/htime"
 	"github.com/nikandfor/loc"
-	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
 
@@ -126,13 +125,12 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		var c loc.PC
 		caller1(2+d, &c, 1, 1)
 
-		l.b = e.AppendKey(l.b, KeyCaller)
-		l.b = e.AppendCaller(l.b, c)
+		l.b = l.Encoder.AppendKey(l.b, KeyCaller)
+		l.b = l.Encoder.AppendCaller(l.b, c)
 	}
 
 	if msg != nil {
 		l.b = l.Encoder.AppendKey(l.b, KeyMessage)
-
 		l.b = l.Encoder.AppendSemantic(l.b, WireMessage)
 
 		switch msg := msg.(type) {
@@ -267,32 +265,11 @@ func (l *Logger) SetLabels(kvs ...interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	const tag = tlwire.Semantic | WireLabel
+	l.ls = AppendLabels(l.ls[:0], kvs)
+}
 
-	l.ls = append(l.ls[:0], low.Spaces[:len(kvs)/2+1]...)
-
-	w, r := 0, len(l.ls)
-
-	l.ls = AppendKVs(l.ls, kvs)
-
-	for r < len(l.ls) {
-		end := d.Skip(l.ls, r)
-
-		w += copy(l.ls[w:], l.ls[r:end])
-		r = end
-
-		end = d.Skip(l.ls, r)
-
-		if l.ls[r] != tag {
-			l.ls[w] = tag
-			w++
-		}
-
-		w += copy(l.ls[w:], l.ls[r:end])
-		r = end
-	}
-
-	l.ls = l.ls[:w]
+func (l *Logger) Labels() RawMessage {
+	return l.ls
 }
 
 func Start(name string, kvs ...interface{}) Span {
@@ -432,6 +409,9 @@ func (l *Logger) Write(p []byte) (int, error) {
 	if l == nil || l.Writer == nil {
 		return len(p), nil
 	}
+
+	defer l.Unlock()
+	l.Lock()
 
 	return l.Writer.Write(p)
 }
