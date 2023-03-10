@@ -27,17 +27,12 @@ type (
 const KeyAuto = ""
 
 var (
+	None          = RawMessage{tlwire.Special | tlwire.None}
 	Nil           = RawMessage{tlwire.Special | tlwire.Nil}
 	Break         = RawMessage{tlwire.Special | tlwire.Break}
 	NextIsHex     = Modify{tlwire.Semantic | tlwire.Hex}
 	NextIsMessage = Modify{tlwire.Semantic | WireMessage}
 	NextIsType    = FormatNext("%T")
-
-//	None          = RawMessage(tlwire.LowEncoder{}.AppendSpecial(nil, tlwire.None))
-//	HexNext       = SemanticNext(tlwire.Hex)
-//	MessageNext   = SemanticNext(WireMessage)
-//	NextIsHex     = Modify(tlwire.LowEncoder{}.AppendSemantic(nil, tlwire.Hex))
-//	NextIsMessage = Modify(tlwire.LowEncoder{}.AppendSemantic(nil, WireMessage))
 )
 
 const (

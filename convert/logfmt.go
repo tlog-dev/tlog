@@ -266,6 +266,8 @@ func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
 			b = append(b, "<nil>"...)
 		case tlwire.Undefined:
 			b = append(b, "<undef>"...)
+		case tlwire.None:
+			b = append(b, "<none>"...)
 		case tlwire.Float64, tlwire.Float32, tlwire.Float8:
 			var f float64
 			f, i = w.d.Float(p, st)

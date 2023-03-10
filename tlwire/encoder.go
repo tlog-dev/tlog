@@ -273,6 +273,10 @@ func (e LowEncoder) AppendUndefined(b []byte) []byte {
 	return append(b, Special|Undefined)
 }
 
+func (e LowEncoder) AppendNone(b []byte) []byte {
+	return append(b, Special|None)
+}
+
 func (e LowEncoder) AppendBreak(b []byte) []byte {
 	return append(b, Special|Break)
 }

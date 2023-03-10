@@ -29,7 +29,9 @@ const (
 
 // Specials.
 const (
-	False = 20 + iota
+	None = 19 + iota
+
+	False
 	True
 	Nil
 	Undefined
