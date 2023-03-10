@@ -147,14 +147,8 @@ func (d LowDecoder) SkipTag(b []byte, st int) (tag byte, sub int64, i int) {
 			Nil,
 			Undefined,
 			Break:
-		case Float8:
-			i += 1 //nolint:revive
-		case Float16:
-			i += 2
-		case Float32:
-			i += 4
-		case Float64:
-			i += 8
+		case Float8, Float16, Float32, Float64:
+			i += 1 << (int(sub) - Float8)
 		default:
 			panic("unsupported special")
 		}

@@ -1,7 +1,6 @@
 package tlwire
 
 import (
-	"encoding/binary"
 	"math"
 	"time"
 
@@ -11,6 +10,8 @@ import (
 type (
 	Encoder struct {
 		LowEncoder
+
+		custom encoders
 	}
 
 	LowEncoder struct{}
@@ -134,36 +135,12 @@ func (e Encoder) InsertLen(b []byte, st, l int) []byte {
 		return b
 	}
 
-	var sz int
-
-	switch {
-	case l <= 0xff:
-		sz = 1
-	case l <= 0xffff:
-		sz = 2
-	case l <= 0xffff_ffff:
-		sz = 4
-	default:
-		sz = 8
-	}
+	sz := e.TagSize(l)
 
 	b = append(b, "        "[:sz]...)
 	copy(b[st+sz:], b[st:])
 
-	switch {
-	case l < 0xff:
-		b[st-1] |= Len1
-		b[st] = byte(l)
-	case l < 0xffff:
-		b[st-1] |= Len2
-		binary.BigEndian.PutUint16(b[st:], uint16(l))
-	case l < 0xffff_ffff:
-		b[st-1] |= Len4
-		binary.BigEndian.PutUint32(b[st:], uint32(l))
-	default:
-		b[st-1] |= Len8
-		binary.BigEndian.PutUint64(b[st:], uint64(l))
-	}
+	_ = e.AppendTag(b[:st-1], b[st-1], l)
 
 	return b
 }
@@ -217,7 +194,7 @@ func (e LowEncoder) AppendInt64(b []byte, v int64) []byte {
 }
 
 func (e LowEncoder) AppendUint64(b []byte, v uint64) []byte {
-	return e.AppendTag64(b, Int, uint64(v))
+	return e.AppendTag64(b, Int, v)
 }
 
 func (e LowEncoder) AppendFloat(b []byte, v float64) []byte {
@@ -298,4 +275,36 @@ func (e LowEncoder) AppendUndefined(b []byte) []byte {
 
 func (e LowEncoder) AppendBreak(b []byte) []byte {
 	return append(b, Special|Break)
+}
+
+func (e LowEncoder) TagSize(v int) int {
+	switch {
+	case v == -1:
+		return 1
+	case v < Len1:
+		return 1
+	case v <= 0xff:
+		return 1 + 1
+	case v <= 0xffff:
+		return 1 + 2
+	case v <= 0xffff_ffff:
+		return 1 + 4
+	default:
+		return 1 + 8
+	}
+}
+
+func (e LowEncoder) Tag64Size(v uint64) int {
+	switch {
+	case v < Len1:
+		return 1
+	case v <= 0xff:
+		return 1 + 1
+	case v <= 0xffff:
+		return 1 + 2
+	case v <= 0xffff_ffff:
+		return 1 + 4
+	default:
+		return 1 + 8
+	}
 }

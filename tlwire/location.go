@@ -12,6 +12,32 @@ var (
 	loccache = map[loc.PC][]byte{}
 )
 
+func (e Encoder) AppendPC(b []byte, pc loc.PC) []byte {
+	b = append(b, Semantic|Caller)
+
+	if pc == 0 {
+		return append(b, Special|Nil)
+	}
+
+	return e.AppendUint64(b, uint64(pc))
+}
+
+func (e Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
+	b = append(b, Semantic|Caller)
+
+	if pcs == nil {
+		return append(b, Special|Nil)
+	}
+
+	b = e.AppendTag(b, Array, len(pcs))
+
+	for _, pc := range pcs {
+		b = e.AppendUint64(b, uint64(pc))
+	}
+
+	return b
+}
+
 func (e Encoder) AppendCaller(b []byte, pc loc.PC) []byte {
 	b = append(b, Semantic|Caller)
 

@@ -29,14 +29,36 @@ type (
 		ptr  unsafe.Pointer
 		flag uintptr
 	}
+
+	encoders map[unsafe.Pointer]ValueEncoder
 )
 
-var encoders = map[unsafe.Pointer]ValueEncoder{}
+var defaultEncoders = encoders{}
 
 func SetEncoder(tp interface{}, encoder ValueEncoder) {
+	defaultEncoders.Set(tp, encoder)
+}
+
+func (e *Encoder) SetEncoder(tp interface{}, encoder ValueEncoder) {
+	if e.custom == nil {
+		e.custom = encoders{}
+	}
+
+	e.custom.Set(tp, encoder)
+}
+
+func (e encoders) Set(tp interface{}, encoder ValueEncoder) {
+	if tp == nil {
+		panic("nil type")
+	}
+
 	ef := *(*eface)(unsafe.Pointer(&tp))
 
-	encoders[ef.typ] = encoder
+	e[ef.typ] = encoder
+
+	if encoder == nil {
+		delete(e, ef.typ)
+	}
 }
 
 func init() {
@@ -94,17 +116,21 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		//		panic(fmt.Sprintf("not equal interface %v: %x %v %v", r, value(r), rawiface(v), rawiface(r.Interface())))
 		//	}
 
-		if a, ok := v.(TlogAppender); ok {
-			return a.TlogAppend(b)
-		}
-
 		ef := *(*eface)(unsafe.Pointer(&v))
 
-		if enc, ok := encoders[ef.typ]; ok {
+		if e != nil {
+			if enc, ok := e.custom[ef.typ]; ok {
+				return enc(b, v)
+			}
+		}
+
+		if enc, ok := defaultEncoders[ef.typ]; ok {
 			return enc(b, v)
 		}
 
 		switch v := v.(type) {
+		case TlogAppender:
+			return v.TlogAppend(b)
 		case error:
 			return e.AppendError(b, v)
 		case fmt.Stringer:
