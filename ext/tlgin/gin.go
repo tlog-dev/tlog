@@ -72,7 +72,7 @@ func SpanFromContext(c *gin.Context) (tr tlog.Span) {
 func Dumper(c *gin.Context) {
 	tr := SpanFromContext(c)
 
-	if tr.Is("rawbody,rawrequest") {
+	if tr.If("rawbody,rawrequest") {
 		data, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
 			tr.Printw("read body", "err", err)
@@ -92,7 +92,7 @@ func Dumper(c *gin.Context) {
 
 	var rw *respWriter
 
-	if tr.Is("rawbody,rawresponse") {
+	if tr.If("rawbody,rawresponse") {
 		rw = &respWriter{ResponseWriter: c.Writer}
 
 		c.Writer = rw
@@ -100,7 +100,7 @@ func Dumper(c *gin.Context) {
 
 	c.Next()
 
-	if tr.Is("rawbody,rawresponse") {
+	if tr.If("rawbody,rawresponse") {
 		tr.Printw("response", "len", rw.cp.Len(), "data", rw.cp.Bytes())
 	}
 }

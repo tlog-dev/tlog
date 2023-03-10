@@ -135,7 +135,7 @@ func (e Encoder) InsertLen(b []byte, st, l int) []byte {
 		return b
 	}
 
-	sz := e.TagSize(l)
+	sz := e.TagSize(l) - 1
 
 	b = append(b, "        "[:sz]...)
 	copy(b[st+sz:], b[st:])

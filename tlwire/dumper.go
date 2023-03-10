@@ -55,6 +55,15 @@ func NewDumper(w io.Writer) *Dumper {
 func (d *Dumper) Write(p []byte) (n int, err error) {
 	d.b = d.b[:0]
 
+	defer func() {
+		rp := recover()
+		if rp == nil {
+			return
+		}
+
+		hfmt.Appendf(d.b, "panic: %v\n%s", rp, hex.Dump(p))
+	}()
+
 	var i int
 
 	for i < len(p) {

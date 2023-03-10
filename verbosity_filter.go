@@ -58,19 +58,19 @@ func (l *Logger) V(topics string) *Logger {
 	return nil
 }
 
-func Is(topics string) bool {
+func If(topics string) bool {
 	return DefaultLogger.ifv(0, topics)
 }
 
-func (l *Logger) Is(topics string) bool {
+func (l *Logger) If(topics string) bool {
 	return l.ifv(0, topics)
 }
 
-func IsDepth(d int, topics string) bool {
+func IfDepth(d int, topics string) bool {
 	return DefaultLogger.ifv(d, topics)
 }
 
-func (l *Logger) IsDepth(d int, topics string) bool {
+func (l *Logger) IfDepth(d int, topics string) bool {
 	return l.ifv(d, topics)
 }
 
@@ -82,11 +82,11 @@ func (s Span) V(topics string) Span {
 	return Span{}
 }
 
-func (s Span) Is(topics string) bool {
+func (s Span) If(topics string) bool {
 	return s.Logger.ifv(0, topics)
 }
 
-func (s Span) IsDepth(d int, topics string) bool {
+func (s Span) IfDepth(d int, topics string) bool {
 	return s.Logger.ifv(d, topics)
 }
 
