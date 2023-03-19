@@ -128,7 +128,7 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 
 	var c loc.PC
 
-	if d >= 0 && l.callers != nil && l.callers(2+d+l.callersSkip, &c, 1, 1) != 0 {
+	if d >= 0 && l.callers != nil && l.callers(2+d+l.callersSkip, (*loc.PC)(noescape(unsafe.Pointer(&c))), 1, 1) != 0 {
 		l.b = l.Encoder.AppendKey(l.b, KeyCaller)
 		l.b = l.Encoder.AppendCaller(l.b, c)
 	}

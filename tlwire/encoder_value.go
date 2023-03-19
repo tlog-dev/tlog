@@ -98,8 +98,8 @@ func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	return appendValue(e, b, v)
 }
 
-func init() {
-	_ = (&Encoder{}).appendValue(nil, nil) // for linter to know it is used
+func (e *Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
+	return e.appendValue(b, v)
 }
 
 // called through linkname hack as appendValue from (Encoder).AppendValue
