@@ -53,12 +53,12 @@ tlog.SetVerbosity("rawdb,dump_request")
 
 tlog.V("rawdb").Printw("make db query", "query", query) // V is ispired by glog.V
 
-if tlog.Is("dump_request") {
+if tlog.If("dump_request") {
 	// some heavy calculations could also be here
 	tlog.Printw("full request data", "request", request)
 }
 
-if tlog.Is("full_token") {
+if tlog.If("full_token") {
 	tlog.Printw("db token", "token", token)
 } else {
 	tlog.Printw("db token", "token", token.ID)
