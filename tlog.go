@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/nikandfor/hacked/htime"
 	"github.com/nikandfor/loc"
@@ -21,6 +22,9 @@ type (
 
 		now  func() time.Time `deep:"compare=pointer"`
 		nano func() int64     `deep:"compare=pointer"`
+
+		callers     func(skip int, pc *loc.PC, len, cap int) int `deep:"compare=pointer"`
+		callersSkip int
 
 		filter *filter // atomic access
 
@@ -92,10 +96,11 @@ func (l *Logger) Root() Span { return Span{Logger: l} }
 
 func New(w io.Writer) *Logger {
 	return &Logger{
-		Writer: w,
-		NewID:  MathRandID,
-		now:    time.Now,
-		nano:   htime.UnixNano,
+		Writer:  w,
+		NewID:   MathRandID,
+		now:     time.Now,
+		nano:    htime.UnixNano,
+		callers: caller1,
 	}
 }
 
@@ -121,10 +126,9 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		l.b = l.Encoder.AppendTimestamp(l.b, now)
 	}
 
-	if d >= 0 {
-		var c loc.PC
-		caller1(2+d, &c, 1, 1)
+	var c loc.PC
 
+	if d >= 0 && l.callers != nil && l.callers(2+d+l.callersSkip, &c, 1, 1) != 0 {
 		l.b = l.Encoder.AppendKey(l.b, KeyCaller)
 		l.b = l.Encoder.AppendCaller(l.b, c)
 	}
@@ -419,4 +423,22 @@ func (l *Logger) Write(p []byte) (int, error) {
 func LoggerSetTimeNow(l *Logger, now func() time.Time, nano func() int64) {
 	l.now = now
 	l.nano = nano
+}
+
+func LoggerSetCallers(l *Logger, skip int, callers func(skip int, pc []uintptr) int) {
+	l.callers = *(*func(int, *loc.PC, int, int) int)(unsafe.Pointer(&callers))
+	l.callersSkip = skip + 1
+	/*
+		l.callers = func(skip int, pc *loc.PC, len, cap int) int {
+			return callers(skip+2, *(*[]uintptr)(unsafe.Pointer(&struct {
+				Ptr *loc.PC
+				Len int
+				Cap int
+			}{
+				Ptr: pc,
+				Len: len,
+				Cap: cap,
+			})))
+		}
+	*/
 }

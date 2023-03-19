@@ -2,9 +2,12 @@ package tlog
 
 import (
 	"io/ioutil"
+	"runtime"
 	"sync"
 	"testing"
 
+	"github.com/nikandfor/assert"
+	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
@@ -79,6 +82,104 @@ func TestLoggerSmokeConcurrent(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestLoggerSetCallers(t *testing.T) {
+	nextLine := func() int {
+		_, _, line := loc.Caller(1).NameFileLine()
+		return line + 1
+	}
+
+	var buf low.Buf
+	var off int
+
+	l := New(&buf)
+
+	LoggerSetTimeNow(l, nil, nil)
+
+	exp := nextLine()
+	l.Printw("hello default caller")
+
+	checkCaller(t, exp, true, buf[off:])
+	off = len(buf)
+
+	//
+
+	LoggerSetCallers(l, 0, runtime.Callers)
+
+	exp = nextLine()
+	l.Printw("hello runtime caller")
+
+	checkCaller(t, exp, true, buf[off:])
+	off = len(buf)
+
+	LoggerSetCallers(l, 0, func(skip int, pc []uintptr) int {
+		t.Logf("skip for custom logger: %v", skip)
+
+		pc[0] = 0x777
+		loc.SetCache(loc.PC(pc[0]), "name", "file", 877)
+		return 1
+	})
+
+	l.Printw("hello custom caller")
+
+	checkCaller(t, 877, true, buf[off:])
+	off = len(buf)
+
+	LoggerSetCallers(l, 0, nil)
+
+	l.Printw("hello no caller")
+
+	checkCaller(t, 0, false, buf[off:])
+	off = len(buf)
+
+	if t.Failed() {
+		t.Logf("dump:\n%v", tlwire.Dump(buf))
+		buf = buf[:0]
+	}
+}
+
+func checkCaller(t *testing.T, line int, exists bool, b []byte) {
+	t.Helper()
+
+	var d tlwire.Decoder
+	var msg []byte
+	var pc loc.PC
+	found := false
+
+	tag, sub, i := d.Tag(b, 0)
+	if tag != tlwire.Map {
+		t.Errorf("not a map object")
+		return
+	}
+
+	for el := 0; sub == -1 || el < int(sub); el++ {
+		if d.Break(b, &i) {
+			break
+		}
+
+		var key []byte
+		key, i = d.Bytes(b, i)
+
+		tag, sem, vst := d.Tag(b, i)
+
+		switch {
+		case tag == tlwire.Semantic && sem == WireMessage && string(key) == KeyMessage:
+			msg, i = d.Bytes(b, vst)
+		case tag == tlwire.Semantic && sem == tlwire.Caller && string(key) == KeyCaller:
+			pc, i = d.Caller(b, i)
+			found = true
+		default:
+			i = d.Skip(b, i)
+		}
+	}
+
+	assert.Equal(t, exists, found, "msg: %s", msg)
+
+	if found {
+		_, _, pcline := pc.NameFileLine()
+		assert.Equal(t, line, pcline, "msg: %s", msg)
+	}
 }
 
 func BenchmarkLoggerPrintw(b *testing.B) {

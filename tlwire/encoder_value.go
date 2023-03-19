@@ -84,6 +84,12 @@ func init() {
 	})
 }
 
+func (e *Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
+	b = e.AppendKey(b, key)
+	b = e.AppendValue(b, v)
+	return b
+}
+
 //go:linkname appendValue github.com/nikandfor/tlog/tlwire.(*Encoder).appendValue
 //go:noescape
 func appendValue(e *Encoder, b []byte, v interface{}) []byte
