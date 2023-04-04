@@ -50,7 +50,7 @@ func App() *cli.Command {
 		Action:      cat,
 		Args:        cli.Args{},
 		Flags: []*cli.Flag{
-			cli.NewFlag("output,out,o", "-+dm", "output file (empty is stderr, - is stdout)"),
+			cli.NewFlag("output,out,o", "-?dm", "output file (empty is stderr, - is stdout)"),
 			cli.NewFlag("clickhouse", "", "send logs to clickhouse"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			cli.NewFlag("head", 0, "skip all except first n events"),

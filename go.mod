@@ -12,6 +12,6 @@ require (
 	github.com/nikandfor/hacked v0.0.0-20230220212011-8d60788f06cb
 	github.com/nikandfor/loc v0.4.0
 	github.com/stretchr/testify v1.8.1
-	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
+	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/term v0.5.0
 )

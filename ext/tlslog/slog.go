@@ -32,7 +32,7 @@ func (l *Handler) Enabled(ctx context.Context, lvl slog.Level) bool {
 	return l != nil && l.Logger != nil && lvl >= l.Level
 }
 
-func (l *Handler) Handle(r slog.Record) error {
+func (l *Handler) Handle(ctx context.Context, r slog.Record) error {
 	if l == nil {
 		return nil
 	}
