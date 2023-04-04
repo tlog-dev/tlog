@@ -266,8 +266,8 @@ github.com/nikandfor/errors v0.3.1-0.20201212142705-56fda2c0e8b3/go.mod h1:YG1mu
 github.com/nikandfor/errors v0.4.0/go.mod h1:YG1muM/ZtoVZ7rYhrFXUGLa9fRQ2yX5cs7LWiN8i8ho=
 github.com/nikandfor/errors v0.5.0/go.mod h1:hWSe7BRoHk1mR5JK7QB1vfK2xIN4PgwrQbzD3Pi0oKc=
 github.com/nikandfor/errors v0.6.0/go.mod h1:3388GVz8B4F6BIl0VR7YkJeeIlehGBHUfMxs/Nn6i/k=
-github.com/nikandfor/errors v0.7.0 h1:+hI2nC4T8T7r4/yXUR7nlQnXio/5bUUw9IXLNJeAxq8=
-github.com/nikandfor/errors v0.7.0/go.mod h1:CNowXzeHAVXI6YJNX3Pgtl3JoRBLurz84CxgPgY791E=
+github.com/nikandfor/errors v0.8.0 h1:9119qwRryifKr7pqoQ9j8hjHOT9FFzQ2IN0XyVEGiOU=
+github.com/nikandfor/errors v0.8.0/go.mod h1:Xnkl1aTu4kwjOfEksGQ9IEghhvKCI0QgcuYbgPBpL1M=
 github.com/nikandfor/graceful v0.0.0-20211115215916-d1e69cb51d77/go.mod h1:Oa3b+wEPfLWTAS19zrNTemiGel6ObnQUtzOgEcbgN38=
 github.com/nikandfor/graceful v0.0.0-20211209123532-7a354c07c63e/go.mod h1:JGEpS1bUmG51CFMDQSj+9U016VGS1oQxvXq59GLoD5g=
 github.com/nikandfor/graceful v0.0.0-20220414142156-2d7797928a5e h1:+Z9KqVVbMGUbJkmH9A/Upc3HGQ1ynlxnU4On5enpSCM=
@@ -278,8 +278,8 @@ github.com/nikandfor/loc v0.0.0-20201209201630-39582039abc5/go.mod h1:LZpmiieVWc
 github.com/nikandfor/loc v0.1.1-0.20210914135013-829520244234/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.2.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.3.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
-github.com/nikandfor/loc v0.4.0 h1:Dpr8magxCFuCB7Dgu86OSe7X2vMbUaUJslQrk/CqDFY=
-github.com/nikandfor/loc v0.4.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
+github.com/nikandfor/loc v0.5.0 h1:dOcFH7slQI9JPvPLFWsFCsl7AwHQlwI/MwxZTJ0yqQ0=
+github.com/nikandfor/loc v0.5.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/netpoll v0.0.0-20211115220203-25e4df8e6e67/go.mod h1:JGUOkE/wHwm3g+8+KRIA9gFsVuegqf1zJsJNtjpuuA4=
 github.com/nikandfor/netpoll v0.0.0-20211124145858-9739b0b763d8/go.mod h1:JGUOkE/wHwm3g+8+KRIA9gFsVuegqf1zJsJNtjpuuA4=
 github.com/nikandfor/quantile v0.0.0-20201109213849-4905a12df281/go.mod h1:APrhtjJLhkjWbXluFo//uObr4wqeUN+frTIb0RJaLyE=
