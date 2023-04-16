@@ -30,9 +30,9 @@ var (
 	None          = RawMessage{tlwire.Special | tlwire.None}
 	Nil           = RawMessage{tlwire.Special | tlwire.Nil}
 	Break         = RawMessage{tlwire.Special | tlwire.Break}
-	NextIsHex     = Modify{tlwire.Semantic | tlwire.Hex}
-	NextIsMessage = Modify{tlwire.Semantic | WireMessage}
-	NextIsType    = FormatNext("%T")
+	NextAsHex     = Modify{tlwire.Semantic | tlwire.Hex}
+	NextAsMessage = Modify{tlwire.Semantic | WireMessage}
+	NextAsType    = FormatNext("%T")
 )
 
 const (

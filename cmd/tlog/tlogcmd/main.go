@@ -6,10 +6,12 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/graceful"
+	"github.com/nikandfor/hacked/hnet"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/agent"
@@ -109,7 +112,7 @@ func App() *cli.Command {
 		Description: "tlog cli",
 		Before:      before,
 		Flags: []*cli.Flag{
-			cli.NewFlag("log", "stderr", "log output file (or stderr)"),
+			cli.NewFlag("log", "stderr?dm", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
 			cli.NewFlag("debug", "", "debug address", cli.Hidden),
 			cli.FlagfileFlag,
@@ -160,13 +163,18 @@ func before(c *cli.Command) error {
 	tlog.SetVerbosity(c.String("verbosity"))
 
 	if q := c.String("debug"); q != "" {
-		go func() {
-			tlog.Printw("start debug interface", "addr", q)
+		l, err := net.Listen("tcp", q)
+		if err != nil {
+			return errors.Wrap(err, "listen debug")
+		}
 
-			err := http.ListenAndServe(q, nil)
+		go func() {
+			tlog.Printw("start debug interface", "addr", l.Addr())
+
+			err := http.Serve(l, nil)
 			if err != nil {
 				tlog.Printw("debug", "addr", q, "err", err, "", tlog.Fatal)
-				os.Exit(1)
+				panic(err)
 			}
 		}()
 	}
@@ -192,6 +200,7 @@ func beforeAgent(c *cli.Command) error {
 
 func agentRun(c *cli.Command) (err error) {
 	ctx := context.Background()
+	ctx = tlog.ContextWithSpan(ctx, tlog.Root())
 
 	agent, err := agent.New(c.String("db"))
 	if err != nil {
@@ -210,26 +219,37 @@ func agentRun(c *cli.Command) (err error) {
 
 		switch {
 		case u.Scheme == "tcp", u.Scheme == "unix":
-			l, err := listen(u.Scheme, u.Host)
+			host := u.Host
+			if u.Scheme == "unix" || u.Scheme == "unixgram" {
+				host = u.Path
+			}
+
+			l, err := listen(u.Scheme, host)
 			if err != nil {
-				return errors.Wrap(err, "listen %v", u.Host)
+				return errors.Wrap(err, "listen %v", host)
 			}
 
 			group.Add(func(ctx context.Context) error {
+				var wg sync.WaitGroup
+
+				defer wg.Wait()
+
 				for {
-					c, err := l.Accept()
-
-					select {
-					case <-ctx.Done():
+					c, err := hnet.Accept(ctx, l)
+					if errors.Is(err, context.Canceled) {
 						return nil
-					default:
 					}
-
 					if err != nil {
 						return errors.Wrap(err, "accept")
 					}
 
+					wg.Add(1)
+
+					tr := tlog.SpawnFromContext(ctx, "agent_writer", "local_addr", c.LocalAddr(), "remote_addr", c.RemoteAddr())
+
 					go func() {
+						defer wg.Done()
+						defer tr.Finish()
 						defer c.Close()
 
 						rr := tlwire.NewStreamDecoder(c)
@@ -336,13 +356,13 @@ func cat(c *cli.Command) (err error) {
 		var w0 io.Writer = w
 
 		if f := c.Flag("tail"); f.IsSet {
-			w0 = tlio.NewTailWriter(w0, *f.Value.(*int))
+			w0 = tlio.NewTailWriter(w0, f.Value.(int))
 		}
 
 		if f := c.Flag("head"); f.IsSet {
 			fl, _ := w0.(tlio.Flusher)
 
-			w0 = tlio.NewHeadWriter(w0, *f.Value.(*int))
+			w0 = tlio.NewHeadWriter(w0, f.Value.(int))
 
 			if _, ok := w0.(tlio.Flusher); !ok && fl != nil {
 				w0 = tlio.WriteFlusher{
@@ -495,6 +515,10 @@ func ticker(c *cli.Command) error {
 	w, err := tlflag.OpenWriter(c.String("output"))
 	if err != nil {
 		return errors.Wrap(err, "open output")
+	}
+
+	if tlog.If("output") {
+		tlflag.DumpWriter(tlog.Root(), w)
 	}
 
 	w = perrWriter{
@@ -656,6 +680,10 @@ func flockLock(addr string) (_ io.Closer, err error) {
 	}
 
 	return tlio.CloserFunc(cl), nil
+}
+
+func (p listenerClose) SetDeadline(t time.Time) error {
+	return p.Listener.(interface{ SetDeadline(time.Time) error }).SetDeadline(t)
 }
 
 func (p listenerClose) Close() (err error) {

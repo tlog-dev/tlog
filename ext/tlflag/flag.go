@@ -2,6 +2,7 @@ package tlflag
 
 import (
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path"
@@ -194,13 +195,24 @@ func openwfile(u *url.URL) (interface{}, error) {
 	return OpenFileWriter(fname, of, mode)
 }
 
-func openwurl(u *url.URL) (interface{}, error) {
-	switch u.Scheme {
-	case "file":
+func openwurl(u *url.URL) (f interface{}, err error) {
+	if u.Scheme == "file" {
 		return openwfile(u)
+	}
+
+	switch u.Scheme {
+	case "unix":
 	default:
 		return nil, errors.New("unsupported scheme: %v", u.Scheme)
 	}
+
+	return tlio.NewReWriter(func(w io.Writer, err error) (io.Writer, error) {
+		if c, ok := w.(io.Closer); ok {
+			_ = c.Close()
+		}
+
+		return net.Dial(u.Scheme, u.Path)
+	}), nil
 }
 
 func OpenReader(src string) (rc io.ReadCloser, err error) {
@@ -316,9 +328,11 @@ func openrfile(u *url.URL) (interface{}, error) {
 }
 
 func openrurl(u *url.URL) (interface{}, error) {
-	switch u.Scheme {
-	case "file":
+	if u.Scheme == "file" {
 		return openrfile(u)
+	}
+
+	switch u.Scheme {
 	default:
 		return nil, errors.New("unsupported scheme: %v", u.Scheme)
 	}
@@ -419,10 +433,41 @@ func ParseURL(d string) (u *url.URL, err error) {
 		return nil, err
 	}
 
-	if u.Scheme == "file" && u.Host != "" {
+	if (u.Scheme == "file" || u.Scheme == "unix" || u.Scheme == "unixgram") && u.Host != "" {
 		u.Path = path.Join(u.Host, u.Path)
 		u.Host = ""
 	}
 
 	return u, nil
+}
+
+func DumpWriter(tr tlog.Span, w io.Writer) {
+	dumpWriter(tr, w, 0)
+}
+
+func dumpWriter(tr tlog.Span, w io.Writer, d int) {
+	switch w := w.(type) {
+	case tlio.MultiWriter:
+		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+
+		for _, w := range w {
+			dumpWriter(tr, w, d+1)
+		}
+	case *tlog.ConsoleWriter:
+		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+
+		dumpWriter(tr, w.Writer, d+1)
+	case *os.File:
+		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w, "name", w.Name())
+
+	case *net.UnixConn:
+		f, err := w.File()
+
+		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w, "get_file_err", err)
+
+		dumpWriter(tr, f, d+1)
+
+	default:
+		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+	}
 }

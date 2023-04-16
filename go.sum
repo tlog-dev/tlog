@@ -274,6 +274,8 @@ github.com/nikandfor/graceful v0.0.0-20220414142156-2d7797928a5e h1:+Z9KqVVbMGUb
 github.com/nikandfor/graceful v0.0.0-20220414142156-2d7797928a5e/go.mod h1:M54bQViJVWR0EN9/2RSWbgEOaj5iX+M+eJwDOzcllYM=
 github.com/nikandfor/hacked v0.0.0-20230220212011-8d60788f06cb h1:PUhBdbpq7xLWpsrkqz2sU80JNhBRfpKXdSzIh2wzZfk=
 github.com/nikandfor/hacked v0.0.0-20230220212011-8d60788f06cb/go.mod h1:qwODwniFRzGhRcxAlYRMSgg1F3bvb51koTca7d+F25o=
+github.com/nikandfor/hacked v0.0.0-20230404201721-a8a0d1024c87 h1:x3cJvCauFTNaOfsVKhvDstGpxP/tk0XRoEow2BBIZoI=
+github.com/nikandfor/hacked v0.0.0-20230404201721-a8a0d1024c87/go.mod h1:qwODwniFRzGhRcxAlYRMSgg1F3bvb51koTca7d+F25o=
 github.com/nikandfor/loc v0.0.0-20201209201630-39582039abc5/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.1.1-0.20210914135013-829520244234/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.2.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=

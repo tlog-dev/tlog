@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
@@ -43,15 +44,16 @@ type (
 
 		Start time.Time
 
-		streams map[uint32]*Stream
+		streams map[uint32]*streamPart
 	}
 
-	Stream struct {
+	streamPart struct {
 		io.Writer
 		sync.Mutex
 
-		part *partition
-		sum  uint32
+		part   *partition
+		sum    uint32
+		labels []byte
 	}
 )
 
@@ -88,26 +90,42 @@ func (w *Agent) Write(p []byte) (i int, err error) {
 		fmt.Fprintf(w.Stderr, "%s", s)
 	}()
 
-	tlog.V("dump").Write(p)
+	stream, err := func() (stream *streamPart, err error) {
+		if tlog.If("dump") {
+			defer func() {
+				var sum uint32
+				if stream != nil {
+					sum = stream.sum
+				}
 
-	ts, labels, err := w.parseEventHeader(p)
+				tlog.Printw("message", "sum", tlog.NextAsHex, sum, "msg", tlog.RawMessage(p))
+			}()
+		}
+
+		defer w.Unlock()
+		w.Lock()
+
+		ts, labels, err := w.parseEventHeader(p)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse event header")
+		}
+
+		start := time.Unix(0, ts).Truncate(w.Partition)
+
+		part := w.getPartition(start)
+		stream = part.getStream(labels)
+
+		return stream, nil
+	}()
+
 	if err != nil {
-		return 0, errors.Wrap(err, "parse event header")
+		return 0, err
 	}
-
-	start := time.Unix(0, ts).Truncate(w.Partition)
-
-	w.Lock()
-
-	part := w.getPartition(start)
-	stream := part.getStream(labels)
-
-	w.Unlock()
 
 	return stream.Write(p)
 }
 
-func (w *Agent) parseEventHeader(p []byte) (ts int64, labels uint32, err error) {
+func (w *Agent) parseEventHeader(p []byte) (ts int64, labels []byte, err error) {
 	tag, els, i := w.d.Tag(p, 0)
 	if tag != tlwire.Map {
 		err = errors.New("expected map")
@@ -139,7 +157,8 @@ func (w *Agent) parseEventHeader(p []byte) (ts int64, labels uint32, err error) 
 		case sub == tlwire.Time && string(k) == w.KeyTimestamp:
 			ts, i = w.d.Timestamp(p, i)
 		case sub == tlog.WireLabel:
-			labels = crc32.Update(labels, crc32.IEEETable, p[i:end])
+			//labels = crc32.Update(labels, crc32.IEEETable, p[i:end])
+			labels = append(labels, p[i:end]...)
 		}
 
 		i = end
@@ -166,7 +185,7 @@ func (w *Agent) newPartition(start time.Time) *partition {
 	return &partition{
 		Agent:   w,
 		Start:   start,
-		streams: map[uint32]*Stream{},
+		streams: map[uint32]*streamPart{},
 	}
 }
 
@@ -194,23 +213,33 @@ func (w *Agent) getPartition(start time.Time) *partition {
 	return p
 }
 
-func (p *partition) newStream(sum uint32) *Stream {
-	return &Stream{
-		part: p,
-		sum:  sum,
+func (p *partition) newStream(sum uint32, labels []byte) *streamPart {
+	return &streamPart{
+		part:   p,
+		sum:    sum,
+		labels: append([]byte{}, labels...),
 	}
 }
 
-func (p *partition) getStream(sum uint32) *Stream {
-	s, ok := p.streams[sum]
-	if ok {
-		return s
+func (p *partition) getStream(labels []byte) *streamPart {
+	sum := crc32.ChecksumIEEE(labels)
+
+	for {
+		s, ok := p.streams[sum]
+		if !ok {
+			break
+		}
+		if bytes.Equal(s.labels, labels) {
+			return s
+		}
+
+		sum++
 	}
 
-	s = p.newStream(sum)
+	s := p.newStream(sum, labels)
 	p.streams[sum] = s
 
-	tlog.Printw("new stream", "sum", tlog.NextIsHex, sum)
+	tlog.Printw("new stream", "sum", tlog.NextAsHex, sum, "labels", tlog.RawTag(tlwire.Map, -1), tlog.RawMessage(labels), tlog.Break)
 
 	return s
 }
@@ -226,7 +255,7 @@ func (p *partition) Close() (err error) {
 	return err
 }
 
-func (s *Stream) Write(p []byte) (i int, err error) {
+func (s *streamPart) Write(p []byte) (i int, err error) {
 	defer s.Unlock()
 	s.Lock()
 
@@ -242,7 +271,7 @@ func (s *Stream) Write(p []byte) (i int, err error) {
 	return
 }
 
-func (s *Stream) Close() (err error) {
+func (s *streamPart) Close() (err error) {
 	if c, ok := s.Writer.(io.Closer); ok {
 		err = c.Close()
 	}
@@ -250,7 +279,7 @@ func (s *Stream) Close() (err error) {
 	return err
 }
 
-func (s *Stream) openWriter() (io.Writer, error) {
+func (s *streamPart) openWriter() (io.Writer, error) {
 	name := filepath.Join(s.part.Agent.path, s.part.Start.Format("2006-01-02_15:04"), fmt.Sprintf("%08x.tlz", s.sum))
 	dir := filepath.Dir(name)
 

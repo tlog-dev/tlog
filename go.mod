@@ -9,7 +9,7 @@ require (
 	github.com/nikandfor/cli v0.0.0-20220929151258-fb151fc0dc3c
 	github.com/nikandfor/errors v0.8.0
 	github.com/nikandfor/graceful v0.0.0-20220414142156-2d7797928a5e
-	github.com/nikandfor/hacked v0.0.0-20230220212011-8d60788f06cb
+	github.com/nikandfor/hacked v0.0.0-20230404201721-a8a0d1024c87
 	github.com/nikandfor/loc v0.5.0
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
