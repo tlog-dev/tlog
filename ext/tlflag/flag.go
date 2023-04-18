@@ -339,7 +339,7 @@ func openrurl(u *url.URL) (interface{}, error) {
 }
 
 func updateFileFlags(of int, q string) int {
-	for c := range q {
+	for _, c := range q {
 		if c == '0' {
 			of |= os.O_TRUNC
 		}
