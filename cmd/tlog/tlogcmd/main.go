@@ -54,12 +54,11 @@ func App() *cli.Command {
 		Args:        cli.Args{},
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,out,o", "-?dm", "output file (empty is stderr, - is stdout)"),
-			cli.NewFlag("clickhouse", "", "send logs to clickhouse"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			cli.NewFlag("head", 0, "skip all except first n events"),
 			cli.NewFlag("tail", 0, "skip all except last n events"),
-			cli.NewFlag("filter", "", "span filter"),
-			cli.NewFlag("filter-depth", 0, "span filter max depth"),
+			//	cli.NewFlag("filter", "", "span filter"),
+			//	cli.NewFlag("filter-depth", 0, "span filter max depth"),
 		},
 	}
 

@@ -129,15 +129,15 @@ func (f *filter) match(pc loc.PC, topics string) (r bool) {
 		return r
 	}
 
-	r = f.matchPattern(pc, topics)
+	name, file, _ := pc.NameFileLine()
+	r = f.matchPattern(name, file, topics)
 
 	f.c[k] = r
 
 	return r
 }
 
-func (f *filter) matchPattern(pc loc.PC, topics string) (r bool) {
-	name, file, _ := pc.NameFileLine()
+func (f *filter) matchPattern(name, file, topics string) (r bool) {
 	ts := strings.Split(topics, ",")
 
 	if f.f != "" && f.f[0] == '!' {
@@ -154,7 +154,7 @@ func (f *filter) matchPattern(pc loc.PC, topics string) (r bool) {
 
 		p := strings.IndexByte(ff, '=')
 
-		if p != -1 {
+		if p != -1 && ff[:p] != "" {
 			if !f.matchPath(ff[:p], file) && !f.matchType(ff[:p], name) {
 				continue
 			}
