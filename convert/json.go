@@ -63,12 +63,13 @@ func NewJSON(w io.Writer) *JSON {
 }
 
 func (w *JSON) Write(p []byte) (i int, err error) {
+	b := w.b[:0]
+
+more:
 	tag, els, i := w.d.Tag(p, i)
 	if tag != tlwire.Map {
 		return i, errors.New("map expected")
 	}
-
-	b := w.b[:0]
 
 	b = append(b, '{')
 
@@ -108,6 +109,10 @@ func (w *JSON) Write(p []byte) (i int, err error) {
 	b = append(b, '}')
 	if w.AppendNewLine {
 		b = append(b, '\n')
+	}
+
+	if i < len(p) {
+		goto more
 	}
 
 	w.b = b[:0]

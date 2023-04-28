@@ -14,7 +14,7 @@ import (
 
 type (
 	Logger struct {
-		io.Writer
+		io.Writer // protected by Mutex below
 
 		tlwire.Encoder
 
@@ -81,10 +81,10 @@ var (
 
 // Event kinds
 const (
-	EventLabels     EventKind = 'l'
+	//	EventLabels     EventKind = 'l'
 	EventSpanStart  EventKind = 's'
 	EventSpanFinish EventKind = 'f'
-	EventValue      EventKind = 'v'
+	//	EventValue      EventKind = 'v'
 	EventMetricDesc EventKind = 'm'
 )
 
@@ -102,6 +102,35 @@ func New(w io.Writer) *Logger {
 		nano:    htime.UnixNano,
 		callers: caller1,
 	}
+}
+
+func (l *Logger) Copy() *Logger {
+	return l.CopyWriter(l.Writer)
+}
+
+func (l *Logger) CopyWriter(w io.Writer) *Logger {
+	return &Logger{
+		Writer:      w,
+		Encoder:     l.Encoder,
+		NewID:       l.NewID,
+		now:         l.now,
+		nano:        l.nano,
+		callers:     l.callers,
+		callersSkip: l.callersSkip,
+		filter:      l.getfilter(),
+	}
+}
+
+func (s Span) Copy() Span {
+	r := s
+	r.Logger = r.Logger.Copy()
+	return r
+}
+
+func (s Span) CopyWriter(w io.Writer) Span {
+	r := s
+	r.Logger = r.Logger.CopyWriter(w)
+	return r
 }
 
 func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {

@@ -148,7 +148,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 		return b
 	}
 
-	buf = appendMap(buf, tlog.KeyTimestamp, 10000000000, tlog.KeyEventKind, tlog.EventLabels, "a", "b", "c", "d", "e", "d", "h", "g")
+	buf = appendMap(buf, tlog.KeyTimestamp, 10000000000, tlog.KeyEventKind, tlog.EventSpanStart, "a", "b", "c", "d", "e", "d", "h", "g")
 	buf = appendMap(buf, tlog.KeySpan, tlog.ID{}, tlog.KeyTimestamp, 10000000000, tlog.KeyMessage, "message text", "arg", "value", "arg2", 5)
 
 	var d tlwire.Decoder

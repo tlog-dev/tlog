@@ -95,7 +95,7 @@ func (l *Logger) ifv(d int, topics string) bool {
 		return false
 	}
 
-	f := (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
+	f := l.getfilter()
 	if f == nil {
 		return false
 	}
@@ -108,6 +108,10 @@ func (l *Logger) ifv(d int, topics string) bool {
 	caller1(2+d, &pc, 1, 1)
 
 	return f.match(pc, topics)
+}
+
+func (l *Logger) getfilter() *filter {
+	return (*filter)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&l.filter))))
 }
 
 func (f *filter) match(pc loc.PC, topics string) (r bool) {

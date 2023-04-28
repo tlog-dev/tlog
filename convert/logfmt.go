@@ -88,14 +88,15 @@ func NewLogfmt(w io.Writer) *Logfmt {
 }
 
 func (w *Logfmt) Write(p []byte) (i int, err error) {
+	b := w.b[:0]
+
+more:
 	tag, els, i := w.d.Tag(p, i)
 	if tag != tlwire.Map {
 		return i, errors.New("map expected")
 	}
 
 	w.addpad = 0
-
-	b := w.b[:0]
 
 	var k []byte
 	for el := 0; els == -1 || el < int(els); el++ {
@@ -105,10 +106,14 @@ func (w *Logfmt) Write(p []byte) (i int, err error) {
 
 		k, i = w.d.Bytes(p, i)
 
-		b, i = w.appendPair(b, p, k, i)
+		b, i = w.appendPair(b, p, k, i, el == 0)
 	}
 
 	b = append(b, '\n')
+
+	if i < len(p) {
+		goto more
+	}
 
 	w.b = b[:0]
 
@@ -120,7 +125,7 @@ func (w *Logfmt) Write(p []byte) (i int, err error) {
 	return len(p), nil
 }
 
-func (w *Logfmt) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
+func (w *Logfmt) appendPair(b, p, k []byte, st int, first bool) (_ []byte, i int) {
 	if w.addpad != 0 {
 		b = append(b, low.Spaces[:w.addpad]...)
 		w.addpad = 0
@@ -130,11 +135,11 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 		tag := w.d.TagOnly(p, st)
 
 		if tag == tlwire.Array || tag == tlwire.Map {
-			return w.convertArray(b, p, k, st)
+			return w.convertArray(b, p, k, st, first)
 		}
 	}
 
-	if len(b) != 0 {
+	if !first {
 		b = append(b, w.PairSeparator...)
 	}
 
@@ -204,9 +209,9 @@ func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
 
 		b = w.appendAndQuote(b, s, tag)
 	case tlwire.Array:
-		b, i = w.convertArray(b, p, k, st)
+		b, i = w.convertArray(b, p, k, st, false)
 	case tlwire.Map:
-		b, i = w.convertArray(b, p, k, st)
+		b, i = w.convertArray(b, p, k, st, false)
 	case tlwire.Semantic:
 		switch sub {
 		case tlwire.Time:
@@ -316,7 +321,7 @@ func (w *Logfmt) appendAndQuote(b, s []byte, tag byte) []byte {
 	return b
 }
 
-func (w *Logfmt) convertArray(b, p, k []byte, st int) (_ []byte, i int) {
+func (w *Logfmt) convertArray(b, p, k []byte, st int, first bool) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	subk := k[:len(k):len(k)]
@@ -344,7 +349,7 @@ func (w *Logfmt) convertArray(b, p, k []byte, st int) (_ []byte, i int) {
 				subk = append(subk, kk...)
 			}
 
-			b, i = w.appendPair(b, p, subk, i)
+			b, i = w.appendPair(b, p, subk, i, first && el == 0)
 
 			continue
 		}

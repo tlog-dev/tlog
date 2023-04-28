@@ -203,6 +203,9 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 		w.KVSeparator = "="
 	}
 
+	h := w.h
+
+more:
 	w.addpad = 0
 
 	var t time.Time
@@ -269,8 +272,7 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 		}
 	}
 
-	h := w.h
-	h = w.appendHeader(w.h, t, lv, pc, m, len(b))
+	h = w.appendHeader(h, t, lv, pc, m, len(b))
 
 	h = append(h, b...)
 
@@ -280,6 +282,10 @@ func (w *ConsoleWriter) Write(p []byte) (i int, err error) {
 	}
 
 	h.NewLine()
+
+	if i < len(p) {
+		goto more
+	}
 
 	w.b = b[:0]
 	w.h = h[:0]
