@@ -50,7 +50,7 @@ func Create(name string) (f *File) {
 		//	ErrorOnRotate: RotatedError{},
 
 		Flags:    os.O_CREATE | os.O_APPEND | os.O_WRONLY,
-		Mode:     0644,
+		Mode:     0o644,
 		OpenFile: OpenFileTimeSubstWithSymlink,
 	}
 

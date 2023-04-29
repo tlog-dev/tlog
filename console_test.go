@@ -6,6 +6,7 @@ import (
 
 	"github.com/nikandfor/assert"
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
@@ -33,16 +34,15 @@ func TestConsoleLocations(t *testing.T) {
 		}
 	}
 
-	l.Event("caller", c)
+	_ = l.Event("caller", c)
 	assert.Equal(t, "caller=location.go:24\n", string(buf))
 
 	buf = buf[:0]
 
-	l.Event("callers", cc)
-	assert.Equal(t, "callers=[location.go:71 console_test.go:24]\n", string(buf))
+	_ = l.Event("callers", cc)
+	assert.Equal(t, "callers=[location.go:71 console_test.go:25]\n", string(buf))
 
 	t.Logf("dump:\n%v", tlwire.Dump(raw))
-
 }
 
 func (w TeeWriter) Write(p []byte) (n int, err error) {

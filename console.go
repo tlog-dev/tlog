@@ -16,13 +16,14 @@ import (
 	"github.com/nikandfor/hacked/hfmt"
 	"github.com/nikandfor/hacked/htime"
 	"github.com/nikandfor/loc"
+	"golang.org/x/term"
+
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
-	"golang.org/x/term"
 )
 
 type (
-	ConsoleWriter struct {
+	ConsoleWriter struct { //nolint:maligned
 		io.Writer
 		Flags int
 
@@ -105,21 +106,15 @@ const (
 	cfHex = 1 << iota
 )
 
-var (
-	ResetColor = Color(0)
-)
+var ResetColor = Color(0)
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	fd := -1
 
 	switch f := w.(type) {
-	case interface {
-		Fd() uintptr
-	}:
+	case interface{ Fd() uintptr }:
 		fd = int(f.Fd())
-	case interface {
-		Fd() int
-	}:
+	case interface{ Fd() int }:
 		fd = f.Fd()
 	}
 
@@ -640,7 +635,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	return b, i
 }
 
-func (w *ConsoleWriter) convertValue(b, p []byte, st int, ff int) (_ []byte, i int) {
+func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	switch tag {

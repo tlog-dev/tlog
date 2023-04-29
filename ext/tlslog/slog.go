@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/nikandfor/loc"
 	"golang.org/x/exp/slog"
 
-	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 )
 
@@ -32,7 +32,7 @@ func (l *Handler) Enabled(ctx context.Context, lvl slog.Level) bool {
 	return l != nil && l.Logger != nil && lvl >= l.Level
 }
 
-func (l *Handler) Handle(ctx context.Context, r slog.Record) error {
+func (l *Handler) Handle(ctx context.Context, r slog.Record) error { //nolint:gocritic
 	if l == nil {
 		return nil
 	}

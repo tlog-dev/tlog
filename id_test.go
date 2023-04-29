@@ -10,7 +10,7 @@ import (
 
 func testRandID(seed int64) func() ID {
 	var mu sync.Mutex
-	rnd := rand.New(rand.NewSource(seed))
+	rnd := rand.New(rand.NewSource(seed)) //nolint:gosec
 
 	return func() (id ID) {
 		defer mu.Unlock()

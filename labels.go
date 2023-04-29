@@ -15,15 +15,16 @@ import (
 )
 
 // AutoLabels is a list of automatically filled labels
-//     _hostname - local hostname
-//     _user - current user
-//     _pid - process pid
-//     _timezone - local timezone code (UTC, MSK)
-//     _goversion - go version
-//     _execmd5 - this binary md5 hash
-//     _execsha1 - this binary sha1 hash
-//     _execname - executable base name (project name)
-//     _randid - random id. May be used to distinguish different runs.
+//
+//	_hostname - local hostname
+//	_user - current user
+//	_pid - process pid
+//	_timezone - local timezone code (UTC, MSK)
+//	_goversion - go version
+//	_execmd5 - this binary md5 hash
+//	_execsha1 - this binary sha1 hash
+//	_execname - executable base name (project name)
+//	_randid - random id. May be used to distinguish different runs.
 var AutoLabels = map[string]func() interface{}{
 	"_hostname":   func() interface{} { return Hostname() },
 	"_user":       func() interface{} { return User() },
@@ -139,7 +140,7 @@ func ParseLabels(s string) []interface{} {
 			continue
 		}
 
-		var k, v = l[:p], l[p+1:]
+		k, v := l[:p], l[p+1:]
 
 		if x, err := strconv.Atoi(v); err == nil {
 			res = append(res, k, x)

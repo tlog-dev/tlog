@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/nikandfor/errors"
-	"github.com/nikandfor/tlog"
 
+	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
@@ -48,7 +48,7 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 			return nil, errors.Wrap(err, "parse %v", d)
 		}
 
-		//tlog.Printw(d, "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery, "from", loc.Caller(1))
+		// tlog.Printw(d, "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery, "from", loc.Caller(1))
 
 		w, err := openw(u)
 		if err != nil {
@@ -190,7 +190,7 @@ func openwfile(u *url.URL) (interface{}, error) {
 	of := os.O_APPEND | os.O_WRONLY | os.O_CREATE
 	of = updateFileFlags(of, u.RawQuery)
 
-	mode := os.FileMode(0644)
+	mode := os.FileMode(0o644)
 
 	return OpenFileWriter(fname, of, mode)
 }
@@ -332,7 +332,7 @@ func openrurl(u *url.URL) (interface{}, error) {
 		return openrfile(u)
 	}
 
-	switch u.Scheme {
+	switch u.Scheme { //nolint:gocritic
 	default:
 		return nil, errors.New("unsupported scheme: %v", u.Scheme)
 	}

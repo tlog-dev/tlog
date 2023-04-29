@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/assert"
+
 	"github.com/nikandfor/tlog/low"
 )
 

@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -19,11 +20,13 @@ type (
 
 	ValueEncoder func(b []byte, val interface{}) []byte
 
+	//nolint:structcheck
 	eface struct {
 		typ unsafe.Pointer
 		ptr unsafe.Pointer
 	}
 
+	//nolint:structcheck
 	reflectValue struct {
 		typ  unsafe.Pointer
 		ptr  unsafe.Pointer
@@ -102,7 +105,7 @@ func (e *Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
 	return e.appendValue(b, v)
 }
 
-// called through linkname hack as appendValue from (Encoder).AppendValue
+// Called through linkname hack as appendValue from (Encoder).AppendValue.
 func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	if v == nil {
 		return append(b, Special|Nil)
@@ -113,16 +116,16 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	return e.appendRaw(b, r, ptrSet{})
 }
 
-func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit
+func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
 	if r.CanInterface() {
-		//v := r.Interface()
+		//	v := r.Interface()
 		v := valueInterface(r)
 
 		//	if r.Type().Comparable() && v != r.Interface() {
-		//		panic(fmt.Sprintf("not equal interface %v: %x %v %v", r, value(r), rawiface(v), rawiface(r.Interface())))
+		//		panic(fmt.Sprintf("not equal interface %v: %x %v %v", r, value(r), raweface(v), raweface(r.Interface())))
 		//	}
 
-		ef := *(*eface)(unsafe.Pointer(&v))
+		ef := raweface(v)
 
 		if e != nil {
 			if enc, ok := e.custom[ef.typ]; ok {
@@ -217,7 +220,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	case reflect.Bool:
 		if r.Bool() {
 			return append(b, Special|True)
-		} else { //nolint:golint,revive
+		} else { //nolint:golint
 			return append(b, Special|False)
 		}
 	case reflect.Func:
@@ -231,8 +234,6 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	default:
 		panic(r)
 	}
-
-	return nil
 }
 
 func (e *Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte {
@@ -308,6 +309,6 @@ func valueInterface(r reflect.Value) interface{} {
 //go:linkname reflect_packEface reflect.packEface
 func reflect_packEface(reflectValue) interface{}
 
-func rawiface(x interface{}) eface {
+func raweface(x interface{}) eface {
 	return *(*eface)(unsafe.Pointer(&x))
 }

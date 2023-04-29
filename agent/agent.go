@@ -22,7 +22,7 @@ import (
 )
 
 type (
-	Agent struct {
+	Agent struct { //nolint:maligned
 		path string
 
 		sync.Mutex
@@ -117,7 +117,6 @@ func (w *Agent) Write(p []byte) (i int, err error) {
 
 		return stream, nil
 	}()
-
 	if err != nil {
 		return 0, err
 	}
@@ -157,7 +156,7 @@ func (w *Agent) parseEventHeader(p []byte) (ts int64, labels []byte, err error) 
 		case sub == tlwire.Time && string(k) == w.KeyTimestamp:
 			ts, i = w.d.Timestamp(p, i)
 		case sub == tlog.WireLabel:
-			//labels = crc32.Update(labels, crc32.IEEETable, p[i:end])
+			// labels = crc32.Update(labels, crc32.IEEETable, p[i:end])
 			labels = append(labels, p[i:end]...)
 		}
 
@@ -283,12 +282,12 @@ func (s *streamPart) openWriter() (io.Writer, error) {
 	name := filepath.Join(s.part.Agent.path, s.part.Start.Format("2006-01-02_15:04"), fmt.Sprintf("%08x.tlz", s.sum))
 	dir := filepath.Dir(name)
 
-	err := os.MkdirAll(dir, 0755)
+	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return nil, errors.Wrap(err, "mkdir")
 	}
 
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 	if err != nil {
 		return nil, errors.Wrap(err, "open file")
 	}

@@ -30,7 +30,7 @@ func TestJSON(t *testing.T) {
 
 	l.SetLabels(tlog.ParseLabels("a=b,c")...)
 
-	//l.Printw("user labels", "", tlog.Labels{"user_label"})
+	// l.Printw("user labels", "", tlog.Labels{"user_label"})
 
 	l.Printw("message", "str", "arg", "int", 5, "struct", struct {
 		A string `json:"a"`
@@ -71,30 +71,7 @@ func TestJSONRename(t *testing.T) {
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
-	renamer := SimpleRenamer{
-		Rules: map[string]SimpleRenameRule{
-			tlog.KeyEventKind: {Tags: []TagSub{{tlwire.Semantic, tlog.WireEventKind}}, Key: "kind"},
-			tlog.KeyTimestamp: {Tags: []TagSub{{tlwire.Semantic, tlwire.Time}}, Key: "time"},
-			tlog.KeyCaller:    {Tags: []TagSub{{tlwire.Semantic, tlwire.Caller}}, Key: "caller"},
-			tlog.KeyMessage:   {Tags: []TagSub{{tlwire.Semantic, tlog.WireMessage}}, Key: "message"},
-
-			"str": {Tags: []TagSub{{Tag: tlwire.String}}, Key: "str_key"},
-		},
-		Fallback: func(b, p, k []byte, i int) ([]byte, bool) {
-			var d tlwire.Decoder
-
-			tag, sub, i := d.Tag(p, i)
-
-			if tag != tlwire.Semantic || sub != tlog.WireLabel {
-				return b, false
-			}
-
-			b = append(b, "L_"...)
-			b = append(b, k...)
-
-			return b, true
-		},
-	}
+	renamer := simpleTestRenamer()
 
 	j.Rename = renamer.Rename
 

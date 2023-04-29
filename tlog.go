@@ -9,6 +9,7 @@ import (
 
 	"github.com/nikandfor/hacked/htime"
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/tlwire"
 )
 
@@ -44,7 +45,7 @@ type (
 
 	EventKind rune
 
-	// for like stdlib log.SetOutput(l)
+	// for like stdlib log.SetOutput(l).
 	writeWrapper struct {
 		Span
 
@@ -57,7 +58,7 @@ var (
 	Stderr = os.Stderr
 )
 
-// Log levels
+// Log levels.
 const (
 	Info LogLevel = iota
 	Warn
@@ -67,7 +68,7 @@ const (
 	Debug LogLevel = -1
 )
 
-// Predefined keys
+// Predefined keys.
 var (
 	KeySpan      = "_s"
 	KeyParent    = "_p"
@@ -79,7 +80,7 @@ var (
 	KeyLogLevel  = "_l"
 )
 
-// Event kinds
+// Event kinds.
 const (
 	//	EventLabels     EventKind = 'l'
 	EventSpanStart  EventKind = 's'

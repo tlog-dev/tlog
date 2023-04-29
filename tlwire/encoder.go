@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nikandfor/hacked/hfmt"
+	"github.com/nikandfor/hacked/htime"
 )
 
 type (
@@ -83,11 +84,37 @@ func (e Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
 	b = e.AppendKeyInt64(b, "t", t.UnixNano())
 
 	b = e.AppendKey(b, "z")
-
 	b = append(b, Array|2)
 
 	n, off := t.Zone()
+	b = e.AppendString(b, n)
+	b = e.AppendInt(b, off)
 
+	return b
+}
+
+func (e Encoder) AppendTimeMonoTZ(b []byte, t time.Time) []byte {
+	b = append(b, Semantic|Time)
+
+	mono := htime.MonotonicOf(t)
+	fields := 2
+
+	if mono != 0 {
+		fields++
+	}
+
+	b = append(b, Map|byte(fields))
+
+	b = e.AppendKeyInt64(b, "t", t.UnixNano())
+
+	if mono != 0 {
+		b = e.AppendKeyInt64(b, "m", mono)
+	}
+
+	b = e.AppendKey(b, "z")
+	b = append(b, Array|2)
+
+	n, off := t.Zone()
 	b = e.AppendString(b, n)
 	b = e.AppendInt(b, off)
 
@@ -127,7 +154,7 @@ func (e Encoder) InsertLen(b []byte, st, l int) []byte {
 		panic(l)
 	}
 
-	b[st-1] = b[st-1] & TagMask
+	b[st-1] &= TagMask
 
 	if l < Len1 {
 		b[st-1] |= byte(l)

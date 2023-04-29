@@ -22,7 +22,7 @@ type (
 		Open func(io.Writer, error) (io.Writer, error)
 	}
 
-	// DeLabels removes repeating Labels from events
+	// DeLabels removes repeating Labels from events.
 	DeLabels struct {
 		io.Writer
 
@@ -163,9 +163,8 @@ func NewReWriter(open func(io.Writer, error) (io.Writer, error)) *ReWriter {
 func (w *ReWriter) Write(p []byte) (n int, err error) {
 	if w.Writer != nil {
 		n, err = w.Writer.Write(p)
-
 		if err == nil {
-			return
+			return n, nil
 		}
 	}
 
@@ -225,7 +224,7 @@ func (w *DeLabels) Write(p []byte) (i int, err error) {
 		st = i
 
 		_, i = w.d.Bytes(p, i)
-		tag, sub, i = w.d.SkipTag(p, i)
+		_, sub, i = w.d.SkipTag(p, i)
 
 		if sub == tlog.WireLabel {
 			break
@@ -345,13 +344,9 @@ func Fd(f interface{}) uintptr {
 	}
 
 	switch f := f.(type) {
-	case interface {
-		Fd() uintptr
-	}:
+	case interface{ Fd() uintptr }:
 		return f.Fd()
-	case interface {
-		Fd() int
-	}:
+	case interface{ Fd() int }:
 		return uintptr(f.Fd())
 	}
 

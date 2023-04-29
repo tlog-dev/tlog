@@ -29,16 +29,16 @@ var rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))} //
 // String returns short string representation.
 //
 // It's not supposed to be able to recover it back to the same value as it was.
-func (i ID) String() string {
+func (id ID) String() string {
 	var b [8]byte
-	i.FormatTo(b[:], 'v')
+	id.FormatTo(b[:], 'v')
 	return string(b[:])
 }
 
 // StringFull returns full id represented as string.
-func (i ID) StringFull() string {
+func (id ID) StringFull() string {
 	var b [32]byte
-	i.FormatTo(b[:], 'v')
+	id.FormatTo(b[:], 'v')
 	return string(b[:])
 }
 
@@ -131,7 +131,7 @@ func (e ShortIDError) Error() string {
 
 // Format is fmt.Formatter interface implementation.
 // It supports width. '+' flag sets width to full ID length.
-func (i ID) Format(s fmt.State, c rune) {
+func (id ID) Format(s fmt.State, c rune) {
 	var buf0 [32]byte
 	buf1 := buf0[:]
 	buf := *(*[]byte)(noescape(unsafe.Pointer(&buf1)))
@@ -141,15 +141,15 @@ func (i ID) Format(s fmt.State, c rune) {
 		w = W
 	}
 	if s.Flag('+') {
-		w = 2 * len(i)
+		w = 2 * len(id)
 	}
-	i.FormatTo(buf[:w], c)
+	id.FormatTo(buf[:w], c)
 	_, _ = s.Write(buf[:w])
 }
 
 // FormatTo is alloc free Format alternative.
-func (i ID) FormatTo(b []byte, f rune) {
-	if i == (ID{}) {
+func (id ID) FormatTo(b []byte, f rune) {
+	if id == (ID{}) {
 		if f == 'v' || f == 'V' {
 			copy(b, "________________________________")
 		} else {
@@ -167,19 +167,19 @@ func (i ID) FormatTo(b []byte, f rune) {
 	}
 
 	m := len(b)
-	if 2*len(i) < m {
-		m = 2 * len(i)
+	if 2*len(id) < m {
+		m = 2 * len(id)
 	}
 
 	ji := 0
 	for j := 0; j+1 < m; j += 2 {
-		b[j] = dg[i[ji]>>4]
-		b[j+1] = dg[i[ji]&0xf]
+		b[j] = dg[id[ji]>>4]
+		b[j+1] = dg[id[ji]&0xf]
 		ji++
 	}
 
 	if m&1 == 1 {
-		b[m-1] = dg[i[m>>1]>>4]
+		b[m-1] = dg[id[m>>1]>>4]
 	}
 }
 
@@ -246,6 +246,7 @@ func UUID(read func(p []byte) (int, error)) func() ID {
 // output depends on the input.  noescape is inlined and currently
 // compiles down to zero instructions.
 // USE CAREFULLY!
+//
 //go:nosplit
 func noescape(p unsafe.Pointer) unsafe.Pointer {
 	x := uintptr(p)

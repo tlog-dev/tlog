@@ -2,9 +2,9 @@ package tlio
 
 import (
 	"io"
-	"os"
 
 	"github.com/nikandfor/errors"
+
 	"github.com/nikandfor/tlog"
 )
 
@@ -41,7 +41,7 @@ type (
 )
 
 func NewReReader(r ReadSeeker) (*ReReader, error) {
-	cur, err := r.Seek(0, os.SEEK_CUR)
+	cur, err := r.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, errors.Wrap(err, "seek")
 	}
@@ -59,7 +59,7 @@ func (r *ReReader) Read(p []byte) (n int, err error) {
 	r.pos += int64(n)
 
 	if n == 0 && errors.Is(err, io.EOF) {
-		end, err := r.ReadSeeker.Seek(0, os.SEEK_END)
+		end, err := r.ReadSeeker.Seek(0, io.SeekEnd)
 		if err != nil {
 			return n, errors.Wrap(err, "seek")
 		}
@@ -70,14 +70,14 @@ func (r *ReReader) Read(p []byte) (n int, err error) {
 				r.Hook(r.pos, end)
 			}
 
-			end, err = r.ReadSeeker.Seek(0, os.SEEK_SET)
+			end, err = r.ReadSeeker.Seek(0, io.SeekStart)
 			if err != nil {
 				return n, errors.Wrap(err, "seek")
 			}
 
 			r.pos = end
 		case end > r.pos:
-			_, err = r.ReadSeeker.Seek(r.pos, os.SEEK_SET)
+			_, err = r.ReadSeeker.Seek(r.pos, io.SeekStart)
 			if err != nil {
 				return n, errors.Wrap(err, "seek back")
 			}

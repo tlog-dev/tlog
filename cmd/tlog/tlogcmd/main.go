@@ -29,6 +29,7 @@ import (
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
 	"github.com/nikandfor/tlog/tlz"
+	"github.com/nikandfor/tlog/web"
 )
 
 type (
@@ -102,6 +103,7 @@ func App() *cli.Command {
 
 			cli.NewFlag("http", ":8000", "http listen address"),
 			cli.NewFlag("http-net", "tcp", "http listen network"),
+			cli.NewFlag("http-fs", "", "http templates fs"),
 
 			cli.NewFlag("labels", "service=tlog-agent", "service labels"),
 		},
@@ -131,12 +133,14 @@ func App() *cli.Command {
 					cli.NewFlag("interval,int,i", time.Second, "interval to tick on"),
 					cli.NewFlag("labels", "service=ticker,_pid", "labels"),
 				},
-			}, {
+			},
+			{
 				Name:   "test",
 				Action: test,
 				Args:   cli.Args{},
 				Hidden: true,
-			}},
+			},
+		},
 	}
 
 	return app
@@ -202,12 +206,42 @@ func agentRun(c *cli.Command) (err error) {
 	ctx := context.Background()
 	ctx = tlog.ContextWithSpan(ctx, tlog.Root())
 
-	agent, err := agent.New(c.String("db"))
+	a, err := agent.New(c.String("db"))
 	if err != nil {
 		return errors.Wrap(err, "new agent")
 	}
 
 	group := graceful.New()
+
+	if q := c.String("http"); q != "" {
+		l, err := net.Listen(c.String("http-net"), q)
+		if err != nil {
+			return errors.Wrap(err, "listen http")
+		}
+
+		s, err := web.New(a)
+		if err != nil {
+			return errors.Wrap(err, "new web server")
+		}
+
+		group.Add(func(ctx context.Context) (err error) {
+			tr := tlog.SpawnFromContext(ctx, "web_server", "addr", l.Addr())
+			defer tr.Finish("err", &err)
+
+			ctx = tlog.ContextWithSpan(ctx, tr)
+
+			err = s.Serve(ctx, l, func(ctx context.Context, c net.Conn) (err error) {
+				tr := tlog.SpawnFromContext(ctx, "web_request", "remote_addr", c.RemoteAddr(), "local_addr", c.LocalAddr())
+				defer tr.Finish("err", &err)
+
+				ctx = tlog.ContextWithSpan(ctx, tr)
+
+				return s.HandleConn(ctx, c)
+			})
+
+			return errors.Wrap(err, "serve http")
+		})
+	}
 
 	for _, lurl := range c.Flag("listen").Value.([]string) {
 		u, err := tlflag.ParseURL(lurl)
@@ -254,7 +288,7 @@ func agentRun(c *cli.Command) (err error) {
 
 						rr := tlwire.NewStreamDecoder(c)
 
-						rr.WriteTo(agent)
+						_, _ = rr.WriteTo(a)
 					}()
 				}
 			}, graceful.WithStop(func(ctx context.Context) error {
@@ -281,7 +315,7 @@ func cat(c *cli.Command) (err error) {
 		}
 	}()
 
-	var fs *fsnotify.Watcher
+	var fs *fsnotify.Watcher //nolint:gocritic
 
 	if c.Bool("follow") {
 		fs, err = fsnotify.NewWatcher()
@@ -655,7 +689,7 @@ func listen(netw, addr string) (l net.Listener, err error) {
 }
 
 func flockLock(addr string) (_ io.Closer, err error) {
-	lock, err := os.OpenFile(addr, os.O_CREATE, 0644)
+	lock, err := os.OpenFile(addr, os.O_CREATE, 0o644)
 	if err != nil {
 		return nil, errors.Wrap(err, "open lock")
 	}

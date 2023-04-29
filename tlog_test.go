@@ -8,6 +8,7 @@ import (
 
 	"github.com/nikandfor/assert"
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
@@ -76,7 +77,7 @@ func TestLoggerSmokeConcurrent(t *testing.T) {
 
 		for i := 0; i < N; i++ {
 			tr := l.Start("span_observer")
-			tr.Event("value", i+1000)
+			_ = tr.Event("value", i+1000)
 			tr.Finish()
 		}
 	}()
@@ -131,7 +132,7 @@ func TestLoggerSetCallers(t *testing.T) {
 	l.Printw("hello no caller")
 
 	checkCaller(t, 0, false, buf[off:])
-	off = len(buf)
+	off = len(buf) //nolint:ineffassign,staticcheck,wastedassign
 
 	if t.Failed() {
 		t.Logf("dump:\n%v", tlwire.Dump(buf))

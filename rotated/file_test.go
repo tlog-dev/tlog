@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/assert"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
@@ -25,7 +26,7 @@ func TestRotation(t *testing.T) {
 		}
 
 		return w, nil
-		//return compress.NewEncoder(w, 1<<16), nil
+		// return compress.NewEncoder(w, 1<<16), nil
 	}
 
 	l := tlog.New(f)

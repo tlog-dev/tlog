@@ -9,22 +9,34 @@ linters-settings:
     min-complexity: 30
   cyclop:
     max-complexity: 30
-  maligned:
+  fieldalignment:
     suggest-new: true
   dupl:
     threshold: 100
   goconst:
     min-len: 2
     min-occurrences: 3
+  gosec:
+    excludes:
+      - G108
+      - G114
+  revive:
+    rules:
+      - name: unused-parameter
+        disabled: true
   depguard:
     list-type: whitelist
     packages:
       - github.com/beorn7/perks/quantile
+      - github.com/fsnotify/fsnotify
       - github.com/getsentry/sentry-go
       - github.com/gin-gonic/gin
+      - github.com/nikandfor/assert
       - github.com/nikandfor/cli
       - github.com/nikandfor/errors
       - github.com/nikandfor/goid
+      - github.com/nikandfor/graceful
+      - github.com/nikandfor/hacked
       - github.com/nikandfor/loc
       - github.com/nikandfor/quantile
       - github.com/nikandfor/tlog
@@ -33,9 +45,8 @@ linters-settings:
       - github.com/prometheus/client_model
       - github.com/stretchr/testify/assert
       - github.com/stretchr/testify/require
-      - golang.org/x
       - go.opentelemetry.io/otel
-      - gopkg.in/fsnotify.v1
+      - golang.org/x
   misspell:
   lll:
     line-length: 170
@@ -51,6 +62,7 @@ linters-settings:
       - style
     disabled-checks:
       - appendAssign
+      - appendCombine
       - builtinShadow
       - commentedOutCode
       - octalLiteral
@@ -61,20 +73,39 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - cyclop
     - exhaustive
+    - exhaustivestruct
+    - exhaustruct
     - forcetypeassert
     - funlen
     - gci
     - gochecknoglobals
     - gochecknoinits
+    - gocognit
+    - goconst
+    - gocyclo
     - godox
     - goerr113
     - golint
     - gomnd
+    - ifshort
+    - ireturn
+    - lll
+    - maintidx
+    - maligned
     - nakedret
+    - nestif
     - nlreturn
+    - nonamedreturns
+    - nosnakecase
     - paralleltest
     - prealloc
+    - predeclared
     - testpackage
+    - thelper
+    - typecheck
     - unparam
+    - varnamelen
+    - wrapcheck
     - wsl

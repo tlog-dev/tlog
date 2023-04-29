@@ -5,6 +5,7 @@ import (
 	_ "unsafe"
 
 	"github.com/nikandfor/loc"
+
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
@@ -104,6 +105,10 @@ func Special(value int) RawMessage {
 //go:linkname appendKVs0 github.com/nikandfor/tlog.appendKVs
 //go:noescape
 func appendKVs0(b []byte, kvs []interface{}) []byte
+
+func init() { // prevent deadcode warnings
+	appendKVs(nil, nil)
+}
 
 func appendKVs(b []byte, kvs []interface{}) []byte {
 	for i := 0; i < len(kvs); {

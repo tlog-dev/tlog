@@ -230,7 +230,7 @@ func (d LowDecoder) Unsigned(b []byte, st int) (v uint64, i int) {
 	v = uint64(b[i]) & TagDetMask
 	i++
 
-	switch { //nolint:dupl
+	switch {
 	case v < Len1:
 		// we are ok
 	case v == Len1:

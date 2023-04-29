@@ -135,7 +135,7 @@ func (d *StreamDecoder) skip(st int) (i int) {
 			Undefined,
 			Break:
 		case Float8:
-			i += 1 //nolint:revive
+			i += 1
 		case Float16:
 			i += 2
 		case Float32:
@@ -155,12 +155,10 @@ func (d *StreamDecoder) skip(st int) (i int) {
 }
 
 func (d *StreamDecoder) more() (err error) {
-	{
-		copy(d.b, d.b[d.i:])
-		d.b = d.b[:len(d.b)-d.i]
-		d.boff += int64(d.i)
-		d.i = 0
-	}
+	copy(d.b, d.b[d.i:])
+	d.b = d.b[:len(d.b)-d.i]
+	d.boff += int64(d.i)
+	d.i = 0
 
 	end := len(d.b)
 

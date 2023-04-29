@@ -9,15 +9,16 @@ import (
 
 	"github.com/nikandfor/hacked/hfmt"
 	"github.com/nikandfor/loc"
+	"golang.org/x/term"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
-	"golang.org/x/term"
 )
 
 type (
-	Logfmt struct {
+	Logfmt struct { //nolint:maligned
 		io.Writer
 
 		TimeFormat string
@@ -309,12 +310,13 @@ func (w *Logfmt) appendAndQuote(b, s []byte, tag byte) []byte {
 		}
 	}
 
-	if quote {
+	switch {
+	case quote:
 		ss := low.UnsafeBytesToString(s)
 		b = strconv.AppendQuote(b, ss)
-	} else if w.AppendKeySafe {
+	case w.AppendKeySafe:
 		b = low.AppendSafe(b, s)
-	} else {
+	default:
 		b = append(b, s...)
 	}
 
@@ -368,10 +370,8 @@ func (w *Logfmt) convertArray(b, p, k []byte, st int, first bool) (_ []byte, i i
 			}
 
 			b = append(b, w.MapKVSeparator...)
-		} else {
-			if el != 0 {
-				b = append(b, w.ArrSeparator...)
-			}
+		} else if el != 0 {
+			b = append(b, w.ArrSeparator...)
 		}
 
 		b, i = w.convertValue(b, p, subk, i)

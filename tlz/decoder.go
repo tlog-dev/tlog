@@ -54,23 +54,23 @@ func NewDecoderBytes(b []byte) *Decoder {
 	}
 }
 
-func (r *Decoder) Reset(rd io.Reader) {
-	r.ResetBytes(nil)
-	r.Reader = rd
+func (d *Decoder) Reset(rd io.Reader) {
+	d.ResetBytes(nil)
+	d.Reader = rd
 }
 
-func (r *Decoder) ResetBytes(b []byte) {
-	r.Reader = nil
+func (d *Decoder) ResetBytes(b []byte) {
+	d.Reader = nil
 
 	if b != nil {
-		r.b = b
+		d.b = b
 	}
 
-	r.i = 0
-	r.b = r.b[:len(b)]
-	r.boff = 0
+	d.i = 0
+	d.b = d.b[:len(b)]
+	d.boff = 0
 
-	r.state = 0
+	d.state = 0
 }
 
 func (d *Decoder) Read(p []byte) (n int, err error) {
@@ -87,7 +87,7 @@ func (d *Decoder) Read(p []byte) (n int, err error) {
 			break
 		}
 
-		if err != eUnexpectedEOF {
+		if err != eUnexpectedEOF { //nolint:errorlint
 			continue
 		}
 
@@ -346,12 +346,10 @@ func (d *Decoder) more() (err error) {
 		return io.EOF
 	}
 
-	{
-		copy(d.b, d.b[d.i:])
-		d.b = d.b[:len(d.b)-d.i]
-		d.boff += int64(d.i)
-		d.i = 0
-	}
+	copy(d.b, d.b[d.i:])
+	d.b = d.b[:len(d.b)-d.i]
+	d.boff += int64(d.i)
+	d.i = 0
 
 	end := len(d.b)
 
@@ -449,16 +447,16 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 			w.b = hfmt.Appendf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
 
-			off += l
+		//	off += l
 		default:
-			return i, errors.New("impossible tag: %x", tag)
+			panic(tag)
 		}
 	}
 
 	w.GlobalOffset += int64(i)
 
 	if w.Writer != nil {
-		_, err = w.Writer.Write(w.b) //nolint:wrapcheck
+		_, err = w.Writer.Write(w.b)
 	}
 
 	return i, err

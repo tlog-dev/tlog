@@ -6,19 +6,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLogfmtSubObj(t *testing.T) {
+	testLogfmtObj(t, false)
+}
+
+func TestLogfmtFlatObj(t *testing.T) {
+	testLogfmtObj(t, true)
+}
+
+func testLogfmtObj(t *testing.T, flat bool) {
 	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.FixedZone("Europe/Moscow", int(3*time.Hour/time.Second)))
 
 	var b low.Buf
 
 	j := NewLogfmt(&b)
-	j.SubObjects = true
+	j.SubObjects = !flat
 	j.QuoteEmptyValue = true
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
@@ -40,53 +49,10 @@ func TestLogfmtSubObj(t *testing.T) {
 
 	exp := `_t="2020-12-25T22:08:13\+03:00"  _c="[\w./-]*logfmt_test.go:\d+"  _m=message  str=arg  int=5  struct={a="A field" bb=9}  a=b  c=""
 `
-
-	exps := strings.Split(exp, "\n")
-	ls := strings.Split(string(b), "\n")
-	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile("^" + exps[i] + "$")
-
-		var have string
-		if i < len(ls) {
-			have = ls[i]
-		}
-
-		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", exps[i], have)
-	}
-
-	for i := len(exps); i < len(ls); i++ {
-		assert.True(t, false, "expected\n%s\ngot\n%s", "", ls[i])
-	}
-}
-
-func TestLogfmtFlatObj(t *testing.T) {
-	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.FixedZone("Europe/Moscow", int(3*time.Hour/time.Second)))
-
-	var b low.Buf
-
-	j := NewLogfmt(&b)
-	j.SubObjects = false
-	j.QuoteEmptyValue = true
-	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
-	j.TimeFormat = time.RFC3339Nano
-
-	l := tlog.New(j)
-
-	tlog.LoggerSetTimeNow(l, func() time.Time { return tm }, tm.UnixNano)
-
-	l.SetLabels(tlog.ParseLabels("a=b,c")...)
-
-	l.Printw("message", "str", "arg", "int", 5, "struct", struct {
-		A string `json:"a"`
-		B int    `tlog:"bb" yaml:"b"`
-		C *int   `tlog:"c,omitempty"`
-	}{
-		A: "A field",
-		B: 9,
-	})
-
-	exp := `_t="2020-12-25T22:08:13\+03:00"  _c="[\w./-]*logfmt_test.go:\d+"  _m=message  str=arg  int=5  struct.a="A field"  struct.bb=9  a=b  c=""
+	if flat {
+		exp = `_t="2020-12-25T22:08:13\+03:00"  _c="[\w./-]*logfmt_test.go:\d+"  _m=message  str=arg  int=5  struct.a="A field"  struct.bb=9  a=b  c=""
 `
+	}
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
@@ -117,30 +83,7 @@ func TestLogfmtRename(t *testing.T) {
 	j.TimeZone = time.FixedZone("MSK", int(3*time.Hour/time.Second))
 	j.TimeFormat = time.RFC3339Nano
 
-	renamer := SimpleRenamer{
-		Rules: map[string]SimpleRenameRule{
-			tlog.KeyEventKind: {Tags: []TagSub{{tlwire.Semantic, tlog.WireEventKind}}, Key: "kind"},
-			tlog.KeyTimestamp: {Tags: []TagSub{{tlwire.Semantic, tlwire.Time}}, Key: "time"},
-			tlog.KeyCaller:    {Tags: []TagSub{{tlwire.Semantic, tlwire.Caller}}, Key: "caller"},
-			tlog.KeyMessage:   {Tags: []TagSub{{tlwire.Semantic, tlog.WireMessage}}, Key: "message"},
-
-			"str": {Tags: []TagSub{{Tag: tlwire.String}}, Key: "str_key"},
-		},
-		Fallback: func(b, p, k []byte, i int) ([]byte, bool) {
-			var d tlwire.Decoder
-
-			tag, sub, i := d.Tag(p, i)
-
-			if tag != tlwire.Semantic || sub != tlog.WireLabel {
-				return b, false
-			}
-
-			b = append(b, "L_"...)
-			b = append(b, k...)
-
-			return b, true
-		},
-	}
+	renamer := simpleTestRenamer()
 
 	j.Rename = renamer.Rename
 
@@ -189,4 +132,31 @@ func TestLogfmtKeyWithSpace(t *testing.T) {
 	_, err := j.Write(tlog.AppendKVs(nil, []interface{}{tlog.RawTag(tlwire.Map, 1), "key with spaces", "value"}))
 	assert.NoError(t, err)
 	assert.Equal(t, `"key with spaces"=value`+"\n", string(b))
+}
+
+func simpleTestRenamer() SimpleRenamer {
+	return SimpleRenamer{
+		Rules: map[string]SimpleRenameRule{
+			tlog.KeyEventKind: {Tags: []TagSub{{tlwire.Semantic, tlog.WireEventKind}}, Key: "kind"},
+			tlog.KeyTimestamp: {Tags: []TagSub{{tlwire.Semantic, tlwire.Time}}, Key: "time"},
+			tlog.KeyCaller:    {Tags: []TagSub{{tlwire.Semantic, tlwire.Caller}}, Key: "caller"},
+			tlog.KeyMessage:   {Tags: []TagSub{{tlwire.Semantic, tlog.WireMessage}}, Key: "message"},
+
+			"str": {Tags: []TagSub{{Tag: tlwire.String}}, Key: "str_key"},
+		},
+		Fallback: func(b, p, k []byte, i int) ([]byte, bool) {
+			var d tlwire.Decoder
+
+			tag, sub, _ := d.Tag(p, i)
+
+			if tag != tlwire.Semantic || sub != tlog.WireLabel {
+				return b, false
+			}
+
+			b = append(b, "L_"...)
+			b = append(b, k...)
+
+			return b, true
+		},
+	}
 }

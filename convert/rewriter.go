@@ -71,8 +71,6 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 		if !errors.Is(err, ErrFallback) {
 			return
 		}
-
-		err = nil
 	}
 
 	if st == len(p) {
@@ -91,7 +89,7 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 		i = w.Skip(p, st)
 	case tlwire.Array, tlwire.Map:
 		b = append(b, p[st:i]...)
-		var kst = -1
+		kst := -1
 		subp := path
 
 		if tag == tlwire.Array {
@@ -134,7 +132,7 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 			tlwire.None,
 			tlwire.Break:
 		case tlwire.Float8:
-			i += 1 //nolint:revive
+			i += 1
 		case tlwire.Float16:
 			i += 2
 		case tlwire.Float32:

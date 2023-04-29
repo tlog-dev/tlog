@@ -6,8 +6,8 @@ import (
 
 	"github.com/nikandfor/assert"
 	"github.com/nikandfor/loc"
-	"github.com/nikandfor/tlog"
 
+	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
 	"github.com/nikandfor/tlog/tlwire"
 )
@@ -45,7 +45,8 @@ func TestRewriter(t *testing.T) {
 		tlog.RawTag(tlwire.Map, -1),
 		"a", "b",
 		"d", tlog.NextIs(tlwire.Duration), 1,
-		tlog.Break})
+		tlog.Break,
+	})
 
 	t.Logf("case1")
 
@@ -62,16 +63,20 @@ func TestKeyRewriter(t *testing.T) {
 
 	rew := NewRewriter(&b)
 	ren := NewKeyRenamer(nil,
-		RenameRule{Path: []tlog.RawMessage{
-			rew.AppendString(nil, tlog.KeyTimestamp),
-			tlog.RawTag(tlwire.Semantic, tlwire.Time),
+		RenameRule{
+			Path: []tlog.RawMessage{
+				rew.AppendString(nil, tlog.KeyTimestamp),
+				tlog.RawTag(tlwire.Semantic, tlwire.Time),
+			},
+			Rename: []byte("time"),
 		},
-			Rename: []byte("time")},
-		RenameRule{Path: []tlog.RawMessage{
-			rew.AppendString(nil, tlog.KeyCaller),
-			tlog.RawTag(tlwire.Semantic, tlwire.Caller),
+		RenameRule{
+			Path: []tlog.RawMessage{
+				rew.AppendString(nil, tlog.KeyCaller),
+				tlog.RawTag(tlwire.Semantic, tlwire.Caller),
+			},
+			Remove: true,
 		},
-			Remove: true},
 	)
 	rew.Rule = RewriterFunc(func(b, p []byte, path []tlog.RawMessage, kst, st int) ([]byte, int, error) {
 		r, i, err := ren.Rewrite(b, p, path, kst, st)
@@ -93,12 +98,14 @@ func TestKeyRewriter(t *testing.T) {
 		tlog.RawTag(tlwire.Map, -1),
 		tlog.KeyTimestamp, time.Unix(100000000, 0),
 		tlog.KeyCaller, loc.Caller(0),
-		tlog.Break})
+		tlog.Break,
+	})
 
 	exp = tlog.AppendKVs(exp[:0], []interface{}{
 		tlog.RawTag(tlwire.Map, -1),
 		"time", time.Unix(100000000, 0),
-		tlog.Break})
+		tlog.Break,
+	})
 
 	t.Logf("case 1")
 

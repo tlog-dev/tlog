@@ -15,8 +15,8 @@ type (
 	filter struct {
 		f string
 
-		mu sync.RWMutex  `deep:-`
-		c  map[fkey]bool `deep:-`
+		mu sync.RWMutex  `deep:"-"`
+		c  map[fkey]bool `deep:"-"`
 	}
 
 	fkey struct {

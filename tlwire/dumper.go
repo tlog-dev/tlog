@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/nikandfor/hacked/hfmt"
+
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -73,7 +74,7 @@ func (d *Dumper) Write(p []byte) (n int, err error) {
 	d.pos += int64(i)
 
 	if d.Writer != nil {
-		n, err = d.Writer.Write(d.b)
+		_, err = d.Writer.Write(d.b)
 	}
 
 	return len(p), err

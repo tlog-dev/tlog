@@ -16,10 +16,6 @@ import (
 	"github.com/nikandfor/tlog/tlwire"
 )
 
-type NoTimeCallerHandler struct {
-	h slog.Handler
-}
-
 func TestSlog(t *testing.T) {
 	var b bytes.Buffer
 	d := tlwire.NewDumper(os.Stderr)

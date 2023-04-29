@@ -89,12 +89,10 @@ func TestFileWriter(t *testing.T) {
 	}, w)
 }
 
-func TestURLWriter(t *testing.T) {
+func TestURLWriter(t *testing.T) { //nolint:dupl
 	OpenFileWriter = func(n string, f int, m os.FileMode) (interface{}, error) {
 		return testFile(n), nil
 	}
-
-	const CompressorBlockSize = 1 * tlz.MiB
 
 	w, err := OpenWriter("relative/path.tlog")
 	assert.NoError(t, err)
@@ -112,8 +110,6 @@ func TestURLWriter(t *testing.T) {
 func TestFileReader(t *testing.T) {
 	OpenFileReader = TestingFileOpener
 
-	const CompressorBlockSize = 1 * tlz.MiB
-
 	r, err := OpenReader("stdin")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.NopCloser{
@@ -129,12 +125,10 @@ func TestFileReader(t *testing.T) {
 	assert.Equal(t, tlio.NopCloser{Reader: tlz.NewDecoder(os.Stdin)}, r)
 }
 
-func TestURLReader(t *testing.T) {
+func TestURLReader(t *testing.T) { //nolint:dupl
 	OpenFileReader = func(n string, f int, m os.FileMode) (interface{}, error) {
 		return testFile(n), nil
 	}
-
-	const CompressorBlockSize = 1 * tlz.MiB
 
 	w, err := OpenReader("relative/path.tlog")
 	assert.NoError(t, err)
