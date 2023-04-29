@@ -18,7 +18,7 @@ type (
 
 	ptrSet map[unsafe.Pointer]struct{}
 
-	ValueEncoder func(b []byte, val interface{}) []byte
+	ValueEncoder func(e *Encoder, b []byte, val interface{}) []byte
 
 	//nolint:structcheck
 	eface struct {
@@ -65,24 +65,24 @@ func (e encoders) Set(tp interface{}, encoder ValueEncoder) {
 }
 
 func init() {
-	SetEncoder(loc.PC(0), func(b []byte, x interface{}) []byte {
+	SetEncoder(loc.PC(0), func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendCaller(b, x.(loc.PC))
 	})
-	SetEncoder(loc.PCs(nil), func(b []byte, x interface{}) []byte {
+	SetEncoder(loc.PCs(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendCallers(b, x.(loc.PCs))
 	})
 
-	SetEncoder(time.Time{}, func(b []byte, x interface{}) []byte {
+	SetEncoder(time.Time{}, func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendTimeTZ(b, x.(time.Time))
 	})
-	SetEncoder((*time.Time)(nil), func(b []byte, x interface{}) []byte {
+	SetEncoder((*time.Time)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendTimeTZ(b, *x.(*time.Time))
 	})
 
-	SetEncoder(time.Duration(0), func(b []byte, x interface{}) []byte {
+	SetEncoder(time.Duration(0), func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendDuration(b, x.(time.Duration))
 	})
-	SetEncoder((*time.Duration)(nil), func(b []byte, x interface{}) []byte {
+	SetEncoder((*time.Duration)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendDuration(b, *x.(*time.Duration))
 	})
 }
@@ -129,12 +129,12 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 
 		if e != nil {
 			if enc, ok := e.custom[ef.typ]; ok {
-				return enc(b, v)
+				return enc(e, b, v)
 			}
 		}
 
 		if enc, ok := defaultEncoders[ef.typ]; ok {
-			return enc(b, v)
+			return enc(e, b, v)
 		}
 
 		switch v := v.(type) {

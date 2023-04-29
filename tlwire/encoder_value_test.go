@@ -23,15 +23,15 @@ func TestEncoderValueCustomEncoders(t *testing.T) {
 	b = e.AppendValue(b[:0], testEncoder{N: 1})
 	assert.Equal(t, low.Buf{Int | 1}, b)
 
-	SetEncoder(testEncoder{}, func(b []byte, val interface{}) []byte {
-		return (Encoder{}).AppendInt(b, val.(testEncoder).N+1)
+	SetEncoder(testEncoder{}, func(e *Encoder, b []byte, val interface{}) []byte {
+		return e.AppendInt(b, val.(testEncoder).N+1)
 	})
 
 	b = e.AppendValue(b[:0], testEncoder{N: 1})
 	assert.Equal(t, low.Buf{Int | 2}, b)
 
-	e.SetEncoder(testEncoder{}, func(b []byte, val interface{}) []byte {
-		return (Encoder{}).AppendInt(b, val.(testEncoder).N+2)
+	e.SetEncoder(testEncoder{}, func(e *Encoder, b []byte, val interface{}) []byte {
+		return e.AppendInt(b, val.(testEncoder).N+2)
 	})
 
 	b = e.AppendValue(b[:0], testEncoder{N: 1})
