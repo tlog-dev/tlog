@@ -62,7 +62,6 @@ linters:
   enable-all: true
   disable:
     - exhaustive
-    - exhaustivestruct
     - forcetypeassert
     - funlen
     - gci

@@ -17,6 +17,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/nikandfor/cli"
+	"github.com/nikandfor/cli/flag"
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/graceful"
 	"github.com/nikandfor/hacked/hnet"
@@ -113,7 +114,7 @@ func App() *cli.Command {
 		Flags: []*cli.Flag{
 			cli.NewFlag("log", "stderr?dm", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
-			cli.NewFlag("debug", "", "debug address", cli.Hidden),
+			cli.NewFlag("debug", "", "debug address", flag.Hidden),
 			cli.FlagfileFlag,
 			cli.HelpFlag,
 		},

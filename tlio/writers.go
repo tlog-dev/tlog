@@ -257,6 +257,10 @@ func (w *DeLabels) Write(p []byte) (i int, err error) {
 	return len(p), nil
 }
 
+func (w *DeLabels) Unwrap() interface{} {
+	return w.Writer
+}
+
 func NewTailWriter(w io.Writer, n int) *TailWriter {
 	return &TailWriter{
 		Writer: w,
@@ -297,6 +301,10 @@ func (w *TailWriter) Flush() (err error) {
 	return nil
 }
 
+func (w *TailWriter) Unwrap() interface{} {
+	return w.Writer
+}
+
 func NewHeadWriter(w io.Writer, n int) *HeadWriter {
 	return &HeadWriter{
 		Writer: w,
@@ -312,6 +320,10 @@ func (w *HeadWriter) Write(p []byte) (int, error) {
 	}
 
 	return len(p), nil
+}
+
+func (w *HeadWriter) Unwrap() interface{} {
+	return w.Writer
 }
 
 func (w WriterFunc) Write(p []byte) (int, error) { return w(p) }
