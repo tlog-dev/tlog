@@ -252,12 +252,13 @@ func agentRun(c *cli.Command) (err error) {
 		tlog.Printw("listen", "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery)
 
 		switch {
-		case u.Scheme == "tcp", u.Scheme == "unix":
+		case u.Scheme == "unix", u.Scheme == "tcp":
 			host := u.Host
 			if u.Scheme == "unix" || u.Scheme == "unixgram" {
 				host = u.Path
 			}
 
+			var l net.Listener
 			l, err := listen(u.Scheme, host)
 			if err != nil {
 				return errors.Wrap(err, "listen %v", host)
@@ -294,6 +295,31 @@ func agentRun(c *cli.Command) (err error) {
 			}, graceful.WithStop(func(ctx context.Context) error {
 				return l.Close()
 			}))
+		case u.Scheme == "unixgram", u.Scheme == "udp":
+			host := u.Host
+			if u.Scheme == "unix" || u.Scheme == "unixgram" {
+				host = u.Path
+			}
+
+			l, err := listen(u.Scheme, host)
+			if err != nil {
+				return errors.Wrap(err, "listen %v", host)
+			}
+
+			p := l.(net.PacketConn)
+
+			group.Add(func(ctx context.Context) error {
+				buf := make([]byte, 0x1000)
+
+				for {
+					n, _, err := p.ReadFrom(buf)
+					if err != nil {
+						return errors.Wrap(err, "read")
+					}
+
+					_, _ = a.Write(buf[:n])
+				}
+			})
 		default:
 			return errors.New("unsupported listener: %v", u.Scheme)
 		}

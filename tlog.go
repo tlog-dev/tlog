@@ -82,11 +82,9 @@ var (
 
 // Event kinds.
 const (
-	//	EventLabels     EventKind = 'l'
 	EventSpanStart  EventKind = 's'
 	EventSpanFinish EventKind = 'f'
-	//	EventValue      EventKind = 'v'
-	EventMetricDesc EventKind = 'm'
+	EventMetric     EventKind = 'm'
 )
 
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LdetFlags))

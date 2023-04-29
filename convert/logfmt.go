@@ -168,7 +168,7 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int, first bool) (_ []byte, i int
 
 	vst := len(b)
 
-	b, i = w.convertValue(b, p, k, st)
+	b, i = w.ConvertValue(b, p, k, st)
 
 	vw := len(b) - vst
 
@@ -196,7 +196,7 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int, first bool) (_ []byte, i int
 	return b, i
 }
 
-func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
+func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	switch tag {
@@ -260,7 +260,7 @@ func (w *Logfmt) convertValue(b, p, k []byte, st int) (_ []byte, i int) {
 				b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 			}
 		default:
-			b, i = w.convertValue(b, p, k, i)
+			b, i = w.ConvertValue(b, p, k, i)
 		}
 	case tlwire.Special:
 		switch sub {
@@ -374,7 +374,7 @@ func (w *Logfmt) convertArray(b, p, k []byte, st int, first bool) (_ []byte, i i
 			b = append(b, w.ArrSeparator...)
 		}
 
-		b, i = w.convertValue(b, p, subk, i)
+		b, i = w.ConvertValue(b, p, subk, i)
 	}
 
 	if w.SubObjects {

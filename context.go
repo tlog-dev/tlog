@@ -19,7 +19,7 @@ func ContextWithSpan(ctx context.Context, s Span) context.Context {
 }
 
 // SpanFromContext loads saved by ContextWithSpan Span from Context.
-// It returns empty (no-op) Span if no ID found.
+// It returns valid empty (no-op) Span if none was found.
 func SpanFromContext(ctx context.Context) (s Span) {
 	v := ctx.Value(ctxspankey{})
 	s, _ = v.(Span)
@@ -30,13 +30,12 @@ func SpanFromContext(ctx context.Context) (s Span) {
 // SpawnFromContext spawns new Span derived form Span or ID from Context.
 // It returns empty (no-op) Span if no ID found.
 func SpawnFromContext(ctx context.Context, name string, kvs ...interface{}) Span {
-	v := ctx.Value(ctxspankey{})
-	s, ok := v.(Span)
-	if ok {
-		return newspan(s.Logger, s.ID, 0, name, kvs)
+	s, ok := ctx.Value(ctxspankey{}).(Span)
+	if !ok {
+		return Span{}
 	}
 
-	return Span{}
+	return newspan(s.Logger, s.ID, 0, name, kvs)
 }
 
 func SpawnFromContextOrStart(ctx context.Context, name string, kvs ...interface{}) Span {
@@ -47,4 +46,16 @@ func SpawnFromContextOrStart(ctx context.Context, name string, kvs ...interface{
 	}
 
 	return newspan(DefaultLogger, ID{}, 0, name, kvs)
+}
+
+func SpawnFromContextAndWrap(ctx context.Context, name string, kvs ...interface{}) (context.Context, Span) {
+	s, ok := ctx.Value(ctxspankey{}).(Span)
+	if !ok {
+		return ctx, Span{}
+	}
+
+	s = newspan(s.Logger, s.ID, 0, name, kvs)
+	ctx = context.WithValue(ctx, ctxspankey{}, s)
+
+	return ctx, s
 }

@@ -140,6 +140,9 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		switch v := v.(type) {
 		case TlogAppender:
 			return v.TlogAppend(b)
+		case interface {
+			ProtoMessage()
+		}:
 		case error:
 			return e.AppendError(b, v)
 		case fmt.Stringer:

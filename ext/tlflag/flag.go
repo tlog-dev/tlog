@@ -76,25 +76,10 @@ func openw(u *url.URL) (io.Writer, error) {
 		return nil, err
 	}
 
-	if c == nil {
-		if _, ok := w.(io.Closer); ok {
-			return tlio.NopCloser{Writer: w}, nil
-		}
-
-		return w, nil
-	}
-
-	if w.(interface{}) == c.(interface{}) {
-		return w, nil
-	}
-
-	return tlio.WriteCloser{
-		Writer: w,
-		Closer: c,
-	}, nil
+	return writeCloser(w, c), nil
 }
 
-func openwc(u *url.URL, base string, wrap ...func(io.Writer) (io.Writer, error)) (w io.Writer, c io.Closer, err error) {
+func openwc(u *url.URL, base string, wrap ...func(io.Writer, io.Closer) (io.Writer, io.Closer, error)) (w io.Writer, c io.Closer, err error) {
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
@@ -107,10 +92,12 @@ func openwc(u *url.URL, base string, wrap ...func(io.Writer) (io.Writer, error))
 	switch ext {
 	case ".tlog", ".tl", ".tlogdump", ".tldump", ".log", "":
 	case ".tlz":
-	case ".json", ".logfmt":
+	case ".json", ".logfmt", ".html":
 	case ".eazy", ".ez":
-		wrap = append(wrap, func(w io.Writer) (io.Writer, error) {
-			return tlz.NewEncoder(w, tlz.MiB), nil
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			w = tlz.NewEncoder(w, tlz.MiB)
+
+			return w, c, nil
 		})
 
 		return openwc(u, base, wrap...)
@@ -125,7 +112,7 @@ func openwc(u *url.URL, base string, wrap ...func(io.Writer) (io.Writer, error))
 	}
 
 	for _, wrap := range wrap {
-		w, err = wrap(w)
+		w, c, err = wrap(w, c)
 		if err != nil {
 			return
 		}
@@ -146,6 +133,10 @@ func openwc(u *url.URL, base string, wrap ...func(io.Writer) (io.Writer, error))
 		w = convert.NewJSON(w)
 	case ".logfmt":
 		w = convert.NewLogfmt(w)
+	case ".html":
+		wc := writeCloser(w, c)
+		w = convert.NewWeb(wc)
+		c, _ = w.(io.Closer)
 	case ".tlogdump", ".tldump":
 		w = tlwire.NewDumper(w)
 	case ".eazydump", ".ezdump":
@@ -201,7 +192,7 @@ func openwurl(u *url.URL) (f interface{}, err error) {
 	}
 
 	switch u.Scheme {
-	case "unix":
+	case "unix", "unixgram":
 	default:
 		return nil, errors.New("unsupported scheme: %v", u.Scheme)
 	}
@@ -469,5 +460,24 @@ func dumpWriter(tr tlog.Span, w io.Writer, d int) {
 
 	default:
 		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+	}
+}
+
+func writeCloser(w io.Writer, c io.Closer) io.Writer {
+	if c == nil {
+		if _, ok := w.(io.Closer); ok {
+			return tlio.NopCloser{Writer: w}
+		}
+
+		return w
+	}
+
+	if w.(interface{}) == c.(interface{}) {
+		return w
+	}
+
+	return tlio.WriteCloser{
+		Writer: w,
+		Closer: c,
 	}
 }
