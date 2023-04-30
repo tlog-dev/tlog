@@ -141,6 +141,7 @@ func openwc(u *url.URL, base string, wrap ...func(io.Writer, io.Closer) (io.Writ
 		w = tlwire.NewDumper(w)
 	case ".eazydump", ".ezdump":
 		w = tlz.NewDumper(w)
+		w = tlz.NewEncoder(w, tlz.MiB)
 	default:
 		panic(ext)
 	}

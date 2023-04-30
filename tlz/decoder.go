@@ -431,7 +431,7 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 				return i, errors.New("unsupported meta tag: %x", tag)
 			}
 		case tag == Literal:
-			w.b = hfmt.Appendf(w.b, "literal  %4x        %q\n", l, p[i:i+l])
+			w.b = hfmt.Appendf(w.b, "lit  %4x        %q\n", l, p[i:i+l])
 
 			i += l
 			w.d.pos += int64(l)
@@ -445,7 +445,7 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 			w.d.pos += int64(l)
 
-			w.b = hfmt.Appendf(w.b, "copy len %4x  off %4x (%4x)\n", l, off, off+l)
+			w.b = hfmt.Appendf(w.b, "copy %4x  off %4x (%4x)\n", l, off, off+l)
 
 		//	off += l
 		default:

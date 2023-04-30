@@ -138,9 +138,17 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 		pos := int(w.ht[h])
 		w.ht[h] = uint32(start + i)
 
-		if int(w.pos)-pos > len(w.block) || pos-int(w.pos) > 0 {
+		if int(w.pos)-pos > len(w.block) || pos >= int(w.pos) {
 			i++
 			continue
+		}
+
+		// grow backward
+		ist := i
+		st := pos
+		for ist > done && w.block[(st-1)&w.mask] == p[ist-1] {
+			ist--
+			st--
 		}
 
 		// grow forward
@@ -151,17 +159,12 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 			end++
 		}
 
-		ist := i
-		st := pos
-		for ist > done && w.block[(st-1)&w.mask] == p[ist-1] {
-			ist--
-			st--
-		}
-
 		if end-st <= 4 {
 			i++
 			continue
 		}
+
+		//fmt.Fprintf(os.Stderr, "mat %4x %4x (%4x)\n", st, end, end-st)
 
 		// bad situations (*** means intersection)
 		// st ... w.pos *** end ... w.pos+(iend-done)
@@ -181,6 +184,12 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 			i++
 			continue
 		}
+
+		//	fmt.Fprintf(os.Stderr, "lit %4x %4x (%4x) (%4x %4x)  cpy %4x %4x (%4x) (%4x %4x)  %q  %q\n",
+		//		w.pos, int(w.pos)+(ist-done), ist-done, int(w.pos)&w.mask, (int(w.pos)+(ist-done))&w.mask,
+		//		st, end, end-st, st&w.mask, end&w.mask,
+		//		p[done:ist], p[ist:iend],
+		//	)
 
 		if done < ist {
 			w.appendLiteral(p, done, ist)

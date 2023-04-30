@@ -67,7 +67,7 @@ func TestFileWriter(t *testing.T) {
 	w, err = OpenWriter("file.ezdump")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: tlz.NewDumper(testFile("file.ezdump")),
+		Writer: tlz.NewEncoder(tlz.NewDumper(testFile("file.ezdump")), tlz.MiB),
 		Closer: testFile("file.ezdump"),
 	}, w)
 

@@ -25,7 +25,6 @@ import (
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/agent"
 	"github.com/nikandfor/tlog/ext/tlflag"
-	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
 	"github.com/nikandfor/tlog/tlz"
@@ -75,7 +74,8 @@ func App() *cli.Command {
 			Action: tlzRun,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("block,b", 1*rotated.MiB, "compression block size"),
+				cli.NewFlag("block,b", 1*tlz.MiB, "compression block size"),
+				cli.NewFlag("hash-table,ht,h", 16*1024, "hash table size"),
 			},
 		}, {
 			Name:   "decompress,d",
@@ -86,7 +86,7 @@ func App() *cli.Command {
 			Action: tlzRun,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("base", 1, "global offset"),
+				cli.NewFlag("base", 0, "global offset"),
 			},
 		}},
 	}
@@ -560,7 +560,12 @@ func tlzRun(c *cli.Command) (err error) {
 
 		d.GlobalOffset = int64(c.Int("base"))
 
-		_, err = io.Copy(d, io.MultiReader(rs...))
+		data, err := io.ReadAll(io.MultiReader(rs...))
+		if err != nil {
+			return errors.Wrap(err, "read all")
+		}
+
+		_, err = d.Write(data)
 		if err != nil {
 			return errors.Wrap(err, "copy")
 		}

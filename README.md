@@ -50,7 +50,7 @@ Each event can be filtered precisely and filter can be changed at runtime.
 ```go
 tlog.SetVerbosity("rawdb,dump_request")
 
-tlog.V("rawdb").Printw("make db query", "query", query) // V is ispired by glog.V
+tlog.V("rawdb").Printw("make db query", "query", query) // V is inspired by glog.V
 
 if tlog.If("dump_request") {
 	// some heavy calculations could also be here

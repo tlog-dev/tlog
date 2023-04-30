@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/nikandfor/assert"
+	//"github.com/nikandfor/assert"
 	"github.com/nikandfor/errors"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/low"
@@ -170,6 +173,61 @@ func TestBug1(t *testing.T) {
 	assert.Equal(t, 9, n)
 }
 
+func TestOnFile(t *testing.T) {
+	err := loadTestFile(t, *fileFlag)
+	if err != nil {
+		t.Skipf("loading data: %v", err)
+	}
+
+	var encoded low.Buf
+	w := NewEncoderHTSize(&encoded, 4096, 256)
+
+	tldumper := tlwire.NewDumper(os.Stderr)
+	tlzdumper := NewDumper(os.Stderr)
+
+	dumpN := 4
+
+	written := 0
+	for i := 0; i < 20 && i < testsCount; i++ {
+		j := i % testsCount
+		msg := testData[testOff[j]:testOff[j+1]]
+
+		if i < dumpN {
+			//	fmt.Fprintf(os.Stderr, "current block\n%s", hex.Dump(w.block))
+			fmt.Fprintf(os.Stderr, "current ht\n%x\n", w.ht)
+			fmt.Fprintf(os.Stderr, "w.pos %x  hmask %x\n", w.pos, w.hmask)
+			fmt.Fprintf(os.Stderr, "message\n")
+			tldumper.Write(msg)
+		}
+		ww := w.written
+
+		n, err := w.Write(msg)
+		if err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		if n != len(msg) {
+			t.Fatalf("write %v of %v", n, len(msg))
+		}
+
+		if i < dumpN {
+			fmt.Fprintf(os.Stderr, "compressed\n")
+			tlzdumper.Write(encoded[ww:])
+		}
+
+		written += n
+	}
+
+	var decoded low.Buf
+	r := NewDecoderBytes(encoded)
+
+	n, err := io.Copy(&decoded, r)
+	assert.NoError(t, err)
+	assert.Equal(t, len(decoded), int(n))
+
+	min := len(decoded)
+	assert.Equal(t, testData[:min], decoded.Bytes())
+}
+
 func BenchmarkLogCompressOneline(b *testing.B) {
 	b.ReportAllocs()
 
@@ -218,6 +276,8 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 	b.ReportMetric(float64(c.Bytes.Load())/float64(len(buf)), "ratio")
 }
 
+const BlockSize, HTSize = 1024 * 1024, 16 * 1024
+
 func BenchmarkEncodeFile(b *testing.B) {
 	err := loadTestFile(b, *fileFlag)
 	if err != nil {
@@ -228,7 +288,7 @@ func BenchmarkEncodeFile(b *testing.B) {
 	b.ResetTimer()
 
 	var c tlio.CountingIODiscard
-	w := newEncoder(&c, 1024*1024, 6)
+	w := NewEncoderHTSize(&c, BlockSize, HTSize)
 
 	//	b.Logf("block %x  ht %x (%x * %x)", len(w.block), len(w.ht)*int(unsafe.Sizeof(w.ht[0])), len(w.ht), unsafe.Sizeof(w.ht[0]))
 
@@ -261,11 +321,11 @@ func BenchmarkDecodeFile(b *testing.B) {
 		b.Skipf("loading data: %v", err)
 	}
 
-	var encoded low.Buf
-	w := newEncoder(&encoded, 1024*1024, 6)
+	encoded := make(low.Buf, 0, len(testData)/2)
+	w := NewEncoderHTSize(&encoded, BlockSize, HTSize)
 
 	written := 0
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < testsCount && i < 10000; i++ {
 		j := i % testsCount
 		msg := testData[testOff[j]:testOff[j+1]]
 
@@ -283,22 +343,24 @@ func BenchmarkDecodeFile(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
+	b.ReportMetric(float64(written)/float64(len(encoded)), "ratio")
+
 	//	var decoded []byte
-	var decoded bytes.Buffer
+	decoded := make(low.Buf, 0, len(testData))
+	buf := make([]byte, 4096)
 	r := NewDecoderBytes(encoded)
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < b.N/testsCount; i++ {
 		r.ResetBytes(encoded)
-		decoded.Reset()
+		decoded = decoded[:0]
 
-		//	decoded, err = ioutil.ReadAll(r)
-		_, err = decoded.ReadFrom(r)
+		_, err = io.CopyBuffer(&decoded, r, buf)
 		assert.NoError(b, err)
 	}
 
 	//	b.Logf("decoded %x", len(decoded))
 
-	b.SetBytes(int64(decoded.Len()))
+	b.SetBytes(int64(decoded.Len() / testsCount))
 
 	min := len(testData)
 	if min > decoded.Len() {
@@ -320,7 +382,7 @@ func loadTestFile(tb testing.TB, f string) (err error) {
 	}
 
 	var d tlwire.Decoder
-	testOff = make([]int, 0, 100)
+	testOff = make([]int, 0, len(testData)/100)
 
 	var st int
 	for st < len(testData) {
@@ -330,7 +392,7 @@ func loadTestFile(tb testing.TB, f string) (err error) {
 	testsCount = len(testOff)
 	testOff = append(testOff, st)
 
-	tb.Logf("messages loaded: %v", testsCount)
+	tb.Logf("events loaded: %v", testsCount)
 
 	return
 }

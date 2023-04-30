@@ -22,3 +22,6 @@ func (w *Buf) NewLine() {
 		*w = append(*w, '\n')
 	}
 }
+
+func (w *Buf) Len() int      { return len(*w) }
+func (w *Buf) Bytes() []byte { return *w }
