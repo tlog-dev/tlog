@@ -104,8 +104,12 @@ func (d Decoder) Duration(p []byte, st int) (dr time.Duration, i int) {
 
 	tag, sub, i := d.Tag(p, st+1)
 
-	if tag != Int {
+	if tag != Int && tag != Neg {
 		panic("unsupported duration")
+	}
+
+	if tag == Neg {
+		sub = -sub
 	}
 
 	return time.Duration(sub), i

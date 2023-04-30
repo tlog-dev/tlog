@@ -29,8 +29,9 @@ type (
 
 		d tlwire.Decoder
 
-		addpad int     // padding for the next pair
-		b, h   low.Buf // buf, header
+		addpad   int     // padding for the next pair
+		b, h     low.Buf // buf, header
+		lasttime low.Buf
 
 		ls, lastls []byte
 
@@ -65,21 +66,26 @@ type (
 		QuoteAnyValue   bool
 		QuoteEmptyValue bool
 
-		TimeColor    []byte
-		FileColor    []byte
-		FuncColor    []byte
-		MessageColor []byte
-		KeyColor     []byte
-		ValColor     []byte
-		LevelColor   struct {
+		ColorScheme
+
+		pad map[string]int
+	}
+
+	ColorScheme struct {
+		TimeColor       []byte
+		TimeChangeColor []byte // if different from TimeColor
+		FileColor       []byte
+		FuncColor       []byte
+		MessageColor    []byte
+		KeyColor        []byte
+		ValColor        []byte
+		LevelColor      struct {
 			Info  []byte
 			Warn  []byte
 			Error []byte
 			Fatal []byte
 			Debug []byte
 		}
-
-		pad map[string]int
 	}
 )
 
@@ -106,7 +112,30 @@ const (
 	cfHex = 1 << iota
 )
 
-var ResetColor = Color(0)
+var (
+	ResetColor = Color(0)
+
+	DefaultColorScheme = ColorScheme{
+		TimeColor:       Color(90),
+		TimeChangeColor: Color(38, 5, 244, 1),
+		FileColor:       Color(90),
+		FuncColor:       Color(90),
+		KeyColor:        Color(36),
+		LevelColor: struct {
+			Info  []byte
+			Warn  []byte
+			Error []byte
+			Fatal []byte
+			Debug []byte
+		}{
+			Info:  Color(90),
+			Warn:  Color(31),
+			Error: Color(31, 1),
+			Fatal: Color(31, 1),
+			Debug: Color(90),
+		},
+	}
+)
 
 func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 	fd := -1
@@ -134,8 +163,8 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		IDWidth:      8,
 		MaxValPad:    24,
 
-		TimeFormat:     "2006-01-02_15:04:05.000Z0700",
-		DurationFormat: "%v",
+		TimeFormat: "2006-01-02_15:04:05.000Z0700",
+		//DurationFormat: "%v",
 		FloatChar:      'f',
 		FloatPrecision: 5,
 		CallerFormat:   "%v",
@@ -148,23 +177,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		QuoteChars:      "`\"' ()[]{}*",
 		QuoteEmptyValue: true,
 
-		TimeColor: Color(90),
-		FileColor: Color(90),
-		FuncColor: Color(90),
-		KeyColor:  Color(36),
-		LevelColor: struct {
-			Info  []byte
-			Warn  []byte
-			Error []byte
-			Fatal []byte
-			Debug []byte
-		}{
-			Info:  Color(90),
-			Warn:  Color(31),
-			Error: Color(31, 1),
-			Fatal: Color(31, 1),
-			Debug: Color(90),
-		},
+		ColorScheme: DefaultColorScheme,
 
 		pad: make(map[string]int),
 	}
@@ -311,94 +324,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, t time.Time, lv LogLevel, pc loc.
 	line := -1
 
 	if w.Flags&(Ldate|Ltime|Lmilliseconds|Lmicroseconds) != 0 {
-		if w.Flags&LUTC != 0 {
-			t = t.UTC()
-		}
-
-		var Y, M, D, h, m, s int
-		if w.Flags&(Ldate|Ltime) != 0 {
-			Y, M, D, h, m, s = htime.DateClock(t)
-		}
-
-		if w.Colorize && len(w.TimeColor) != 0 {
-			b = append(b, w.TimeColor...)
-		}
-
-		if w.Flags&Ldate != 0 {
-			i := len(b)
-			b = append(b, "0000-00-00"...)
-
-			for j := 0; j < 4; j++ {
-				b[i+3-j] = byte(Y%10) + '0'
-				Y /= 10
-			}
-
-			b[i+6] = byte(M%10) + '0'
-			M /= 10
-			b[i+5] = byte(M) + '0'
-
-			b[i+9] = byte(D%10) + '0'
-			D /= 10
-			b[i+8] = byte(D) + '0'
-		}
-		if w.Flags&Ltime != 0 {
-			if w.Flags&Ldate != 0 {
-				b = append(b, '_')
-			}
-
-			i := len(b)
-			b = append(b, "00:00:00"...)
-
-			b[i+1] = byte(h%10) + '0'
-			h /= 10
-			b[i+0] = byte(h) + '0'
-
-			b[i+4] = byte(m%10) + '0'
-			m /= 10
-			b[i+3] = byte(m) + '0'
-
-			b[i+7] = byte(s%10) + '0'
-			s /= 10
-			b[i+6] = byte(s) + '0'
-		}
-		if w.Flags&(Lmilliseconds|Lmicroseconds) != 0 {
-			if len(b) != 0 {
-				b = append(b, '.')
-			}
-
-			ns := t.Nanosecond() / 1e3
-			if w.Flags&Lmilliseconds != 0 {
-				ns /= 1000
-
-				i := len(b)
-				b = append(b, "000"...)
-
-				b[i+2] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+1] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+0] = byte(ns%10) + '0'
-			} else {
-				i := len(b)
-				b = append(b, "000000"...)
-
-				b[i+5] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+4] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+3] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+2] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+1] = byte(ns%10) + '0'
-				ns /= 10
-				b[i+0] = byte(ns%10) + '0'
-			}
-		}
-
-		if w.Colorize && len(w.TimeColor) != 0 {
-			b = append(b, ResetColor...)
-		}
+		b = w.appendTime(b, t)
 
 		b = append(b, ' ', ' ')
 	}
@@ -579,6 +505,98 @@ func (w *ConsoleWriter) appendHeader(b []byte, t time.Time, lv LogLevel, pc loc.
 	return b
 }
 
+func (w *ConsoleWriter) appendTime(b []byte, t time.Time) []byte {
+	if w.Flags&LUTC != 0 {
+		t = t.UTC()
+	}
+
+	var Y, M, D, h, m, s int
+	if w.Flags&(Ldate|Ltime) != 0 {
+		Y, M, D, h, m, s = htime.DateClock(t)
+	}
+
+	if w.Colorize && len(w.TimeColor) != 0 {
+		b = append(b, w.TimeColor...)
+	}
+
+	ts := len(b)
+
+	if w.Flags&Ldate != 0 {
+		b = append(b,
+			byte(Y/1000)+'0',
+			byte(Y/100%10)+'0',
+			byte(Y/10%10)+'0',
+			byte(Y/1%10)+'0',
+			'-',
+			byte(M/10)+'0',
+			byte(M%10)+'0',
+			'-',
+			byte(D/10)+'0',
+			byte(D%10)+'0',
+		)
+	}
+	if w.Flags&Ltime != 0 {
+		if w.Flags&Ldate != 0 {
+			b = append(b, '_')
+		}
+
+		b = append(b,
+			byte(h/10)+'0',
+			byte(h%10)+'0',
+			':',
+			byte(m/10)+'0',
+			byte(m%10)+'0',
+			':',
+			byte(s/10)+'0',
+			byte(s%10)+'0',
+		)
+	}
+	if w.Flags&(Lmilliseconds|Lmicroseconds) != 0 {
+		if w.Flags&(Ldate|Ltime) != 0 {
+			b = append(b, '.')
+		}
+
+		ns := t.Nanosecond() / 1e3
+		if w.Flags&Lmilliseconds != 0 {
+			ns /= 1000
+
+			b = append(b,
+				byte(ns/100%10)+'0',
+				byte(ns/10%10)+'0',
+				byte(ns/1%10)+'0',
+			)
+		} else {
+			b = append(b,
+				byte(ns/100000%10)+'0',
+				byte(ns/10000%10)+'0',
+				byte(ns/1000%10)+'0',
+				byte(ns/100%10)+'0',
+				byte(ns/10%10)+'0',
+				byte(ns/1%10)+'0',
+			)
+		}
+	}
+
+	if w.Colorize && len(w.TimeChangeColor) != 0 {
+		c := common(b[ts:], w.lasttime)
+		ts += c
+		w.lasttime = append(w.lasttime[:c], b[ts:]...)
+
+		if c != 0 && ts != len(b) {
+			b = append(b, w.TimeChangeColor...)
+
+			copy(b[ts+len(w.TimeChangeColor):], b[ts:])
+			copy(b[ts:], w.TimeChangeColor)
+		}
+	}
+
+	if w.Colorize && (len(w.TimeColor) != 0 || len(w.TimeChangeColor) != 0) {
+		b = append(b, ResetColor...)
+	}
+
+	return b
+}
+
 func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	i = st
 
@@ -607,7 +625,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 
 	vst := len(b)
 
-	b, i = w.convertValue(b, p, i, 0)
+	b, i = w.ConvertValue(b, p, i, 0)
 
 	vw := len(b) - vst
 
@@ -635,7 +653,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	return b, i
 }
 
-func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) {
+func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
 	switch tag {
@@ -723,7 +741,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 				b = append(b, ' ')
 			}
 
-			b, i = w.convertValue(b, p, i, ff)
+			b, i = w.ConvertValue(b, p, i, ff)
 		}
 
 		b = append(b, ']')
@@ -739,11 +757,11 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 				b = append(b, ' ')
 			}
 
-			b, i = w.convertValue(b, p, i, ff)
+			b, i = w.ConvertValue(b, p, i, ff)
 
 			b = append(b, ':')
 
-			b, i = w.convertValue(b, p, i, ff)
+			b, i = w.ConvertValue(b, p, i, ff)
 		}
 
 		b = append(b, '}')
@@ -788,16 +806,16 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 			b = t.AppendFormat(b, w.TimeFormat)
 		case tlwire.Duration:
-			var v int64
-			v, i = w.d.Signed(p, i)
+			var d time.Duration
+			d, i = w.d.Duration(p, st)
 
 			switch {
 			case w.DurationFormat != "" && w.DurationDiv != 0:
-				b = hfmt.Appendf(b, w.DurationFormat, float64(time.Duration(v)/w.DurationDiv))
+				b = hfmt.Appendf(b, w.DurationFormat, float64(d/w.DurationDiv))
 			case w.DurationFormat != "":
-				b = hfmt.Appendf(b, w.DurationFormat, time.Duration(v))
+				b = hfmt.Appendf(b, w.DurationFormat, d)
 			default:
-				b = strconv.AppendInt(b, v, 10)
+				b = w.AppendDuration(b, d)
 			}
 		case WireID:
 			var id ID
@@ -807,7 +825,7 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
 			id.FormatTo(b[st:], 'v')
 		case tlwire.Hex:
-			b, i = w.convertValue(b, p, i, ff|cfHex)
+			b, i = w.ConvertValue(b, p, i, ff|cfHex)
 		case tlwire.Caller:
 			var pc loc.PC
 			var pcs loc.PCs
@@ -829,13 +847,152 @@ func (w *ConsoleWriter) convertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			}
 			b = append(b, ']')
 		default:
-			b, i = w.convertValue(b, p, i, ff)
+			b, i = w.ConvertValue(b, p, i, ff)
 		}
 	default:
 		panic(tag)
 	}
 
 	return b, i
+}
+
+func (w *ConsoleWriter) AppendDuration(b []byte, d time.Duration) []byte {
+	if d == 0 {
+		return append(b, ' ', ' ', '0', 's')
+	}
+
+	var buf [32]byte
+
+	if d >= 99*time.Second {
+		const MaxGroups = 2
+		group := 0
+		i := 0
+
+		if d < 0 {
+			d = -d
+			b = append(b, '-')
+		}
+
+		add := func(d, unit time.Duration, suff byte) time.Duration {
+			if group == 0 && d < unit && unit > time.Second || group >= MaxGroups {
+				return d
+			}
+
+			x := int(d / unit)
+			d = d % unit
+			group++
+
+			if group == MaxGroups && d >= unit/2 {
+				x++
+			}
+
+			w := width(x)
+			i += w
+			for j := 1; j <= w; j++ {
+				buf[i-j] = byte(x%10) + '0'
+				x /= 10
+			}
+
+			buf[i] = suff
+			i++
+
+			return d
+		}
+
+		d = add(d, 24*time.Hour, 'd')
+		d = add(d, time.Hour, 'h')
+		d = add(d, time.Minute, 'm')
+		d = add(d, time.Second, 's')
+
+		return append(b, buf[:i]...)
+	}
+
+	neg := d < 0
+	if neg {
+		d = -d
+	}
+
+	end := len(buf) - 4
+	i := end
+
+	for d != 0 {
+		i--
+		buf[i] = byte(d%10) + '0'
+		d /= 10
+	}
+
+	buf[i-1] = '0' // leading zero for possible carry
+
+	j := i + 3
+	buf[j] += 5 // round
+
+	for j >= i-1 && buf[j] > '9' { // move carry
+		buf[j] = '0'
+		j--
+		buf[j]++
+	}
+
+	j = end
+	u := -1
+
+	for buf[j-2] != 0 || buf[j-1] == '1' { // find suitable units
+		j -= 3
+		u++
+	}
+
+	i = j // beginning
+
+	for buf[j] == '0' || buf[j] == 0 { // leading spaces
+		buf[j] = ' '
+		j++
+	}
+
+	digit := j
+
+	j += 3
+
+	// insert point
+	if j-1 > i+3 {
+		buf[j-1] = buf[j-2]
+	}
+	if j-2 > i+3 {
+		buf[j-2] = buf[j-3]
+	}
+
+	buf[i+3] = '.'
+
+	if j > end {
+		j = end
+	}
+
+	for j > i+3 && (buf[j-1] == '0' || buf[j-1] == '.') { // trailing zeros
+		j--
+	}
+
+	suff := []string{"ns", "µs", "ms", "s", "m"}
+	j += copy(buf[j:], suff[u])
+
+	if neg {
+		buf[digit-1] = '-'
+
+		if digit == i {
+			i--
+		}
+	}
+
+	return append(b, buf[i:j]...)
+}
+
+func width(n int) (w int) {
+	q := 10
+	w = 1
+
+	for q <= n {
+		w++
+		q *= 10
+	}
+
+	return w
 }
 
 func Color(c ...int) (r []byte) {
@@ -863,6 +1020,14 @@ func Color(c ...int) (r []byte) {
 	r = append(r, 'm')
 
 	return r
+}
+
+func common(x, y []byte) (n int) {
+	for n < len(y) && x[n] == y[n] {
+		n++
+	}
+
+	return
 }
 
 func noescapeByteWriter(b *[]byte) *low.Buf {

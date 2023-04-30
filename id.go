@@ -7,7 +7,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-	"unsafe"
+
+	"github.com/nikandfor/tlog/low"
 )
 
 type (
@@ -133,8 +134,7 @@ func (e ShortIDError) Error() string {
 // It supports width. '+' flag sets width to full ID length.
 func (id ID) Format(s fmt.State, c rune) {
 	var buf0 [32]byte
-	buf1 := buf0[:]
-	buf := *(*[]byte)(noescape(unsafe.Pointer(&buf1)))
+	buf := low.NoEscapeBuffer(buf0[:])
 
 	w := 8
 	if W, ok := s.Width(); ok {
@@ -239,16 +239,4 @@ func UUID(read func(p []byte) (int, error)) func() ID {
 
 		return uuid
 	}
-}
-
-// noescape hides a pointer from escape analysis.  noescape is
-// the identity function but escape analysis doesn't think the
-// output depends on the input.  noescape is inlined and currently
-// compiles down to zero instructions.
-// USE CAREFULLY!
-//
-//go:nosplit
-func noescape(p unsafe.Pointer) unsafe.Pointer {
-	x := uintptr(p)
-	return unsafe.Pointer(x ^ 0) //nolint:staticcheck
 }

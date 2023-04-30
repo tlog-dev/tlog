@@ -27,6 +27,7 @@ type (
 		d tlwire.Decoder
 		l Logfmt
 		j JSON
+		c *tlog.ConsoleWriter
 
 		s []tlog.ID
 		m []byte
@@ -41,14 +42,20 @@ type (
 var webstyles []byte
 
 func NewWeb(w io.Writer) *Web {
-	return &Web{
+	ww := &Web{
 		Writer:          w,
 		EventTimeFormat: "2006-01-02 15:04:05.000",
 		TimeFormat:      "2006-01-02 15:04:05.000",
 		PickTime:        true,
 		//PickCaller:      true,
 		PickMessage: true,
+
+		c: tlog.NewConsoleWriter(nil, 0),
 	}
+
+	ww.c.Colorize = false
+
+	return ww
 }
 
 func (w *Web) Write(p []byte) (i int, err error) {
@@ -221,7 +228,7 @@ func (w *Web) buildTime(b []byte, t time.Time) []byte {
 func (w *Web) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	b = hfmt.Appendf(b, `<div class=kv><span class=key>%s=</span><div class=val>`, k)
 
-	b, i = w.l.ConvertValue(b, p, k, st)
+	b, i = w.c.ConvertValue(b, p, st, 0)
 
 	b = append(b, "</div></div>\n"...)
 

@@ -28,10 +28,10 @@ tr:nth-child(even) td {
 	color: #aaa;
 }
 .ev-time-pref {
-	color: #bbb;
 }
 .ev-time-suff {
 	font-weight: bold;
+	color: #a0a0a0;
 }
 .msg {
 }
@@ -45,7 +45,7 @@ tr:nth-child(even) td {
 	flex-flow: row nowrap;
 }
 .key {
-	color: #aaa;
+	color: #4cc;
 }
 .val {
 }

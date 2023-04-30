@@ -203,7 +203,7 @@ func BenchmarkLoggerPrintf(b *testing.B) {
 	}
 }
 
-func BenchmarkTracerStartPrintwFinish(b *testing.B) {
+func BenchmarkLoggerStartPrintwFinish(b *testing.B) {
 	b.ReportAllocs()
 
 	l := New(ioutil.Discard)
@@ -212,15 +212,5 @@ func BenchmarkTracerStartPrintwFinish(b *testing.B) {
 		tr := l.Start("span_name")
 		tr.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
 		tr.Finish()
-	}
-}
-
-func BenchmarkConsoleLoggerPrintw(b *testing.B) {
-	b.ReportAllocs()
-
-	l := New(NewConsoleWriter(ioutil.Discard, LdetFlags))
-
-	for i := 0; i < b.N; i++ {
-		l.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
 	}
 }
