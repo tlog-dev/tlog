@@ -180,15 +180,15 @@ func TestOnFile(t *testing.T) {
 	}
 
 	var encoded low.Buf
-	w := NewEncoderHTSize(&encoded, 4096, 256)
+	w := NewEncoderHTSize(&encoded, 512, 256)
 
 	tldumper := tlwire.NewDumper(os.Stderr)
 	tlzdumper := NewDumper(os.Stderr)
 
-	dumpN := 4
+	const dumpN, limit = 100, 10000
 
 	written := 0
-	for i := 0; i < 20 && i < testsCount; i++ {
+	for i := 0; i < limit && i < testsCount; i++ {
 		j := i % testsCount
 		msg := testData[testOff[j]:testOff[j+1]]
 
@@ -324,8 +324,10 @@ func BenchmarkDecodeFile(b *testing.B) {
 	encoded := make(low.Buf, 0, len(testData)/2)
 	w := NewEncoderHTSize(&encoded, BlockSize, HTSize)
 
+	const limit = 20000
+
 	written := 0
-	for i := 0; i < testsCount && i < 10000; i++ {
+	for i := 0; i < testsCount && i < limit; i++ {
 		j := i % testsCount
 		msg := testData[testOff[j]:testOff[j+1]]
 

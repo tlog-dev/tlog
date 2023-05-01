@@ -64,7 +64,7 @@ func App() *cli.Command {
 	}
 
 	tlzCmd := &cli.Command{
-		Name:        "seen,tlz",
+		Name:        "tlz,eazy",
 		Description: "logs compressor/decompressor",
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,o", "-", "output file (or stdout)"),
@@ -86,7 +86,7 @@ func App() *cli.Command {
 			Action: tlzRun,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("base", 0, "global offset"),
+				cli.NewFlag("base", -1, "global offset"),
 			},
 		}},
 	}
