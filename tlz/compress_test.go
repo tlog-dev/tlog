@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	//"github.com/nikandfor/assert"
@@ -179,53 +177,51 @@ func TestOnFile(t *testing.T) {
 		t.Skipf("loading data: %v", err)
 	}
 
-	var encoded low.Buf
-	w := NewEncoderHTSize(&encoded, 512, 256)
+	var encoded bytes.Buffer
+	var full bytes.Buffer
+	w := NewEncoderHTSize(tlio.NewMultiWriter(&encoded, &full), 512, 256)
+	r := NewDecoder(&encoded)
+	var buf []byte
 
-	tldumper := tlwire.NewDumper(os.Stderr)
-	tlzdumper := NewDumper(os.Stderr)
+	//	dumper := tlwire.NewDumper(os.Stderr)
 
-	const dumpN, limit = 100, 10000
+	for i := 0; i < testsCount; i++ {
+		msg := testData[testOff[i]:testOff[i+1]]
 
-	written := 0
-	for i := 0; i < limit && i < testsCount; i++ {
-		j := i % testsCount
-		msg := testData[testOff[j]:testOff[j+1]]
-
-		if i < dumpN {
-			//	fmt.Fprintf(os.Stderr, "current block\n%s", hex.Dump(w.block))
-			fmt.Fprintf(os.Stderr, "current ht\n%x\n", w.ht)
-			fmt.Fprintf(os.Stderr, "w.pos %x  hmask %x\n", w.pos, w.hmask)
-			fmt.Fprintf(os.Stderr, "message\n")
-			tldumper.Write(msg)
-		}
-		ww := w.written
+		//	_, _ = dumper.Write(msg)
 
 		n, err := w.Write(msg)
-		if err != nil {
-			t.Fatalf("write: %v", err)
-		}
-		if n != len(msg) {
-			t.Fatalf("write %v of %v", n, len(msg))
+		assert.NoError(t, err)
+		assert.Equal(t, len(msg), n)
+
+		for n > len(buf) {
+			buf = append(buf[:cap(buf)], 0, 0, 0, 0, 0, 0, 0, 0)
 		}
 
-		if i < dumpN {
-			fmt.Fprintf(os.Stderr, "compressed\n")
-			tlzdumper.Write(encoded[ww:])
-		}
+		n, err = r.Read(buf[:n])
+		assert.NoError(t, err)
+		assert.Equal(t, len(msg), n)
 
-		written += n
+		assert.Equal(t, msg, []byte(buf[:n]))
+
+		if t.Failed() {
+			break
+		}
 	}
 
-	var decoded low.Buf
-	r := NewDecoderBytes(encoded)
+	r.Reset(&full)
+	buf = buf[:0]
 
-	n, err := io.Copy(&decoded, r)
+	var dec bytes.Buffer
+
+	n, err := io.Copy(&dec, r)
 	assert.NoError(t, err)
-	assert.Equal(t, len(decoded), int(n))
+	assert.Equal(t, int(n), dec.Len())
 
-	min := len(decoded)
-	assert.Equal(t, testData[:min], decoded.Bytes())
+	min := dec.Len()
+	assert.Equal(t, testData[:min], dec.Bytes())
+
+	//	t.Logf("metrics: %v  bytes %v  events %v", mm, dec.Len(), testsCount)
 }
 
 func BenchmarkLogCompressOneline(b *testing.B) {
