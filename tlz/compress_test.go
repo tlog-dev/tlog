@@ -394,3 +394,65 @@ func loadTestFile(tb testing.TB, f string) (err error) {
 
 	return
 }
+
+func FuzzEncoder(f *testing.F) {
+	f.Add(
+		[]byte("prefix_1234_suffix"),
+		[]byte("prefix_567_suffix"),
+		[]byte("suffix_prefix"),
+	)
+
+	f.Add(
+		[]byte("aaaaaa"),
+		[]byte("aaaaaaaaaaaa"),
+		[]byte("aaaaaaaaaaaaaaaaaaaaaaaa"),
+	)
+
+	f.Add(
+		[]byte("aaaaab"),
+		[]byte("aaaaabaaaaaa"),
+		[]byte("aaaaaaaaaaabaaaaaaaaaaaa"),
+	)
+
+	var ebuf, dbuf bytes.Buffer
+	buf := make([]byte, 16)
+
+	e := NewEncoderHTSize(&ebuf, 512, 32)
+	d := NewDecoder(&dbuf)
+
+	f.Fuzz(func(t *testing.T, p0, p1, p2 []byte) {
+		e.Reset(e.Writer)
+		ebuf.Reset()
+
+		for _, p := range [][]byte{p0, p1, p2} {
+			n, err := e.Write(p)
+			assert.NoError(t, err)
+			assert.Equal(t, len(p), n)
+		}
+
+		d.ResetBytes(ebuf.Bytes())
+		dbuf.Reset()
+
+		m, err := io.CopyBuffer(&dbuf, d, buf)
+		assert.NoError(t, err)
+		assert.Equal(t, len(p0)+len(p1)+len(p2), int(m))
+
+		i := 0
+		for _, p := range [][]byte{p0, p1, p2} {
+			assert.Equal(t, p, dbuf.Bytes()[i:i+len(p)])
+			i += len(p)
+		}
+
+		assert.Equal(t, int(m), i)
+
+		if !t.Failed() {
+			return
+		}
+
+		for i, p := range [][]byte{p0, p1, p2} {
+			t.Logf("p%d\n%s", i, hex.Dump(p))
+		}
+
+		t.Logf("encoded dump\n%s", Dump(ebuf.Bytes()))
+	})
+}

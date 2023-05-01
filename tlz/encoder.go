@@ -1,7 +1,9 @@
 package tlz
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"unsafe"
 )
 
@@ -86,11 +88,11 @@ func newEncoder(w io.Writer, bs, ss int) *Encoder {
 
 func NewEncoderHTSize(w io.Writer, bs, hlen int) *Encoder {
 	if (bs-1)&bs != 0 {
-		panic("bad block size")
+		panic("block size must be power of two and at least 1KB")
 	}
 
 	if (hlen-1)&hlen != 0 {
-		panic("bad hash-table size")
+		panic("hash table size must be power of two")
 	}
 
 	hsh := uint(2)
@@ -183,16 +185,22 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 			iend -= x
 		}
 
-		if x := end - cst; x > 0 {
-			//	dpr("block short intersection: reduce end by %4x\n", x)
-			end -= x
-			iend -= x
-		}
-
-		if x := end - cst - lit; x > 0 {
+		if x := end - cst + lit; x > 0 {
 			//	dpr("literal     intersection: reduce end by %4x\n", x)
 			end -= x
 			iend -= x
+
+			/*
+				j := done
+				for iend < len(p) && j < ist && p[iend] == p[j] && end < cst && cend < st+len(w.block) {
+					iend++
+					cend++
+					end++
+					j++
+				}
+
+				dpr("literal     intersection: added back %4x\n", j-done)
+			*/
 		}
 
 		if end-st <= 4 {
@@ -239,15 +247,11 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 	n, err := w.Writer.Write(w.b)
 	w.written += int64(n)
 
-	if err != nil {
+	if err != nil || n != len(w.b) {
 		w.reset()
 	}
 
-	if n != len(w.b) {
-		return 0, err
-	}
-
-	return done, nil
+	return done, err
 }
 
 func (w *Encoder) appendHeader(b []byte) []byte {
@@ -325,5 +329,5 @@ func (w *Encoder) appendOff(b []byte, l int) []byte {
 }
 
 func dpr(format string, args ...interface{}) {
-	//	_, _ = fmt.Fprintf(os.Stderr, format, args...)
+	_, _ = fmt.Fprintf(os.Stderr, format, args...)
 }
