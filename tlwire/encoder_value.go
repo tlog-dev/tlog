@@ -2,6 +2,7 @@ package tlwire
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
 	"time"
 	"unsafe"
@@ -84,6 +85,15 @@ func init() {
 	})
 	SetEncoder((*time.Duration)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		return Encoder{}.AppendDuration(b, *x.(*time.Duration))
+	})
+
+	SetEncoder((*url.URL)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
+		u := x.(*url.URL)
+		if u == nil {
+			return Encoder{}.AppendNil(b)
+		}
+
+		return Encoder{}.AppendString(b, u.String())
 	})
 }
 
