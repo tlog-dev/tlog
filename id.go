@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nikandfor/errors"
+
 	"github.com/nikandfor/tlog/low"
 )
 
@@ -181,6 +183,35 @@ func (id ID) FormatTo(b []byte, f rune) {
 	if m&1 == 1 {
 		b[m-1] = dg[id[m>>1]>>4]
 	}
+}
+
+func (id ID) MarshalJSON() ([]byte, error) {
+	b := make([]byte, len(id)*2+2)
+	b[0] = '"'
+	b[len(b)-1] = '"'
+
+	id.FormatTo(b[1:], 'x')
+
+	return b, nil
+}
+
+func (id *ID) UnmarshalJSON(b []byte) error {
+	if len(b) < 4 {
+		return errors.New("bad id")
+	}
+
+	if b[0] != '"' || b[len(b)-1] != '"' {
+		return errors.New("bad id encoding")
+	}
+
+	x, err := IDFromStringAsBytes(b[1 : len(b)-1])
+	if err != nil {
+		return err
+	}
+
+	*id = x
+
+	return nil
 }
 
 func MathRandID() (id ID) {
