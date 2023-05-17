@@ -97,7 +97,7 @@ func App() *cli.Command {
 		Before:      beforeAgent,
 		Action:      agentRun,
 		Flags: []*cli.Flag{
-			cli.NewFlag("db", "tlogdb", "path to logs db"),
+			cli.NewFlag("db", "db.tlog", "path to logs db"),
 
 			cli.NewFlag("listen,l", []string(nil), "listen url"),
 
@@ -238,6 +238,9 @@ func agentRun(c *cli.Command) (err error) {
 
 				return s.HandleConn(ctx, c)
 			})
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
 
 			return errors.Wrap(err, "serve http")
 		})
@@ -251,19 +254,18 @@ func agentRun(c *cli.Command) (err error) {
 
 		tlog.Printw("listen", "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery)
 
+		host := u.Host
+		if u.Scheme == "unix" || u.Scheme == "unixgram" {
+			host = u.Path
+		}
+
+		l, p, err := listen(u.Scheme, host)
+		if err != nil {
+			return errors.Wrap(err, "listen %v", host)
+		}
+
 		switch {
 		case u.Scheme == "unix", u.Scheme == "tcp":
-			host := u.Host
-			if u.Scheme == "unix" || u.Scheme == "unixgram" {
-				host = u.Path
-			}
-
-			var l net.Listener
-			l, err := listen(u.Scheme, host)
-			if err != nil {
-				return errors.Wrap(err, "listen %v", host)
-			}
-
 			group.Add(func(ctx context.Context) error {
 				var wg sync.WaitGroup
 
@@ -296,23 +298,11 @@ func agentRun(c *cli.Command) (err error) {
 				return l.Close()
 			}))
 		case u.Scheme == "unixgram", u.Scheme == "udp":
-			host := u.Host
-			if u.Scheme == "unix" || u.Scheme == "unixgram" {
-				host = u.Path
-			}
-
-			l, err := listen(u.Scheme, host)
-			if err != nil {
-				return errors.Wrap(err, "listen %v", host)
-			}
-
-			p := l.(net.PacketConn)
-
 			group.Add(func(ctx context.Context) error {
 				buf := make([]byte, 0x1000)
 
 				for {
-					n, _, err := p.ReadFrom(buf)
+					n, _, err := hnet.ReadFrom(ctx, p, buf)
 					if err != nil {
 						return errors.Wrap(err, "read")
 					}
@@ -325,7 +315,7 @@ func agentRun(c *cli.Command) (err error) {
 		}
 	}
 
-	return group.Run(ctx)
+	return group.Run(ctx, graceful.IgnoreErrors(context.Canceled))
 }
 
 func cat(c *cli.Command) (err error) {
@@ -683,7 +673,38 @@ func isFifo(name string) bool {
 	return mode&fs.ModeNamedPipe != 0
 }
 
-func listen(netw, addr string) (l net.Listener, err error) {
+func listen(netw, addr string) (l net.Listener, p net.PacketConn, err error) {
+	switch netw {
+	case "unix", "unixgram":
+		_ = os.Remove(addr)
+	}
+
+	switch netw {
+	case "tcp", "unix":
+		l, err = net.Listen(netw, addr)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "listen")
+		}
+
+		switch l := l.(type) {
+		case *net.UnixListener:
+			l.SetUnlinkOnClose(true)
+		default:
+			return nil, nil, errors.New("unsupported listener type: %T", l)
+		}
+	case "udp", "unixgram":
+		p, err = net.ListenPacket(netw, addr)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "listen packet")
+		}
+	default:
+		return nil, nil, errors.New("unsupported network type: %v", netw)
+	}
+
+	return l, p, nil
+}
+
+func listen0(netw, addr string) (l net.Listener, err error) {
 	unix := strings.HasPrefix(netw, "unix")
 
 	var def []io.Closer
@@ -706,6 +727,8 @@ func listen(netw, addr string) (l net.Listener, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "listen: %v", addr)
 	}
+
+	tlog.Printw("listen", "net", netw, "addr", addr, "l_type", tlog.NextAsType, l)
 
 	// unix listener removed by close
 
@@ -762,4 +785,12 @@ func (p listenerClose) Close() (err error) {
 	}
 
 	return
+}
+
+func closeIfErr(c io.Closer, errp *error) {
+	if *errp == nil {
+		return
+	}
+
+	_ = c.Close()
 }

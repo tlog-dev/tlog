@@ -9,18 +9,23 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hnet"
+	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/tlz"
 )
 
 type (
-	Agent interface{}
+	Agent interface {
+		Query(ctx context.Context, w io.Writer, q string) error
+	}
 
 	Server struct {
-		t *template.Template
 		a Agent
+		t *template.Template
 	}
 
 	response struct {
@@ -28,8 +33,9 @@ type (
 		w   io.Writer
 		h   http.Header
 
-		once sync.Once
-		nl   bool
+		once    sync.Once
+		nl      bool
+		written bool
 	}
 
 	Proto func(context.Context, net.Conn) error
@@ -39,13 +45,14 @@ type (
 var embedded embed.FS
 
 func New(a Agent) (*Server, error) {
-	t := template.New("main")
+	t := template.New("")
 	t, err := t.ParseFS(embedded, "*.tmpl")
 	if err != nil {
 		return nil, errors.Wrap(err, "load templates")
 	}
 
 	return &Server{
+		a: a,
 		t: t,
 	}, nil
 }
@@ -93,10 +100,32 @@ func (s *Server) HandleConn(ctx context.Context, c net.Conn) (err error) {
 		return errors.Wrap(err, "read request")
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+
+	go func() {
+		defer cancel()
+
+		_, _ = io.Copy(io.Discard, c)
+	}()
+
 	resp := &response{
 		req: req,
 		w:   c,
 	}
+
+	defer func() {
+		if resp.written {
+			return
+		}
+
+		if err == nil {
+			resp.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		resp.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(resp, "%v\n", err)
+	}()
 
 	err = s.HandleRequest(ctx, resp, req)
 	if err != nil {
@@ -106,10 +135,43 @@ func (s *Server) HandleConn(ctx context.Context, c net.Conn) (err error) {
 	return nil // TODO: handle Content-Length
 }
 
-func (s *Server) HandleRequest(ctx context.Context, w io.Writer, req *http.Request) error {
-	err := s.t.Execute(w, "hello")
-	if err != nil {
+func (s *Server) HandleRequest(ctx context.Context, w io.Writer, req *http.Request) (err error) {
+	p := req.URL.Path
+
+	switch {
+	case p == "/":
+		err := s.t.ExecuteTemplate(w, "main", "hello")
 		return errors.Wrap(err, "exec template")
+	case strings.HasPrefix(p, "/v0/events"):
+		var qdata []byte
+		qdata, err = io.ReadAll(req.Body)
+		if err != nil {
+			return errors.Wrap(err, "read query")
+		}
+
+		switch ext := pathExt(p); ext {
+		case ".tl", ".tlog":
+		case ".tlz":
+			w = tlz.NewEncoder(w, tlz.MiB)
+		case ".json":
+			w = convert.NewJSON(w)
+		case ".logfmt":
+			w = convert.NewLogfmt(w)
+		case ".html":
+			ww := convert.NewWeb(w)
+			defer closeWrap(ww, "close Web", &err)
+
+			w = ww
+		default:
+			return errors.New("unsupported ext: %v", ext)
+		}
+
+		err = s.a.Query(ctx, w, string(qdata))
+		if errors.Is(err, context.Canceled) {
+			err = nil
+		}
+
+		return errors.Wrap(err, "process query")
 	}
 
 	return nil
@@ -117,7 +179,7 @@ func (s *Server) HandleRequest(ctx context.Context, w io.Writer, req *http.Reque
 
 func (r *response) WriteHeader(code int) {
 	r.once.Do(func() {
-		fmt.Fprintf(r.w, "HTTP/%d.%d %03d %s\r\n", r.req.ProtoMajor, r.req.ProtoMinor, code, http.StatusText(code))
+		fmt.Fprintf(r.w, "HTTP/%d.%d %03d %s\r\n", 1, 0, code, http.StatusText(code))
 
 		for k, v := range r.h {
 			fmt.Fprintf(r.w, "%s:", k)
@@ -151,4 +213,34 @@ func (r *response) Write(p []byte) (n int, err error) {
 	}
 
 	return
+}
+
+func closeWrap(c io.Closer, msg string, errp *error) {
+	e := c.Close()
+	if *errp == nil {
+		*errp = errors.Wrap(e, msg)
+	}
+}
+
+func pathExt(name string) string {
+	last := len(name)
+
+	for i := len(name) - 1; i >= 0; i-- {
+		if name[i] == '/' {
+			return ""
+		}
+
+		if name[i] != '.' {
+			continue
+		}
+
+		switch name[i:last] {
+		case ".tl", ".tlog", ".tlz", ".json", ".logfmt", ".html":
+			return name[i:]
+		default:
+			return ""
+		}
+	}
+
+	return ""
 }
