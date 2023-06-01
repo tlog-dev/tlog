@@ -1,0 +1,6 @@
+{
+	"short_name": "tlog explorer",
+	"id": "/",
+	"start_url": "/",
+	"display": "minimal-ui"
+}

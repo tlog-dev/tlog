@@ -43,6 +43,7 @@ type (
 
 var (
 	//go:embed index.html
+	//go:embed manifest.json
 	//go:embed static
 	static embed.FS
 )
