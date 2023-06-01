@@ -48,14 +48,14 @@ func SpawnFromContextOrStart(ctx context.Context, name string, kvs ...interface{
 	return newspan(DefaultLogger, ID{}, 0, name, kvs)
 }
 
-func SpawnFromContextAndWrap(ctx context.Context, name string, kvs ...interface{}) (context.Context, Span) {
+func SpawnFromContextAndWrap(ctx context.Context, name string, kvs ...interface{}) (Span, context.Context) {
 	s, ok := ctx.Value(ctxspankey{}).(Span)
 	if !ok {
-		return ctx, Span{}
+		return Span{}, ctx
 	}
 
 	s = newspan(s.Logger, s.ID, 0, name, kvs)
 	ctx = context.WithValue(ctx, ctxspankey{}, s)
 
-	return ctx, s
+	return s, ctx
 }

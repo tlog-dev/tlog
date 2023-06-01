@@ -224,6 +224,10 @@ func agentRun(c *cli.Command) (err error) {
 			return errors.Wrap(err, "new web server")
 		}
 
+		if q := c.String("http-fs"); q != "" {
+			s.FS = http.Dir(q)
+		}
+
 		group.Add(func(ctx context.Context) (err error) {
 			tr := tlog.SpawnFromContext(ctx, "web_server", "addr", l.Addr())
 			defer tr.Finish("err", &err)
@@ -231,10 +235,8 @@ func agentRun(c *cli.Command) (err error) {
 			ctx = tlog.ContextWithSpan(ctx, tr)
 
 			err = s.Serve(ctx, l, func(ctx context.Context, c net.Conn) (err error) {
-				tr := tlog.SpawnFromContext(ctx, "web_request", "remote_addr", c.RemoteAddr(), "local_addr", c.LocalAddr())
+				tr, ctx := tlog.SpawnFromContextAndWrap(ctx, "web_request", "remote_addr", c.RemoteAddr(), "local_addr", c.LocalAddr())
 				defer tr.Finish("err", &err)
-
-				ctx = tlog.ContextWithSpan(ctx, tr)
 
 				return s.HandleConn(ctx, c)
 			})

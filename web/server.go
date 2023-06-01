@@ -5,7 +5,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hnet"
+	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/tlz"
 )
@@ -24,8 +24,8 @@ type (
 	}
 
 	Server struct {
-		a Agent
-		t *template.Template
+		Agent Agent
+		FS    http.FileSystem
 	}
 
 	response struct {
@@ -41,19 +41,16 @@ type (
 	Proto func(context.Context, net.Conn) error
 )
 
-//go:embed *.tmpl
-var embedded embed.FS
+var (
+	//go:embed index.html
+	//go:embed static
+	static embed.FS
+)
 
 func New(a Agent) (*Server, error) {
-	t := template.New("")
-	t, err := t.ParseFS(embedded, "*.tmpl")
-	if err != nil {
-		return nil, errors.Wrap(err, "load templates")
-	}
-
 	return &Server{
-		a: a,
-		t: t,
+		Agent: a,
+		FS:    http.FS(static),
 	}, nil
 }
 
@@ -135,19 +132,21 @@ func (s *Server) HandleConn(ctx context.Context, c net.Conn) (err error) {
 	return nil // TODO: handle Content-Length
 }
 
-func (s *Server) HandleRequest(ctx context.Context, w io.Writer, req *http.Request) (err error) {
+func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req *http.Request) (err error) {
+	tr := tlog.SpanFromContext(ctx)
 	p := req.URL.Path
 
+	tr.Printw("request", "method", req.Method, "url", req.URL)
+
 	switch {
-	case p == "/":
-		err := s.t.ExecuteTemplate(w, "main", "hello")
-		return errors.Wrap(err, "exec template")
 	case strings.HasPrefix(p, "/v0/events"):
 		var qdata []byte
 		qdata, err = io.ReadAll(req.Body)
 		if err != nil {
 			return errors.Wrap(err, "read query")
 		}
+
+		var w io.Writer = rw
 
 		switch ext := pathExt(p); ext {
 		case ".tl", ".tlog":
@@ -166,13 +165,15 @@ func (s *Server) HandleRequest(ctx context.Context, w io.Writer, req *http.Reque
 			return errors.New("unsupported ext: %v", ext)
 		}
 
-		err = s.a.Query(ctx, w, string(qdata))
+		err = s.Agent.Query(ctx, w, string(qdata))
 		if errors.Is(err, context.Canceled) {
 			err = nil
 		}
 
 		return errors.Wrap(err, "process query")
 	}
+
+	http.FileServer(s.FS).ServeHTTP(rw, req)
 
 	return nil
 }
