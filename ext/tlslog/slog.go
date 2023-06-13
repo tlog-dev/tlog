@@ -120,11 +120,11 @@ func (l *Handler) WithGroup(name string) slog.Handler {
 	}
 }
 
-func (l *Handler) attr(a slog.Attr) {
+func (l *Handler) attr(a slog.Attr) bool {
 	kind := a.Value.Kind()
 
 	if a.Key == "" && kind != slog.KindGroup {
-		return
+		return true
 	}
 
 	val := a.Value.Resolve()
@@ -133,13 +133,13 @@ func (l *Handler) attr(a slog.Attr) {
 		l.b = l.AppendKey(l.b, a.Key)
 		l.b = l.AppendValue(l.b, val.Any())
 
-		return
+		return true
 	}
 
 	gr := val.Group()
 
 	if len(gr) == 0 {
-		return
+		return true
 	}
 
 	if a.Key != "" {
@@ -148,8 +148,13 @@ func (l *Handler) attr(a slog.Attr) {
 	}
 
 	for _, a := range gr {
-		l.attr(a)
+		ok := l.attr(a)
+		if !ok {
+			return false
+		}
 	}
+
+	return true
 }
 
 func level(lvl slog.Level) tlog.LogLevel {
