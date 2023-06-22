@@ -69,6 +69,8 @@ func (l *Handler) Handle(ctx context.Context, r slog.Record) error { //nolint:go
 		l.b = l.AppendBreak(l.b)
 	}
 
+	l.b = append(l.b, l.Logger.Labels()...)
+
 	l.b = l.AppendBreak(l.b)
 
 	_, err := l.Writer.Write(l.b)
