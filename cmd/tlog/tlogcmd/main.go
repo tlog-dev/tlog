@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/cli/flag"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/agent"
+	"github.com/nikandfor/tlog/ext/tlclick"
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
@@ -97,7 +99,8 @@ func App() *cli.Command {
 		Before:      beforeAgent,
 		Action:      agentRun,
 		Flags: []*cli.Flag{
-			cli.NewFlag("db", "db.tlog", "path to logs db"),
+			cli.NewFlag("db", "", "path to logs db"),
+			cli.NewFlag("clickdb", "", "clickhouse dsn"),
 
 			cli.NewFlag("listen,l", []string(nil), "listen url"),
 
@@ -206,9 +209,49 @@ func agentRun(c *cli.Command) (err error) {
 	ctx := context.Background()
 	ctx = tlog.ContextWithSpan(ctx, tlog.Root())
 
-	a, err := agent.New(c.String("db"))
-	if err != nil {
-		return errors.Wrap(err, "new agent")
+	if (c.String("db") != "") == (c.String("clickdb") != "") {
+		return errors.New("exactly one of db and clickdb must be set")
+	}
+
+	var a interface {
+		io.Writer
+		web.Agent
+	}
+
+	if q := c.String("db"); q != "" {
+		a, err = agent.New(q)
+		if err != nil {
+			return errors.Wrap(err, "new agent")
+		}
+	} else if q := c.String("clickdb"); q != "" {
+		opts, err := clickhouse.ParseDSN(q)
+		if err != nil {
+			return errors.Wrap(err, "parse clickhouse dsn")
+		}
+
+		tr := tlog.Start("clickhouse")
+		defer tr.Finish()
+
+		ctx := tlog.ContextWithSpan(ctx, tr)
+
+		opts.Debug = tr.If("clickhouse")
+		opts.Debugf = func(format string, args ...interface{}) {
+			tr.Printf(format, args...)
+		}
+
+		conn, err := clickhouse.Open(opts)
+		if err != nil {
+			return errors.Wrap(err, "open clickhouse")
+		}
+
+		ch := tlclick.New(conn)
+
+		err = ch.CreateTables(ctx)
+		if err != nil {
+			return errors.Wrap(err, "create click tables")
+		}
+
+		a = ch
 	}
 
 	group := graceful.New()
