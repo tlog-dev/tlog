@@ -194,6 +194,10 @@ func autoKey(kvs []interface{}) (k string) {
 	return
 }
 
+func (ek EventKind) String() string {
+	return string(ek)
+}
+
 func (id ID) TlogAppend(b []byte) []byte {
 	b = append(b, tlwire.Semantic|WireID)
 	return e.AppendBytes(b, id[:])
