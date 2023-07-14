@@ -404,18 +404,14 @@ func cat(c *cli.Command) (err error) {
 
 	var addFile func(a string) error
 	addFile = func(a string) (err error) {
-		var rc io.ReadCloser
+		a = filepath.Clean(a)
 
-		if a == "-" {
-			rc = os.Stdin
-		} else {
-			a = filepath.Clean(a)
+		inf, err := os.Stat(a)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return errors.Wrap(err, "stat %v", a)
+		}
 
-			inf, err := os.Stat(a)
-			if err != nil {
-				return errors.Wrap(err, "stat %v", a)
-			}
-
+		if err == nil {
 			if fs != nil {
 				err = fs.Add(a)
 				tlog.V("watch").Printw("watch file", "name", a, "err", err)
@@ -448,9 +444,9 @@ func cat(c *cli.Command) (err error) {
 			}
 		}
 
-		rc, err = tlflag.OpenReader(a)
+		rc, err := tlflag.OpenReader(a)
 		if err != nil {
-			return errors.Wrap(err, "open: %v", a)
+			return errors.Wrap(err, "open reader")
 		}
 
 		rs[a] = tlwire.NewStreamDecoder(rc)
@@ -672,7 +668,8 @@ func (f *filereader) Read(p []byte) (n int, err error) {
 	if f.f == nil {
 		f.f, err = os.Open(f.n)
 		if err != nil {
-			return 0, errors.Wrap(err, "open %v", f.n)
+			return 0, errors.Wrap(err, "")
+			//	return 0, errors.Wrap(err, "open %v", f.n)
 		}
 	}
 
