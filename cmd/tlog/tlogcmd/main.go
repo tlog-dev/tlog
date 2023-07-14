@@ -331,12 +331,15 @@ func agentRun(c *cli.Command) (err error) {
 
 					go func() {
 						defer wg.Done()
-						defer tr.Finish()
-						defer c.Close()
+
+						var err error
+
+						defer func() { tr.Finish("err", err) }()
+						defer closeWrap(c, &err, "close conn")
 
 						rr := tlwire.NewStreamDecoder(c)
 
-						_, _ = rr.WriteTo(a)
+						_, err = rr.WriteTo(a)
 					}()
 				}
 			}, graceful.WithStop(func(ctx context.Context) error {
@@ -401,45 +404,49 @@ func cat(c *cli.Command) (err error) {
 
 	var addFile func(a string) error
 	addFile = func(a string) (err error) {
-		a = filepath.Clean(a)
-
-		inf, err := os.Stat(a)
-		if err != nil {
-			return errors.Wrap(err, "stat %v", a)
-		}
-
-		if fs != nil {
-			err = fs.Add(a)
-			tlog.V("watch").Printw("watch file", "name", a, "err", err)
-			if err != nil {
-				return errors.Wrap(err, "watch")
-			}
-		}
-
-		if inf.IsDir() {
-			files, err := os.ReadDir(a)
-			if err != nil {
-				return errors.Wrap(err, "readdir %v", a)
-			}
-
-			for _, f := range files {
-				if strings.HasPrefix(f.Name(), ".") {
-					continue
-				}
-				if !f.Type().IsRegular() {
-					continue
-				}
-
-				err = addFile(filepath.Join(a, f.Name()))
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		}
-
 		var rc io.ReadCloser
+
+		if a == "-" {
+			rc = os.Stdin
+		} else {
+			a = filepath.Clean(a)
+
+			inf, err := os.Stat(a)
+			if err != nil {
+				return errors.Wrap(err, "stat %v", a)
+			}
+
+			if fs != nil {
+				err = fs.Add(a)
+				tlog.V("watch").Printw("watch file", "name", a, "err", err)
+				if err != nil {
+					return errors.Wrap(err, "watch")
+				}
+			}
+
+			if inf.IsDir() {
+				files, err := os.ReadDir(a)
+				if err != nil {
+					return errors.Wrap(err, "readdir %v", a)
+				}
+
+				for _, f := range files {
+					if strings.HasPrefix(f.Name(), ".") {
+						continue
+					}
+					if !f.Type().IsRegular() {
+						continue
+					}
+
+					err = addFile(filepath.Join(a, f.Name()))
+					if err != nil {
+						return err
+					}
+				}
+
+				return nil
+			}
+		}
 
 		rc, err = tlflag.OpenReader(a)
 		if err != nil {
@@ -830,6 +837,23 @@ func (p listenerClose) Close() (err error) {
 	}
 
 	return
+}
+
+func closeWrap(c io.Closer, errp *error, msg string) {
+	doWrap(c.Close, errp, msg)
+}
+
+func flushWrap(x interface{}, errp *error, msg string) {
+	if f, ok := x.(tlio.Flusher); ok {
+		doWrap(f.Flush, errp, msg)
+	}
+}
+
+func doWrap(f func() error, errp *error, msg string) {
+	e := f()
+	if *errp == nil {
+		*errp = errors.Wrap(e, msg)
+	}
 }
 
 func closeIfErr(c io.Closer, errp *error) {

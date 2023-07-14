@@ -78,6 +78,7 @@ var (
 	KeyMessage   = "_m"
 	KeyEventKind = "_k"
 	KeyLogLevel  = "_l"
+	KeyRepeated  = "_r"
 )
 
 // Event kinds.

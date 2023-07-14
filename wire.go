@@ -127,6 +127,10 @@ func appendKVs(b []byte, kvs []interface{}) []byte {
 			b = append(b, el...)
 			i++
 			continue
+		case tlwire.TlogAppender:
+			b = el.TlogAppend(b)
+			i++
+			continue
 		default:
 			k = "MISSING_KEY"
 		}

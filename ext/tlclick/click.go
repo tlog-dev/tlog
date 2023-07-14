@@ -9,7 +9,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	"github.com/nikandfor/errors"
-	"github.com/nikandfor/loc"
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/tlwire"
@@ -28,7 +27,8 @@ type (
 
 		JSON *convert.JSON
 
-		b driver.Batch
+		b         driver.Batch
+		lastFlush time.Time
 
 		spans   []UUID
 		related []UUID
@@ -67,13 +67,14 @@ func (d *Click) CreateTables(ctx context.Context) error {
 
 	labels       String COMMENT 'json formatted',
 	_labels      Array(String) COMMENT 'tlog pairs',
-	_labels_hash UInt64 MATERIALIZED cityHash64(_labels),
+	_labels_hash UInt64 MATERIALIZED cityHash64(arrayStringConcat(_labels)),
 
 	ts DateTime64(9, 'UTC'),
 
 	spans   Array(UUID),
 	related Array(UUID),
 
+	timestamp String ALIAS visitParamExtractString(json, '_t'),
 	span      String ALIAS toUUIDOrZero(visitParamExtractString(json, '_s')),
 	parent    String ALIAS toUUIDOrZero(visitParamExtractString(json, '_p')),
 	caller    String ALIAS visitParamExtractString(json, '_c'),
@@ -112,12 +113,13 @@ func (d *Click) Write(p []byte) (n int, err error) {
 }
 
 func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
-	defer func() {
-		tlog.Printw("write event", "err", err, "spans", d.spans, "from", loc.Caller(1))
-	}()
+	if tlog.If("dump") {
+		defer func() {
+			tlog.V("dump").Printw("event", "err", err, "msg", tlog.RawMessage(p))
+		}()
+	}
 
 	ts, next, err := d.parseEvent(p, st)
-	tlog.V("dump").Printw("message", "ts", ts, "parse_err", err, "msg", tlog.RawMessage(p))
 	if err != nil {
 		return st, errors.Wrap(err, "parse message")
 	}
@@ -134,6 +136,8 @@ func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 		if err != nil {
 			return st, errors.Wrap(err, "prepare batch")
 		}
+
+		d.lastFlush = time.Now()
 	}
 
 	err = d.b.Append(
@@ -146,14 +150,31 @@ func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 		return st, errors.Wrap(err, "append row")
 	}
 
-	err = d.b.Send()
-	if err != nil {
-		return st, errors.Wrap(err, "send")
+	if time.Since(d.lastFlush) > 1000*time.Millisecond {
+		err = d.Flush()
+		if err != nil {
+			return st, errors.Wrap(err, "flush")
+		}
 	}
 
-	d.b = nil
-
 	return next, nil
+}
+
+func (d *Click) Flush() (err error) {
+	if d.b != nil {
+		e := d.b.Send()
+		if err == nil {
+			err = errors.Wrap(e, "flush batch")
+		}
+
+		d.b = nil
+	}
+
+	return err
+}
+
+func (d *Click) Close() error {
+	return d.Flush()
 }
 
 func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
@@ -202,10 +223,6 @@ func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
 		}
 
 		tag, sub, end = dec.SkipTag(p, i)
-		if tag != tlwire.Semantic {
-			i = dec.Skip(p, i)
-			continue
-		}
 
 		{
 			jb := d.dataJSON
@@ -226,11 +243,16 @@ func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
 
 			jb, _ = d.JSON.ConvertValue(jb, p, i)
 
-			if sub == tlog.WireLabel {
+			if tag == tlwire.Semantic && sub == tlog.WireLabel {
 				d.labelsJSON = jb
 			} else {
 				d.dataJSON = jb
 			}
+		}
+
+		if tag != tlwire.Semantic {
+			i = end
+			continue
 		}
 
 		switch {
@@ -248,7 +270,7 @@ func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
 
 			u := UUID(id)
 
-			tlog.Printw("parsed id", "id", id, "key", string(k), "key_span", d.KeySpan)
+			//tlog.Printw("parsed id", "id", id, "key", string(k), "key_span", d.KeySpan)
 
 			if string(k) == d.KeySpan {
 				d.spans = append(d.spans, u)
