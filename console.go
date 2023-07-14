@@ -767,8 +767,6 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		b = append(b, '}')
 	case tlwire.Special:
 		switch sub {
-		case tlwire.None:
-			// none
 		case tlwire.False:
 			b = append(b, "false"...)
 		case tlwire.True:
@@ -777,6 +775,12 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			b = append(b, "<nil>"...)
 		case tlwire.Undefined:
 			b = append(b, "<undef>"...)
+		case tlwire.None:
+			// none
+		case tlwire.Hidden:
+			b = append(b, "<hidden>"...)
+		case tlwire.SelfRef:
+			b = append(b, "<self_ref>"...)
 		case tlwire.Float64, tlwire.Float32, tlwire.Float8:
 			var f float64
 			f, i = w.d.Float(p, st)

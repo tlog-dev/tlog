@@ -130,6 +130,8 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 			tlwire.Nil,
 			tlwire.Undefined,
 			tlwire.None,
+			tlwire.Hidden,
+			tlwire.SelfRef,
 			tlwire.Break:
 		case tlwire.Float8:
 			i += 1

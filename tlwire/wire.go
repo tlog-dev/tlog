@@ -29,9 +29,7 @@ const (
 
 // Specials.
 const (
-	None = 19 + iota
-
-	False
+	False = 20 + iota
 	True
 	Nil
 	Undefined
@@ -44,6 +42,10 @@ const (
 	_
 	_
 	Break
+
+	None    = 19 // used to preserve padding
+	Hidden  = 18 // passwords, etc. when you want to preserve the key
+	SelfRef = 17 // self reference
 )
 
 // Semantics.
@@ -62,3 +64,9 @@ const (
 
 	SemanticTlogBase
 )
+
+func init() {
+	if Break != TagDetMask {
+		panic(Break)
+	}
+}

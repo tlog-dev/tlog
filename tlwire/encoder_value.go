@@ -182,7 +182,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			}
 
 			if _, ok := visited[ptr]; ok {
-				return append(b, Special|Undefined)
+				return append(b, Special|SelfRef)
 			}
 
 			visited[ptr] = struct{}{}

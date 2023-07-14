@@ -28,6 +28,7 @@ type (
 const KeyAuto = ""
 
 var (
+	Hidden        = RawMessage{tlwire.Special | tlwire.Hidden}
 	None          = RawMessage{tlwire.Special | tlwire.None}
 	Nil           = RawMessage{tlwire.Special | tlwire.Nil}
 	Break         = RawMessage{tlwire.Special | tlwire.Break}
