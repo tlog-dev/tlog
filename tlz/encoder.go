@@ -62,15 +62,15 @@ const (
 
 // Meta tags.
 const (
-	MetaMagic    = iota << 4 // len "tlz"
-	MetaVer                  // len Version
-	MetaReset                // 0   block_size_log
-	MetaChecksum             // 0   [...]byte
+	// len: 1 2 4 8  16 32 64 Len1
 
-	MetaTagMask = 0xf0
+	MetaMagic = iota << 3 // 4: "tlz" Version
+	MetaReset             // 1: block_size_log
+
+	MetaTagMask = 0b1111_1000
 )
 
-const Version = "000" // must be less than 16 bytes
+const FileMagic = "\x00\x02eazy"
 
 var zeros = make([]byte, 1024)
 
@@ -255,17 +255,14 @@ func (w *Encoder) Write(p []byte) (done int, err error) { //nolint:gocognit
 }
 
 func (w *Encoder) appendHeader(b []byte) []byte {
-	b = append(b, Literal|Meta, MetaMagic|3, 't', 'l', 'z')
-
-	b = append(b, Literal|Meta, MetaVer|byte(len(Version)))
-	b = append(b, Version...)
+	b = append(b, Literal|Meta, MetaMagic|2, 'e', 'a', 'z', 'y')
 
 	bs := 0
 	for q := len(w.block); q != 1; q >>= 1 {
 		bs++
 	}
 
-	b = append(b, Literal|Meta, MetaReset, byte(bs))
+	b = append(b, Literal|Meta, MetaReset|0, byte(bs))
 
 	return b
 }

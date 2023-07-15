@@ -1,0 +1,4 @@
+go test fuzz v1
+[]byte("027027_pY8_p")
+[]byte("080A20270110")
+[]byte("027027_pY8_pY8200")

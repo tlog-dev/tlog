@@ -26,6 +26,19 @@ var (
 	testsCount int
 )
 
+func TestFileMagic(t *testing.T) {
+	var buf low.Buf
+
+	w := NewEncoder(&buf, MiB)
+
+	_, err := w.Write([]byte{})
+	assert.NoError(t, err)
+
+	if assert.True(t, len(buf) >= len(FileMagic)) {
+		assert.Equal(t, FileMagic, string(buf[:len(FileMagic)]))
+	}
+}
+
 func TestLiteral(t *testing.T) {
 	const B = 32
 
@@ -38,8 +51,8 @@ func TestLiteral(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Logf("buf pos %x ht %x\n%v", w.pos, w.ht, hex.Dump(w.block))
-	t.Logf("res\n%v", Dump(buf))
 	t.Logf("res\n%v", hex.Dump(buf))
+	t.Logf("res\n%v", Dump(buf))
 
 	r := &Decoder{
 		b: buf,
@@ -155,7 +168,7 @@ func TestBug1(t *testing.T) {
 
 	//	tl.Printw("first")
 
-	_, _ = b.Write([]byte{Literal | Meta, MetaReset, 4})
+	_, _ = b.Write([]byte{Literal | Meta, MetaReset | 0, 4})
 	_, _ = b.Write([]byte{Literal | 3, 0x94, 0xa8, 0xfb, Copy | 9})
 
 	n, err := d.Read(p)
@@ -227,11 +240,10 @@ func TestOnFile(t *testing.T) {
 func BenchmarkLogCompressOneline(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf low.Buf
-	w := NewEncoder(&buf, 128*1024)
-	var c tlio.CountingIODiscard
+	var full, small tlio.CountingIODiscard
+	w := NewEncoder(&small, 128*1024)
 
-	l := tlog.New(io.MultiWriter(w, &c))
+	l := tlog.New(io.MultiWriter(&full, w))
 	tr := l.Start("span_name")
 
 	types := []string{"type_a", "value_b", "qweqew", "asdads"}
@@ -242,19 +254,16 @@ func BenchmarkLogCompressOneline(b *testing.B) {
 		//	tr.Finish()
 	}
 
-	b.SetBytes(c.Bytes.Load() / int64(b.N))
-
-	b.ReportMetric(float64(c.Bytes.Load())/float64(len(buf)), "ratio")
+	b.SetBytes(full.Bytes.Load() / int64(b.N))
+	b.ReportMetric(float64(full.Bytes.Load())/float64(small.Bytes.Load()), "ratio")
 }
 
 func BenchmarkLogCompressOnelineText(b *testing.B) {
 	b.ReportAllocs()
 
-	var buf low.Buf
-	w := NewEncoder(&buf, 128*1024)
-	var c tlio.CountingIODiscard
-
-	cw := tlog.NewConsoleWriter(io.MultiWriter(w, &c), tlog.LstdFlags)
+	var full, small tlio.CountingIODiscard
+	w := NewEncoder(&small, 128*1024)
+	cw := tlog.NewConsoleWriter(io.MultiWriter(&full, w), tlog.LstdFlags)
 
 	l := tlog.New(cw)
 	tr := l.Start("span_name")
@@ -267,9 +276,8 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 		//	tr.Finish()
 	}
 
-	b.SetBytes(c.Bytes.Load() / int64(b.N))
-
-	b.ReportMetric(float64(c.Bytes.Load())/float64(len(buf)), "ratio")
+	b.SetBytes(full.Bytes.Load() / int64(b.N))
+	b.ReportMetric(float64(full.Bytes.Load())/float64(small.Bytes.Load()), "ratio")
 }
 
 const BlockSize, HTSize = 1024 * 1024, 16 * 1024

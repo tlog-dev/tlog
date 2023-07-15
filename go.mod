@@ -3,15 +3,15 @@ module github.com/nikandfor/tlog
 go 1.16
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.10.1 // indirect
+	github.com/ClickHouse/clickhouse-go/v2 v2.10.1
 	github.com/bytedance/sonic v1.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-playground/validator/v10 v10.14.1 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
-	github.com/nikandfor/assert v0.0.0-20221129185021-704c04a067ef
+	github.com/nikandfor/assert v0.0.0-20230223175244-35ebf2e03de3
 	github.com/nikandfor/cli v0.0.0-20230428202915-fdf5f3ba6b67
 	github.com/nikandfor/errors v0.8.0
 	github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88

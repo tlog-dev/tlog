@@ -101,13 +101,14 @@ func (d *Decoder) Read(p []byte) (n int, err error) {
 }
 
 func (d *Decoder) read(p []byte, st int) (n, i int, err error) {
+	//	defer func() { println("eazy.Decoder.read", st, i, n, err, len(d.b)) }()
 	if d.state != 0 && len(d.block) == 0 {
 		return 0, st, errors.New("missed meta")
 	}
 
 	i = st
 
-	if d.state == 0 {
+	for d.state == 0 {
 		i, err = d.readTag(i)
 		if err != nil {
 			return
@@ -152,8 +153,10 @@ func (d *Decoder) readTag(st int) (i int, err error) {
 		return st, err
 	}
 
+	//	println("readTag", tag, l, st, i, d.i, len(d.b))
+
 	if tag == Literal && l == Meta {
-		return d.readMetaTag(st)
+		return d.continueMetaTag(i)
 	}
 
 	switch tag {
@@ -177,62 +180,87 @@ func (d *Decoder) readTag(st int) (i int, err error) {
 	return i, nil
 }
 
-func (d *Decoder) readMetaTag(st int) (i int, err error) {
-	_, meta, i, err := d.tag(d.b, st)
-	if err != nil {
-		return st, err
+func (d *Decoder) continueMetaTag(st int) (i int, err error) {
+	i = st
+	st--
+
+	if i == len(d.b) {
+		return st, eUnexpectedEOF
 	}
 
-	if meta != Meta {
-		panic("bad usage")
+	{ // legacy fallback
+		const legacy = "\x00\x03tlz\x00\x13000\x00\x20"
+
+		if len(d.b) < len(legacy)+1 && bytes.Equal(d.b, []byte(legacy)[:len(d.b)]) {
+			return st, eUnexpectedEOF
+		}
+
+		if bytes.Equal(d.b[:len(legacy)], []byte(legacy)) {
+			i = len(legacy)
+
+			bs := int(d.b[i])
+			i++
+
+			bs = 1 << bs
+
+			if cap(d.block) >= bs {
+				d.block = d.block[:bs]
+
+				for i := 0; i < bs; {
+					i += copy(d.block[i:], zeros)
+				}
+			} else {
+				d.block = make([]byte, bs)
+			}
+
+			d.pos = 0
+			d.mask = bs - 1
+
+			d.state = 0
+
+			return i, nil
+		}
 	}
 
-	meta, i, err = d.roff(d.b, i)
-	if err != nil {
-		return st, err
+	meta := d.b[i]
+	i++
+
+	l := int(meta &^ MetaTagMask)
+
+	if l == 7 {
+		if i == len(d.b) {
+			return st, eUnexpectedEOF
+		}
+
+		l = int(d.b[i])
+		i++
+	} else {
+		l = 1 << l
+	}
+
+	//	println("meta", st-1, i, meta, l, i+l, len(d.b))
+
+	if i+l > len(d.b) {
+		return st, eUnexpectedEOF
 	}
 
 	switch meta & MetaTagMask {
 	case MetaMagic:
-		meta &^= MetaTagMask
-
-		if i+meta > len(d.b) {
-			return st, eUnexpectedEOF
-		}
-
-		if !bytes.Equal(d.b[i:i+meta], []byte("tlz")) {
+		if !bytes.Equal(d.b[i:i+l], []byte("eazy")) {
 			return st, errors.New("bad magic")
 		}
-
-		i += meta
-	case MetaVer:
-		meta &^= MetaTagMask
-
-		if i+meta > len(d.b) {
-			return st, eUnexpectedEOF
-		}
-
-		if string(d.b[i:i+meta]) != Version {
-			return st, errors.New("incompatible version")
-		}
-
-		i += meta
 	case MetaReset:
-		meta, i, err = d.roff(d.b, i) // block size log
-		if err != nil {
-			return st, err
-		}
+		bs := int(d.b[i])
+		bs = 1 << bs
 
-		bs := 1 << meta
-
-		if bs > len(d.block) {
-			d.block = make([]byte, bs)
-		} else {
+		if cap(d.block) >= bs {
 			d.block = d.block[:bs]
 
 			for i := 0; i < bs; {
 				i += copy(d.block[i:], zeros)
 			}
+		} else {
+			d.block = make([]byte, bs)
 		}
 
 		d.pos = 0
@@ -242,6 +270,8 @@ func (d *Decoder) readMetaTag(st int) (i int, err error) {
 	default:
 		return st, errors.New("unsupported meta: %x", meta)
 	}
+
+	i += l
 
 	return i, nil
 }
@@ -393,6 +423,7 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 	w.b = w.b[:0]
 
 	var tag, l int
+
 	for i < len(p) {
 		if w.GlobalOffset >= 0 {
 			w.b = hfmt.Appendf(w.b, "%6x  ", int(w.GlobalOffset)+i)
@@ -402,34 +433,40 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 		w.b = hfmt.Appendf(w.b, "%6x  ", w.d.pos)
 
+		st := i
+
 		tag, l, i, err = w.d.tag(p, i)
 		if err != nil {
-			return
+			return st, err
 		}
 
-		//	println("loop", i, tag>>6, l)
+		//	println("loop", i, tag>>7, l)
 
 		switch {
 		case l == Meta:
-			tag, i, err = w.d.roff(p, i)
-			if err != nil {
-				return
+			if i == len(p) {
+				return st, eUnexpectedEOF
 			}
 
-			switch tag & MetaTagMask {
-			case MetaMagic, MetaVer:
-				l = tag &^ MetaTagMask
+			tag = int(p[i])
+			i++
 
-				w.b = hfmt.Appendf(w.b, "meta %4x  %q\n", tag, p[i:i+l])
+			l = tag &^ MetaTagMask
 
-				i += l
-			case MetaReset:
-				l, i, err = w.d.roff(p, i)
+			if l == 7 {
+				if i == len(p) {
+					return st, eUnexpectedEOF
+				}
 
-				w.b = hfmt.Appendf(w.b, "meta %4x  %x\n", tag, l)
-			default:
-				return i, errors.New("unsupported meta tag: %x", tag)
+				l = int(p[i])
+				i++
+			} else {
+				l = 1 << l
 			}
+
+			w.b = hfmt.Appendf(w.b, "meta %2x %x  %q\n", tag>>3, l, p[i:i+l])
+
+			i += l
 		case tag == Literal:
 			w.b = hfmt.Appendf(w.b, "lit  %4x        %q\n", l, p[i:i+l])
 
@@ -440,7 +477,7 @@ func (w *Dumper) Write(p []byte) (i int, err error) {
 
 			off, i, err = w.d.roff(p, i)
 			if err != nil {
-				return
+				return st, err
 			}
 
 			w.d.pos += int64(l)
