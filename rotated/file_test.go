@@ -18,6 +18,7 @@ func TestRotation(t *testing.T) {
 	var f1, f2 low.Buf
 
 	f := Create("name.tlog.ez")
+	f.symlink = nil
 	f.OpenFile = func(n string, ff int, m os.FileMode) (w io.Writer, _ error) {
 		if f1 == nil {
 			w = &f1
@@ -26,7 +27,6 @@ func TestRotation(t *testing.T) {
 		}
 
 		return w, nil
-		// return compress.NewEncoder(w, 1<<16), nil
 	}
 
 	l := tlog.New(f)
@@ -54,6 +54,8 @@ func TestRotation(t *testing.T) {
 }
 
 func dumpFile(t *testing.T, f low.Buf, name string) {
+	t.Helper()
+
 	//	r := compress.NewDecoderBytes(f)
 	var r io.Reader = bytes.NewReader(f)
 
