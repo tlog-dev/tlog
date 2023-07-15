@@ -771,8 +771,8 @@ github.com/networkplumbing/go-nft v0.2.0/go.mod h1:HnnM+tYvlGAsMU7yoYwXEVLLiDW9g
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nikandfor/assert v0.0.0-20220304193615-0dc830fd5c42/go.mod h1:hW8FcimdffcTwchsZNQHPsXpYGtADPjwn+z9guLborE=
 github.com/nikandfor/assert v0.0.0-20220310091831-57b3fdb27159/go.mod h1:hW8FcimdffcTwchsZNQHPsXpYGtADPjwn+z9guLborE=
-github.com/nikandfor/assert v0.0.0-20230223175244-35ebf2e03de3 h1:F3X29ZhYOjLGNpqplpPrSY6IHN/LgphrXSC3KrUItP0=
-github.com/nikandfor/assert v0.0.0-20230223175244-35ebf2e03de3/go.mod h1:eDvRG+JMiRYtVsq3pN0viF27CiN76aXa4gXR7cHGcK0=
+github.com/nikandfor/assert v0.0.0-20230715221220-e6180ccf3482 h1:+Tw3JkgaWbtD4vMB5v32n1DIK3U3pBLVj0wW5D0/Sx8=
+github.com/nikandfor/assert v0.0.0-20230715221220-e6180ccf3482/go.mod h1:eDvRG+JMiRYtVsq3pN0viF27CiN76aXa4gXR7cHGcK0=
 github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747/go.mod h1:xDROzJvdwquuEh7AXL6jhA5uPUOq1veFeyLu7ZJDq9M=
 github.com/nikandfor/cli v0.0.0-20220414143810-caca4acd49c1/go.mod h1:uwYEVDqDUGdG+RgI2Ysp/G2kN/vfNyHKAE7b8O7ewtw=
 github.com/nikandfor/cli v0.0.0-20230428202915-fdf5f3ba6b67 h1:pG+seUAcX/Y+DIomdpKGdl1lAurG1mYVVz15Bw+Iq1g=

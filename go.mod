@@ -11,7 +11,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
-	github.com/nikandfor/assert v0.0.0-20230223175244-35ebf2e03de3
+	github.com/nikandfor/assert v0.0.0-20230715221220-e6180ccf3482
 	github.com/nikandfor/cli v0.0.0-20230428202915-fdf5f3ba6b67
 	github.com/nikandfor/errors v0.8.0
 	github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88
