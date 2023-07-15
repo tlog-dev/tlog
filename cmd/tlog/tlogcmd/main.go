@@ -379,6 +379,10 @@ func cat(c *cli.Command) (err error) {
 		}
 	}()
 
+	if tlog.If("describe,describe_writer") {
+		tlflag.Describe(tlog.Root(), w)
+	}
+
 	var fs *fsnotify.Watcher //nolint:gocritic
 
 	if c.Bool("follow") {
@@ -447,6 +451,10 @@ func cat(c *cli.Command) (err error) {
 		rc, err := tlflag.OpenReader(a)
 		if err != nil {
 			return errors.Wrap(err, "open reader")
+		}
+
+		if tlog.If("describe,describe_reader") {
+			tlflag.Describe(tlog.Root(), rc)
 		}
 
 		rs[a] = tlwire.NewStreamDecoder(rc)
@@ -529,7 +537,9 @@ func cat(c *cli.Command) (err error) {
 		case ev.Op&fsnotify.Write != 0:
 			r, ok := rs[ev.Name]
 			if !ok {
-				return errors.New("unexpected event: %v (%v)", ev.Name, rs)
+				tlog.V("unexpected_event").Printw("unexpected event", "file", ev.Name, "map", rs)
+				break
+				//	return errors.New("unexpected event: %v (%v)", ev.Name, rs)
 			}
 
 			_, err = r.WriteTo(w)
@@ -620,8 +630,8 @@ func ticker(c *cli.Command) error {
 		return errors.Wrap(err, "open output")
 	}
 
-	if tlog.If("output") {
-		tlflag.DumpWriter(tlog.Root(), w)
+	if tlog.If("describe,describe_writer") {
+		tlflag.Describe(tlog.Root(), w)
 	}
 
 	w = perrWriter{

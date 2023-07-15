@@ -2,7 +2,6 @@ package tlclick
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -19,8 +18,6 @@ type (
 
 	Click struct {
 		c driver.Conn
-
-		Table string
 
 		KeyTimestamp string
 		KeySpan      string
@@ -43,8 +40,7 @@ type (
 
 func New(c driver.Conn) *Click {
 	d := &Click{
-		c:     c,
-		Table: "logs",
+		c: c,
 
 		KeyTimestamp: tlog.KeyTimestamp,
 		KeySpan:      tlog.KeySpan,
@@ -61,7 +57,7 @@ func (d *Click) Query(ctx context.Context, w io.Writer, q string) error {
 }
 
 func (d *Click) CreateTables(ctx context.Context) error {
-	err := d.c.Exec(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+	err := d.c.Exec(ctx, `CREATE TABLE IF NOT EXISTS logs (
 	tlog String,
 	json String,
 
@@ -79,9 +75,13 @@ func (d *Click) CreateTables(ctx context.Context) error {
 	parent    String ALIAS toUUIDOrZero(visitParamExtractString(json, '_p')),
 	caller    String ALIAS visitParamExtractString(json, '_c'),
 	message   String ALIAS visitParamExtractString(json, '_m'),
+	msg       String ALIAS message,
 	event     String ALIAS visitParamExtractString(json, '_k'),
 	elapsed   Int64  ALIAS visitParamExtractInt(json, '_e'),
 	log_level Int8   ALIAS visitParamExtractInt(json, '_l'),
+	error     String ALIAS visitParamExtractString(json, 'err'),
+
+	kvs Array(Tuple(String, String)) ALIAS arrayMap(k -> (k, JSONExtractRaw(json, k)), arrayFilter(k -> k NOT IN ('_s', '_t', '_c', '_m'), JSONExtractKeys(json))),
 
 	minute  DateTime ALIAS        toStartOfMinute(ts),
 	hour    DateTime ALIAS        toStartOfHour(ts),
@@ -93,9 +93,23 @@ func (d *Click) CreateTables(ctx context.Context) error {
 ENGINE MergeTree
 ORDER BY ts
 PARTITION BY (day, _labels_hash)
-`, d.Table))
+`)
 	if err != nil {
-		return errors.Wrap(err, d.Table)
+		return errors.Wrap(err, "logs")
+	}
+
+	err = d.c.Exec(ctx, `CREATE OR REPLACE VIEW spans AS
+SELECT
+	span,
+	min(ts) AS start,
+	max(ts) AS end,
+	anyIf(message, event = 's') AS name,
+	round(anyIf(elapsed, event = 'f') / 1e9, 1) AS elapsed_s,
+	anyIf(error, event = 'f') AS error
+FROM logs GROUP BY span
+`)
+	if err != nil {
+		return errors.Wrap(err, "spans")
 	}
 
 	return nil
@@ -127,12 +141,12 @@ func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 	if d.b == nil {
 		ctx := context.Background()
 
-		d.b, err = d.c.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s (
+		d.b, err = d.c.PrepareBatch(ctx, `INSERT INTO logs (
 			tlog, json,
 			_labels, labels,
 			ts,
 			spans, related
-		) VALUES`, d.Table))
+		) VALUES`)
 		if err != nil {
 			return st, errors.Wrap(err, "prepare batch")
 		}
@@ -225,10 +239,12 @@ func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
 		tag, sub, end = dec.SkipTag(p, i)
 
 		{
-			jb := d.dataJSON
+			var jb []byte
 
-			if sub == tlog.WireLabel {
+			if tag == tlwire.Semantic && sub == tlog.WireLabel {
 				jb = d.labelsJSON
+			} else {
+				jb = d.dataJSON
 			}
 
 			if len(jb) == 0 {
