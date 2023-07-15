@@ -7,24 +7,31 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nikandfor/errors"
+	"github.com/nikandfor/loc"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
 	"github.com/nikandfor/tlog/tlz"
 )
 
 type (
-	FileOpener func(name string, flags int, mode os.FileMode) (interface{}, error)
+	FileOpener = func(name string, flags int, mode os.FileMode) (interface{}, error)
+
+	writerWrapper func(io.Writer, io.Closer) (io.Writer, io.Closer, error)
+	readerWrapper func(io.Reader, io.Closer) (io.Reader, io.Closer, error)
 )
 
 var (
-	OpenFileWriter = OSOpenFile
-	OpenFileReader = OpenFileReReader(OSOpenFile)
+	OpenFileWriter FileOpener = OSOpenFile
+	OpenFileReader FileOpener = OpenFileReReader(OSOpenFile)
 )
 
 func OpenWriter(dst string) (wc io.WriteCloser, err error) {
@@ -48,7 +55,7 @@ func OpenWriter(dst string) (wc io.WriteCloser, err error) {
 			return nil, errors.Wrap(err, "parse %v", d)
 		}
 
-		// tlog.Printw(d, "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery, "from", loc.Caller(1))
+		tlog.V("writer_url").Printw(d, "scheme", u.Scheme, "host", u.Host, "path", u.Path, "query", u.RawQuery, "from", loc.Caller(1))
 
 		w, err := openw(u)
 		if err != nil {
@@ -79,29 +86,79 @@ func openw(u *url.URL) (io.Writer, error) {
 	return writeCloser(w, c), nil
 }
 
-func openwc(u *url.URL, base string, wrap ...func(io.Writer, io.Closer) (io.Writer, io.Closer, error)) (w io.Writer, c io.Closer, err error) {
-	ext := filepath.Ext(base)
-	base = strings.TrimSuffix(base, ext)
-
+func openwc(u *url.URL, base string) (w io.Writer, c io.Closer, err error) {
 	//	fmt.Fprintf(os.Stderr, "openwc %q %q\n", base, ext)
 
 	// w := os.Create("file.json.ez")
 	// w = tlz.NewEncoder(w)
 	// w = convert.NewJSON(w)
 
+	var wrap []writerWrapper
+
+more:
+	ext := filepath.Ext(base)
+	base = strings.TrimSuffix(base, ext)
+
 	switch ext {
-	case ".tlog", ".tl", ".tlogdump", ".tldump", ".log", "":
-	case ".tlz":
-	case ".json", ".logfmt", ".html":
-	case ".eazy", ".ez":
+	case ".tlog", ".tl":
+	case ".tlogdump", ".tldump":
 		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			w = tlwire.NewDumper(w)
+
+			return w, c, nil
+		})
+	case ".log", "":
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			ff := tlog.LstdFlags
+			ff = updateConsoleFlags(ff, u.RawQuery)
+
+			w = tlog.NewConsoleWriter(w, ff)
+
+			return w, c, nil
+		})
+	case ".tlz", ".eazy", ".ez":
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			if f, ok := w.(*rotated.File); ok {
+				f.OpenFile = RotatedTLZFileOpener(f.OpenFile)
+
+				return f, c, nil
+			}
+
 			w = tlz.NewEncoder(w, tlz.MiB)
 
 			return w, c, nil
 		})
 
-		return openwc(u, base, wrap...)
+		if ext == ".eazy" || ext == ".ez" {
+			goto more
+		}
+	case ".json":
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			w = convert.NewJSON(w)
+
+			return w, c, nil
+		})
+	case ".logfmt":
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			w = convert.NewLogfmt(w)
+
+			return w, c, nil
+		})
+	case ".html":
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			wc := writeCloser(w, c)
+			w = convert.NewWeb(wc)
+			c, _ = w.(io.Closer)
+
+			return w, c, nil
+		})
 	case ".eazydump", ".ezdump":
+		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
+			w = tlz.NewDumper(w)
+			w = tlz.NewEncoder(w, tlz.MiB)
+
+			return w, c, nil
+		})
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
@@ -116,34 +173,6 @@ func openwc(u *url.URL, base string, wrap ...func(io.Writer, io.Closer) (io.Writ
 		if err != nil {
 			return
 		}
-	}
-
-	switch ext {
-	case ".tlog", ".tl":
-	case ".tlz":
-		blockSize := tlz.MiB
-
-		w = tlz.NewEncoder(w, blockSize)
-	case ".log", "":
-		ff := tlog.LstdFlags
-		ff = updateConsoleFlags(ff, u.RawQuery)
-
-		w = tlog.NewConsoleWriter(w, ff)
-	case ".json":
-		w = convert.NewJSON(w)
-	case ".logfmt":
-		w = convert.NewLogfmt(w)
-	case ".html":
-		wc := writeCloser(w, c)
-		w = convert.NewWeb(wc)
-		c, _ = w.(io.Closer)
-	case ".tlogdump", ".tldump":
-		w = tlwire.NewDumper(w)
-	case ".eazydump", ".ezdump":
-		w = tlz.NewDumper(w)
-		w = tlz.NewEncoder(w, tlz.MiB)
-	default:
-		panic(ext)
 	}
 
 	return w, c, nil
@@ -183,6 +212,45 @@ func openwfile(u *url.URL) (interface{}, error) {
 	of = updateFileFlags(of, u.RawQuery)
 
 	mode := os.FileMode(0o644)
+
+	q := u.Query()
+
+	if rotated.IsPattern(filepath.Base(fname)) || q.Get("rotated") != "" {
+		f := rotated.Create(fname)
+		f.Flags = of
+		f.Mode = mode
+		f.OpenFile = openFileWriter
+
+		if v := q.Get("max_file_size"); v != "" {
+			x, err := ParseBytes(v)
+			if err == nil {
+				f.MaxFileSize = x
+			}
+		}
+
+		if v := q.Get("max_file_age"); v != "" {
+			x, err := time.ParseDuration(v)
+			if err == nil {
+				f.MaxFileAge = x
+			}
+		}
+
+		if v := q.Get("max_total_size"); v != "" {
+			x, err := ParseBytes(v)
+			if err == nil {
+				f.MaxTotalSize = x
+			}
+		}
+
+		if v := q.Get("max_total_age"); v != "" {
+			x, err := time.ParseDuration(v)
+			if err == nil {
+				f.MaxTotalAge = x
+			}
+		}
+
+		return f, nil
+	}
 
 	return OpenFileWriter(fname, of, mode)
 }
@@ -252,19 +320,25 @@ func openr(u *url.URL) (io.Reader, error) {
 	}, nil
 }
 
-func openrc(u *url.URL, base string, wrap ...func(io.Reader) (io.Reader, error)) (r io.Reader, c io.Closer, err error) {
+func openrc(u *url.URL, base string) (r io.Reader, c io.Closer, err error) {
+	var wrap []readerWrapper
+
+more:
 	ext := filepath.Ext(base)
 	base = strings.TrimSuffix(base, ext)
 
 	switch ext {
 	case ".tlog", ".tl", "":
-	case ".tlz":
-	case ".eazy", ".ez":
-		wrap = append(wrap, func(r io.Reader) (io.Reader, error) {
-			return tlz.NewDecoder(r), nil
+	case ".tlz", ".eazy", ".ez":
+		wrap = append(wrap, func(r io.Reader, c io.Closer) (io.Reader, io.Closer, error) {
+			r = tlz.NewDecoder(r)
+
+			return r, c, nil
 		})
 
-		return openrc(u, base, wrap...)
+		if ext == ".eazy" || ext == ".ez" {
+			goto more
+		}
 	default:
 		return nil, nil, errors.New("unsupported format: %v", ext)
 	}
@@ -275,18 +349,10 @@ func openrc(u *url.URL, base string, wrap ...func(io.Reader) (io.Reader, error))
 	}
 
 	for _, wrap := range wrap {
-		r, err = wrap(r)
+		r, c, err = wrap(r, c)
 		if err != nil {
 			return
 		}
-	}
-
-	switch ext {
-	case ".tlog", ".tl", "":
-	case ".tlz":
-		r = tlz.NewDecoder(r)
-	default:
-		panic(ext)
 	}
 
 	return r, c, nil
@@ -307,6 +373,10 @@ func openreader(u *url.URL, base string) (r io.Reader, c io.Closer, err error) {
 	}
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if rc, ok := f.(tlio.ReadCloser); ok {
+		return rc.Reader, rc.Closer, nil
 	}
 
 	r = f.(io.Reader)
@@ -419,10 +489,36 @@ func OpenFileDumpReader(open FileOpener) FileOpener {
 	}
 }
 
+func RotatedTLZFileOpener(below rotated.FileOpener) rotated.FileOpener {
+	return func(name string, flags int, mode os.FileMode) (io.Writer, error) {
+		w, err := below(name, flags, mode)
+		if err != nil {
+			return nil, errors.Wrap(err, "")
+		}
+
+		w = tlz.NewEncoder(w, tlz.MiB)
+
+		return w, nil
+	}
+}
+
+func openFileWriter(name string, flags int, mode os.FileMode) (io.Writer, error) {
+	file, err := OpenFileWriter(name, flags, mode)
+	if err != nil {
+		return nil, err
+	}
+
+	return file.(io.Writer), nil
+}
+
 func ParseURL(d string) (u *url.URL, err error) {
 	u, err = url.Parse(d)
 	if err != nil {
 		return nil, err
+	}
+
+	if u.Opaque != "" {
+		return nil, errors.New("unexpected opaque url")
 	}
 
 	if (u.Scheme == "file" || u.Scheme == "unix" || u.Scheme == "unixgram") && u.Host != "" {
@@ -433,34 +529,107 @@ func ParseURL(d string) (u *url.URL, err error) {
 	return u, nil
 }
 
-func DumpWriter(tr tlog.Span, w io.Writer) {
-	dumpWriter(tr, w, 0)
+func ParseBytes(s string) (int64, error) {
+	base := 10
+	neg := false
+
+	for strings.HasPrefix(s, "-") {
+		neg = !neg
+		s = s[1:]
+	}
+
+	if strings.HasPrefix(s, "0x") {
+		s = s[2:]
+		base = 16
+	}
+
+	l := 0
+
+	for l < len(s) && s[l] >= '0' && (s[l] <= '9' || base == 16 && (s[l] >= 'a' && s[l] <= 'f' || s[l] >= 'A' && s[l] <= 'F')) {
+		l++
+	}
+
+	if l == 0 {
+		return 0, errors.New("bad size")
+	}
+
+	var m int64
+
+	switch strings.ToLower(s[l:]) {
+	case "b", "":
+		m = 1
+	case "kb", "k":
+		m = 1000
+	case "kib", "ki":
+		m = 1024
+	case "mb", "m":
+		m = 1e6
+	case "mib", "mi":
+		m = 1 << 20
+	case "gb", "g":
+		m = 1e9
+	case "gib", "gi":
+		m = 1 << 30
+	case "tb", "t":
+		m = 1e12
+	case "tib", "ti":
+		m = 1 << 40
+	default:
+		return 0, errors.New("unsupported suffix: %v", s[l:])
+	}
+
+	x, err := strconv.ParseInt(s[:l], base, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	if neg {
+		x = -x
+	}
+
+	return x * m, nil
 }
 
-func dumpWriter(tr tlog.Span, w io.Writer, d int) {
-	switch w := w.(type) {
+func Describe(tr tlog.Span, x interface{}) {
+	describe(tr, x, 0)
+}
+
+func describe(tr tlog.Span, x interface{}, d int) {
+	switch x := x.(type) {
 	case tlio.MultiWriter:
-		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
 
-		for _, w := range w {
-			dumpWriter(tr, w, d+1)
+		for _, w := range x {
+			describe(tr, w, d+1)
 		}
-	case *tlog.ConsoleWriter:
-		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+	case tlio.ReadCloser:
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
 
-		dumpWriter(tr, w.Writer, d+1)
+		describe(tr, x.Reader, d+1)
+		describe(tr, x.Closer, d+1)
+	case *tlio.ReReader:
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
+
+		describe(tr, x.ReadSeeker, d+1)
+	case *tlz.Decoder:
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
+
+		describe(tr, x.Reader, d+1)
+	case *tlog.ConsoleWriter:
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
+
+		describe(tr, x.Writer, d+1)
 	case *os.File:
-		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w, "name", w.Name())
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x, "name", x.Name())
 
 	case *net.UnixConn:
-		f, err := w.File()
+		f, err := x.File()
 
-		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w, "get_file_err", err)
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x, "get_file_err", err)
 
-		dumpWriter(tr, f, d+1)
-
+		describe(tr, f, d+1)
 	default:
-		tr.Printw("writer", "d", d, "typ", tlog.NextAsType, w)
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
 	}
 }
 

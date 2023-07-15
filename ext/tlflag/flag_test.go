@@ -9,6 +9,7 @@ import (
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
+	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlz"
 )
@@ -49,6 +50,10 @@ func TestFileWriter(t *testing.T) {
 	assert.Equal(t, tlio.MultiWriter{
 		tlz.NewEncoder(tlog.Stderr, CompressorBlockSize),
 	}, w)
+
+	w, err = OpenWriter("file.tl")
+	assert.NoError(t, err)
+	assert.Equal(t, testFile("file.tl"), w)
 
 	w, err = OpenWriter("file.tlz")
 	assert.NoError(t, err)
@@ -105,6 +110,53 @@ func TestURLWriter(t *testing.T) { //nolint:dupl
 	w, err = OpenWriter("file:///absolute/path.tlog")
 	assert.NoError(t, err)
 	assert.Equal(t, testFile("/absolute/path.tlog"), w)
+}
+
+func TestRotatedWriter(t *testing.T) {
+	OpenFileWriter = TestingFileOpener
+
+	const CompressorBlockSize = 1 * tlz.MiB
+
+	with := func(f *rotated.File, wrap func(*rotated.File)) *rotated.File {
+		wrap(f)
+
+		return f
+	}
+
+	w, err := OpenWriter("file_XXXX.tl")
+	assert.NoError(t, err)
+	assert.Equal(t, with(rotated.Create("file_XXXX.tl"), func(f *rotated.File) {
+		f.OpenFile = openFileWriter
+	}), w)
+
+	w, err = OpenWriter("file.tl?rotated=1")
+	assert.NoError(t, err)
+	assert.Equal(t, with(rotated.Create("file.tl"), func(f *rotated.File) {
+		f.OpenFile = openFileWriter
+	}), w)
+
+	w, err = OpenWriter("file_XXXX.tlz")
+	assert.NoError(t, err)
+	assert.Equal(t, with(rotated.Create("file_XXXX.tlz"), func(f *rotated.File) {
+		f.OpenFile = RotatedTLZFileOpener(nil)
+	}), w)
+
+	w, err = OpenWriter("file_XXXX.tl.ez")
+	assert.NoError(t, err)
+	assert.Equal(t, with(rotated.Create("file_XXXX.tl.ez"), func(f *rotated.File) {
+		f.OpenFile = RotatedTLZFileOpener(nil)
+	}), w)
+
+	w, err = OpenWriter("file_XXXX.json.ez")
+	assert.NoError(t, err)
+	assert.Equal(t, tlio.WriteCloser{
+		Writer: convert.NewJSON(with(rotated.Create("file_XXXX.json.ez"), func(f *rotated.File) {
+			f.OpenFile = RotatedTLZFileOpener(nil)
+		})),
+		Closer: with(rotated.Create("file_XXXX.json.ez"), func(f *rotated.File) {
+			f.OpenFile = RotatedTLZFileOpener(nil)
+		}),
+	}, w)
 }
 
 func TestFileReader(t *testing.T) {
