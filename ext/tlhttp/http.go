@@ -3,7 +3,7 @@ package tlhttp
 import (
 	"net/http"
 
-	"github.com/nikandfor/tlog"
+	"tlog.app/go/tlog"
 )
 
 var TraceIDKey = "Traceid"

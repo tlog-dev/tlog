@@ -3,7 +3,7 @@ package convert
 import (
 	"io"
 
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog/tlwire"
 )
 
 func Copy(w io.Writer, r io.Reader) (int64, error) {

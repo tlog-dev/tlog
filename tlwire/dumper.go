@@ -7,7 +7,7 @@ import (
 
 	"github.com/nikandfor/hacked/hfmt"
 
-	"github.com/nikandfor/tlog/low"
+	"tlog.app/go/tlog/low"
 )
 
 type (

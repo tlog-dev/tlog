@@ -15,8 +15,8 @@ import (
 	"github.com/nikandfor/hacked/hnet"
 	"tlog.app/go/eazy"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/convert"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/convert"
 )
 
 type (

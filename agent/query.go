@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/nikandfor/tlog"
+	"tlog.app/go/tlog"
 )
 
 func (a *Agent) Query(ctx context.Context, w io.Writer, q string) (err error) {

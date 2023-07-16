@@ -10,7 +10,7 @@ import (
 	"github.com/nikandfor/hacked/htime"
 	"github.com/nikandfor/loc"
 
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog/tlwire"
 )
 
 type (

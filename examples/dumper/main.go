@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/nikandfor/loc"
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/tlio"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/tlio"
 )
 
 func main() {

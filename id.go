@@ -10,7 +10,7 @@ import (
 
 	"github.com/nikandfor/errors"
 
-	"github.com/nikandfor/tlog/low"
+	"tlog.app/go/tlog/low"
 )
 
 type (

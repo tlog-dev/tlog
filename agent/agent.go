@@ -17,9 +17,9 @@ import (
 	"github.com/nikandfor/errors"
 	"tlog.app/go/eazy"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/tlio"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/tlio"
+	"tlog.app/go/tlog/tlwire"
 )
 
 type (

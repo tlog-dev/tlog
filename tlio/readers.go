@@ -5,7 +5,7 @@ import (
 
 	"github.com/nikandfor/errors"
 
-	"github.com/nikandfor/tlog"
+	"tlog.app/go/tlog"
 )
 
 type (

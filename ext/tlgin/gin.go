@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/ext/tlhttp"
-	"github.com/nikandfor/tlog/low"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/ext/tlhttp"
+	"tlog.app/go/tlog/low"
 )
 
 func Tracer(c *gin.Context) {

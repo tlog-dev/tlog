@@ -8,8 +8,8 @@ import (
 
 	"github.com/nikandfor/errors"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/tlwire"
 )
 
 type (

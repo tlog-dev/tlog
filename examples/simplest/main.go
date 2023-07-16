@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/examples/simplest/sub"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/examples/simplest/sub"
 )
 
 var (

@@ -9,7 +9,7 @@ import (
 
 	"github.com/nikandfor/loc"
 
-	"github.com/nikandfor/tlog/low"
+	"tlog.app/go/tlog/low"
 )
 
 type (
@@ -103,7 +103,7 @@ func (e *Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
 	return b
 }
 
-//go:linkname appendValue github.com/nikandfor/tlog/tlwire.(*Encoder).appendValue
+//go:linkname appendValue tlog.app/go/tlog/tlwire.(*Encoder).appendValue
 //go:noescape
 func appendValue(e *Encoder, b []byte, v interface{}) []byte
 

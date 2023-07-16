@@ -5,7 +5,7 @@ import (
 
 	"github.com/nikandfor/cli"
 
-	"github.com/nikandfor/tlog/cmd/tlog/tlogcmd"
+	"tlog.app/go/tlog/cmd/tlog/tlogcmd"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/nikandfor/assert"
 
-	"github.com/nikandfor/tlog/low"
+	"tlog.app/go/tlog/low"
 )
 
 func TestContextWithSpan(t *testing.T) {

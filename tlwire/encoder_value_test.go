@@ -5,7 +5,7 @@ import (
 
 	"github.com/nikandfor/assert"
 
-	"github.com/nikandfor/tlog/low"
+	"tlog.app/go/tlog/low"
 )
 
 type testEncoder struct {

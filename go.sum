@@ -811,6 +811,7 @@ github.com/nikandfor/tlog v0.12.2-0.20211123200322-8880f72871a2/go.mod h1:F6IpPi
 github.com/nikandfor/tlog v0.13.1-0.20220228082419-ba30fd600ddd/go.mod h1:22QCF3QBqJEpbIxCJZws3NeywlFf4aHafpFAf/97pzs=
 github.com/nikandfor/tlog v0.14.0/go.mod h1:22QCF3QBqJEpbIxCJZws3NeywlFf4aHafpFAf/97pzs=
 github.com/nikandfor/tlog v0.14.1/go.mod h1:5JnfEr8d6q5jNG570qUchoV+2fzoRYOEudBOxPfDNO4=
+github.com/nikandfor/tlog v0.21.4 h1:CS9ssuWZPd0RBM77hyY0irP/7PzdTYKBDe0DKjL5/uo=
 github.com/nikandfor/tlog v0.21.4/go.mod h1:R8Q8tU2kyoNtTh8HM6j1lVK4hc0NWzVd/sWYLwTgKRo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=

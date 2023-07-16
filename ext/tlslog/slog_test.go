@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slog"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/convert"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/convert"
+	"tlog.app/go/tlog/tlwire"
 )
 
 func TestSlog(t *testing.T) {

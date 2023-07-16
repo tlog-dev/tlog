@@ -1,6 +1,6 @@
 package main
 
-import "github.com/nikandfor/tlog"
+import "tlog.app/go/tlog"
 
 func main() {
 	tlog.DefaultLogger = tlog.New(tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags))

@@ -6,8 +6,8 @@ import (
 
 	"github.com/nikandfor/loc"
 
-	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog/low"
+	"tlog.app/go/tlog/tlwire"
 )
 
 type (
@@ -103,7 +103,7 @@ func Special(value int) RawMessage {
 	return RawMessage(tlwire.LowEncoder{}.AppendTag(nil, tlwire.Special, value))
 }
 
-//go:linkname appendKVs0 github.com/nikandfor/tlog.appendKVs
+//go:linkname appendKVs0 tlog.app/go/tlog.appendKVs
 //go:noescape
 func appendKVs0(b []byte, kvs []interface{}) []byte
 

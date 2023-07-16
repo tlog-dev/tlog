@@ -15,11 +15,11 @@ import (
 	"github.com/nikandfor/loc"
 	"tlog.app/go/eazy"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/convert"
-	"github.com/nikandfor/tlog/rotated"
-	"github.com/nikandfor/tlog/tlio"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/convert"
+	"tlog.app/go/tlog/rotated"
+	"tlog.app/go/tlog/tlio"
+	"tlog.app/go/tlog/tlwire"
 )
 
 type (

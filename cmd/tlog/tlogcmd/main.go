@@ -24,13 +24,13 @@ import (
 	"github.com/nikandfor/hacked/hnet"
 	"tlog.app/go/eazy"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/agent"
-	"github.com/nikandfor/tlog/ext/tlclick"
-	"github.com/nikandfor/tlog/ext/tlflag"
-	"github.com/nikandfor/tlog/tlio"
-	"github.com/nikandfor/tlog/tlwire"
-	"github.com/nikandfor/tlog/web"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/agent"
+	"tlog.app/go/tlog/ext/tlclick"
+	"tlog.app/go/tlog/ext/tlflag"
+	"tlog.app/go/tlog/tlio"
+	"tlog.app/go/tlog/tlwire"
+	"tlog.app/go/tlog/web"
 )
 
 type (

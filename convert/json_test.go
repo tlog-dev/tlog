@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/low"
+	"tlog.app/go/tlog/tlwire"
 )
 
 func TestJSON(t *testing.T) {

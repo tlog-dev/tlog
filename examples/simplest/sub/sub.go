@@ -3,7 +3,7 @@ package sub
 import (
 	"context"
 
-	"github.com/nikandfor/tlog"
+	"tlog.app/go/tlog"
 )
 
 func Func(ctx context.Context, i int) {

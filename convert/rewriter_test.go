@@ -7,9 +7,9 @@ import (
 	"github.com/nikandfor/assert"
 	"github.com/nikandfor/loc"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/low"
+	"tlog.app/go/tlog/tlwire"
 )
 
 func TestRewriter(t *testing.T) {

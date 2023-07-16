@@ -11,10 +11,10 @@ import (
 	"github.com/nikandfor/loc"
 	"golang.org/x/term"
 
-	"github.com/nikandfor/tlog"
-	"github.com/nikandfor/tlog/low"
-	"github.com/nikandfor/tlog/tlio"
-	"github.com/nikandfor/tlog/tlwire"
+	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/low"
+	"tlog.app/go/tlog/tlio"
+	"tlog.app/go/tlog/tlwire"
 )
 
 type (

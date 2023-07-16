@@ -7,7 +7,7 @@ import (
 	"github.com/nikandfor/loc"
 	"golang.org/x/exp/slog"
 
-	"github.com/nikandfor/tlog"
+	"tlog.app/go/tlog"
 )
 
 type (
