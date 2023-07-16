@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/nikandfor/errors"
+	"tlog.app/go/eazy"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
-	"github.com/nikandfor/tlog/tlz"
 )
 
 type (
@@ -112,7 +112,7 @@ func (a *Agent) openFiles() (err error) {
 			}
 		}()
 
-		dec := tlz.NewDecoder(ff)
+		dec := eazy.NewReader(ff)
 		sd := tlwire.NewStreamDecoder(dec)
 
 		msg, err := sd.Decode()
@@ -320,7 +320,7 @@ func (a *Agent) openWriter(f *file) (io.Writer, error) {
 		return nil, errors.Wrap(err, "open file")
 	}
 
-	w := tlz.NewEncoder(ff, tlz.MiB)
+	w := eazy.NewWriter(ff, eazy.MiB)
 
 	return tlio.WriteCloser{
 		Writer: w,

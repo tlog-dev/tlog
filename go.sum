@@ -771,6 +771,7 @@ github.com/networkplumbing/go-nft v0.2.0/go.mod h1:HnnM+tYvlGAsMU7yoYwXEVLLiDW9g
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nikandfor/assert v0.0.0-20220304193615-0dc830fd5c42/go.mod h1:hW8FcimdffcTwchsZNQHPsXpYGtADPjwn+z9guLborE=
 github.com/nikandfor/assert v0.0.0-20220310091831-57b3fdb27159/go.mod h1:hW8FcimdffcTwchsZNQHPsXpYGtADPjwn+z9guLborE=
+github.com/nikandfor/assert v0.0.0-20221129185021-704c04a067ef/go.mod h1:hW8FcimdffcTwchsZNQHPsXpYGtADPjwn+z9guLborE=
 github.com/nikandfor/assert v0.0.0-20230715221220-e6180ccf3482 h1:+Tw3JkgaWbtD4vMB5v32n1DIK3U3pBLVj0wW5D0/Sx8=
 github.com/nikandfor/assert v0.0.0-20230715221220-e6180ccf3482/go.mod h1:eDvRG+JMiRYtVsq3pN0viF27CiN76aXa4gXR7cHGcK0=
 github.com/nikandfor/cli v0.0.0-20210105003942-afe14413f747/go.mod h1:xDROzJvdwquuEh7AXL6jhA5uPUOq1veFeyLu7ZJDq9M=
@@ -810,6 +811,7 @@ github.com/nikandfor/tlog v0.12.2-0.20211123200322-8880f72871a2/go.mod h1:F6IpPi
 github.com/nikandfor/tlog v0.13.1-0.20220228082419-ba30fd600ddd/go.mod h1:22QCF3QBqJEpbIxCJZws3NeywlFf4aHafpFAf/97pzs=
 github.com/nikandfor/tlog v0.14.0/go.mod h1:22QCF3QBqJEpbIxCJZws3NeywlFf4aHafpFAf/97pzs=
 github.com/nikandfor/tlog v0.14.1/go.mod h1:5JnfEr8d6q5jNG570qUchoV+2fzoRYOEudBOxPfDNO4=
+github.com/nikandfor/tlog v0.21.4/go.mod h1:R8Q8tU2kyoNtTh8HM6j1lVK4hc0NWzVd/sWYLwTgKRo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/oklog/oklog v0.3.2/go.mod h1:FCV+B7mhrz4o+ueLpx+KqkyXRGMWOYEvfiXtdGtbWGs=
@@ -1801,3 +1803,5 @@ sigs.k8s.io/structured-merge-diff/v4 v4.1.2/go.mod h1:j/nl6xW8vLS49O8YvXW1ocPhZa
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
 sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1:hI742Nqp5OhwiqlzhgfbWU4mW4yO10fP+LoT9WOswdU=
+tlog.app/go/eazy v0.0.0-20230716154649-bab1d0e86e60 h1:pnDNLfn6HqFpeBf6cwIl2ePM1AjXm5tVmTTdAlbiJV8=
+tlog.app/go/eazy v0.0.0-20230716154649-bab1d0e86e60/go.mod h1:xVo0tbFvH+sgvsRkrQW12MpZhJEqlJ3uOUAx3aScBRI=

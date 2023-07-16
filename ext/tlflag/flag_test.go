@@ -6,12 +6,12 @@ import (
 
 	"github.com/nikandfor/assert"
 	"github.com/nikandfor/errors"
+	"tlog.app/go/eazy"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
-	"github.com/nikandfor/tlog/tlz"
 )
 
 type testFile string
@@ -23,7 +23,7 @@ func TestingFileOpener(n string, f int, m os.FileMode) (interface{}, error) {
 func TestFileWriter(t *testing.T) {
 	OpenFileWriter = TestingFileOpener
 
-	const CompressorBlockSize = 1 * tlz.MiB
+	const CompressorBlockSize = 1 * eazy.MiB
 
 	w, err := OpenWriter("stderr")
 	assert.NoError(t, err)
@@ -48,7 +48,7 @@ func TestFileWriter(t *testing.T) {
 	w, err = OpenWriter(".tlz")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.MultiWriter{
-		tlz.NewEncoder(tlog.Stderr, CompressorBlockSize),
+		eazy.NewWriter(tlog.Stderr, CompressorBlockSize),
 	}, w)
 
 	w, err = OpenWriter("file.tl")
@@ -58,21 +58,21 @@ func TestFileWriter(t *testing.T) {
 	w, err = OpenWriter("file.tlz")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: tlz.NewEncoder(testFile("file.tlz"), CompressorBlockSize),
+		Writer: eazy.NewWriter(testFile("file.tlz"), CompressorBlockSize),
 		Closer: testFile("file.tlz"),
 	}, w)
 
 	w, err = OpenWriter("file.tl.ez")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: tlz.NewEncoder(testFile("file.tl.ez"), CompressorBlockSize),
+		Writer: eazy.NewWriter(testFile("file.tl.ez"), CompressorBlockSize),
 		Closer: testFile("file.tl.ez"),
 	}, w)
 
 	w, err = OpenWriter("file.ezdump")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: tlz.NewEncoder(tlz.NewDumper(testFile("file.ezdump")), tlz.MiB),
+		Writer: eazy.NewWriter(eazy.NewDumper(testFile("file.ezdump")), eazy.MiB),
 		Closer: testFile("file.ezdump"),
 	}, w)
 
@@ -87,7 +87,7 @@ func TestFileWriter(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
 		Writer: convert.NewJSON(
-			tlz.NewEncoder(
+			eazy.NewWriter(
 				testFile("file.json.ez"),
 				CompressorBlockSize)),
 		Closer: testFile("file.json.ez"),
@@ -115,7 +115,7 @@ func TestURLWriter(t *testing.T) { //nolint:dupl
 func TestRotatedWriter(t *testing.T) {
 	OpenFileWriter = TestingFileOpener
 
-	const CompressorBlockSize = 1 * tlz.MiB
+	const CompressorBlockSize = 1 * eazy.MiB
 
 	with := func(f *rotated.File, wrap func(*rotated.File)) *rotated.File {
 		wrap(f)
@@ -174,7 +174,7 @@ func TestFileReader(t *testing.T) {
 
 	r, err = OpenReader(".tlog.ez")
 	assert.NoError(t, err)
-	assert.Equal(t, tlio.NopCloser{Reader: tlz.NewDecoder(os.Stdin)}, r)
+	assert.Equal(t, tlio.NopCloser{Reader: eazy.NewReader(os.Stdin)}, r)
 }
 
 func TestURLReader(t *testing.T) { //nolint:dupl

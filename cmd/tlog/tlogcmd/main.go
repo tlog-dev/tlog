@@ -22,6 +22,7 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/graceful"
 	"github.com/nikandfor/hacked/hnet"
+	"tlog.app/go/eazy"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/agent"
@@ -29,7 +30,6 @@ import (
 	"github.com/nikandfor/tlog/ext/tlflag"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
-	"github.com/nikandfor/tlog/tlz"
 	"github.com/nikandfor/tlog/web"
 )
 
@@ -76,7 +76,7 @@ func App() *cli.Command {
 			Action: tlzRun,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("block,b", 1*tlz.MiB, "compression block size"),
+				cli.NewFlag("block,b", 1*eazy.MiB, "compression block size"),
 				cli.NewFlag("hash-table,ht,h", 16*1024, "hash table size"),
 			},
 		}, {
@@ -175,9 +175,9 @@ func before(c *cli.Command) error {
 			return errors.Wrap(err, "listen debug")
 		}
 
-		go func() {
-			tlog.Printw("start debug interface", "addr", l.Addr())
+		tlog.Printw("start debug interface", "addr", l.Addr())
 
+		go func() {
 			err := http.Serve(l, nil)
 			if err != nil {
 				tlog.Printw("debug", "addr", q, "err", err, "", tlog.Fatal)
@@ -588,7 +588,7 @@ func tlzRun(c *cli.Command) (err error) {
 
 	switch c.MainName() {
 	case "compress":
-		e := tlz.NewEncoder(w, c.Int("block"))
+		e := eazy.NewWriter(w, c.Int("block"))
 
 		for _, r := range rs {
 			_, err = io.Copy(e, r)
@@ -597,14 +597,14 @@ func tlzRun(c *cli.Command) (err error) {
 			}
 		}
 	case "decompress":
-		d := tlz.NewDecoder(io.MultiReader(rs...))
+		d := eazy.NewReader(io.MultiReader(rs...))
 
 		_, err = io.Copy(w, d)
 		if err != nil {
 			return errors.Wrap(err, "copy")
 		}
 	case "dump":
-		d := tlz.NewDumper(w) // BUG: dumper does not work with writes not aligned to tags
+		d := eazy.NewDumper(w) // BUG: dumper does not work with writes not aligned to tags
 
 		d.GlobalOffset = int64(c.Int("base"))
 

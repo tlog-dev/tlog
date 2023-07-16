@@ -1,4 +1,0 @@
-go test fuzz v1
-[]byte("xp0\xed0")
-[]byte("x00\xed0")
-[]byte("xp0\xed0\xb3\xe3\f\"\xe0\xac90")

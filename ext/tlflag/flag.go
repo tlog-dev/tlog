@@ -13,13 +13,13 @@ import (
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/loc"
+	"tlog.app/go/eazy"
 
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
 	"github.com/nikandfor/tlog/rotated"
 	"github.com/nikandfor/tlog/tlio"
 	"github.com/nikandfor/tlog/tlwire"
-	"github.com/nikandfor/tlog/tlz"
 )
 
 type (
@@ -124,7 +124,7 @@ more:
 				return f, c, nil
 			}
 
-			w = tlz.NewEncoder(w, tlz.MiB)
+			w = eazy.NewWriter(w, eazy.MiB)
 
 			return w, c, nil
 		})
@@ -154,8 +154,8 @@ more:
 		})
 	case ".eazydump", ".ezdump":
 		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
-			w = tlz.NewDumper(w)
-			w = tlz.NewEncoder(w, tlz.MiB)
+			w = eazy.NewDumper(w)
+			w = eazy.NewWriter(w, eazy.MiB)
 
 			return w, c, nil
 		})
@@ -331,7 +331,7 @@ more:
 	case ".tlog", ".tl", "":
 	case ".tlz", ".eazy", ".ez":
 		wrap = append(wrap, func(r io.Reader, c io.Closer) (io.Reader, io.Closer, error) {
-			r = tlz.NewDecoder(r)
+			r = eazy.NewReader(r)
 
 			return r, c, nil
 		})
@@ -496,7 +496,7 @@ func RotatedTLZFileOpener(below rotated.FileOpener) rotated.FileOpener {
 			return nil, errors.Wrap(err, "")
 		}
 
-		w = tlz.NewEncoder(w, tlz.MiB)
+		w = eazy.NewWriter(w, eazy.MiB)
 
 		return w, nil
 	}
@@ -611,10 +611,14 @@ func describe(tr tlog.Span, x interface{}, d int) {
 		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
 
 		describe(tr, x.ReadSeeker, d+1)
-	case *tlz.Decoder:
+	case *eazy.Reader:
 		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
 
 		describe(tr, x.Reader, d+1)
+	case *eazy.Writer:
+		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
+
+		describe(tr, x.Writer, d+1)
 	case *tlog.ConsoleWriter:
 		tr.Printw("describe", "d", d, "typ", tlog.NextAsType, x)
 

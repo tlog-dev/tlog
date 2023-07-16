@@ -13,9 +13,10 @@ import (
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hnet"
+	"tlog.app/go/eazy"
+
 	"github.com/nikandfor/tlog"
 	"github.com/nikandfor/tlog/convert"
-	"github.com/nikandfor/tlog/tlz"
 )
 
 type (
@@ -152,7 +153,7 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 		switch ext := pathExt(p); ext {
 		case ".tl", ".tlog":
 		case ".tlz":
-			w = tlz.NewEncoder(w, tlz.MiB)
+			w = eazy.NewWriter(w, eazy.MiB)
 		case ".json":
 			w = convert.NewJSON(w)
 		case ".logfmt":

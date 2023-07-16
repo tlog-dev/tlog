@@ -23,4 +23,5 @@ require (
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/term v0.9.0
 	google.golang.org/protobuf v1.31.0 // indirect
+	tlog.app/go/eazy v0.0.0-20230716154649-bab1d0e86e60 // indirect
 )
