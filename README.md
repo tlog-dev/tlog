@@ -1,9 +1,9 @@
-[![Documentation](https://pkg.go.dev/badge/github.com/nikandfor/tlog)](https://pkg.go.dev/github.com/nikandfor/tlog?tab=doc)
-[![Go workflow](https://github.com/nikandfor/tlog/actions/workflows/go.yml/badge.svg)](https://github.com/nikandfor/tlog/actions/workflows/go.yml)
-[![CircleCI](https://circleci.com/gh/nikandfor/tlog.svg?style=svg)](https://circleci.com/gh/nikandfor/tlog)
-[![codecov](https://codecov.io/gh/nikandfor/tlog/tags/latest/graph/badge.svg)](https://codecov.io/gh/nikandfor/tlog)
-[![Go Report Card](https://goreportcard.com/badge/github.com/nikandfor/tlog)](https://goreportcard.com/report/github.com/nikandfor/tlog)
-![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/nikandfor/tlog?sort=semver)
+[![Documentation](https://pkg.go.dev/badge/tlog.app/go/tlog)](https://pkg.go.dev/tlog.app/go/tlog?tab=doc)
+[![Go workflow](https://github.com/tlog-dev/tlog/actions/workflows/go.yml/badge.svg)](https://github.com/tlog-dev/tlog/actions/workflows/go.yml)
+[![CircleCI](https://circleci.com/gh/tlog-dev/tlog.svg?style=svg)](https://circleci.com/gh/tlog-dev/tlog)
+[![codecov](https://codecov.io/gh/tlog-dev/tlog/tags/latest/graph/badge.svg)](https://codecov.io/gh/tlog-dev/tlog)
+[![Go Report Card](https://goreportcard.com/badge/tlog.app/go/tlog)](https://goreportcard.com/report/tlog.app/go/tlog)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/tlog-dev/tlog?sort=semver)
 
 # tlog
 
