@@ -126,7 +126,7 @@ func (f *File) Rotate() error {
 }
 
 func (f *File) rotate() (err error) {
-	if f.pref == "" && f.suff == "" {
+	if f.format == "" {
 		f.dir, f.pref, f.suff, f.format = splitPattern(f.name)
 
 		f.num, err = f.findMaxNum(f.dir, f.pref, f.suff, f.format)
@@ -321,7 +321,8 @@ func IsPattern(name string) bool {
 }
 
 func splitPattern(name string) (dir, pref, suff, format string) {
-	dir, base := filepath.Split(name)
+	dir = filepath.Dir(name)
+	base := filepath.Base(name)
 
 	pattern, pos := findPattern(base)
 

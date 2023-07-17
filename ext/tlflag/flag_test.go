@@ -127,7 +127,7 @@ func TestRotatedWriter(t *testing.T) {
 		f.OpenFile = openFileWriter
 	}), w)
 
-	w, err = OpenWriter("file.tl?rotated=1")
+	w, err = OpenWriter("file.tl?rotating=1")
 	assert.NoError(t, err)
 	assert.Equal(t, with(rotated.Create("file.tl"), func(f *rotated.File) {
 		f.OpenFile = openFileWriter
