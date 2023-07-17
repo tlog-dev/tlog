@@ -15,10 +15,11 @@ import (
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hfmt"
 	"github.com/nikandfor/hacked/htime"
+	"github.com/nikandfor/hacked/low"
 	"github.com/nikandfor/loc"
 	"golang.org/x/term"
 
-	"tlog.app/go/tlog/low"
+	tlow "tlog.app/go/tlog/low"
 	"tlog.app/go/tlog/tlwire"
 )
 
@@ -636,7 +637,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 		b = append(b, ResetColor...)
 	}
 
-	nw := w.pad[low.UnsafeBytesToString(k)]
+	nw := w.pad[tlow.UnsafeBytesToString(k)]
 
 	if vw < nw {
 		w.addpad = nw - vw
@@ -724,7 +725,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		}
 
 		if quote {
-			ss := low.UnsafeBytesToString(s)
+			ss := tlow.UnsafeBytesToString(s)
 			b = strconv.AppendQuote(b, ss)
 		} else {
 			b = append(b, s...)

@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/nikandfor/hacked/hfmt"
+	"github.com/nikandfor/hacked/low"
 	"github.com/nikandfor/loc"
 
 	"tlog.app/go/tlog"
-	"tlog.app/go/tlog/low"
+	tlow "tlog.app/go/tlog/low"
 	"tlog.app/go/tlog/tlwire"
 )
 
@@ -96,7 +97,7 @@ more:
 
 		if !renamed {
 			if w.AppendKeySafe {
-				b = low.AppendSafe(b, k)
+				b = tlow.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)
 			}
@@ -154,7 +155,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	case tlwire.String:
 		b = append(b, '"')
 
-		b = low.AppendSafe(b, p[i:i+int(sub)])
+		b = tlow.AppendSafe(b, p[i:i+int(sub)])
 
 		b = append(b, '"')
 
@@ -194,7 +195,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 			b = append(b, '"')
 
 			if w.AppendKeySafe {
-				b = low.AppendSafe(b, k)
+				b = tlow.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)
 			}

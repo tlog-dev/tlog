@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/nikandfor/hacked/hfmt"
+	"github.com/nikandfor/hacked/low"
 	"github.com/nikandfor/loc"
 	"golang.org/x/term"
 
 	"tlog.app/go/tlog"
-	"tlog.app/go/tlog/low"
+	tlow "tlog.app/go/tlog/low"
 	"tlog.app/go/tlog/tlio"
 	"tlog.app/go/tlog/tlwire"
 )
@@ -179,7 +180,7 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int, first bool) (_ []byte, i int
 		b = append(b, tlog.ResetColor...)
 	}
 
-	nw := w.pad[low.UnsafeBytesToString(k)]
+	nw := w.pad[tlow.UnsafeBytesToString(k)]
 
 	if vw < nw {
 		w.addpad = nw - vw
@@ -316,10 +317,10 @@ func (w *Logfmt) appendAndQuote(b, s []byte, tag byte) []byte {
 
 	switch {
 	case quote:
-		ss := low.UnsafeBytesToString(s)
+		ss := tlow.UnsafeBytesToString(s)
 		b = strconv.AppendQuote(b, ss)
 	case w.AppendKeySafe:
-		b = low.AppendSafe(b, s)
+		b = tlow.AppendSafe(b, s)
 	default:
 		b = append(b, s...)
 	}
@@ -368,7 +369,7 @@ func (w *Logfmt) convertArray(b, p, k []byte, st int, first bool) (_ []byte, i i
 			k, i = w.d.Bytes(p, i)
 
 			if w.AppendKeySafe {
-				b = low.AppendSafe(b, k)
+				b = tlow.AppendSafe(b, k)
 			} else {
 				b = append(b, k...)
 			}

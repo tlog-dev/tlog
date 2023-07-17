@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nikandfor/hacked/low"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"tlog.app/go/tlog"
-	"tlog.app/go/tlog/low"
 	"tlog.app/go/tlog/tlwire"
 )
 

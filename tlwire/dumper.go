@@ -6,8 +6,7 @@ import (
 	"io"
 
 	"github.com/nikandfor/hacked/hfmt"
-
-	"tlog.app/go/tlog/low"
+	"github.com/nikandfor/hacked/low"
 )
 
 type (

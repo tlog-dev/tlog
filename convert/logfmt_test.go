@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nikandfor/hacked/low"
 	"github.com/stretchr/testify/assert"
 
 	"tlog.app/go/tlog"
-	"tlog.app/go/tlog/low"
 	"tlog.app/go/tlog/tlwire"
 )
 
