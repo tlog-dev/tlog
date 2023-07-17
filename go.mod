@@ -17,5 +17,5 @@ require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/term v0.9.0
-	tlog.app/go/eazy v0.0.0-20230717063301-474a9f5cfcc0
+	tlog.app/go/eazy v0.0.0-20230717073616-6a466ff05869
 )

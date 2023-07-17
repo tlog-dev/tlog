@@ -218,34 +218,34 @@ func openwfile(u *url.URL) (interface{}, error) {
 
 	q := u.Query()
 
-	if rotated.IsPattern(filepath.Base(fname)) || q.Get("rotated") != "" {
+	if rotated.IsPattern(filepath.Base(fname)) || q.Get("rotating") != "" {
 		f := rotated.Create(fname)
 		f.Flags = of
 		f.Mode = mode
 		f.OpenFile = openFileWriter
 
-		if v := q.Get("max_file_size"); v != "" {
+		if v := q.Get("rotating_max_file_size"); v != "" {
 			x, err := ParseBytes(v)
 			if err == nil {
 				f.MaxFileSize = x
 			}
 		}
 
-		if v := q.Get("max_file_age"); v != "" {
+		if v := q.Get("rotating_max_file_age"); v != "" {
 			x, err := time.ParseDuration(v)
 			if err == nil {
 				f.MaxFileAge = x
 			}
 		}
 
-		if v := q.Get("max_total_size"); v != "" {
+		if v := q.Get("rotating_max_total_size"); v != "" {
 			x, err := ParseBytes(v)
 			if err == nil {
 				f.MaxTotalSize = x
 			}
 		}
 
-		if v := q.Get("max_total_age"); v != "" {
+		if v := q.Get("rotating_max_total_age"); v != "" {
 			x, err := time.ParseDuration(v)
 			if err == nil {
 				f.MaxTotalAge = x

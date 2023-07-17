@@ -1805,5 +1805,5 @@ sigs.k8s.io/structured-merge-diff/v4 v4.1.2/go.mod h1:j/nl6xW8vLS49O8YvXW1ocPhZa
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
 sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1:hI742Nqp5OhwiqlzhgfbWU4mW4yO10fP+LoT9WOswdU=
-tlog.app/go/eazy v0.0.0-20230717063301-474a9f5cfcc0 h1:rM+V+2vbufcSU9BPrQ+cpcwe2e8YpkPspNFxUbZ0XLw=
-tlog.app/go/eazy v0.0.0-20230717063301-474a9f5cfcc0/go.mod h1:jUb6dKAIrN8p+630vQ2moA9xBDEc0LWYaQHHgmaW1V4=
+tlog.app/go/eazy v0.0.0-20230717073616-6a466ff05869 h1:4jIMa/w60VGUBCahv0u40O0hZ0XT4AvcWNldYwF9Lew=
+tlog.app/go/eazy v0.0.0-20230717073616-6a466ff05869/go.mod h1:jUb6dKAIrN8p+630vQ2moA9xBDEc0LWYaQHHgmaW1V4=
