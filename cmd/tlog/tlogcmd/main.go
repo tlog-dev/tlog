@@ -334,8 +334,12 @@ func agentRun(c *cli.Command) (err error) {
 
 						var err error
 
-						defer func() { tr.Finish("err", err) }()
+						defer tr.Finish("err", &err)
+
 						defer closeWrap(c, &err, "close conn")
+
+						f := a.(tlio.Flusher)
+						defer doWrap(f.Flush, &err, "flush db")
 
 						rr := tlwire.NewStreamDecoder(c)
 

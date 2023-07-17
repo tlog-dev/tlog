@@ -20,6 +20,7 @@ type (
 		w  io.Writer
 
 		name            string
+		current         string
 		dir, pref, suff string
 		format          string
 		num             int
@@ -103,9 +104,38 @@ func (f *File) Write(p []byte) (n int, err error) {
 		(f.MaxFileSize != 0 && f.size+int64(len(p)) > f.MaxFileSize ||
 			f.MaxFileAge != 0 && time.Since(f.start) > f.MaxFileAge) {
 
-		err = f.rotate()
-		if err != nil {
-			return 0, errors.Wrap(err, "rotate")
+		checkAgain := func() bool {
+			// if triggered not by size
+			if f.w == nil || f.size != 0 && f.MaxFileAge != 0 && time.Since(f.start) > f.MaxFileAge {
+				return true
+			}
+
+			if f.current == "" || f.MaxFileSize == 0 {
+				return true
+			}
+
+			inf, err := f.fstat(f.current)
+			if err != nil {
+				return true
+			}
+
+			if inf.Size()+int64(len(p)) > f.MaxFileSize {
+				//	println("fine, rotate now")
+				return true
+			}
+
+			//	println("we have only", inf.Size(), "bytes file, not", f.size, ". use it more")
+
+			f.size = inf.Size()
+
+			return false
+		}
+
+		if checkAgain() {
+			err = f.rotate()
+			if err != nil {
+				return 0, errors.Wrap(err, "rotate")
+			}
 		}
 	}
 
@@ -150,6 +180,7 @@ func (f *File) rotate() (err error) {
 
 	now := time.Now()
 
+	f.current = fname
 	f.size = 0
 	f.start = fileCtime(f.fstat, fname, now)
 

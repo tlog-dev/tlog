@@ -57,7 +57,7 @@ func (d *Click) Query(ctx context.Context, w io.Writer, q string) error {
 }
 
 func (d *Click) CreateTables(ctx context.Context) error {
-	err := d.c.Exec(ctx, `CREATE TABLE IF NOT EXISTS logs (
+	err := d.c.Exec(ctx, `CREATE TABLE IF NOT EXISTS events (
 	tlog String,
 	json String,
 
@@ -95,7 +95,7 @@ ORDER BY ts
 PARTITION BY (day, _labels_hash)
 `)
 	if err != nil {
-		return errors.Wrap(err, "logs")
+		return errors.Wrap(err, "events")
 	}
 
 	err = d.c.Exec(ctx, `CREATE OR REPLACE VIEW spans AS
@@ -106,7 +106,7 @@ SELECT
 	anyIf(message, event = 's') AS name,
 	round(anyIf(elapsed, event = 'f') / 1e9, 1) AS elapsed_s,
 	anyIf(error, event = 'f') AS error
-FROM logs GROUP BY span
+FROM events GROUP BY span
 `)
 	if err != nil {
 		return errors.Wrap(err, "spans")
@@ -141,7 +141,7 @@ func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 	if d.b == nil {
 		ctx := context.Background()
 
-		d.b, err = d.c.PrepareBatch(ctx, `INSERT INTO logs (
+		d.b, err = d.c.PrepareBatch(ctx, `INSERT INTO events (
 			tlog, json,
 			_labels, labels,
 			ts,
@@ -177,6 +177,7 @@ func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 func (d *Click) Flush() (err error) {
 	if d.b != nil {
 		e := d.b.Send()
+		tlog.Printw("flush", "err", e)
 		if err == nil {
 			err = errors.Wrap(e, "flush batch")
 		}
