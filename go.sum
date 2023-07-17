@@ -793,8 +793,9 @@ github.com/nikandfor/graceful v0.0.0-20211209123532-7a354c07c63e/go.mod h1:JGEpS
 github.com/nikandfor/graceful v0.0.0-20220310092206-1de14c7618d9/go.mod h1:id0MMUlvDSc1dfEdG43thxJTWRiCe5cq9ij29XUsztQ=
 github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88 h1:M1aqy8058rez1MeU3eoQczDerNsN63SX9H6gJtmLDtY=
 github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88/go.mod h1:kf4X41uuu4DXHP/yE09GKUXAirsuWQijEhfanSPJ3as=
-github.com/nikandfor/hacked v0.0.0-20230429073333-a318d546207a h1:BrO1LEHqeDMgHJsLjc2qchxXvFrFA1aW9JjDVUWRGog=
 github.com/nikandfor/hacked v0.0.0-20230429073333-a318d546207a/go.mod h1:qwODwniFRzGhRcxAlYRMSgg1F3bvb51koTca7d+F25o=
+github.com/nikandfor/hacked v0.0.0-20230717052658-a86e97bdda4d h1:Pm+HRZwglD2UV7WGYZe8PZgIJA3EzowroiU2zpx/D0U=
+github.com/nikandfor/hacked v0.0.0-20230717052658-a86e97bdda4d/go.mod h1:qwODwniFRzGhRcxAlYRMSgg1F3bvb51koTca7d+F25o=
 github.com/nikandfor/loc v0.0.0-20201209201630-39582039abc5/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.1.1-0.20210914135013-829520244234/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
 github.com/nikandfor/loc v0.2.0/go.mod h1:LZpmiieVWcBawLft3ptIUwVVweU6shBWbnEiitLzKG8=
@@ -1804,5 +1805,5 @@ sigs.k8s.io/structured-merge-diff/v4 v4.1.2/go.mod h1:j/nl6xW8vLS49O8YvXW1ocPhZa
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
 sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1:hI742Nqp5OhwiqlzhgfbWU4mW4yO10fP+LoT9WOswdU=
-tlog.app/go/eazy v0.0.0-20230716154649-bab1d0e86e60 h1:pnDNLfn6HqFpeBf6cwIl2ePM1AjXm5tVmTTdAlbiJV8=
-tlog.app/go/eazy v0.0.0-20230716154649-bab1d0e86e60/go.mod h1:xVo0tbFvH+sgvsRkrQW12MpZhJEqlJ3uOUAx3aScBRI=
+tlog.app/go/eazy v0.0.0-20230717063301-474a9f5cfcc0 h1:rM+V+2vbufcSU9BPrQ+cpcwe2e8YpkPspNFxUbZ0XLw=
+tlog.app/go/eazy v0.0.0-20230717063301-474a9f5cfcc0/go.mod h1:jUb6dKAIrN8p+630vQ2moA9xBDEc0LWYaQHHgmaW1V4=

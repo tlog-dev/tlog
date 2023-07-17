@@ -153,7 +153,7 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 		switch ext := pathExt(p); ext {
 		case ".tl", ".tlog":
 		case ".tlz":
-			w = eazy.NewWriter(w, eazy.MiB)
+			w = eazy.NewWriter(w, eazy.MiB, 2*1024)
 		case ".json":
 			w = convert.NewJSON(w)
 		case ".logfmt":

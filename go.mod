@@ -11,10 +11,11 @@ require (
 	github.com/nikandfor/cli v0.0.0-20230428202915-fdf5f3ba6b67
 	github.com/nikandfor/errors v0.8.0
 	github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88
-	github.com/nikandfor/hacked v0.0.0-20230429073333-a318d546207a
+	github.com/nikandfor/hacked v0.0.0-20230717052658-a86e97bdda4d
 	github.com/nikandfor/loc v0.5.0
+	github.com/nikandfor/tlog v0.21.4 // indirect
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/term v0.9.0
-	tlog.app/go/eazy v0.0.0-20230716154649-bab1d0e86e60
+	tlog.app/go/eazy v0.0.0-20230717063301-474a9f5cfcc0
 )

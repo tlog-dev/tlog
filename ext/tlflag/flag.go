@@ -32,6 +32,9 @@ type (
 var (
 	OpenFileWriter FileOpener = OSOpenFile
 	OpenFileReader FileOpener = OpenFileReReader(OSOpenFile)
+
+	EazyBlockSize = eazy.MiB
+	EazyHTable    = 2 * 1024
 )
 
 func OpenWriter(dst string) (wc io.WriteCloser, err error) {
@@ -124,7 +127,7 @@ more:
 				return f, c, nil
 			}
 
-			w = eazy.NewWriter(w, eazy.MiB)
+			w = eazy.NewWriter(w, EazyBlockSize, EazyHTable)
 
 			return w, c, nil
 		})
@@ -155,7 +158,7 @@ more:
 	case ".eazydump", ".ezdump":
 		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
 			w = eazy.NewDumper(w)
-			w = eazy.NewWriter(w, eazy.MiB)
+			w = eazy.NewWriter(w, EazyBlockSize, EazyHTable)
 
 			return w, c, nil
 		})
@@ -496,7 +499,7 @@ func RotatedTLZFileOpener(below rotated.FileOpener) rotated.FileOpener {
 			return nil, errors.Wrap(err, "")
 		}
 
-		w = eazy.NewWriter(w, eazy.MiB)
+		w = eazy.NewWriter(w, EazyBlockSize, EazyHTable)
 
 		return w, nil
 	}

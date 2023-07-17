@@ -23,8 +23,6 @@ func TestingFileOpener(n string, f int, m os.FileMode) (interface{}, error) {
 func TestFileWriter(t *testing.T) {
 	OpenFileWriter = TestingFileOpener
 
-	const CompressorBlockSize = 1 * eazy.MiB
-
 	w, err := OpenWriter("stderr")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.MultiWriter{
@@ -48,7 +46,7 @@ func TestFileWriter(t *testing.T) {
 	w, err = OpenWriter(".tlz")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.MultiWriter{
-		eazy.NewWriter(tlog.Stderr, CompressorBlockSize),
+		eazy.NewWriter(tlog.Stderr, EazyBlockSize, EazyHTable),
 	}, w)
 
 	w, err = OpenWriter("file.tl")
@@ -58,21 +56,21 @@ func TestFileWriter(t *testing.T) {
 	w, err = OpenWriter("file.tlz")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: eazy.NewWriter(testFile("file.tlz"), CompressorBlockSize),
+		Writer: eazy.NewWriter(testFile("file.tlz"), EazyBlockSize, EazyHTable),
 		Closer: testFile("file.tlz"),
 	}, w)
 
 	w, err = OpenWriter("file.tl.ez")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: eazy.NewWriter(testFile("file.tl.ez"), CompressorBlockSize),
+		Writer: eazy.NewWriter(testFile("file.tl.ez"), EazyBlockSize, EazyHTable),
 		Closer: testFile("file.tl.ez"),
 	}, w)
 
 	w, err = OpenWriter("file.ezdump")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: eazy.NewWriter(eazy.NewDumper(testFile("file.ezdump")), eazy.MiB),
+		Writer: eazy.NewWriter(eazy.NewDumper(testFile("file.ezdump")), EazyBlockSize, EazyHTable),
 		Closer: testFile("file.ezdump"),
 	}, w)
 
@@ -89,7 +87,7 @@ func TestFileWriter(t *testing.T) {
 		Writer: convert.NewJSON(
 			eazy.NewWriter(
 				testFile("file.json.ez"),
-				CompressorBlockSize)),
+				EazyBlockSize, EazyHTable)),
 		Closer: testFile("file.json.ez"),
 	}, w)
 }

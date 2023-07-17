@@ -76,8 +76,8 @@ func App() *cli.Command {
 			Action: tlzRun,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("block,b", 1*eazy.MiB, "compression block size"),
-				cli.NewFlag("hash-table,ht,h", 16*1024, "hash table size"),
+				cli.NewFlag("block,b", 1*eazy.MiB, "compression block size (window)"),
+				cli.NewFlag("hash-table,ht,h", 1*1024, "hash table size"),
 			},
 		}, {
 			Name:   "decompress,d",
@@ -588,7 +588,7 @@ func tlzRun(c *cli.Command) (err error) {
 
 	switch c.MainName() {
 	case "compress":
-		e := eazy.NewWriter(w, c.Int("block"))
+		e := eazy.NewWriter(w, c.Int("block"), c.Int("hash-table"))
 
 		for _, r := range rs {
 			_, err = io.Copy(e, r)

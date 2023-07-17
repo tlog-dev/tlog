@@ -320,7 +320,7 @@ func (a *Agent) openWriter(f *file) (io.Writer, error) {
 		return nil, errors.Wrap(err, "open file")
 	}
 
-	w := eazy.NewWriter(ff, eazy.MiB)
+	w := eazy.NewWriter(ff, eazy.MiB, 2*1024)
 
 	return tlio.WriteCloser{
 		Writer: w,
