@@ -1,4 +1,4 @@
-package rotated
+package rotating
 
 import (
 	"io/fs"

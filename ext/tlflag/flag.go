@@ -17,7 +17,7 @@ import (
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"
-	"tlog.app/go/tlog/rotated"
+	"tlog.app/go/tlog/rotating"
 	"tlog.app/go/tlog/tlio"
 	"tlog.app/go/tlog/tlwire"
 )
@@ -121,7 +121,7 @@ more:
 		})
 	case ".tlz", ".eazy", ".ez":
 		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
-			if f, ok := w.(*rotated.File); ok {
+			if f, ok := w.(*rotating.File); ok {
 				f.OpenFile = RotatedTLZFileOpener(f.OpenFile)
 
 				return f, c, nil
@@ -218,8 +218,8 @@ func openwfile(u *url.URL) (interface{}, error) {
 
 	q := u.Query()
 
-	if rotated.IsPattern(filepath.Base(fname)) || q.Get("rotating") != "" {
-		f := rotated.Create(fname)
+	if rotating.IsPattern(filepath.Base(fname)) || q.Get("rotating") != "" {
+		f := rotating.Create(fname)
 		f.Flags = of
 		f.Mode = mode
 		f.OpenFile = openFileWriter
@@ -492,7 +492,7 @@ func OpenFileDumpReader(open FileOpener) FileOpener {
 	}
 }
 
-func RotatedTLZFileOpener(below rotated.FileOpener) rotated.FileOpener {
+func RotatedTLZFileOpener(below rotating.FileOpener) rotating.FileOpener {
 	return func(name string, flags int, mode os.FileMode) (io.Writer, error) {
 		w, err := below(name, flags, mode)
 		if err != nil {

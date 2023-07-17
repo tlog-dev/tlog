@@ -1,4 +1,4 @@
-package rotated
+package rotating
 
 import (
 	"io/fs"
@@ -21,5 +21,5 @@ func ctime(inf fs.FileInfo, now time.Time) time.Time {
 		return now
 	}
 
-	return time.Unix(stat.Ctimespec.Unix())
+	return time.Unix(stat.Ctim.Unix())
 }

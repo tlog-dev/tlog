@@ -10,7 +10,7 @@ import (
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"
-	"tlog.app/go/tlog/rotated"
+	"tlog.app/go/tlog/rotating"
 	"tlog.app/go/tlog/tlio"
 )
 
@@ -115,7 +115,7 @@ func TestRotatedWriter(t *testing.T) {
 
 	const CompressorBlockSize = 1 * eazy.MiB
 
-	with := func(f *rotated.File, wrap func(*rotated.File)) *rotated.File {
+	with := func(f *rotating.File, wrap func(*rotating.File)) *rotating.File {
 		wrap(f)
 
 		return f
@@ -123,35 +123,35 @@ func TestRotatedWriter(t *testing.T) {
 
 	w, err := OpenWriter("file_XXXX.tl")
 	assert.NoError(t, err)
-	assert.Equal(t, with(rotated.Create("file_XXXX.tl"), func(f *rotated.File) {
+	assert.Equal(t, with(rotating.Create("file_XXXX.tl"), func(f *rotating.File) {
 		f.OpenFile = openFileWriter
 	}), w)
 
 	w, err = OpenWriter("file.tl?rotating=1")
 	assert.NoError(t, err)
-	assert.Equal(t, with(rotated.Create("file.tl"), func(f *rotated.File) {
+	assert.Equal(t, with(rotating.Create("file.tl"), func(f *rotating.File) {
 		f.OpenFile = openFileWriter
 	}), w)
 
 	w, err = OpenWriter("file_XXXX.tlz")
 	assert.NoError(t, err)
-	assert.Equal(t, with(rotated.Create("file_XXXX.tlz"), func(f *rotated.File) {
+	assert.Equal(t, with(rotating.Create("file_XXXX.tlz"), func(f *rotating.File) {
 		f.OpenFile = RotatedTLZFileOpener(nil)
 	}), w)
 
 	w, err = OpenWriter("file_XXXX.tl.ez")
 	assert.NoError(t, err)
-	assert.Equal(t, with(rotated.Create("file_XXXX.tl.ez"), func(f *rotated.File) {
+	assert.Equal(t, with(rotating.Create("file_XXXX.tl.ez"), func(f *rotating.File) {
 		f.OpenFile = RotatedTLZFileOpener(nil)
 	}), w)
 
 	w, err = OpenWriter("file_XXXX.json.ez")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.WriteCloser{
-		Writer: convert.NewJSON(with(rotated.Create("file_XXXX.json.ez"), func(f *rotated.File) {
+		Writer: convert.NewJSON(with(rotating.Create("file_XXXX.json.ez"), func(f *rotating.File) {
 			f.OpenFile = RotatedTLZFileOpener(nil)
 		})),
-		Closer: with(rotated.Create("file_XXXX.json.ez"), func(f *rotated.File) {
+		Closer: with(rotating.Create("file_XXXX.json.ez"), func(f *rotating.File) {
 			f.OpenFile = RotatedTLZFileOpener(nil)
 		}),
 	}, w)
