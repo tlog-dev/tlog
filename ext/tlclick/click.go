@@ -2,12 +2,14 @@ package tlclick
 
 import (
 	"context"
+	"encoding/hex"
 	"io"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	"github.com/nikandfor/errors"
+	"github.com/nikandfor/loc"
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"
 	"tlog.app/go/tlog/tlwire"
@@ -90,7 +92,7 @@ func (d *Click) CreateTables(ctx context.Context) error {
 	month   Date     ALIAS        toStartOfMonth(ts),
 	year    Date     ALIAS        toStartOfYear(ts),
 )
-ENGINE MergeTree
+ENGINE ReplacingMergeTree
 ORDER BY ts
 PARTITION BY (day, _labels_hash)
 `)
@@ -129,7 +131,7 @@ func (d *Click) Write(p []byte) (n int, err error) {
 func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 	if tlog.If("dump") {
 		defer func() {
-			tlog.V("dump").Printw("event", "err", err, "msg", tlog.RawMessage(p))
+			tlog.Printw("event", "st", tlog.NextAsHex, st, "next", tlog.NextAsHex, next, "err", err, "msg", tlog.RawMessage(p))
 		}()
 	}
 
@@ -193,6 +195,19 @@ func (d *Click) Close() error {
 }
 
 func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
+	defer func() {
+		pe := recover()
+		if pe == nil {
+			return
+		}
+
+		tlog.V("panic_dump_hex").Printw("panic", "panic", pe, "st", tlog.NextAsHex, st, "pos", tlog.NextAsHex, i, "buf", hex.Dump(p))
+		tlog.V("panic_dump_wire").Printw("panic", "panic", pe, "st", tlog.NextAsHex, st, "pos", tlog.NextAsHex, i, "dump", tlwire.Dump(p))
+		tlog.Printw("panic", "panic", pe, "from", loc.Callers(1, 10))
+
+		panic(pe)
+	}()
+
 	var dec tlwire.Decoder
 
 	d.spans = d.spans[:0]

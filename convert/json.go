@@ -127,6 +127,34 @@ more:
 	return len(p), nil
 }
 
+func (w *JSON) ConvertKey(b, p []byte, st int) (_ []byte, i int) {
+	tag := w.d.TagOnly(p, st)
+
+	b = append(b, '"')
+
+	switch tag {
+	case tlwire.Int, tlwire.Neg,
+		tlwire.Special:
+		b, i = w.ConvertValue(b, p, st)
+	case tlwire.Bytes, tlwire.String:
+		var k []byte
+		k, i = w.d.Bytes(p, st)
+
+		if w.AppendKeySafe {
+			b = tlow.AppendSafe(b, k)
+		} else {
+			b = append(b, k...)
+		}
+	default:
+		b = hfmt.Appendf(b, `UNSUPPORTED_KEY_TYPE_%x`, tag)
+		i = w.d.Skip(p, st)
+	}
+
+	b = append(b, '"')
+
+	return b, i
+}
+
 func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	tag, sub, i := w.d.Tag(p, st)
 
@@ -177,8 +205,6 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 
 		b = append(b, ']')
 	case tlwire.Map:
-		var k []byte
-
 		b = append(b, '{')
 
 		for el := 0; sub == -1 || el < int(sub); el++ {
@@ -190,17 +216,9 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 				b = append(b, ',')
 			}
 
-			k, i = w.d.Bytes(p, i)
+			b, i = w.ConvertKey(b, p, i)
 
-			b = append(b, '"')
-
-			if w.AppendKeySafe {
-				b = tlow.AppendSafe(b, k)
-			} else {
-				b = append(b, k...)
-			}
-
-			b = append(b, '"', ':')
+			b = append(b, ':')
 
 			b, i = w.ConvertValue(b, p, i)
 		}

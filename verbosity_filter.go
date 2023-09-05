@@ -25,6 +25,19 @@ type (
 	}
 )
 
+func Verbosity() string {
+	return DefaultLogger.Verbosity()
+}
+
+func (l *Logger) Verbosity() string {
+	f := l.getfilter()
+	if f == nil {
+		return ""
+	}
+
+	return f.f
+}
+
 func SetVerbosity(vfilter string) {
 	DefaultLogger.SetVerbosity(vfilter)
 }

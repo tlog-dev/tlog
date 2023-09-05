@@ -137,7 +137,7 @@ func (d LowDecoder) SkipTag(b []byte, st int) (tag byte, sub int64, i int) {
 			}
 
 			if tag == Map {
-				_, i = d.Bytes(b, i)
+				i = d.Skip(b, i)
 			}
 
 			i = d.Skip(b, i)
