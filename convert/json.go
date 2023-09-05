@@ -167,15 +167,15 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 		b = append(b, '"')
 
 		m := base64.StdEncoding.EncodedLen(int(sub))
-		st := len(b)
+		bst := len(b)
 
-		for st+m < cap(b) {
+		for cap(b) < bst+m {
 			b = append(b[:cap(b)], 0, 0, 0, 0)
 		}
 
-		b = b[:st+m]
+		b = b[:bst+m]
 
-		base64.StdEncoding.Encode(b[st:], p[i:])
+		base64.StdEncoding.Encode(b[bst:], p[i:i+int(sub)])
 
 		b = append(b, '"')
 
