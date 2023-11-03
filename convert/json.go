@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"math"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -23,6 +24,7 @@ type (
 
 		AppendNewLine bool
 		AppendKeySafe bool
+		FloatInfNaN   bool
 		TimeFormat    string
 		TimeZone      *time.Location
 
@@ -59,6 +61,7 @@ func NewJSON(w io.Writer) *JSON {
 		Writer:        w,
 		AppendNewLine: true,
 		AppendKeySafe: true,
+		FloatInfNaN:   false,
 		TimeFormat:    time.RFC3339Nano,
 		TimeZone:      time.Local,
 	}
@@ -285,7 +288,17 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 			var f float64
 			f, i = w.d.Float(p, st)
 
-			b = strconv.AppendFloat(b, f, 'f', -1, 64)
+			switch {
+			case !w.FloatInfNaN && math.IsNaN(f):
+				b = append(b, `"NaN"`...)
+			case !w.FloatInfNaN && math.IsInf(f, 1):
+				b = append(b, `"+Inf"`...)
+			case !w.FloatInfNaN && math.IsInf(f, -1):
+				b = append(b, `"-Inf"`...)
+			default:
+				b = strconv.AppendFloat(b, f, 'f', -1, 64)
+			}
+
 		default:
 			panic(sub)
 		}

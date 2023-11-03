@@ -677,21 +677,13 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		var s []byte
 		s, i = w.d.Bytes(p, st)
 
-		if w.StringOnNewLineMinLen != 0 && len(s) >= w.StringOnNewLineMinLen {
+		if tag == tlwire.Bytes && w.StringOnNewLineMinLen != 0 && len(s) >= w.StringOnNewLineMinLen {
 			b = append(b, '\\', '\n')
 
-			if tag == tlwire.Bytes {
-				h := hex.Dumper(noescapeByteWriter(&b))
+			h := hex.Dumper(noescapeByteWriter(&b))
 
-				_, _ = h.Write(s)
-				_ = h.Close()
-			} else {
-				b = append(b, s...)
-
-				if s[len(s)-1] != '\n' {
-					b = append(b, '\n')
-				}
-			}
+			_, _ = h.Write(s)
+			_ = h.Close()
 
 			break
 		}
@@ -706,6 +698,10 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 				b = hfmt.Appendf(b, "%x", s)
 				break
 			}
+		}
+
+		if w.StringOnNewLineMinLen != 0 && len(s) >= w.StringOnNewLineMinLen {
+			b = append(b, '\\', '\n')
 		}
 
 		quote := tag == tlwire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
@@ -729,6 +725,10 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			b = strconv.AppendQuote(b, ss)
 		} else {
 			b = append(b, s...)
+		}
+
+		if w.StringOnNewLineMinLen != 0 && len(s) >= w.StringOnNewLineMinLen && s[len(s)-1] != '\n' {
+			b = append(b, '\n')
 		}
 	case tlwire.Array:
 		b = append(b, '[')

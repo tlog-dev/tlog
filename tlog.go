@@ -105,10 +105,10 @@ func New(w io.Writer) *Logger {
 }
 
 func (l *Logger) Copy() *Logger {
-	return l.CopyWriter(l.Writer)
+	return l.CopyWithWriter(l.Writer)
 }
 
-func (l *Logger) CopyWriter(w io.Writer) *Logger {
+func (l *Logger) CopyWithWriter(w io.Writer) *Logger {
 	return &Logger{
 		Writer:      w,
 		Encoder:     l.Encoder,
@@ -127,9 +127,9 @@ func (s Span) Copy() Span {
 	return r
 }
 
-func (s Span) CopyWriter(w io.Writer) Span {
+func (s Span) CopyWithWriter(w io.Writer) Span {
 	r := s
-	r.Logger = r.Logger.CopyWriter(w)
+	r.Logger = r.Logger.CopyWithWriter(w)
 	return r
 }
 

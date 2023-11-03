@@ -13,6 +13,7 @@ import (
 type (
 	Rewriter struct {
 		io.Writer
+
 		tlwire.Decoder
 		tlwire.Encoder
 

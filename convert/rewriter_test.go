@@ -58,7 +58,7 @@ func TestRewriter(t *testing.T) {
 	}
 }
 
-func TestKeyRewriter(t *testing.T) {
+func TestKeyRenamer(t *testing.T) {
 	var obj, exp, b low.Buf
 
 	rew := NewRewriter(&b)
@@ -91,9 +91,11 @@ func TestKeyRewriter(t *testing.T) {
 	n, err := rew.Write(obj)
 	assert.NoError(t, err)
 	assert.Equal(t, len(obj), n)
-	assert.Equal(t, obj, b)
+	assert.Equal(t, exp, b)
 
 	b = b[:0]
+	t.Logf("case 1")
+
 	obj = tlog.AppendKVs(obj[:0], []interface{}{
 		tlog.RawTag(tlwire.Map, -1),
 		tlog.KeyTimestamp, time.Unix(100000000, 0),
@@ -106,8 +108,6 @@ func TestKeyRewriter(t *testing.T) {
 		"time", time.Unix(100000000, 0),
 		tlog.Break,
 	})
-
-	t.Logf("case 1")
 
 	n, err = rew.Write(obj)
 	assert.NoError(t, err)
