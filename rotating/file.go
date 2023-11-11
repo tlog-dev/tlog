@@ -40,7 +40,7 @@ type (
 		Flags int
 		Mode  os.FileMode
 
-		OpenFile FileOpener                               `deep:"compare=pointer"`
+		OpenFile FileOpener                               `deep:"compare=nil"`
 		readdir  func(name string) ([]fs.DirEntry, error) `deep:"-"`
 		fstat    func(name string) (fs.FileInfo, error)   `deep:"-"`
 		remove   func(name string) error                  `deep:"-"`
@@ -104,38 +104,9 @@ func (f *File) Write(p []byte) (n int, err error) {
 		(f.MaxFileSize != 0 && f.size+int64(len(p)) > f.MaxFileSize ||
 			f.MaxFileAge != 0 && time.Since(f.start) > f.MaxFileAge) {
 
-		checkAgain := func() bool {
-			// if triggered not by size
-			if f.w == nil || f.size != 0 && f.MaxFileAge != 0 && time.Since(f.start) > f.MaxFileAge {
-				return true
-			}
-
-			if f.current == "" || f.MaxFileSize == 0 {
-				return true
-			}
-
-			inf, err := f.fstat(f.current)
-			if err != nil {
-				return true
-			}
-
-			if inf.Size()+int64(len(p)) > f.MaxFileSize {
-				//	println("fine, rotate now")
-				return true
-			}
-
-			//	println("we have only", inf.Size(), "bytes file, not", f.size, ". use it more")
-
-			f.size = inf.Size()
-
-			return false
-		}
-
-		if checkAgain() {
-			err = f.rotate()
-			if err != nil {
-				return 0, errors.Wrap(err, "rotate")
-			}
+		err = f.rotate()
+		if err != nil {
+			return 0, errors.Wrap(err, "rotate")
 		}
 	}
 
@@ -166,7 +137,8 @@ func (f *File) rotate() (err error) {
 	}
 
 	f.num++
-	base := fmt.Sprintf("%s%s%s", f.pref, fmt.Sprintf(f.format, f.num), f.suff)
+	//	base := fmt.Sprintf("%s%s%s", f.pref, fmt.Sprintf(f.format, f.num), f.suff)
+	base := f.pref + fmt.Sprintf(f.format, f.num) + f.suff
 	fname := filepath.Join(f.dir, base)
 
 	if c, ok := f.w.(io.Closer); ok {
@@ -182,7 +154,8 @@ func (f *File) rotate() (err error) {
 
 	f.current = fname
 	f.size = 0
-	f.start = fileCtime(f.fstat, fname, now)
+	f.start = now
+	//	f.start = fileCtime(f.fstat, fname, now)
 
 	if f.symlink != nil {
 		link := filepath.Join(f.dir, f.pref+"LATEST"+f.suff)

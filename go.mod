@@ -7,7 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.0
-	github.com/nikandfor/assert v0.0.0-20230715221220-e6180ccf3482
+	github.com/nikandfor/assert v0.0.0-20231111164855-4827b9a9a365
 	github.com/nikandfor/cli v0.0.0-20230428202915-fdf5f3ba6b67
 	github.com/nikandfor/errors v0.8.0
 	github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88

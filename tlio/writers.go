@@ -51,6 +51,16 @@ type (
 		Bytes, Writes atomic.Int64
 	}
 
+	SandwichWriter struct {
+		io.Writer
+		sandwichFilling
+	}
+
+	sandwichFilling struct {
+		io.Writer
+		n int
+	}
+
 	WriterFunc func(p []byte) (int, error)
 
 	// base interfaces
@@ -322,6 +332,48 @@ func (w *HeadWriter) Write(p []byte) (int, error) {
 }
 
 func (w *HeadWriter) Unwrap() interface{} {
+	return w.Writer
+}
+
+func NewSandwichWriter(filling io.Writer) *SandwichWriter {
+	return &SandwichWriter{
+		sandwichFilling: sandwichFilling{
+			Writer: filling,
+		},
+	}
+}
+
+func (w *SandwichWriter) Write(p []byte) (int, error) {
+	w.n = -1
+
+	n, err := w.Writer.Write(p)
+
+	if w.n != -1 {
+		n = w.n
+	}
+
+	return n, err
+}
+
+func (w *sandwichFilling) Write(p []byte) (int, error) {
+	n, err := w.Writer.Write(p)
+	w.n = n
+
+	return n, err
+}
+
+func (w *SandwichWriter) Inner() io.Writer {
+	if c, ok := w.sandwichFilling.Writer.(io.Closer); ok {
+		return WriteCloser{
+			Writer: &w.sandwichFilling,
+			Closer: c,
+		}
+	}
+
+	return &w.sandwichFilling
+}
+
+func (w *SandwichWriter) Unwrap() interface{} {
 	return w.Writer
 }
 

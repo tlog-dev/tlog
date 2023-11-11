@@ -499,9 +499,11 @@ func RotatedTLZFileOpener(below rotating.FileOpener) rotating.FileOpener {
 			return nil, errors.Wrap(err, "")
 		}
 
-		w = eazy.NewWriter(w, EazyBlockSize, EazyHTable)
+		s := tlio.NewSandwichWriter(w)
 
-		return w, nil
+		s.Writer = eazy.NewWriter(s.Inner(), EazyBlockSize, EazyHTable)
+
+		return s, nil
 	}
 }
 

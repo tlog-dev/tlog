@@ -62,7 +62,7 @@ const (
 	_
 	_
 
-	SemanticTlogBase
+	SemanticTlogBase = 10
 )
 
 func init() {
