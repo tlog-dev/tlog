@@ -29,6 +29,10 @@ func Verbosity() string {
 	return DefaultLogger.Verbosity()
 }
 
+func SetVerbosity(vfilter string) {
+	DefaultLogger.SetVerbosity(vfilter)
+}
+
 func (l *Logger) Verbosity() string {
 	f := l.getfilter()
 	if f == nil {
@@ -36,10 +40,6 @@ func (l *Logger) Verbosity() string {
 	}
 
 	return f.f
-}
-
-func SetVerbosity(vfilter string) {
-	DefaultLogger.SetVerbosity(vfilter)
 }
 
 func (l *Logger) SetVerbosity(vfilter string) {
@@ -63,6 +63,14 @@ func V(topics string) *Logger {
 	return nil
 }
 
+func If(topics string) bool {
+	return DefaultLogger.ifv(0, topics)
+}
+
+func IfDepth(d int, topics string) bool {
+	return DefaultLogger.ifv(d, topics)
+}
+
 func (l *Logger) V(topics string) *Logger {
 	if l.ifv(0, topics) {
 		return l
@@ -71,16 +79,8 @@ func (l *Logger) V(topics string) *Logger {
 	return nil
 }
 
-func If(topics string) bool {
-	return DefaultLogger.ifv(0, topics)
-}
-
 func (l *Logger) If(topics string) bool {
 	return l.ifv(0, topics)
-}
-
-func IfDepth(d int, topics string) bool {
-	return DefaultLogger.ifv(d, topics)
 }
 
 func (l *Logger) IfDepth(d int, topics string) bool {
