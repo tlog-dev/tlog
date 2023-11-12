@@ -2,73 +2,82 @@ package agent
 
 import (
 	"bytes"
-	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"hash/crc32"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime/debug"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/nikandfor/errors"
-	"tlog.app/go/eazy"
-
 	"tlog.app/go/tlog"
-	"tlog.app/go/tlog/tlio"
 	"tlog.app/go/tlog/tlwire"
 )
 
 type (
-	Agent struct { //nolint:maligned
+	Agent struct {
 		path string
 
-		sync.Mutex
+		mu sync.Mutex
 
-		files []*file
-		subs  map[int64]*sub
-		subid int64
+		subid int64 // last used
+		subs  []sub
 
-		// end of Mutex
+		streams []*stream
+		files   []*file
 
-		Partition   time.Duration
-		MaxFileSize int64
+		// end of mu
 
 		KeyTimestamp string
+
+		Partition time.Duration
+		BlockSize int64
 
 		Stderr io.Writer
 
 		d tlwire.Decoder
 	}
 
-	file struct {
-		sum    uint32
+	stream struct {
 		labels []byte
-		start  time.Time
+		sum    uint32
 
-		sync.Mutex
-
-		io.Writer
-
-		// end of Mutex
-
-		a *Agent
+		file *file
 	}
 
-	sub struct {
-		id int64
-		io.Writer
+	file struct {
+		w io.Writer
+
+		name string
+
+		part int64
+		ts   int64
+
+		prev *file
+
+		mu sync.Mutex
+
+		off   int64
+		index []ientry
+	}
+
+	ientry struct {
+		off int64
+		ts  int64
 	}
 )
 
-func New(db string) (*Agent, error) {
-	a := &Agent{
-		path: db,
+var (
+	ErrUnknownSubscription = stderrors.New("unknown subscription")
 
-		subs: make(map[int64]*sub),
+	ErrFileFull = stderrors.New("file is full")
+)
+
+func New(path string) (*Agent, error) {
+	a := &Agent{
+		path: path,
 
 		Partition:    3 * time.Hour,
 		KeyTimestamp: tlog.KeyTimestamp,
@@ -76,163 +85,35 @@ func New(db string) (*Agent, error) {
 		Stderr: os.Stderr,
 	}
 
-	err := a.openFiles()
-	if err != nil {
-		return a, errors.Wrap(err, "open files")
-	}
-
 	return a, nil
 }
 
-func (a *Agent) openFiles() (err error) {
-	err = filepath.WalkDir(a.path, func(path string, d fs.DirEntry, err error) error {
-		if path == a.path {
-			return nil
-		}
-		if d.IsDir() {
-			return fs.SkipDir
-		}
-
-		base := filepath.Base(path)
-		ext := filepath.Ext(path)
-
-		if ext != ".tlz" || !strings.HasPrefix(base, "events_") {
-			return nil
-		}
-
-		ff, err := os.Open(path)
-		if err != nil {
-			return errors.Wrap(err, "open file")
-		}
-
-		defer func() {
-			e := ff.Close()
-			if err == nil {
-				err = errors.Wrap(e, "close file")
-			}
-		}()
-
-		dec := eazy.NewReader(ff)
-		sd := tlwire.NewStreamDecoder(dec)
-
-		msg, err := sd.Decode()
-		if err != nil {
-			return errors.Wrap(err, "decode message")
-		}
-
-		_, err = a.getFile(msg)
-		if err != nil {
-			return errors.Wrap(err, "get file")
-		}
-
-		return nil
-	})
-
-	return nil
-}
-
 func (a *Agent) Write(p []byte) (n int, err error) {
-	defer func() {
-		perr := recover()
+	defer a.mu.Unlock()
+	a.mu.Lock()
 
-		if err == nil && perr == nil {
-			return
+	for n < len(p) {
+		ts, labels, err := a.parseEventHeader(p[n:])
+		if err != nil {
+			return n, errors.Wrap(err, "parse event")
 		}
 
-		if perr != nil {
-			fmt.Fprintf(a.Stderr, "panic: %v (pos %x)\n", perr, n)
-		} else {
-			fmt.Fprintf(a.Stderr, "parse error: %+v (pos %x)\n", err, n)
+		f, s, err := a.file(ts, labels, len(p[n:]))
+		if err != nil {
+			return n, errors.Wrap(err, "get file")
 		}
-		fmt.Fprintf(a.Stderr, "dump\n%v", tlwire.Dump(p))
-		fmt.Fprintf(a.Stderr, "hex dump\n%v", hex.Dump(p))
 
-		s := debug.Stack()
-		fmt.Fprintf(a.Stderr, "%s", s)
-	}()
-
-	f, err := a.getFile(p)
-	if err != nil {
-		return 0, err
+		m, err := a.writeFile(s, f, p[n:], ts)
+		n += m
+		if errors.Is(err, ErrFileFull) {
+			continue
+		}
+		if err != nil {
+			return n, errors.Wrap(err, "write")
+		}
 	}
-
-	n, err = f.Write(p)
-
-	func() {
-		defer a.Unlock()
-		a.Lock()
-
-		for _, sub := range a.subs {
-			_, _ = sub.Writer.Write(p)
-		}
-	}()
 
 	return
-}
-
-func (a *Agent) Close() (err error) {
-	a.Lock()
-	defer a.Unlock()
-
-	for _, f := range a.files {
-		e := f.Close()
-		if err == nil {
-			err = errors.Wrap(e, "file %v", f.sum)
-		}
-	}
-
-	return err
-}
-
-func (a *Agent) getFile(p []byte) (f *file, err error) {
-	if tlog.If("dump") {
-		defer func() {
-			var sum uint32
-			if f != nil {
-				sum = f.sum
-			}
-
-			tlog.Printw("message", "sum", tlog.NextAsHex, sum, "msg", tlog.RawMessage(p))
-		}()
-	}
-
-	defer a.Unlock()
-	a.Lock()
-
-	ts, labels, err := a.parseEventHeader(p)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse event header")
-	}
-
-	start := time.Unix(0, ts).UTC().Truncate(a.Partition)
-
-	f = a.getPart(labels, start)
-
-	return f, nil
-}
-
-func (a *Agent) getPart(labels []byte, start time.Time) *file {
-	sum := crc32.ChecksumIEEE(labels)
-
-	for _, f := range a.files {
-		if f.sum == sum && f.start.UnixNano() == start.UnixNano() && bytes.Equal(f.labels, labels) {
-			return f
-		}
-	}
-
-	f := &file{
-		sum:    sum,
-		labels: append([]byte{}, labels...),
-		start:  start,
-
-		a: a,
-	}
-
-	a.files = append(a.files, f)
-
-	tlog.Printw("open file", "sum", tlog.NextAsHex, sum, "labels", tlog.RawTag(tlwire.Map, -1), tlog.RawMessage(labels), tlog.Break)
-
-	return f
 }
 
 func (a *Agent) parseEventHeader(p []byte) (ts int64, labels []byte, err error) {
@@ -279,51 +160,89 @@ func (a *Agent) parseEventHeader(p []byte) (ts int64, labels []byte, err error) 
 	return
 }
 
-func (f *file) Write(p []byte) (n int, err error) {
-	defer f.Unlock()
-	f.Lock()
+func (a *Agent) file(ts int64, labels []byte, size int) (*file, *stream, error) {
+	sum := crc32.ChecksumIEEE(labels)
+	part := time.Unix(0, ts).Truncate(a.Partition).UnixNano()
 
-	if f.Writer == nil {
-		f.Writer, err = f.a.openWriter(f)
+	var s *stream
+
+	for _, ss := range a.streams {
+		if ss.sum == sum && bytes.Equal(ss.labels, labels) {
+			s = ss
+			break
+		}
+	}
+
+	if s == nil {
+		s = &stream{
+			labels: labels,
+			sum:    sum,
+		}
+	}
+
+	if s.file == nil {
+		f, err := a.newFile(s, part, ts)
 		if err != nil {
-			return 0, errors.Wrap(err, "open writer")
+			return nil, nil, errors.Wrap(err, "new file")
 		}
+
+		s.file = f
 	}
 
-	n, err = f.Writer.Write(p)
-
-	return
+	return s.file, s, nil
 }
 
-func (f *file) Close() (err error) {
-	if c, ok := f.Writer.(io.Closer); ok {
-		e := c.Close()
-		if err == nil {
-			err = errors.Wrap(e, "close writer")
-		}
-	}
-
-	return err
-}
-
-func (a *Agent) openWriter(f *file) (io.Writer, error) {
-	name := filepath.Join(a.path, fmt.Sprintf("events_%08x_%s.tlz", f.sum, f.start.Format("2006-01-02T15-04")))
-	dir := filepath.Dir(name)
+func (a *Agent) newFile(s *stream, part, ts int64) (*file, error) {
+	base := fmt.Sprintf("%08x/%08x_%08x.tlz", part/1e9, s.sum, ts/1e9)
+	fname := filepath.Join(a.path, base)
+	dir := filepath.Dir(fname)
 
 	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return nil, errors.Wrap(err, "mkdir")
 	}
 
-	ff, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	w, err := os.OpenFile(fname, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return nil, errors.Wrap(err, "open file")
 	}
 
-	w := eazy.NewWriter(ff, eazy.MiB, 2*1024)
+	f := &file{
+		w: w,
 
-	return tlio.WriteCloser{
-		Writer: w,
-		Closer: ff,
-	}, nil
+		prev: s.file,
+
+		part: part,
+		ts:   ts,
+
+		//	index: []ientry{{
+		//		off: 0,
+		//		ts:  ts,
+		//	}},
+	}
+
+	return f, nil
+}
+
+func (a *Agent) writeFile(s *stream, f *file, p []byte, ts int64) (n int, err error) {
+	defer f.mu.Unlock()
+	f.mu.Lock()
+
+	st := f.off
+
+	n, err = f.w.Write(p)
+	if err != nil {
+		return
+	}
+
+	f.off += int64(n)
+
+	if len(f.index) == 0 || f.off >= f.index[len(f.index)-1].off+a.BlockSize {
+		f.index = append(f.index, ientry{
+			off: st,
+			ts:  ts,
+		})
+	}
+
+	return
 }

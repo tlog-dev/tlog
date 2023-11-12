@@ -54,7 +54,7 @@ func New(c driver.Conn) *Click {
 	return d
 }
 
-func (d *Click) Query(ctx context.Context, w io.Writer, q string) error {
+func (d *Click) Query(ctx context.Context, w io.Writer, ts int64, q string) error {
 	return nil
 }
 

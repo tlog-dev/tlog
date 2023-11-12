@@ -8,8 +8,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hnet"
@@ -21,7 +24,7 @@ import (
 
 type (
 	Agent interface {
-		Query(ctx context.Context, w io.Writer, q string) error
+		Query(ctx context.Context, w io.Writer, ts int64, q string) error
 	}
 
 	Server struct {
@@ -142,7 +145,10 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 
 	switch {
 	case strings.HasPrefix(p, "/v0/events"):
+		ts := queryInt64(req.URL, "ts", time.Now().UnixNano())
+
 		var qdata []byte
+
 		qdata, err = io.ReadAll(req.Body)
 		if err != nil {
 			return errors.Wrap(err, "read query")
@@ -167,7 +173,7 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 			return errors.New("unsupported ext: %v", ext)
 		}
 
-		err = s.Agent.Query(ctx, w, string(qdata))
+		err = s.Agent.Query(ctx, w, ts, string(qdata))
 		if errors.Is(err, context.Canceled) {
 			err = nil
 		}
@@ -246,4 +252,15 @@ func pathExt(name string) string {
 	}
 
 	return ""
+}
+
+func queryInt64(u *url.URL, key string, def int64) int64 {
+	val := u.Query().Get(key)
+
+	ts, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return def
+	}
+
+	return ts
 }

@@ -2,51 +2,55 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"io"
-
-	"tlog.app/go/tlog"
 )
 
-func (a *Agent) Query(ctx context.Context, w io.Writer, q string) (err error) {
-	tr := tlog.SpawnFromContextOrStart(ctx, "agent_query", "query", q)
-	defer tr.Finish("err", &err)
+type (
+	sub struct {
+		io.Writer
 
-	ctx = tlog.ContextWithSpan(ctx, tr)
-
-	id := a.registerSub(w)
-	defer a.unregisterSub(id)
-
-	<-ctx.Done()
-	err = ctx.Err()
-
-	if errors.Is(err, context.Canceled) {
-		err = nil
+		id int64
 	}
+)
 
-	return
+func (a *Agent) Query(ctx context.Context, w io.Writer, ts int64, q string) error {
+	return nil
 }
 
-func (a *Agent) registerSub(w io.Writer) int64 {
-	defer a.Unlock()
-	a.Lock()
+func (a *Agent) Subscribe(ctx context.Context, w io.Writer, q string) (int64, error) {
+	defer a.mu.Unlock()
+	a.mu.Lock()
 
 	a.subid++
 	id := a.subid
 
-	s := &sub{
-		id:     id,
+	sub := sub{
 		Writer: w,
+		id:     id,
 	}
 
-	a.subs[id] = s
+	a.subs = append(a.subs, sub)
 
-	return id
+	return id, nil
 }
 
-func (a *Agent) unregisterSub(id int64) {
-	defer a.Unlock()
-	a.Lock()
+func (a *Agent) Unsubscribe(ctx context.Context, id int64) error {
+	defer a.mu.Unlock()
+	a.mu.Lock()
 
-	delete(a.subs, id)
+	i := 0
+
+	for i < len(a.subs) && a.subs[i].id < id {
+		i++
+	}
+
+	if i == len(a.subs) || a.subs[i].id != id {
+		return ErrUnknownSubscription
+	}
+
+	copy(a.subs[i:], a.subs[i+1:])
+
+	a.subs = a.subs[:len(a.subs)-1]
+
+	return nil
 }
