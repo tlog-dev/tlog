@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/nikandfor/assert"
-	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/low"
+	"tlog.app/go/errors"
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlwire"

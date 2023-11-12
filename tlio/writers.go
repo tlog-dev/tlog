@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/nikandfor/errors"
+	"tlog.app/go/errors"
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlwire"

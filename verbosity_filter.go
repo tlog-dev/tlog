@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 )
 
 type (

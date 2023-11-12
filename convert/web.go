@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/nikandfor/hacked/hfmt"
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlio"
 	"tlog.app/go/tlog/tlwire"

@@ -7,7 +7,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog/low"
 )

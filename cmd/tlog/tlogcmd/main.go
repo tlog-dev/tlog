@@ -19,10 +19,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/nikandfor/cli"
 	"github.com/nikandfor/cli/flag"
-	"github.com/nikandfor/errors"
 	"github.com/nikandfor/graceful"
 	"github.com/nikandfor/hacked/hnet"
 	"tlog.app/go/eazy"
+	"tlog.app/go/errors"
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/agent"

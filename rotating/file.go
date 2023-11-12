@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nikandfor/errors"
+	"tlog.app/go/errors"
 )
 
 type (

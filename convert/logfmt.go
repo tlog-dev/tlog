@@ -9,8 +9,8 @@ import (
 
 	"github.com/nikandfor/hacked/hfmt"
 	"github.com/nikandfor/hacked/low"
-	"github.com/nikandfor/loc"
 	"golang.org/x/term"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
 	tlow "tlog.app/go/tlog/low"

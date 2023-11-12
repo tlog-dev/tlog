@@ -6,7 +6,7 @@ import (
 
 	"github.com/nikandfor/assert"
 	"github.com/nikandfor/hacked/low"
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlwire"

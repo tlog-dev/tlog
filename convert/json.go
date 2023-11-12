@@ -11,7 +11,7 @@ import (
 
 	"github.com/nikandfor/hacked/hfmt"
 	"github.com/nikandfor/hacked/low"
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
 	tlow "tlog.app/go/tlog/low"

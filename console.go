@@ -12,12 +12,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/nikandfor/errors"
 	"github.com/nikandfor/hacked/hfmt"
 	"github.com/nikandfor/hacked/htime"
 	"github.com/nikandfor/hacked/low"
-	"github.com/nikandfor/loc"
 	"golang.org/x/term"
+	"tlog.app/go/errors"
+	"tlog.app/go/loc"
 
 	tlow "tlog.app/go/tlog/low"
 	"tlog.app/go/tlog/tlwire"

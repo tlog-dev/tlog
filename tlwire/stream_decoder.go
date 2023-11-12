@@ -3,7 +3,7 @@ package tlwire
 import (
 	"io"
 
-	"github.com/nikandfor/errors"
+	"tlog.app/go/errors"
 )
 
 type StreamDecoder struct {

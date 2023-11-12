@@ -8,8 +8,8 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
-	"github.com/nikandfor/errors"
-	"github.com/nikandfor/loc"
+	"tlog.app/go/errors"
+	"tlog.app/go/loc"
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"
 	"tlog.app/go/tlog/tlwire"

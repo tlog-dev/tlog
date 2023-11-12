@@ -3,7 +3,7 @@ package tlio
 import (
 	"io"
 
-	"github.com/nikandfor/errors"
+	"tlog.app/go/errors"
 
 	"tlog.app/go/tlog"
 )

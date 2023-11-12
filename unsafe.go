@@ -4,7 +4,7 @@ import (
 	"unsafe"
 	_ "unsafe"
 
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 )
 
 //go:noescape

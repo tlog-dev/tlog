@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nikandfor/errors"
-	"github.com/nikandfor/loc"
 	"tlog.app/go/eazy"
+	"tlog.app/go/errors"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"

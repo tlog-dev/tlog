@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/nikandfor/loc"
 	"golang.org/x/exp/slog"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
 )

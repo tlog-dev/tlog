@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlio"
 )

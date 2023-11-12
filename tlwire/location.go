@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 )
 
 var (

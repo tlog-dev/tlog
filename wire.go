@@ -5,7 +5,7 @@ import (
 	_ "unsafe"
 
 	"github.com/nikandfor/hacked/low"
-	"github.com/nikandfor/loc"
+	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog/tlwire"
 )

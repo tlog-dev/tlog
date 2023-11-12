@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/nikandfor/assert"
-	"github.com/nikandfor/errors"
 	"tlog.app/go/eazy"
+	"tlog.app/go/errors"
 
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"
