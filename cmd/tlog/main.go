@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/nikandfor/cli"
+	"nikand.dev/go/cli"
 
 	"tlog.app/go/tlog/cmd/tlog/tlogcmd"
 )

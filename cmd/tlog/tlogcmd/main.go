@@ -17,10 +17,10 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/fsnotify/fsnotify"
-	"github.com/nikandfor/cli"
-	"github.com/nikandfor/cli/flag"
-	"github.com/nikandfor/graceful"
 	"github.com/nikandfor/hacked/hnet"
+	"nikand.dev/go/cli"
+	"nikand.dev/go/cli/flag"
+	"nikand.dev/go/graceful"
 	"tlog.app/go/eazy"
 	"tlog.app/go/errors"
 

@@ -4,18 +4,23 @@ go 1.16
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.10.1
+	github.com/bytedance/sonic v1.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
+	github.com/go-playground/validator/v10 v10.14.1 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/nikandfor/assert v0.0.0-20231111164855-4827b9a9a365
-	github.com/nikandfor/cli v0.0.0-20230428202915-fdf5f3ba6b67
-	github.com/nikandfor/graceful v0.0.0-20230428203120-c0dcdbcf0a88
-	github.com/nikandfor/hacked v0.0.0-20230717052658-a86e97bdda4d
-	github.com/nikandfor/tlog v0.21.4 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
+	github.com/nikandfor/assert v0.0.0-20231112165957-bf2ce0a3555a
+	github.com/nikandfor/hacked v0.0.0-20230824102750-8a1d9905794e
 	github.com/stretchr/testify v1.8.4
+	github.com/ugorji/go v1.1.7 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/term v0.9.0
-	tlog.app/go/eazy v0.0.0-20230717073616-6a466ff05869
+	google.golang.org/protobuf v1.31.0 // indirect
+	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
+	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
+	tlog.app/go/eazy v0.1.1
 	tlog.app/go/errors v0.9.0
 	tlog.app/go/loc v0.6.1
 )
