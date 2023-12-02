@@ -37,6 +37,7 @@ var (
 	NextAsType    = FormatNext("%T")
 )
 
+// Wire semantic tags.
 const (
 	WireLabel = tlwire.SemanticTlogBase + iota
 	WireID

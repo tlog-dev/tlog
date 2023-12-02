@@ -65,6 +65,16 @@ const (
 	SemanticTlogBase = 10
 )
 
+// Meta.
+const (
+	MetaMagic = iota
+	MetaVer
+
+	MetaTlogBase = 8
+)
+
+const Magic = "\xc0\x64tlog"
+
 func init() {
 	if Break != TagDetMask {
 		panic(Break)

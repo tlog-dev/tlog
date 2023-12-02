@@ -67,7 +67,7 @@ func App() *cli.Command {
 
 	tlzCmd := &cli.Command{
 		Name:        "tlz,eazy",
-		Description: "logs compressor/decompressor",
+		Description: "compressor/decompressor",
 		Flags: []*cli.Flag{
 			cli.NewFlag("output,o", "-", "output file (or stdout)"),
 		},
@@ -76,8 +76,8 @@ func App() *cli.Command {
 			Action: tlzRun,
 			Args:   cli.Args{},
 			Flags: []*cli.Flag{
-				cli.NewFlag("block,b", 1*eazy.MiB, "compression block size (window)"),
-				cli.NewFlag("hash-table,ht,h", 1*1024, "hash table size"),
+				cli.NewFlag("block-size,block,bs,b", 1*eazy.MiB, "compression block size (window)"),
+				cli.NewFlag("hash-table,ht", 1*1024, "hash table size"),
 			},
 		}, {
 			Name:   "decompress,d",
@@ -100,6 +100,10 @@ func App() *cli.Command {
 		Action:      agentRun,
 		Flags: []*cli.Flag{
 			cli.NewFlag("db", "", "path to logs db"),
+			cli.NewFlag("db-partition", 3*time.Hour, "db partition size"),
+			cli.NewFlag("db-file-size", int64(eazy.GiB), "db file size"),
+			cli.NewFlag("db-block-size", int64(16*eazy.MiB), "db file block size"),
+
 			cli.NewFlag("clickdb", "", "clickhouse dsn"),
 
 			cli.NewFlag("listen,l", []string(nil), "listen url"),
@@ -219,10 +223,16 @@ func agentRun(c *cli.Command) (err error) {
 	}
 
 	if q := c.String("db"); q != "" {
-		a, err = agent.New(q)
+		x, err := agent.New(q)
 		if err != nil {
 			return errors.Wrap(err, "new agent")
 		}
+
+		x.Partition = c.Duration("db-partition")
+		x.FileSize = c.Int64("db-file-size")
+		x.BlockSize = c.Int64("db-block-size")
+
+		a = x
 	} else if q := c.String("clickdb"); q != "" {
 		opts, err := clickhouse.ParseDSN(q)
 		if err != nil {
@@ -338,8 +348,9 @@ func agentRun(c *cli.Command) (err error) {
 
 						defer closeWrap(c, &err, "close conn")
 
-						f := a.(tlio.Flusher)
-						defer doWrap(f.Flush, &err, "flush db")
+						if f, ok := a.(tlio.Flusher); ok {
+							defer doWrap(f.Flush, &err, "flush db")
+						}
 
 						rr := tlwire.NewStreamDecoder(c)
 
@@ -619,7 +630,12 @@ func tlzRun(c *cli.Command) (err error) {
 
 		_, err = d.Write(data)
 		if err != nil {
-			return errors.Wrap(err, "copy")
+			return errors.Wrap(err, "dumper")
+		}
+
+		err = d.Close()
+		if err != nil {
+			return errors.Wrap(err, "close dumper")
 		}
 	default:
 		return errors.New("unexpected command: %v", c.MainName())
