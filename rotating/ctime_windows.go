@@ -16,10 +16,10 @@ func fileCtime(fstat func(string) (fs.FileInfo, error), name string, now time.Ti
 }
 
 func ctime(inf fs.FileInfo, now time.Time) time.Time {
-	stat, ok := inf.Sys().(*syscall.Stat_t)
+	stat, ok := inf.Sys().(*syscall.Win32FileAttributeData)
 	if !ok {
 		return now
 	}
 
-	return time.Unix(stat.Ctim.Unix())
+	return time.Unix(0, stat.CreationTime.Nanoseconds())
 }
