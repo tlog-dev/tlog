@@ -11,7 +11,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/nikandfor/assert v0.0.0-20231112165957-bf2ce0a3555a
-	github.com/nikandfor/hacked v0.0.0-20230824102750-8a1d9905794e
+	github.com/nikandfor/hacked v0.0.0-20231207014854-3b383967fdf4
 	github.com/stretchr/testify v1.8.4
 	github.com/ugorji/go v1.1.7 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
@@ -20,8 +20,8 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
-	nikand.dev/go/throttle v0.0.0-20231201183633-5cdc67b2c618
-	tlog.app/go/eazy v0.3.0-rc0.0.20231128195915-400a9a9e8d14
+	nikand.dev/go/throttle v0.0.0-20231222110740-f28913f9ea52
+	tlog.app/go/eazy v0.3.0
 	tlog.app/go/errors v0.9.0
 	tlog.app/go/loc v0.6.1
 )
