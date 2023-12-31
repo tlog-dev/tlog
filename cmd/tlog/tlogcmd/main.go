@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -781,72 +780,6 @@ func listen(netw, addr string) (l net.Listener, p net.PacketConn, err error) {
 	}
 
 	return l, p, nil
-}
-
-func listen0(netw, addr string) (l net.Listener, err error) {
-	unix := strings.HasPrefix(netw, "unix")
-
-	var def []io.Closer
-
-	if unix {
-		cl, err := flockLock(addr + ".lock")
-		if err != nil {
-			return nil, errors.Wrap(err, "lock")
-		}
-
-		def = append(def, cl)
-
-		err = os.Remove(addr)
-		if err != nil && !os.IsNotExist(err) {
-			return nil, errors.Wrap(err, "remove old socket file")
-		}
-	}
-
-	l, err = net.Listen(netw, addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "listen: %v", addr)
-	}
-
-	tlog.Printw("listen", "net", netw, "addr", addr, "l_type", tlog.NextAsType, l)
-
-	// unix listener removed by close
-
-	if def != nil {
-		return listenerClose{
-			Listener: l,
-			def:      def,
-		}, nil
-	}
-
-	return l, nil
-}
-
-func flockLock(addr string) (_ io.Closer, err error) {
-	lock, err := os.OpenFile(addr, os.O_CREATE, 0o644)
-	if err != nil {
-		return nil, errors.Wrap(err, "open lock")
-	}
-
-	err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if err != nil {
-		return nil, errors.Wrap(err, "flock")
-	}
-
-	cl := func() (err error) {
-		err = lock.Close()
-		if err != nil {
-			return errors.Wrap(err, "close lock")
-		}
-
-		err = os.Remove(addr)
-		if err != nil {
-			return errors.Wrap(err, "remove lock")
-		}
-
-		return nil
-	}
-
-	return tlio.CloserFunc(cl), nil
 }
 
 func (p listenerClose) SetDeadline(t time.Time) error {
