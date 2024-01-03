@@ -13,6 +13,21 @@ import (
 	"tlog.app/go/tlog/tlwire"
 )
 
+func TestLogfmt(tb *testing.T) {
+	var e tlwire.Encoder
+	var b, jb low.Buf
+
+	j := NewLogfmt(&jb)
+
+	b = e.AppendInt(b[:0], 5)
+	jb, _ = j.ConvertValue(jb[:0], b, nil, 0)
+	assert.Equal(tb, low.Buf("5"), jb)
+
+	b = e.AppendInt(b[:0], -5)
+	jb, _ = j.ConvertValue(jb[:0], b, nil, 0)
+	assert.Equal(tb, low.Buf("-5"), jb)
+}
+
 func TestLogfmtSubObj(t *testing.T) {
 	testLogfmtObj(t, false)
 }

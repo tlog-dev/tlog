@@ -50,7 +50,7 @@ func (e Encoder) AppendKeyInt64(b []byte, k string, v int64) []byte {
 	b = append(b, k...)
 
 	if v < 0 {
-		return e.AppendTag64(b, Neg, uint64(-v))
+		return e.AppendTag64(b, Neg, uint64(-v)+1)
 	}
 
 	return e.AppendTag64(b, Int, uint64(v))
@@ -202,7 +202,7 @@ func (e LowEncoder) AppendTagBytes(b []byte, tag byte, s []byte) []byte {
 
 func (e LowEncoder) AppendInt(b []byte, v int) []byte {
 	if v < 0 {
-		return e.AppendTag64(b, Neg, uint64(-v))
+		return e.AppendTag64(b, Neg, uint64(-v)+1)
 	}
 
 	return e.AppendTag64(b, Int, uint64(v))
@@ -214,7 +214,7 @@ func (e LowEncoder) AppendUint(b []byte, v uint) []byte {
 
 func (e LowEncoder) AppendInt64(b []byte, v int64) []byte {
 	if v < 0 {
-		return e.AppendTag64(b, Neg, uint64(-v))
+		return e.AppendTag64(b, Neg, uint64(-v)+1)
 	}
 
 	return e.AppendTag64(b, Int, uint64(v))

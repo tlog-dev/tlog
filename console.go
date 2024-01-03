@@ -664,6 +664,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 		base := 10
 		if tag == tlwire.Neg {
+			v--
 			b = append(b, '-')
 		}
 

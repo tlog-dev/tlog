@@ -12,13 +12,13 @@ import (
 	"tlog.app/go/tlog/tlwire"
 )
 
-type TeeWriter []io.Writer
+type MultiWriter []io.Writer
 
 func TestConsoleLocations(t *testing.T) {
 	var buf, raw low.Buf
 
 	w := NewConsoleWriter(&buf, 0)
-	l := New(TeeWriter{&raw, w})
+	l := New(MultiWriter{&raw, w})
 
 	w.PadEmptyMessage = false
 
@@ -46,7 +46,7 @@ func TestConsoleLocations(t *testing.T) {
 	t.Logf("dump:\n%v", tlwire.Dump(raw))
 }
 
-func (w TeeWriter) Write(p []byte) (n int, err error) {
+func (w MultiWriter) Write(p []byte) (n int, err error) {
 	for i, w := range w {
 		m, e := w.Write(p)
 
@@ -60,6 +60,21 @@ func (w TeeWriter) Write(p []byte) (n int, err error) {
 	}
 
 	return
+}
+
+func TestConsole(tb *testing.T) {
+	var e tlwire.Encoder
+	var b, jb low.Buf
+
+	j := NewConsoleWriter(&jb, 0)
+
+	b = e.AppendInt(b[:0], 5)
+	jb, _ = j.ConvertValue(jb[:0], b, 0, 0)
+	assert.Equal(tb, low.Buf("5"), jb)
+
+	b = e.AppendInt(b[:0], -5)
+	jb, _ = j.ConvertValue(jb[:0], b, 0, 0)
+	assert.Equal(tb, low.Buf("-5"), jb)
 }
 
 func TestAppendDuration(t *testing.T) {

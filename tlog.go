@@ -104,11 +104,7 @@ func New(w io.Writer) *Logger {
 	}
 }
 
-func (l *Logger) Copy() *Logger {
-	return l.CopyWithWriter(l.Writer)
-}
-
-func (l *Logger) CopyWithWriter(w io.Writer) *Logger {
+func (l *Logger) Copy(w io.Writer) *Logger {
 	return &Logger{
 		Writer:      w,
 		Encoder:     l.Encoder,
@@ -121,16 +117,12 @@ func (l *Logger) CopyWithWriter(w io.Writer) *Logger {
 	}
 }
 
-func (s Span) Copy() Span {
-	r := s
-	r.Logger = r.Logger.Copy()
-	return r
-}
-
-func (s Span) CopyWithWriter(w io.Writer) Span {
-	r := s
-	r.Logger = r.Logger.CopyWithWriter(w)
-	return r
+func (s Span) Copy(w io.Writer) Span {
+	return Span{
+		Logger:    s.Logger.Copy(w),
+		ID:        s.ID,
+		StartedAt: s.StartedAt,
+	}
 }
 
 func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {

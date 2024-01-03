@@ -15,7 +15,22 @@ import (
 	"tlog.app/go/tlog/tlwire"
 )
 
-func TestJSON(t *testing.T) {
+func TestJSON(tb *testing.T) {
+	var e tlwire.Encoder
+	var b, jb low.Buf
+
+	j := NewJSON(&jb)
+
+	b = e.AppendInt(b[:0], 5)
+	jb, _ = j.ConvertValue(jb[:0], b, 0)
+	assert.Equal(tb, low.Buf("5"), jb)
+
+	b = e.AppendInt(b[:0], -5)
+	jb, _ = j.ConvertValue(jb[:0], b, 0)
+	assert.Equal(tb, low.Buf("-5"), jb)
+}
+
+func TestJSONLogger(t *testing.T) {
 	tm := time.Date(2020, time.December, 25, 22, 8, 13, 0, time.FixedZone("Europe/Moscow", int(3*time.Hour/time.Second)))
 
 	var b low.Buf

@@ -165,7 +165,7 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	case tlwire.Int:
 		b = strconv.AppendUint(b, uint64(sub), 10)
 	case tlwire.Neg:
-		b = strconv.AppendInt(b, sub, 10)
+		b = strconv.AppendInt(b, 1-sub, 10)
 	case tlwire.Bytes:
 		b = append(b, '"')
 

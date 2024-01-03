@@ -1,6 +1,6 @@
 package tlwire
 
-// Basic types.
+// Major types.
 const (
 	Int = iota << 5
 	Neg
@@ -60,7 +60,7 @@ const (
 	_
 	Hex
 	_
-	_
+	Embedding
 
 	SemanticTlogBase = 10
 )
@@ -77,6 +77,10 @@ const Magic = "\xc0\x64tlog"
 
 func init() {
 	if Break != TagDetMask {
+		panic(Break)
+	}
+
+	if Break != LenBreak {
 		panic(Break)
 	}
 }
