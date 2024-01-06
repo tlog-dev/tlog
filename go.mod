@@ -15,8 +15,8 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/ugorji/go v1.1.7 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/net v0.11.0 // indirect
-	golang.org/x/term v0.9.0
+	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/term v0.16.0
 	google.golang.org/protobuf v1.31.0 // indirect
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
