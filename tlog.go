@@ -36,7 +36,7 @@ type (
 	}
 
 	Span struct {
-		*Logger
+		Logger    *Logger
 		ID        ID
 		StartedAt time.Time
 	}
@@ -343,23 +343,25 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 		return nil
 	}
 
-	defer s.Unlock()
-	s.Lock()
+	l := s.Logger
 
-	s.b = s.AppendMap(s.b[:0], -1)
+	defer l.Unlock()
+	l.Lock()
+
+	l.b = l.AppendMap(l.b[:0], -1)
 
 	if s.ID != (ID{}) {
-		s.b = s.AppendString(s.b, KeySpan)
-		s.b = s.ID.TlogAppend(s.b)
+		l.b = l.AppendString(l.b, KeySpan)
+		l.b = s.ID.TlogAppend(l.b)
 	}
 
-	s.b = AppendKVs(s.b, kvs)
+	l.b = AppendKVs(l.b, kvs)
 
-	s.b = append(s.b, s.ls...)
+	l.b = append(l.b, l.ls...)
 
-	s.b = s.AppendBreak(s.b)
+	l.b = l.AppendBreak(l.b)
 
-	_, err = s.Writer.Write(s.b)
+	_, err = l.Writer.Write(l.b)
 
 	return
 }
@@ -440,6 +442,9 @@ func (l *Logger) Write(p []byte) (int, error) {
 
 	return l.Writer.Write(p)
 }
+
+func (l *Logger) OK() bool { return l != nil }
+func (s Span) OK() bool    { return s.Logger != nil }
 
 func LoggerSetTimeNow(l *Logger, now func() time.Time, nano func() int64) {
 	l.now = now
