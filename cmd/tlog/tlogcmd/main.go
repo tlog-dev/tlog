@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/nikandfor/hacked/hnet"
 	"nikand.dev/go/cli"
@@ -233,27 +232,14 @@ func agentRun(c *cli.Command) (err error) {
 
 		a = x
 	} else if q := c.String("clickdb"); q != "" {
-		opts, err := clickhouse.ParseDSN(q)
+		opts := tlclick.DefaultPoolOptions(q)
+
+		pool, err := tlclick.NewPool(ctx, opts)
 		if err != nil {
-			return errors.Wrap(err, "parse clickhouse dsn")
+			return errors.Wrap(err, "new click pool")
 		}
 
-		tr := tlog.Start("clickhouse")
-		defer tr.Finish()
-
-		ctx := tlog.ContextWithSpan(ctx, tr)
-
-		opts.Debug = tr.If("clickhouse")
-		opts.Debugf = func(format string, args ...interface{}) {
-			tr.Printf(format, args...)
-		}
-
-		conn, err := clickhouse.Open(opts)
-		if err != nil {
-			return errors.Wrap(err, "open clickhouse")
-		}
-
-		ch := tlclick.New(conn)
+		ch := tlclick.New(pool)
 
 		err = ch.CreateTables(ctx)
 		if err != nil {
