@@ -2,7 +2,7 @@ package tlgin
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"runtime/debug"
 
@@ -73,7 +73,7 @@ func Dumper(c *gin.Context) {
 	tr := SpanFromContext(c)
 
 	if tr.If("rawbody,rawrequest") {
-		data, err := ioutil.ReadAll(c.Request.Body)
+		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			tr.Printw("read body", "err", err)
 			return
@@ -85,7 +85,7 @@ func Dumper(c *gin.Context) {
 			return
 		}
 
-		c.Request.Body = ioutil.NopCloser(bytes.NewReader(data))
+		c.Request.Body = io.NopCloser(bytes.NewReader(data))
 
 		tr.Printw("request", "len", len(data), "data", data)
 	}

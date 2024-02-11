@@ -885,7 +885,7 @@ func (w *ConsoleWriter) AppendDuration(b []byte, d time.Duration) []byte {
 			}
 
 			x := int(d / unit)
-			d = d % unit
+			d %= unit
 			group++
 
 			if group == MaxGroups && d >= unit/2 {

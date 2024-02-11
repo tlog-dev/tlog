@@ -84,7 +84,7 @@ func IDFromString(s string) (id ID, err error) {
 			return
 		}
 
-		c = c << (4 * (1 - j&1))
+		c <<= (4 * (1 - j&1))
 
 		id[j/2] |= c
 		j++

@@ -25,28 +25,28 @@ linters-settings:
       - name: unused-parameter
         disabled: true
   depguard:
-    list-type: whitelist
-    packages:
-      - github.com/beorn7/perks/quantile
-      - github.com/fsnotify/fsnotify
-      - github.com/getsentry/sentry-go
-      - github.com/gin-gonic/gin
-      - github.com/nikandfor/assert
-      - github.com/nikandfor/cli
-      - github.com/nikandfor/errors
-      - github.com/nikandfor/goid
-      - github.com/nikandfor/graceful
-      - github.com/nikandfor/hacked
-      - github.com/nikandfor/loc
-      - github.com/nikandfor/quantile
-      - github.com/nikandfor/tlog
-      - github.com/opentracing/opentracing-go
-      - github.com/prometheus/client_golang
-      - github.com/prometheus/client_model
-      - github.com/stretchr/testify/assert
-      - github.com/stretchr/testify/require
-      - go.opentelemetry.io/otel
-      - golang.org/x
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com/fsnotify/fsnotify
+          - github.com/getsentry/sentry-go
+          - github.com/gin-gonic/gin
+          - github.com/nikandfor/assert
+          - github.com/nikandfor/hacked
+          - github.com/opentracing/opentracing-go
+          - github.com/prometheus/client_golang
+          - github.com/prometheus/client_model
+          - github.com/stretchr/testify/assert
+          - github.com/stretchr/testify/require
+          - go.opentelemetry.io/otel
+          - golang.org/x
+          - nikand.dev/go/cli
+          - nikand.dev/go/graceful
+          - tlog.app/go/eazy
+          - tlog.app/go/errors
+          - tlog.app/go/loc
+          - tlog.app/go/tlog
   misspell:
   lll:
     line-length: 170

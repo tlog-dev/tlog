@@ -1,7 +1,7 @@
 package convert
 
 import (
-	"io/ioutil"
+	"io"
 	"regexp"
 	"strings"
 	"testing"
@@ -147,7 +147,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 
 	st := d.Skip(buf, 0)
 
-	w := NewJSON(ioutil.Discard)
+	w := NewJSON(io.Discard)
 
 	_, err := w.Write(buf[:st])
 	require.NoError(b, err)
@@ -164,7 +164,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 }
 
 func BenchmarkJSONPrintw(b *testing.B) {
-	w := NewJSON(ioutil.Discard)
+	w := NewJSON(io.Discard)
 	l := tlog.New(w)
 	//	l.NoCaller = true
 	//	l.NoTime = true

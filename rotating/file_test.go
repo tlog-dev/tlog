@@ -3,7 +3,6 @@ package rotating
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -59,7 +58,7 @@ func dumpFile(t *testing.T, f low.Buf, name string) {
 	//	r := compress.NewDecoderBytes(f)
 	var r io.Reader = bytes.NewReader(f)
 
-	d, err := ioutil.ReadAll(r)
+	d, err := io.ReadAll(r)
 	assert.NoError(t, err)
 
 	t.Logf("file %q\n%s", name, tlwire.Dump(d))

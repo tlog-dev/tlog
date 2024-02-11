@@ -1,7 +1,7 @@
 package tlog
 
 import (
-	"io/ioutil"
+	"io"
 	"runtime"
 	"sync"
 	"testing"
@@ -186,7 +186,7 @@ func checkCaller(t *testing.T, line int, exists bool, b []byte) {
 func BenchmarkLoggerPrintw(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(ioutil.Discard)
+	l := New(io.Discard)
 
 	for i := 0; i < b.N; i++ {
 		l.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
@@ -196,7 +196,7 @@ func BenchmarkLoggerPrintw(b *testing.B) {
 func BenchmarkLoggerPrintf(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(ioutil.Discard)
+	l := New(io.Discard)
 
 	for i := 0; i < b.N; i++ {
 		l.Printf("message a %v b %v c %v", i+1000, i+1000, "str")
@@ -206,7 +206,7 @@ func BenchmarkLoggerPrintf(b *testing.B) {
 func BenchmarkLoggerStartPrintwFinish(b *testing.B) {
 	b.ReportAllocs()
 
-	l := New(ioutil.Discard)
+	l := New(io.Discard)
 
 	for i := 0; i < b.N; i++ {
 		tr := l.Start("span_name")

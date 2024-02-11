@@ -30,8 +30,8 @@ var AutoLabels = map[string]func() interface{}{
 	"_user":       func() interface{} { return User() },
 	"_os":         func() interface{} { return runtime.GOOS },
 	"_arch":       func() interface{} { return runtime.GOARCH },
-	"_numcpu":     func() interface{} { return fmt.Sprintf("%v", runtime.NumCPU()) },
-	"_gomaxprocs": func() interface{} { return fmt.Sprintf("%v", runtime.GOMAXPROCS(0)) },
+	"_numcpu":     func() interface{} { return runtime.NumCPU() },
+	"_gomaxprocs": func() interface{} { return runtime.GOMAXPROCS(0) },
 	"_goversion":  func() interface{} { return runtime.Version },
 	"_pid": func() interface{} {
 		return os.Getpid()

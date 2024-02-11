@@ -2,7 +2,6 @@ package tlog
 
 import (
 	"unsafe"
-	_ "unsafe"
 
 	"tlog.app/go/loc"
 )

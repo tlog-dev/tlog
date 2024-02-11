@@ -83,7 +83,7 @@ func Create(name string) (f *File) {
 		//	SubstPattern: SubstPattern,
 		//	TimeFormat: TimeFormat,
 
-		OpenFile: openFile, //OpenFileTimeSubstWithSymlink,
+		OpenFile: openFile, // OpenFileTimeSubstWithSymlink,
 		Flags:    os.O_CREATE | os.O_APPEND | os.O_WRONLY,
 		Mode:     0o644,
 
