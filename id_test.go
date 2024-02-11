@@ -27,6 +27,15 @@ func testRandID(seed int64) func() ID {
 	}
 }
 
+func TestIDFromString(tb *testing.T) {
+	id, err := IDFromString("e6a5d996-99b1-493e-ad74-47382220d1a9")
+	assert.NoError(tb, err)
+	assert.Equal(tb, ID{0xe6, 0xa5, 0xd9, 0x96, 0x99, 0xb1, 0x49, 0x3e, 0xad, 0x74, 0x47, 0x38, 0x22, 0x20, 0xd1, 0xa9}, id)
+
+	_, err = IDFromString("e6a5d996-99b1-493e-ad74-47382220d1a")
+	assert.ErrorIs(tb, err, ShortIDError{Bytes: 15})
+}
+
 func TestIDJSON(t *testing.T) {
 	id := testRandID(1)()
 

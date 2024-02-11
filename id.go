@@ -1,7 +1,6 @@
 package tlog
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -64,32 +63,35 @@ func IDFromBytes(b []byte) (id ID, err error) {
 // If parsed string is shorter than type length result is returned as is and ShortIDError as error value.
 // You may use result if you expected short ID prefix (profuced by ID.String, for example).
 func IDFromString(s string) (id ID, err error) {
-	if "________________________________"[:len(s)] == s {
-		return
-	}
+	var j int
 
-	var i int
-	var c byte
-	for ; i < len(s); i++ {
+	for i := 0; i < len(s); i++ {
+		var c byte
+
 		switch {
 		case '0' <= s[i] && s[i] <= '9':
 			c = s[i] - '0'
 		case 'a' <= s[i] && s[i] <= 'f':
 			c = s[i] - 'a' + 10
+		case 'A' <= s[i] && s[i] <= 'F':
+			c = s[i] - 'A' + 10
+		case s[i] == '-':
+			continue
+		case s[i] == '_':
+			c = 0
 		default:
 			err = hex.InvalidByteError(s[i])
 			return
 		}
 
-		if i&1 == 0 {
-			c <<= 4
-		}
+		c = c << (4 * (1 - j&1))
 
-		id[i>>1] |= c
+		id[j/2] |= c
+		j++
 	}
 
-	if i < 2*len(id) {
-		err = ShortIDError{Bytes: i / 2}
+	if j != 2*len(id) {
+		err = ShortIDError{Bytes: j / 2}
 	}
 
 	return
@@ -97,20 +99,7 @@ func IDFromString(s string) (id ID, err error) {
 
 // IDFromStringAsBytes is the same as IDFromString. It avoids alloc in IDFromString(string(b)).
 func IDFromStringAsBytes(s []byte) (id ID, err error) {
-	if bytes.Equal([]byte("________________________________")[:len(s)], s) {
-		return
-	}
-
-	n, err := hex.Decode(id[:], s)
-	if err != nil {
-		return
-	}
-
-	if n < len(id) {
-		return id, ShortIDError{Bytes: n}
-	}
-
-	return id, nil
+	return IDFromString(low.UnsafeBytesToString(s))
 }
 
 // ShouldID wraps IDFrom* call and skips error if any.
