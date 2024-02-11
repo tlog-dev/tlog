@@ -33,14 +33,20 @@ var rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))} //
 // It's not supposed to be able to recover it back to the same value as it was.
 func (id ID) String() string {
 	var b [8]byte
-	id.FormatTo(b[:], 'v')
+	id.FormatTo(b[:], 0, 'v')
 	return string(b[:])
 }
 
 // StringFull returns full id represented as string.
 func (id ID) StringFull() string {
 	var b [32]byte
-	id.FormatTo(b[:], 'v')
+	id.FormatTo(b[:], 0, 'v')
+	return string(b[:])
+}
+
+func (id ID) StringUUID() string {
+	var b [36]byte
+	id.FormatTo(b[:], 0, 'u')
 	return string(b[:])
 }
 
@@ -124,64 +130,108 @@ func (e ShortIDError) Error() string {
 // Format is fmt.Formatter interface implementation.
 // It supports width. '+' flag sets width to full ID length.
 func (id ID) Format(s fmt.State, c rune) {
-	var buf0 [32]byte
+	var buf0 [36]byte
 	buf := low.NoEscapeBuffer(buf0[:])
 
 	w := 8
+
 	if W, ok := s.Width(); ok {
 		w = W
 	}
+
 	if s.Flag('+') {
 		w = 2 * len(id)
 	}
-	id.FormatTo(buf[:w], c)
-	_, _ = s.Write(buf[:w])
+
+	if s.Flag('+') && (c == 'u' || c == 'U') {
+		w = 2*len(id) + 4
+	}
+
+	i := id.FormatTo(buf[:w], 0, c)
+
+	_, _ = s.Write(buf[:i])
 }
 
 // FormatTo is alloc free Format alternative.
-func (id ID) FormatTo(b []byte, f rune) {
+func (id ID) FormatTo(b []byte, i int, f rune) int {
 	if id == (ID{}) {
-		if f == 'v' || f == 'V' {
-			copy(b, "________________________________")
-		} else {
-			copy(b, "00000000000000000000000000000000")
+		switch f {
+		case 'v', 'V':
+			i += copy(b, "________________________________")
+		case 'u', 'U':
+			i += copy(b, "00000000-0000-0000-0000-000000000000")
+		default:
+			i += copy(b, "00000000000000000000000000000000")
 		}
-		return
+
+		return i
 	}
 
 	const digitsx = "0123456789abcdef"
 	const digitsX = "0123456789ABCDEF"
 
 	dg := digitsx
-	if f == 'X' || f == 'V' {
+	if f == 'X' || f == 'V' || f == 'U' {
 		dg = digitsX
 	}
 
-	m := len(b)
-	if 2*len(id) < m {
-		m = 2 * len(id)
+	uuid := f == 'u' || f == 'U'
+	limit := len(b[i:])
+
+	if uuid {
+		if limit > 36 {
+			limit = 36
+		}
+	} else {
+		if limit > 32 {
+			limit = 32
+		}
 	}
 
-	ji := 0
-	for j := 0; j+1 < m; j += 2 {
-		b[j] = dg[id[ji]>>4]
-		b[j+1] = dg[id[ji]&0xf]
-		ji++
+	limit += i
+
+	j := 0
+
+	for i < limit {
+		if uuid && (j == 4 || j == 6 || j == 8 || j == 10) {
+			b[i] = '-'
+			i++
+		}
+
+		if i == limit {
+			break
+		}
+
+		b[i] = dg[id[j]>>4]
+		i++
+
+		if i == limit {
+			break
+		}
+
+		b[i] = dg[id[j]&0xf]
+		i++
+
+		j++
 	}
 
-	if m&1 == 1 {
-		b[m-1] = dg[id[m>>1]>>4]
-	}
+	return i
 }
 
 func (id ID) MarshalJSON() ([]byte, error) {
-	b := make([]byte, len(id)*2+2)
-	b[0] = '"'
-	b[len(b)-1] = '"'
+	var b [38]byte
 
-	id.FormatTo(b[1:], 'x')
+	i := 0
 
-	return b, nil
+	b[i] = '"'
+	i++
+
+	i = id.FormatTo(b[:], i, 'u')
+
+	b[i] = '"'
+	i++
+
+	return b[:i], nil
 }
 
 func (id *ID) UnmarshalJSON(b []byte) error {

@@ -42,13 +42,23 @@ func TestIDJSON(t *testing.T) {
 	data, err := json.Marshal(id)
 	assert.NoError(t, err)
 
-	t.Logf("json encoded id: %s", data)
+	t.Logf("json encoded id: %s (% x)", data, []byte(id[:]))
 
 	var back ID
 	err = json.Unmarshal(data, &back)
 	assert.NoError(t, err)
 
 	assert.Equal(t, id, back)
+}
+
+func BenchmarkIDStringUUID(b *testing.B) {
+	b.ReportAllocs()
+
+	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}
+
+	for i := 0; i < b.N; i++ {
+		_ = id.StringUUID()
+	}
 }
 
 func BenchmarkIDFormat(b *testing.B) {
@@ -69,9 +79,9 @@ func BenchmarkIDFormatTo(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		if i&0xf == 0 {
-			ID{}.FormatTo(buf[:], 'v')
+			ID{}.FormatTo(buf[:], 0, 'v')
 		} else {
-			id.FormatTo(buf[:], 'v')
+			id.FormatTo(buf[:], 0, 'v')
 		}
 	}
 }

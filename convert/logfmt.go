@@ -236,9 +236,9 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 			i = id.TlogParse(p, st)
 
 			bst := len(b) + 1
-			b = append(b, `"123456789_123456789_123456789_12"`...)
+			b = append(b, `"12345678-9_12-3456-789_-123456789_12"`...)
 
-			id.FormatTo(b[bst:], 'x')
+			id.FormatTo(b, bst, 'u')
 		case tlwire.Caller:
 			var pc loc.PC
 			var pcs loc.PCs

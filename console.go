@@ -829,7 +829,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 			st := len(b)
 			b = append(b, "123456789_123456789_123456789_12"[:w.IDWidth]...)
-			id.FormatTo(b[st:], 'v')
+			id.FormatTo(b, st, 'v')
 		case tlwire.Hex:
 			b, i = w.ConvertValue(b, p, i, ff|cfHex)
 		case tlwire.Caller:
