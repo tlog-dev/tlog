@@ -13,6 +13,7 @@ import (
 )
 
 func TestRewriter(t *testing.T) {
+	var e tlwire.Encoder
 	var obj, b low.Buf
 	rew := NewRewriter(&b)
 	rew.Rule = RewriterFunc(func(b, p []byte, path []tlog.RawMessage, kst, st int) ([]byte, int, error) {
@@ -41,7 +42,7 @@ func TestRewriter(t *testing.T) {
 	assert.Equal(t, obj, b)
 
 	b = b[:0]
-	obj = tlog.AppendKVs(obj[:0], []interface{}{
+	obj = tlog.AppendKVs(e, obj[:0], []interface{}{
 		tlog.RawTag(tlwire.Map, -1),
 		"a", "b",
 		"d", tlog.NextIs(tlwire.Duration), 1,
@@ -59,6 +60,7 @@ func TestRewriter(t *testing.T) {
 }
 
 func TestKeyRenamer(t *testing.T) {
+	var e tlwire.Encoder
 	var obj, exp, b low.Buf
 
 	rew := NewRewriter(&b)
@@ -96,14 +98,14 @@ func TestKeyRenamer(t *testing.T) {
 	b = b[:0]
 	t.Logf("case 1")
 
-	obj = tlog.AppendKVs(obj[:0], []interface{}{
+	obj = tlog.AppendKVs(e, obj[:0], []interface{}{
 		tlog.RawTag(tlwire.Map, -1),
 		tlog.KeyTimestamp, time.Unix(100000000, 0),
 		tlog.KeyCaller, loc.Caller(0),
 		tlog.Break,
 	})
 
-	exp = tlog.AppendKVs(exp[:0], []interface{}{
+	exp = tlog.AppendKVs(e, exp[:0], []interface{}{
 		tlog.RawTag(tlwire.Map, -1),
 		"time", time.Unix(100000000, 0),
 		tlog.Break,

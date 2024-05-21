@@ -26,8 +26,8 @@ func TestReWriter(t *testing.T) {
 		err: errors.New("some"),
 	}
 
-	var b low.Buf
 	var e tlwire.Encoder
+	var b low.Buf
 
 	w := NewReWriter(func(have io.Writer, err error) (io.Writer, error) {
 		var b low.Buf
@@ -55,7 +55,7 @@ func TestReWriter(t *testing.T) {
 		}()
 
 		b = e.AppendMap(b, -1)
-		b = tlog.AppendKVs(b, kvs)
+		b = tlog.AppendKVs(e, b, kvs)
 		b = e.AppendBreak(b)
 
 		_, err = w.Write(b)
@@ -141,13 +141,12 @@ func TestReWriter(t *testing.T) {
 }
 
 func newfile(events [][]interface{}) *low.Buf {
-	var b low.Buf
-
 	var e tlwire.Encoder
+	var b low.Buf
 
 	for _, evs := range events {
 		b = e.AppendMap(b, -1)
-		b = tlog.AppendKVs(b, evs)
+		b = tlog.AppendKVs(e, b, evs)
 		b = e.AppendBreak(b)
 	}
 

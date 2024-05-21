@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"tlog.app/go/tlog"
+	"tlog.app/go/tlog/ext/tlwtag"
 	"tlog.app/go/tlog/tlwire"
 )
 
 const (
-	Cups = tlog.SemanticUserBase + iota
+	Cups = tlwtag.SemanticUserBase + iota
 )
 
 type cup int

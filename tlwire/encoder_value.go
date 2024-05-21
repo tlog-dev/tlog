@@ -97,26 +97,26 @@ func init() {
 	})
 }
 
-func (e *Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
+func (e Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
 	b = e.AppendKey(b, key)
 	b = e.AppendValue(b, v)
 	return b
 }
 
-//go:linkname appendValue tlog.app/go/tlog/tlwire.(*Encoder).appendValue
+//go:linkname appendValue tlog.app/go/tlog/tlwire.Encoder.appendValue
 //go:noescape
-func appendValue(e *Encoder, b []byte, v interface{}) []byte
+func appendValue(e Encoder, b []byte, v interface{}) []byte
 
-func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
+func (e Encoder) AppendValue(b []byte, v interface{}) []byte {
 	return appendValue(e, b, v)
 }
 
-func (e *Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
+func (e Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
 	return e.appendValue(b, v)
 }
 
 // Called through linkname hack as appendValue from (Encoder).AppendValue.
-func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
+func (e Encoder) appendValue(b []byte, v interface{}) []byte {
 	if v == nil {
 		return append(b, Special|Nil)
 	}
@@ -126,7 +126,7 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	return e.appendRaw(b, r, ptrSet{})
 }
 
-func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
+func (e Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
 	if r.CanInterface() {
 		//	v := r.Interface()
 		v := valueInterface(r)
@@ -137,14 +137,12 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 
 		ef := raweface(v)
 
-		if e != nil {
-			if enc, ok := e.custom[ef.typ]; ok {
-				return enc(e, b, v)
-			}
+		if enc, ok := e.custom[ef.typ]; ok {
+			return enc(&e, b, v)
 		}
 
 		if enc, ok := defaultEncoders[ef.typ]; ok {
-			return enc(e, b, v)
+			return enc(&e, b, v)
 		}
 
 		switch v := v.(type) {
@@ -250,7 +248,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 	}
 }
 
-func (e *Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte {
+func (e Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte {
 	t := r.Type()
 
 	b = append(b, Map|LenBreak)
@@ -262,7 +260,7 @@ func (e *Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte
 	return b
 }
 
-func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, visited ptrSet) []byte {
+func (e Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, visited ptrSet) []byte {
 	//	fmt.Fprintf(os.Stderr, "appendStructFields: %v  ctx %p %d\n", t, visited, len(visited))
 
 	s := parseStruct(t)

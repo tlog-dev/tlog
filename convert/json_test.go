@@ -134,7 +134,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 
 	appendMap := func(b []byte, kvs ...interface{}) []byte {
 		b = e.AppendMap(b, -1)
-		b = tlog.AppendKVs(b, kvs)
+		b = tlog.AppendKVs(e, b, kvs)
 		b = e.AppendBreak(b)
 
 		return b

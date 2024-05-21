@@ -139,12 +139,13 @@ func TestLogfmtRename(t *testing.T) {
 }
 
 func TestLogfmtKeyWithSpace(t *testing.T) {
+	var e tlwire.Encoder
 	var b low.Buf
 
 	j := NewLogfmt(&b)
 	j.QuoteEmptyValue = true
 
-	_, err := j.Write(tlog.AppendKVs(nil, []interface{}{tlog.RawTag(tlwire.Map, 1), "key with spaces", "value"}))
+	_, err := j.Write(tlog.AppendKVs(e, nil, []interface{}{tlog.RawTag(tlwire.Map, 1), "key with spaces", "value"}))
 	assert.NoError(t, err)
 	assert.Equal(t, `"key with spaces"=value`+"\n", string(b))
 }

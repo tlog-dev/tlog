@@ -130,51 +130,53 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		return
 	}
 
+	e := l.Encoder
+
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendMap(l.b[:0], -1)
+	l.b = e.AppendMap(l.b[:0], -1)
 
 	if id != (ID{}) {
-		l.b = l.Encoder.AppendString(l.b, KeySpan)
+		l.b = e.AppendString(l.b, KeySpan)
 		l.b = id.TlogAppend(l.b)
 	}
 
 	if l.nano != nil {
 		now := l.nano()
 
-		l.b = l.Encoder.AppendString(l.b, KeyTimestamp)
-		l.b = l.Encoder.AppendTimestamp(l.b, now)
+		l.b = e.AppendString(l.b, KeyTimestamp)
+		l.b = e.AppendTimestamp(l.b, now)
 	}
 
 	var c loc.PC
 
 	if d >= 0 && l.callers != nil && l.callers(2+d+l.callersSkip, (*loc.PC)(noescape(unsafe.Pointer(&c))), 1, 1) != 0 {
-		l.b = l.Encoder.AppendKey(l.b, KeyCaller)
-		l.b = l.Encoder.AppendCaller(l.b, c)
+		l.b = e.AppendKey(l.b, KeyCaller)
+		l.b = e.AppendCaller(l.b, c)
 	}
 
 	if msg != nil {
-		l.b = l.Encoder.AppendKey(l.b, KeyMessage)
-		l.b = l.Encoder.AppendSemantic(l.b, WireMessage)
+		l.b = e.AppendKey(l.b, KeyMessage)
+		l.b = e.AppendSemantic(l.b, WireMessage)
 
 		switch msg := msg.(type) {
 		case string:
-			l.b = l.Encoder.AppendString(l.b, msg)
+			l.b = e.AppendString(l.b, msg)
 		case []byte:
-			l.b = l.Encoder.AppendTagBytes(l.b, tlwire.String, msg)
+			l.b = e.AppendTagBytes(l.b, tlwire.String, msg)
 		case format:
-			l.b = l.Encoder.AppendFormat(l.b, msg.Fmt, msg.Args...)
+			l.b = e.AppendFormat(l.b, msg.Fmt, msg.Args...)
 		default:
-			l.b = l.Encoder.AppendFormat(l.b, "%v", msg)
+			l.b = e.AppendFormat(l.b, "%v", msg)
 		}
 	}
 
-	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+	l.b = AppendKVs(e, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
-	l.b = l.Encoder.AppendBreak(l.b)
+	l.b = e.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 }
@@ -190,7 +192,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		s.StartedAt = l.now()
 	}
 
-	e := &l.Encoder
+	e := l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
@@ -244,7 +246,7 @@ func (s Span) Finish(kvs ...interface{}) {
 	}
 
 	l := s.Logger
-	e := &s.Logger.Encoder
+	e := l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
@@ -293,7 +295,7 @@ func (l *Logger) SetLabels(kvs ...interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.ls = AppendLabels(&l.Encoder, l.ls[:0], kvs)
+	l.ls = AppendLabels(l.Encoder, l.ls[:0], kvs)
 }
 
 func (l *Logger) Labels() RawMessage {
@@ -330,7 +332,7 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 
 	l.b = l.AppendMap(l.b[:0], -1)
 
-	l.b = AppendKVs(&l.Encoder, l.b, kvs)
+	l.b = AppendKVs(l.Encoder, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
@@ -347,7 +349,7 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 	}
 
 	l := s.Logger
-	e := &l.Encoder
+	e := l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
