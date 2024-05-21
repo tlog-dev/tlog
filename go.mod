@@ -13,7 +13,6 @@ require (
 	golang.org/x/term v0.17.0
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
-	nikand.dev/go/throttle v0.0.0-20231222110740-f28913f9ea52
 	tlog.app/go/eazy v0.3.0
 	tlog.app/go/errors v0.9.0
 	tlog.app/go/loc v0.6.1

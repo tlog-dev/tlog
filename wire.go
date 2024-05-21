@@ -51,22 +51,19 @@ const (
 	_
 	_
 
-	SemanticUserBase
+	SemanticCommunityBase = tlwire.SemanticTlogBase + 10
 )
 
-var (
-	e tlwire.Encoder
-	d tlwire.Decoder
-)
-
-func AppendLabels(b []byte, kvs []interface{}) []byte {
+func AppendLabels(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	const tag = tlwire.Semantic | WireLabel
+
+	var d tlwire.LowDecoder
 
 	w := len(b)
 	b = append(b, low.Spaces[:len(kvs)/2+1]...)
 	r := len(b)
 
-	b = AppendKVs(b, kvs)
+	b = AppendKVs(e, b, kvs)
 
 	for r < len(b) {
 		end := d.Skip(b, r)
@@ -88,8 +85,8 @@ func AppendLabels(b []byte, kvs []interface{}) []byte {
 	return b[:w]
 }
 
-func AppendKVs(b []byte, kvs []interface{}) []byte {
-	return appendKVs0(b, kvs)
+func AppendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
+	return appendKVs0(e, b, kvs)
 }
 
 func NextIs(semantic int) Modify {
@@ -106,13 +103,13 @@ func Special(value int) RawMessage {
 
 //go:linkname appendKVs0 tlog.app/go/tlog.appendKVs
 //go:noescape
-func appendKVs0(b []byte, kvs []interface{}) []byte
+func appendKVs0(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte
 
 func init() { // prevent deadcode warnings
-	appendKVs(nil, nil)
+	appendKVs(nil, nil, nil)
 }
 
-func appendKVs(b []byte, kvs []interface{}) []byte {
+func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	for i := 0; i < len(kvs); {
 		var k string
 
@@ -180,9 +177,11 @@ func autoKey(kvs []interface{}) (k string) {
 		return "MISSING_VALUE"
 	}
 
+	if m, ok := kvs[1].(Modify); ok && string(m) == string(NextAsMessage) {
+		return KeyMessage
+	}
+
 	switch kvs[1].(type) {
-	//	case Message:
-	//		k = KeyMessage
 	case ID:
 		k = KeySpan
 	case LogLevel:
@@ -205,6 +204,7 @@ func (ek EventKind) String() string {
 }
 
 func (id ID) TlogAppend(b []byte) []byte {
+	var e tlwire.LowEncoder
 	b = append(b, tlwire.Semantic|WireID)
 	return e.AppendBytes(b, id[:])
 }
@@ -228,11 +228,14 @@ func (id *ID) TlogParse(p []byte, i int) int {
 }
 
 func (ek EventKind) TlogAppend(b []byte) []byte {
+	var e tlwire.LowEncoder
 	b = append(b, tlwire.Semantic|WireEventKind)
 	return e.AppendString(b, string(ek))
 }
 
 func (ek *EventKind) TlogParse(p []byte, i int) int {
+	var d tlwire.LowDecoder
+
 	if p[i] != tlwire.Semantic|WireEventKind {
 		panic("not an event type")
 	}
@@ -252,11 +255,14 @@ func (ek *EventKind) TlogParse(p []byte, i int) int {
 }
 
 func (l LogLevel) TlogAppend(b []byte) []byte {
+	var e tlwire.LowEncoder
 	b = append(b, tlwire.Semantic|WireLogLevel)
 	return e.AppendInt(b, int(l))
 }
 
 func (l *LogLevel) TlogParse(p []byte, i int) int {
+	var d tlwire.LowDecoder
+
 	if p[i] != tlwire.Semantic|WireLogLevel {
 		panic("not a log level")
 	}
@@ -275,6 +281,7 @@ func (r RawMessage) TlogAppend(b []byte) []byte {
 }
 
 func (r *RawMessage) TlogParse(p []byte, st int) (i int) {
+	var d tlwire.LowDecoder
 	i = d.Skip(p, st)
 	*r = append((*r)[:0], p[st:i]...)
 	return i

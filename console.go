@@ -669,8 +669,8 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		}
 
 		if ff&cfHex != 0 {
-			b = append(b, "0x"...)
-			base = 16
+			b = hfmt.Appendf(b, "0x%02x", v)
+			break
 		}
 
 		b = strconv.AppendUint(b, v, base)
@@ -696,7 +696,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			}
 
 			if ff&cfHex != 0 {
-				b = hfmt.Appendf(b, "%x", s)
+				b = hfmt.Appendf(b, "[% 02x]", s)
 				break
 			}
 		}

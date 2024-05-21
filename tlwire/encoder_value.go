@@ -153,6 +153,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		case interface {
 			ProtoMessage()
 		}:
+			// skip
 		case error:
 			return e.AppendError(b, v)
 		case fmt.Stringer:

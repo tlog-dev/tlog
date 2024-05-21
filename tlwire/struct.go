@@ -82,16 +82,14 @@ func parseStruct(tp reflect.Type) (s *rawStruct) { //nolint:gocognit
 			}
 		}
 
-		if len(ss) > 1 {
-			for _, s := range ss[1:] {
-				switch s {
-				case "omitempty":
-					sf.OmitEmpty = true
-				case "embed":
-					sf.Embed = true
-				case "hex":
-					sf.Hex = true
-				}
+		for _, s := range ss[1:] {
+			switch s {
+			case "omitempty":
+				sf.OmitEmpty = true
+			case "embed":
+				sf.Embed = true
+			case "hex":
+				sf.Hex = true
 			}
 		}
 

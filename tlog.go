@@ -170,7 +170,7 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		}
 	}
 
-	l.b = AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
@@ -190,17 +190,19 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		s.StartedAt = l.now()
 	}
 
+	e := &l.Encoder
+
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendMap(l.b[:0], -1)
+	l.b = e.AppendMap(l.b[:0], -1)
 
-	l.b = l.Encoder.AppendString(l.b, KeySpan)
+	l.b = e.AppendString(l.b, KeySpan)
 	l.b = s.ID.TlogAppend(l.b)
 
 	if l.now != nil {
-		l.b = l.Encoder.AppendString(l.b, KeyTimestamp)
-		l.b = l.Encoder.AppendTimestamp(l.b, s.StartedAt.UnixNano())
+		l.b = e.AppendString(l.b, KeyTimestamp)
+		l.b = e.AppendTimestamp(l.b, s.StartedAt.UnixNano())
 	}
 
 	if d >= 0 {
@@ -211,25 +213,25 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		l.b = e.AppendCaller(l.b, c)
 	}
 
-	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
+	l.b = e.AppendString(l.b, KeyEventKind)
 	l.b = EventSpanStart.TlogAppend(l.b)
 
 	if par != (ID{}) {
-		l.b = l.Encoder.AppendString(l.b, KeyParent)
+		l.b = e.AppendString(l.b, KeyParent)
 		l.b = par.TlogAppend(l.b)
 	}
 
 	if n != "" {
-		l.b = l.Encoder.AppendString(l.b, KeyMessage)
-		l.b = l.Encoder.AppendSemantic(l.b, WireMessage)
-		l.b = l.Encoder.AppendString(l.b, n)
+		l.b = e.AppendString(l.b, KeyMessage)
+		l.b = e.AppendSemantic(l.b, WireMessage)
+		l.b = e.AppendString(l.b, n)
 	}
 
-	l.b = AppendKVs(l.b, kvs)
+	l.b = AppendKVs(e, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
-	l.b = l.Encoder.AppendBreak(l.b)
+	l.b = e.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 
@@ -242,14 +244,15 @@ func (s Span) Finish(kvs ...interface{}) {
 	}
 
 	l := s.Logger
+	e := &s.Logger.Encoder
 
 	defer l.Unlock()
 	l.Lock()
 
-	l.b = l.Encoder.AppendTag(l.b[:0], tlwire.Map, -1)
+	l.b = e.AppendTag(l.b[:0], tlwire.Map, -1)
 
 	if s.ID != (ID{}) {
-		l.b = l.Encoder.AppendString(l.b, KeySpan)
+		l.b = e.AppendString(l.b, KeySpan)
 		l.b = s.ID.TlogAppend(l.b)
 	}
 
@@ -257,23 +260,23 @@ func (s Span) Finish(kvs ...interface{}) {
 	if l.now != nil {
 		now = l.now()
 
-		l.b = l.Encoder.AppendString(l.b, KeyTimestamp)
-		l.b = l.Encoder.AppendTimestamp(l.b, now.UnixNano())
+		l.b = e.AppendString(l.b, KeyTimestamp)
+		l.b = e.AppendTimestamp(l.b, now.UnixNano())
 	}
 
-	l.b = l.Encoder.AppendString(l.b, KeyEventKind)
+	l.b = e.AppendString(l.b, KeyEventKind)
 	l.b = EventSpanFinish.TlogAppend(l.b)
 
 	if l.now != nil {
-		l.b = l.Encoder.AppendString(l.b, KeyElapsed)
-		l.b = l.Encoder.AppendDuration(l.b, now.Sub(s.StartedAt))
+		l.b = e.AppendString(l.b, KeyElapsed)
+		l.b = e.AppendDuration(l.b, now.Sub(s.StartedAt))
 	}
 
-	l.b = AppendKVs(l.b, kvs)
+	l.b = AppendKVs(e, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
-	l.b = l.Encoder.AppendBreak(l.b)
+	l.b = e.AppendBreak(l.b)
 
 	_, _ = l.Writer.Write(l.b)
 }
@@ -290,7 +293,7 @@ func (l *Logger) SetLabels(kvs ...interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.ls = AppendLabels(l.ls[:0], kvs)
+	l.ls = AppendLabels(&l.Encoder, l.ls[:0], kvs)
 }
 
 func (l *Logger) Labels() RawMessage {
@@ -327,7 +330,7 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 
 	l.b = l.AppendMap(l.b[:0], -1)
 
-	l.b = AppendKVs(l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
@@ -344,6 +347,7 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 	}
 
 	l := s.Logger
+	e := &l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
@@ -355,7 +359,7 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 		l.b = s.ID.TlogAppend(l.b)
 	}
 
-	l.b = AppendKVs(l.b, kvs)
+	l.b = AppendKVs(e, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 

@@ -147,6 +147,22 @@ func (w MultiWriter) Close() (err error) {
 	return
 }
 
+func (w MultiWriter) WalkWriter(f func(w io.Writer) error) error {
+	for _, w := range w {
+		err := f(w)
+		if err != nil {
+			return err
+		}
+
+		err = WalkWriter(w, f)
+		if err != nil {
+			return errors.Wrap(err, "%T", w)
+		}
+	}
+
+	return nil
+}
+
 func (NopCloser) Close() error { return nil }
 
 func (c NopCloser) Fd() uintptr {
@@ -403,4 +419,15 @@ func Fd(f interface{}) uintptr {
 	}
 
 	return ffff
+}
+
+func WalkWriter(w io.Writer, f func(io.Writer) error) error {
+	v, ok := w.(interface {
+		WalkWriter(f func(io.Writer) error) error
+	})
+	if !ok {
+		return nil
+	}
+
+	return v.WalkWriter(f)
 }
