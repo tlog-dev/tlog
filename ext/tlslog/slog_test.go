@@ -66,7 +66,7 @@ func TestSlog(t *testing.T) {
 	assert.Equal(t, `
 _m=message  a=b  c=4
 _m=warning  level=1  a=b  c=5  d="holy error"
-_m="go deeper"  a=b  group.c=6  group.group2.d=e  group.group2.gr.d=1000000000
+_m="go deeper"  a=b  group.c=6  group.group2.d=e  group.group2.gr.d=1s
 _m="corner cases"  embedded=value
 `, "\n"+bb.String())
 }

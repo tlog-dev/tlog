@@ -22,8 +22,10 @@ type (
 	Logfmt struct { //nolint:maligned
 		io.Writer
 
-		TimeFormat string
-		TimeZone   *time.Location
+		TimeFormat     string
+		TimeZone       *time.Location
+		DurationFormat string
+		DurationDiv    time.Duration
 
 		FloatFormat    string
 		FloatChar      byte
@@ -68,9 +70,12 @@ func NewLogfmt(w io.Writer) *Logfmt {
 
 		TimeFormat:     "2006-01-02T15:04:05.000000000Z07:00",
 		TimeZone:       time.Local,
+		DurationFormat: "%v",
+
 		FloatChar:      'f',
 		FloatPrecision: 5,
-		QuoteChars:     "`\"' ()[]{}*",
+
+		QuoteChars: "`\"' ()[]{}*",
 
 		PairSeparator:  "  ",
 		KVSeparator:    "=",
@@ -230,6 +235,20 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 				b = append(b, '"')
 			} else {
 				b = strconv.AppendInt(b, t.UnixNano(), 10)
+			}
+		case tlwire.Duration:
+			rawst := i
+
+			var d time.Duration
+			d, i = w.d.Duration(p, st)
+
+			switch {
+			case w.DurationFormat != "" && w.DurationDiv != 0:
+				b = hfmt.Appendf(b, w.DurationFormat, float64(d)/float64(w.DurationDiv))
+			case w.DurationFormat != "":
+				b = hfmt.Appendf(b, w.DurationFormat, d)
+			default:
+				b, i = w.ConvertValue(b, p, k, rawst)
 			}
 		case tlog.WireID:
 			var id tlog.ID

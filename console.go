@@ -817,7 +817,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 			switch {
 			case w.DurationFormat != "" && w.DurationDiv != 0:
-				b = hfmt.Appendf(b, w.DurationFormat, float64(d/w.DurationDiv))
+				b = hfmt.Appendf(b, w.DurationFormat, float64(d)/float64(w.DurationDiv))
 			case w.DurationFormat != "":
 				b = hfmt.Appendf(b, w.DurationFormat, d)
 			default:

@@ -28,6 +28,28 @@ func TestLogfmt(tb *testing.T) {
 	assert.Equal(tb, low.Buf("-5"), jb)
 }
 
+func TestLogfmtFormatDuration(tb *testing.T) {
+	var e tlwire.Encoder
+	var b, jb low.Buf
+
+	j := NewLogfmt(&jb)
+
+	b = e.AppendDuration(b[:0], 5300*time.Microsecond)
+	jb, _ = j.ConvertValue(jb[:0], b, nil, 0)
+	assert.Equal(tb, low.Buf("5.3ms"), jb)
+
+	j.DurationFormat = "%.3fms"
+	j.DurationDiv = time.Millisecond
+
+	jb, _ = j.ConvertValue(jb[:0], b, nil, 0)
+	assert.Equal(tb, low.Buf("5.300ms"), jb)
+
+	j.DurationFormat = ""
+
+	jb, _ = j.ConvertValue(jb[:0], b, nil, 0)
+	assert.Equal(tb, low.Buf("5300000"), jb)
+}
+
 func TestLogfmtSubObj(t *testing.T) {
 	testLogfmtObj(t, false)
 }
