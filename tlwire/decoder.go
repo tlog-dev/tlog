@@ -2,6 +2,7 @@ package tlwire
 
 import (
 	"math"
+	"net/netip"
 	"time"
 )
 
@@ -113,6 +114,33 @@ func (d *Decoder) Duration(p []byte, st int) (dr time.Duration, i int) {
 	}
 
 	return time.Duration(sub), i
+}
+
+func (d *Decoder) Addr(p []byte, st int) (a netip.Addr, ap netip.AddrPort, i int, err error) {
+	if p[st] != Semantic|NetAddr {
+		panic("not an address")
+	}
+
+	tag, sub, i := d.Tag(p, st+1)
+	if tag == Special && sub == Nil {
+		return
+	}
+	if tag != String {
+		panic("unsupported address encoding")
+	}
+
+	ab := p[i : i+int(sub)]
+	i += int(sub)
+
+	err = a.UnmarshalText(ab)
+	if err != nil {
+		err = ap.UnmarshalText(ab)
+	}
+	if err != nil {
+		return a, ap, st, err
+	}
+
+	return
 }
 
 func (d LowDecoder) Skip(b []byte, st int) (i int) {

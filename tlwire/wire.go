@@ -57,7 +57,7 @@ const (
 	Big
 
 	Caller
-	_
+	NetAddr
 	Hex
 	_
 	Embedding

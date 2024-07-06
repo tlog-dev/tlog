@@ -2,6 +2,7 @@ package tlwire
 
 import (
 	"math"
+	"net/netip"
 	"time"
 
 	"github.com/nikandfor/hacked/hfmt"
@@ -129,6 +130,36 @@ func (e *Encoder) AppendTimestamp(b []byte, t int64) []byte {
 func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 	b = append(b, Semantic|Duration)
 	return e.AppendInt64(b, d.Nanoseconds())
+}
+
+func (e *Encoder) AppendAddr(b []byte, a netip.Addr) []byte {
+	b = append(b, Semantic|NetAddr)
+
+	if !a.IsValid() {
+		return append(b, Special|Nil)
+	}
+
+	b = e.AppendTag(b, String, 0)
+	st := len(b)
+	b = a.AppendTo(b)
+	b = e.InsertLen(b, st, len(b)-st)
+
+	return b
+}
+
+func (e *Encoder) AppendAddrPort(b []byte, a netip.AddrPort) []byte {
+	b = append(b, Semantic|NetAddr)
+
+	if !a.IsValid() {
+		return append(b, Special|Nil)
+	}
+
+	b = e.AppendTag(b, String, 0)
+	st := len(b)
+	b = a.AppendTo(b)
+	b = e.InsertLen(b, st, len(b)-st)
+
+	return b
 }
 
 func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {

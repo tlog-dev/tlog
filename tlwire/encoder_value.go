@@ -2,6 +2,7 @@ package tlwire
 
 import (
 	"fmt"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"time"
@@ -85,6 +86,19 @@ func init() {
 	})
 	SetEncoder((*time.Duration)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		return e.AppendDuration(b, *x.(*time.Duration))
+	})
+
+	SetEncoder(netip.Addr{}, func(e *Encoder, b []byte, x interface{}) []byte {
+		return e.AppendAddr(b, x.(netip.Addr))
+	})
+	SetEncoder((*netip.Addr)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
+		return e.AppendAddr(b, *x.(*netip.Addr))
+	})
+	SetEncoder(netip.AddrPort{}, func(e *Encoder, b []byte, x interface{}) []byte {
+		return e.AppendAddrPort(b, x.(netip.AddrPort))
+	})
+	SetEncoder((*netip.AddrPort)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
+		return e.AppendAddrPort(b, *x.(*netip.AddrPort))
 	})
 
 	SetEncoder((*url.URL)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
