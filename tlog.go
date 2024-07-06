@@ -130,7 +130,7 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		return
 	}
 
-	e := l.Encoder
+	e := &l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
@@ -192,7 +192,7 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 		s.StartedAt = l.now()
 	}
 
-	e := l.Encoder
+	e := &l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
@@ -246,7 +246,7 @@ func (s Span) Finish(kvs ...interface{}) {
 	}
 
 	l := s.Logger
-	e := l.Encoder
+	e := &l.Encoder
 
 	defer l.Unlock()
 	l.Lock()
@@ -295,7 +295,7 @@ func (l *Logger) SetLabels(kvs ...interface{}) {
 	defer l.Unlock()
 	l.Lock()
 
-	l.ls = AppendLabels(l.Encoder, l.ls[:0], kvs)
+	l.ls = AppendLabels(&l.Encoder, l.ls[:0], kvs)
 }
 
 func (l *Logger) Labels() RawMessage {
@@ -332,7 +332,7 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 
 	l.b = l.AppendMap(l.b[:0], -1)
 
-	l.b = AppendKVs(l.Encoder, l.b, kvs)
+	l.b = AppendKVs(&l.Encoder, l.b, kvs)
 
 	l.b = append(l.b, l.ls...)
 
@@ -349,7 +349,7 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 	}
 
 	l := s.Logger
-	e := l.Encoder
+	e := &l.Encoder
 
 	defer l.Unlock()
 	l.Lock()

@@ -67,56 +67,56 @@ func (e encoders) Set(tp interface{}, encoder ValueEncoder) {
 
 func init() {
 	SetEncoder(loc.PC(0), func(e *Encoder, b []byte, x interface{}) []byte {
-		return Encoder{}.AppendCaller(b, x.(loc.PC))
+		return e.AppendCaller(b, x.(loc.PC))
 	})
 	SetEncoder(loc.PCs(nil), func(e *Encoder, b []byte, x interface{}) []byte {
-		return Encoder{}.AppendCallers(b, x.(loc.PCs))
+		return e.AppendCallers(b, x.(loc.PCs))
 	})
 
 	SetEncoder(time.Time{}, func(e *Encoder, b []byte, x interface{}) []byte {
-		return Encoder{}.AppendTimeTZ(b, x.(time.Time))
+		return e.AppendTimeTZ(b, x.(time.Time))
 	})
 	SetEncoder((*time.Time)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
-		return Encoder{}.AppendTimeTZ(b, *x.(*time.Time))
+		return e.AppendTimeTZ(b, *x.(*time.Time))
 	})
 
 	SetEncoder(time.Duration(0), func(e *Encoder, b []byte, x interface{}) []byte {
-		return Encoder{}.AppendDuration(b, x.(time.Duration))
+		return e.AppendDuration(b, x.(time.Duration))
 	})
 	SetEncoder((*time.Duration)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
-		return Encoder{}.AppendDuration(b, *x.(*time.Duration))
+		return e.AppendDuration(b, *x.(*time.Duration))
 	})
 
 	SetEncoder((*url.URL)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		u := x.(*url.URL)
 		if u == nil {
-			return Encoder{}.AppendNil(b)
+			return e.AppendNil(b)
 		}
 
-		return Encoder{}.AppendString(b, u.String())
+		return e.AppendString(b, u.String())
 	})
 }
 
-func (e Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
+func (e *Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
 	b = e.AppendKey(b, key)
 	b = e.AppendValue(b, v)
 	return b
 }
 
-//go:linkname appendValue tlog.app/go/tlog/tlwire.Encoder.appendValue
+//go:linkname appendValue tlog.app/go/tlog/tlwire.(*Encoder).appendValue
 //go:noescape
-func appendValue(e Encoder, b []byte, v interface{}) []byte
+func appendValue(e *Encoder, b []byte, v interface{}) []byte
 
-func (e Encoder) AppendValue(b []byte, v interface{}) []byte {
+func (e *Encoder) AppendValue(b []byte, v interface{}) []byte {
 	return appendValue(e, b, v)
 }
 
-func (e Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
+func (e *Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
 	return e.appendValue(b, v)
 }
 
 // Called through linkname hack as appendValue from (Encoder).AppendValue.
-func (e Encoder) appendValue(b []byte, v interface{}) []byte {
+func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	if v == nil {
 		return append(b, Special|Nil)
 	}
@@ -126,7 +126,7 @@ func (e Encoder) appendValue(b []byte, v interface{}) []byte {
 	return e.appendRaw(b, r, ptrSet{})
 }
 
-func (e Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
+func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
 	if r.CanInterface() {
 		//	v := r.Interface()
 		v := valueInterface(r)
@@ -138,11 +138,11 @@ func (e Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { /
 		ef := raweface(v)
 
 		if enc, ok := e.custom[ef.typ]; ok {
-			return enc(&e, b, v)
+			return enc(e, b, v)
 		}
 
 		if enc, ok := defaultEncoders[ef.typ]; ok {
-			return enc(&e, b, v)
+			return enc(e, b, v)
 		}
 
 		switch v := v.(type) {
@@ -248,7 +248,7 @@ func (e Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { /
 	}
 }
 
-func (e Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte {
+func (e *Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte {
 	t := r.Type()
 
 	b = append(b, Map|LenBreak)
@@ -260,7 +260,7 @@ func (e Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte 
 	return b
 }
 
-func (e Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, visited ptrSet) []byte {
+func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, visited ptrSet) []byte {
 	//	fmt.Fprintf(os.Stderr, "appendStructFields: %v  ctx %p %d\n", t, visited, len(visited))
 
 	s := parseStruct(t)

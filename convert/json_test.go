@@ -130,7 +130,7 @@ func TestJSONRename(t *testing.T) {
 
 func BenchmarkJSONConvert(b *testing.B) {
 	var buf low.Buf
-	var e tlwire.Encoder
+	e := &tlwire.Encoder{}
 
 	appendMap := func(b []byte, kvs ...interface{}) []byte {
 		b = e.AppendMap(b, -1)

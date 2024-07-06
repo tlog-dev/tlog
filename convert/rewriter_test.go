@@ -13,8 +13,8 @@ import (
 )
 
 func TestRewriter(t *testing.T) {
-	var e tlwire.Encoder
 	var obj, b low.Buf
+	e := &tlwire.Encoder{}
 	rew := NewRewriter(&b)
 	rew.Rule = RewriterFunc(func(b, p []byte, path []tlog.RawMessage, kst, st int) ([]byte, int, error) {
 		if st == len(p) {
@@ -60,8 +60,8 @@ func TestRewriter(t *testing.T) {
 }
 
 func TestKeyRenamer(t *testing.T) {
-	var e tlwire.Encoder
 	var obj, exp, b low.Buf
+	e := &tlwire.Encoder{}
 
 	rew := NewRewriter(&b)
 	ren := NewKeyRenamer(nil,

@@ -161,8 +161,8 @@ func TestLogfmtRename(t *testing.T) {
 }
 
 func TestLogfmtKeyWithSpace(t *testing.T) {
-	var e tlwire.Encoder
 	var b low.Buf
+	e := &tlwire.Encoder{}
 
 	j := NewLogfmt(&b)
 	j.QuoteEmptyValue = true

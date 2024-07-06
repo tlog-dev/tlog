@@ -18,12 +18,12 @@ type (
 	LowEncoder struct{}
 )
 
-func (e Encoder) AppendKey(b []byte, key string) []byte {
+func (e *Encoder) AppendKey(b []byte, key string) []byte {
 	b = e.AppendTag(b, String, len(key))
 	return append(b, key...)
 }
 
-func (e Encoder) AppendKeyString(b []byte, k, v string) []byte {
+func (e *Encoder) AppendKeyString(b []byte, k, v string) []byte {
 	b = e.AppendTag(b, String, len(k))
 	b = append(b, k...)
 
@@ -33,19 +33,19 @@ func (e Encoder) AppendKeyString(b []byte, k, v string) []byte {
 	return b
 }
 
-func (e Encoder) AppendKeyInt(b []byte, k string, v int) []byte {
+func (e *Encoder) AppendKeyInt(b []byte, k string, v int) []byte {
 	b = e.AppendTag(b, String, len(k))
 	b = append(b, k...)
 	return e.AppendInt(b, v)
 }
 
-func (e Encoder) AppendKeyUint(b []byte, k string, v uint) []byte {
+func (e *Encoder) AppendKeyUint(b []byte, k string, v uint) []byte {
 	b = e.AppendTag(b, String, len(k))
 	b = append(b, k...)
 	return e.AppendTag64(b, Int, uint64(v))
 }
 
-func (e Encoder) AppendKeyInt64(b []byte, k string, v int64) []byte {
+func (e *Encoder) AppendKeyInt64(b []byte, k string, v int64) []byte {
 	b = e.AppendTag(b, String, len(k))
 	b = append(b, k...)
 
@@ -56,13 +56,13 @@ func (e Encoder) AppendKeyInt64(b []byte, k string, v int64) []byte {
 	return e.AppendTag64(b, Int, uint64(v))
 }
 
-func (e Encoder) AppendKeyUint64(b []byte, k string, v uint64) []byte {
+func (e *Encoder) AppendKeyUint64(b []byte, k string, v uint64) []byte {
 	b = e.AppendTag(b, String, len(k))
 	b = append(b, k...)
 	return e.AppendTag64(b, Int, v)
 }
 
-func (e Encoder) AppendError(b []byte, err error) []byte {
+func (e *Encoder) AppendError(b []byte, err error) []byte {
 	b = append(b, Semantic|Error)
 
 	if err == nil {
@@ -72,12 +72,12 @@ func (e Encoder) AppendError(b []byte, err error) []byte {
 	return e.AppendString(b, err.Error())
 }
 
-func (e Encoder) AppendTime(b []byte, t time.Time) []byte {
+func (e *Encoder) AppendTime(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
 	return e.AppendInt64(b, t.UnixNano())
 }
 
-func (e Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
+func (e *Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
 	b = append(b, Map|2)
 
@@ -93,7 +93,7 @@ func (e Encoder) AppendTimeTZ(b []byte, t time.Time) []byte {
 	return b
 }
 
-func (e Encoder) AppendTimeMonoTZ(b []byte, t time.Time) []byte {
+func (e *Encoder) AppendTimeMonoTZ(b []byte, t time.Time) []byte {
 	b = append(b, Semantic|Time)
 
 	mono := htime.MonotonicOf(t)
@@ -121,17 +121,17 @@ func (e Encoder) AppendTimeMonoTZ(b []byte, t time.Time) []byte {
 	return b
 }
 
-func (e Encoder) AppendTimestamp(b []byte, t int64) []byte {
+func (e *Encoder) AppendTimestamp(b []byte, t int64) []byte {
 	b = append(b, Semantic|Time)
 	return e.AppendInt64(b, t)
 }
 
-func (e Encoder) AppendDuration(b []byte, d time.Duration) []byte {
+func (e *Encoder) AppendDuration(b []byte, d time.Duration) []byte {
 	b = append(b, Semantic|Duration)
 	return e.AppendInt64(b, d.Nanoseconds())
 }
 
-func (e Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
+func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
 	b = append(b, String)
 	st := len(b)
 
@@ -149,7 +149,7 @@ func (e Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte 
 // InsertLen inserts length l before value starting at st copying l bytes forward if needed.
 // It is created for AppendFormat because we don't know the final message length.
 // But it can be also used in other similar situations.
-func (e Encoder) InsertLen(b []byte, st, l int) []byte {
+func (e *Encoder) InsertLen(b []byte, st, l int) []byte {
 	if l < 0 {
 		panic(l)
 	}

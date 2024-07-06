@@ -80,7 +80,7 @@ func TestConsole(tb *testing.T) {
 func TestAppendDuration(t *testing.T) {
 	w := NewConsoleWriter(nil, 0)
 
-	t.Logf("%s", w.AppendDuration(nil, 0))
+	t.Logf("%-10s", w.AppendDuration(nil, 0))
 
 	for _, days := range []int{0, 2} {
 		for _, h := range []int{0, 12} {
@@ -90,25 +90,25 @@ func TestAppendDuration(t *testing.T) {
 						time.Minute*time.Duration(m) +
 						time.Second*time.Duration(s)
 
-					t.Logf("%s is %v", w.AppendDuration(nil, d), d)
+					t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
 				}
 			}
 		}
 	}
 
 	for d := time.Nanosecond; d < 100*time.Second; d *= 7 {
-		t.Logf("%s is %v", w.AppendDuration(nil, d), d)
+		t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
 	}
 
 	for f := float64(1); f < float64(200*time.Microsecond); f *= 1.378 {
 		d := time.Duration(f)
-		t.Logf("%s is %v", w.AppendDuration(nil, d), d)
+		t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
 	}
 
 	d := 99999 * time.Microsecond
-	t.Logf("%s is %v", w.AppendDuration(nil, d), d)
+	t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
 	d = 999999 * time.Microsecond
-	t.Logf("%s is %v", w.AppendDuration(nil, d), d)
+	t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
 }
 
 func BenchmarkConsolePrintw(b *testing.B) {

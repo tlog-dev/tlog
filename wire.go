@@ -54,7 +54,7 @@ const (
 	SemanticCommunityBase = tlwire.SemanticTlogBase + 10
 )
 
-func AppendLabels(e tlwire.Encoder, b []byte, kvs []interface{}) []byte {
+func AppendLabels(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	const tag = tlwire.Semantic | WireLabel
 
 	var d tlwire.LowDecoder
@@ -85,7 +85,7 @@ func AppendLabels(e tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	return b[:w]
 }
 
-func AppendKVs(e tlwire.Encoder, b []byte, kvs []interface{}) []byte {
+func AppendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	return appendKVs0(e, b, kvs)
 }
 
@@ -103,13 +103,13 @@ func Special(value int) RawMessage {
 
 //go:linkname appendKVs0 tlog.app/go/tlog.appendKVs
 //go:noescape
-func appendKVs0(e tlwire.Encoder, b []byte, kvs []interface{}) []byte
+func appendKVs0(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte
 
 func init() { // prevent deadcode warnings
-	appendKVs(tlwire.Encoder{}, nil, nil)
+	appendKVs(nil, nil, nil)
 }
 
-func appendKVs(e tlwire.Encoder, b []byte, kvs []interface{}) []byte {
+func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	for i := 0; i < len(kvs); {
 		var k string
 

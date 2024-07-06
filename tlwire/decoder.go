@@ -13,7 +13,7 @@ type (
 	LowDecoder struct{}
 )
 
-func (d Decoder) Time(p []byte, st int) (t time.Time, i int) {
+func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
 	if p[st] != Semantic|Time {
 		panic("not a time")
 	}
@@ -66,7 +66,7 @@ func (d Decoder) Time(p []byte, st int) (t time.Time, i int) {
 	return
 }
 
-func (d Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
+func (d *Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
 	if p[st] != Semantic|Time {
 		panic("not a time")
 	}
@@ -97,7 +97,7 @@ func (d Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
 	return
 }
 
-func (d Decoder) Duration(p []byte, st int) (dr time.Duration, i int) {
+func (d *Decoder) Duration(p []byte, st int) (dr time.Duration, i int) {
 	if p[st] != Semantic|Duration {
 		panic("not a duration")
 	}

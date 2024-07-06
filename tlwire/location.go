@@ -12,7 +12,7 @@ var (
 	loccache = map[loc.PC][]byte{}
 )
 
-func (e Encoder) AppendPC(b []byte, pc loc.PC) []byte {
+func (e *Encoder) AppendPC(b []byte, pc loc.PC) []byte {
 	b = append(b, Semantic|Caller)
 
 	if pc == 0 {
@@ -22,7 +22,7 @@ func (e Encoder) AppendPC(b []byte, pc loc.PC) []byte {
 	return e.AppendUint64(b, uint64(pc))
 }
 
-func (e Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
+func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
 	b = append(b, Semantic|Caller)
 
 	if pcs == nil {
@@ -38,13 +38,13 @@ func (e Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
 	return b
 }
 
-func (e Encoder) AppendCaller(b []byte, pc loc.PC) []byte {
+func (e *Encoder) AppendCaller(b []byte, pc loc.PC) []byte {
 	b = append(b, Semantic|Caller)
 
 	return e.appendPC(b, pc)
 }
 
-func (e Encoder) AppendCallers(b []byte, pcs loc.PCs) []byte {
+func (e *Encoder) AppendCallers(b []byte, pcs loc.PCs) []byte {
 	b = append(b, Semantic|Caller)
 	b = e.AppendTag(b, Array, len(pcs))
 
@@ -55,7 +55,7 @@ func (e Encoder) AppendCallers(b []byte, pcs loc.PCs) []byte {
 	return b
 }
 
-func (e Encoder) appendPC(b []byte, pc loc.PC) []byte {
+func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 	if pc == 0 {
 		return append(b, Special|Nil)
 	}
@@ -108,7 +108,7 @@ func (e Encoder) appendPC(b []byte, pc loc.PC) []byte {
 	return b
 }
 
-func (d Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
+func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 	if p[st] != Semantic|Caller {
 		panic("not a caller")
 	}
@@ -140,7 +140,7 @@ func (d Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 	return
 }
 
-func (d Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
+func (d *Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
 	if p[st] != Semantic|Caller {
 		panic("not a caller")
 	}
@@ -173,7 +173,7 @@ func (d Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
 	return
 }
 
-func (d Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
+func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 	i = st
 
 	tag, sub, i := d.Tag(p, i)
