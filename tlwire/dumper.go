@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nikandfor/hacked/hfmt"
-	"github.com/nikandfor/hacked/low"
+	"nikand.dev/go/hacked/hfmt"
+	"nikand.dev/go/hacked/low"
 )
 
 type (

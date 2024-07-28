@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/nikandfor/assert"
-	"github.com/nikandfor/hacked/low"
+	"nikand.dev/go/hacked/low"
 )
 
 func TestContextWithSpan(t *testing.T) {

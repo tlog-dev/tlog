@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nikandfor/hacked/hfmt"
-	"github.com/nikandfor/hacked/low"
+	"nikand.dev/go/hacked/hfmt"
+	"nikand.dev/go/hacked/low"
 	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/nikandfor/hacked/hnet"
+	"nikand.dev/go/hacked/hnet"
 	"nikand.dev/go/cli"
 	"nikand.dev/go/cli/flag"
 	"nikand.dev/go/graceful"

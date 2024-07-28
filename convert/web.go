@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/nikandfor/hacked/hfmt"
+	"nikand.dev/go/hacked/hfmt"
 	"tlog.app/go/loc"
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlio"

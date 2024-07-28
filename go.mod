@@ -7,12 +7,12 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/nikandfor/assert v0.0.0-20231112165957-bf2ce0a3555a
-	github.com/nikandfor/hacked v0.0.0-20231207014854-3b383967fdf4
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/term v0.17.0
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
+	nikand.dev/go/hacked v0.0.0-20240625013722-ed2ef94ba8de
 	tlog.app/go/eazy v0.3.0
 	tlog.app/go/errors v0.9.0
 	tlog.app/go/loc v0.6.1
@@ -43,6 +43,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/nikandfor/hacked v0.0.0-20231207014854-3b383967fdf4 // indirect
 	github.com/pascaldekloe/name v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4/v4 v4.1.19 // indirect

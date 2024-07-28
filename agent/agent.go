@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	hlow "github.com/nikandfor/hacked/low"
+	hlow "nikand.dev/go/hacked/low"
 	"tlog.app/go/eazy"
 	"tlog.app/go/errors"
 	"tlog.app/go/loc"

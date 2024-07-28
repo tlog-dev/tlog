@@ -7,7 +7,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/nikandfor/hacked/htime"
+	"nikand.dev/go/hacked/htime"
 	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog/tlwire"

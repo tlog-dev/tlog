@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nikandfor/hacked/low"
+	"nikand.dev/go/hacked/low"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

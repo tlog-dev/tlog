@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nikandfor/hacked/hnet"
+	"nikand.dev/go/hacked/hnet"
 	"tlog.app/go/eazy"
 	"tlog.app/go/errors"
 

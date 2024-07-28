@@ -4,7 +4,7 @@ import (
 	"unicode/utf8"
 	_ "unsafe"
 
-	"github.com/nikandfor/hacked/low"
+	"nikand.dev/go/hacked/low"
 	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog/tlwire"

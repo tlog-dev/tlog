@@ -5,8 +5,8 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/nikandfor/hacked/hfmt"
-	"github.com/nikandfor/hacked/htime"
+	"nikand.dev/go/hacked/hfmt"
+	"nikand.dev/go/hacked/htime"
 )
 
 type (

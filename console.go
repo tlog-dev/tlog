@@ -12,9 +12,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/nikandfor/hacked/hfmt"
-	"github.com/nikandfor/hacked/htime"
-	"github.com/nikandfor/hacked/low"
+	"nikand.dev/go/hacked/hfmt"
+	"nikand.dev/go/hacked/htime"
+	"nikand.dev/go/hacked/low"
 	"golang.org/x/term"
 	"tlog.app/go/errors"
 	"tlog.app/go/loc"
