@@ -162,9 +162,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		switch v := v.(type) {
 		case TlogAppender:
 			return v.TlogAppend(b)
-		case interface {
-			ProtoMessage()
-		}:
+		case interface{ ProtoMessage() }:
 			// skip
 		case error:
 			return e.AppendError(b, v)
@@ -329,7 +327,8 @@ func valueInterface(r reflect.Value) interface{} {
 
 	v.flag &^= flagAddr
 
-	return reflect_packEface(v)
+	return *(*interface{})(unsafe.Pointer(&v))
+	// return reflect_packEface(v)
 }
 
 //go:linkname reflect_packEface reflect.packEface
