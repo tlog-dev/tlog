@@ -5,9 +5,9 @@ name: Go
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "*" ]
+    branches: [ "master" ]
 
 jobs:
   test:
@@ -46,3 +46,5 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         if: ${{ matrix.cover }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
