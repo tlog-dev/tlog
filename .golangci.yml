@@ -86,9 +86,10 @@ linters:
     - goconst
     - gocyclo
     - godox
-    - goerr113
+    - err113
     - golint
     - gomnd
+    - mnd
     - ifshort
     - ireturn
     - lll
