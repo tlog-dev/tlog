@@ -9,13 +9,13 @@ require (
 	github.com/nikandfor/assert v0.0.0-20231112165957-bf2ce0a3555a
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/term v0.17.0
+	golang.org/x/term v0.22.0
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
 	nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193
-	tlog.app/go/eazy v0.3.2-0.20240728182600-55c1d672f246
-	tlog.app/go/errors v0.9.1-0.20240728230416-063510563a03
-	tlog.app/go/loc v0.6.2-0.20240728215949-4e1d1d57f511
+	tlog.app/go/eazy v0.4.0
+	tlog.app/go/errors v0.10.0
+	tlog.app/go/loc v0.7.0
 )
 
 require (
@@ -57,13 +57,13 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/crypto v0.19.0 // indirect
-	golang.org/x/mod v0.13.0 // indirect
-	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/tools v0.14.0 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
