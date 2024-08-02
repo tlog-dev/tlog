@@ -183,8 +183,8 @@ nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7/go.mod h1:MjJf65Xs0Dhe
 nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193 h1:d75lFac03AWf8ASWraYp66dNpyQcsrP3LcujUEeR7eQ=
 nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193/go.mod h1:6AlZTLm8IESUc/BuOrkl+/kh6ZNaV44/nwo7KOj2Wks=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
-tlog.app/go/eazy v0.4.0 h1:LZhVGgX+q8hmyxSo7VY1OpW8CM8hbb3a5n1LTXwuFzk=
-tlog.app/go/eazy v0.4.0/go.mod h1:qk9DSaqsW9Kn4TXRxQn3VZrqmlvrTBSk753g0RQMUy0=
+tlog.app/go/eazy v0.4.1 h1:WxHqUQBRbOokUSq8kf8J/uoo/RSow/TC0jopCZulmSo=
+tlog.app/go/eazy v0.4.1/go.mod h1:qk9DSaqsW9Kn4TXRxQn3VZrqmlvrTBSk753g0RQMUy0=
 tlog.app/go/errors v0.10.0 h1:OSs6ylkS8+JT9puLAlo1SObpd/B0h3FF3WpjepABLV8=
 tlog.app/go/errors v0.10.0/go.mod h1:vDwxer8lgiVAyMKhN+zgmoMCB/9OHD3v387NiY23G/Y=
 tlog.app/go/loc v0.7.0 h1:G7JnaqgggmTwu87hhMsy+tLd4XxwOS9PPYfJEDTr+Kk=

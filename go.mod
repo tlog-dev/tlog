@@ -13,7 +13,7 @@ require (
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
 	nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193
-	tlog.app/go/eazy v0.4.0
+	tlog.app/go/eazy v0.4.1
 	tlog.app/go/errors v0.10.0
 	tlog.app/go/loc v0.7.0
 )
