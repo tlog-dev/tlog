@@ -142,8 +142,8 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 
 func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
 	if r.CanInterface() {
-		//	v := r.Interface()
-		v := valueInterface(r)
+		v := r.Interface()
+		//	v := valueInterface(r)
 
 		//	if r.Type().Comparable() && v != r.Interface() {
 		//		panic(fmt.Sprintf("not equal interface %v: %x %v %v", r, value(r), raweface(v), raweface(r.Interface())))
