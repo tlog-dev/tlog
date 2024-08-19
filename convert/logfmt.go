@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/term"
 	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/low"
-	"golang.org/x/term"
 	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
@@ -209,7 +209,7 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 	case tlwire.Int:
 		b = strconv.AppendUint(b, uint64(sub), 10)
 	case tlwire.Neg:
-		b = strconv.AppendInt(b, 1-sub, 10)
+		b = strconv.AppendInt(b, -sub-1, 10)
 	case tlwire.Bytes, tlwire.String:
 		var s []byte
 		s, i = w.d.Bytes(p, st)

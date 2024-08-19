@@ -255,12 +255,13 @@ func (d LowDecoder) Signed(b []byte, st int) (v int64, i int) {
 		return int64(u), i
 	}
 
-	return 1 - int64(u), i
+	return int64(u) + 1, i
 }
 
 func (d LowDecoder) Unsigned(b []byte, st int) (v uint64, i int) {
 	i = st
 
+	tag := b[i] & TagMask
 	v = uint64(b[i]) & TagDetMask
 	i++
 
@@ -282,6 +283,10 @@ func (d LowDecoder) Unsigned(b []byte, st int) (v uint64, i int) {
 		i += 8
 	default:
 		panic("malformed message")
+	}
+
+	if tag == Neg {
+		v++
 	}
 
 	return

@@ -12,10 +12,10 @@ import (
 	"time"
 	"unsafe"
 
+	"golang.org/x/term"
 	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/htime"
 	"nikand.dev/go/hacked/low"
-	"golang.org/x/term"
 	"tlog.app/go/errors"
 	"tlog.app/go/loc"
 
@@ -165,7 +165,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		MaxValPad:    24,
 
 		TimeFormat: "2006-01-02_15:04:05.000Z0700",
-		//DurationFormat: "%v",
+		// DurationFormat: "%v",
 		FloatChar:      'f',
 		FloatPrecision: 5,
 		CallerFormat:   "%v",
@@ -664,7 +664,6 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 		base := 10
 		if tag == tlwire.Neg {
-			v--
 			b = append(b, '-')
 		}
 
