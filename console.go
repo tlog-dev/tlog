@@ -63,9 +63,10 @@ type (
 		PairSeparator string
 		KVSeparator   string
 
-		QuoteChars      string
-		QuoteAnyValue   bool
-		QuoteEmptyValue bool
+		QuoteChars         string
+		QuoteAnyValue      bool
+		QuoteEmptyValue    bool
+		QuoteUseBackQuotes bool
 
 		ColorScheme
 
@@ -175,8 +176,9 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		PairSeparator: "  ",
 		KVSeparator:   "=",
 
-		QuoteChars:      "`\"' ()[]{}*",
-		QuoteEmptyValue: true,
+		QuoteChars:         "`\"' ()[]{}*",
+		QuoteEmptyValue:    true,
+		QuoteUseBackQuotes: true,
 
 		ColorScheme: DefaultColorScheme,
 
@@ -695,7 +697,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			}
 
 			if ff&cfHex != 0 {
-				b = hfmt.Appendf(b, "[% 02x]", s)
+				b = w.AppendBytes(b, s)
 				break
 			}
 		}
@@ -705,22 +707,31 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		}
 
 		quote := tag == tlwire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
+		haveQuotes, haveBackQuotes := false, false
 		if !quote {
 			for _, c := range s {
 				if c < 0x20 || c >= 0x80 {
 					quote = true
 					break
 				}
+
 				for _, q := range w.QuoteChars {
 					if byte(q) == c {
 						quote = true
 						break
 					}
 				}
+
+				haveQuotes = haveQuotes || c == '"'
+				haveBackQuotes = haveBackQuotes || c == '`'
 			}
 		}
 
-		if quote {
+		if quote && haveQuotes && !haveBackQuotes && w.QuoteUseBackQuotes {
+			b = append(b, '`')
+			b = append(b, s...)
+			b = append(b, '`')
+		} else if quote {
 			ss := tlow.UnsafeBytesToString(s)
 			b = strconv.AppendQuote(b, ss)
 		} else {
@@ -986,6 +997,24 @@ func (w *ConsoleWriter) AppendDuration(b []byte, d time.Duration) []byte {
 	}
 
 	return append(b, buf[i:j]...)
+}
+
+func (w *ConsoleWriter) AppendBytes(b, s []byte) []byte {
+	const hex = "0123456789abcdef"
+
+	b = append(b, '[')
+
+	for i, c := range s {
+		if i != 0 {
+			b = append(b, ' ')
+		}
+
+		b = append(b, hex[c>>4], hex[c&0xf])
+	}
+
+	b = append(b, ']')
+
+	return b
 }
 
 func width(n int) (w int) {
