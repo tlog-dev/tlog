@@ -29,7 +29,7 @@ func TestFileWriter(t *testing.T) {
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LstdFlags),
 	}, w)
 
-	w, err = OpenWriter("stderr?dm,stderr?dm")
+	w, err = OpenWriter("stderr?console=dm,stderr?console=dm")
 	assert.NoError(t, err)
 	assert.Equal(t, tlio.MultiWriter{
 		tlog.NewConsoleWriter(tlog.Stderr, tlog.LdetFlags|tlog.Lmilliseconds),

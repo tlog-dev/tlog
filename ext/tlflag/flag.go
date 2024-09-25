@@ -113,7 +113,7 @@ more:
 	case ".log", "":
 		wrap = append(wrap, func(w io.Writer, c io.Closer) (io.Writer, io.Closer, error) {
 			ff := tlog.LstdFlags
-			ff = updateConsoleFlags(ff, u.RawQuery)
+			ff = updateConsoleFlags(ff, u.Query())
 
 			w = tlog.NewConsoleWriter(w, ff)
 
@@ -427,8 +427,10 @@ func updateFileFlags(of int, q string) int {
 	return of
 }
 
-func updateConsoleFlags(ff int, q string) int {
-	for _, c := range q {
+func updateConsoleFlags(ff int, q url.Values) int {
+	flags := q.Get("console")
+
+	for _, c := range flags {
 		switch c {
 		case 'd':
 			ff |= tlog.LdetFlags
