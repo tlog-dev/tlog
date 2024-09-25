@@ -31,6 +31,8 @@ type (
 		MaxFileSize int64
 		MaxFileAge  time.Duration
 
+		MinAge time.Duration
+
 		MaxTotalSize  int64
 		MaxTotalAge   time.Duration
 		MaxTotalFiles int // including current
@@ -65,20 +67,26 @@ const (
 	TB = 1e12
 )
 
-var (
-	//	SubstPattern = "XXXX"
-	//	TimeFormat   = "2006-01-02_15-04"
+//	SubstPattern = "XXXX"
+//	TimeFormat   = "2006-01-02_15-04"
 
-	patterns = []string{"xxx", "XXX", "ddd"}
-)
+var patterns = []string{"xxx", "XXX", "ddd"}
 
 func Create(name string) (f *File) {
+	const day = 24 * time.Hour
+
 	f = &File{
 		name: name,
 
-		MaxFileSize:   128 * MiB,
-		MaxTotalAge:   28 * 24 * time.Hour,
-		MaxTotalFiles: 10,
+		MaxFileSize: 128 * MiB,
+		MaxFileAge:  7 * day,
+
+		MinAge: 3 * day,
+
+		MaxTotalSize: 128 * GiB,
+		MaxTotalAge:  28 * day,
+
+		MaxTotalFiles: 20,
 
 		//	SubstPattern: SubstPattern,
 		//	TimeFormat: TimeFormat,
@@ -271,13 +279,8 @@ func (f *File) filesToRemove(dir, base string, now time.Time, files []string) ([
 	files = files[:p]
 	size := int64(0)
 
-	for p > 0 {
+	for ; p > 0; p-- {
 		prev := p - 1
-
-		if f.MaxTotalFiles != 0 && len(files)-prev+1 > f.MaxTotalFiles {
-			//	tlog.Printw("remove files", "reason", "max_total_files", "x", len(files)-prev, "of", f.MaxTotalFiles, "files", files[:p])
-			break
-		}
 
 		n := filepath.Join(dir, files[prev])
 
@@ -293,12 +296,19 @@ func (f *File) filesToRemove(dir, base string, now time.Time, files []string) ([
 			break
 		}
 
+		if f.MinAge != 0 && now.Sub(ctime(inf, time.Time{})) <= f.MinAge {
+			continue
+		}
+
 		if f.MaxTotalAge != 0 && now.Sub(ctime(inf, now)) > f.MaxTotalAge {
 			//	tlog.Printw("remove files", "reason", "max_total_age", "total_age", now.Sub(ctime(inf, now)), "of", f.MaxTotalAge, "files", files[:p])
 			break
 		}
 
-		p--
+		if f.MaxTotalFiles != 0 && len(files)-prev+1 > f.MaxTotalFiles {
+			//	tlog.Printw("remove files", "reason", "max_total_files", "x", len(files)-prev, "of", f.MaxTotalFiles, "files", files[:p])
+			break
+		}
 	}
 
 	return files[:p], nil

@@ -252,6 +252,20 @@ func openwfile(u *url.URL) (interface{}, error) {
 			}
 		}
 
+		if v := q.Get("rotating_max_total_files"); v != "" {
+			x, err := strconv.Atoi(v)
+			if err == nil {
+				f.MaxTotalFiles = x
+			}
+		}
+
+		if v := q.Get("rotating_min_age"); v != "" {
+			x, err := time.ParseDuration(v)
+			if err == nil {
+				f.MinAge = x
+			}
+		}
+
 		return f, nil
 	}
 
