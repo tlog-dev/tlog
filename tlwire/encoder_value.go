@@ -2,6 +2,7 @@ package tlwire
 
 import (
 	"fmt"
+	"math/big"
 	"net/netip"
 	"net/url"
 	"reflect"
@@ -109,6 +110,32 @@ func init() {
 
 		return e.AppendString(b, u.String())
 	})
+
+	SetEncoder((*big.Int)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
+		b = e.AppendSemantic(b, Big)
+
+		y := x.(*big.Int)
+		if y == nil {
+			return e.AppendNil(b)
+		}
+
+		if y.Sign() >= 0 && y.BitLen() <= 64 {
+			return e.AppendUint64(b, y.Uint64())
+		}
+
+		if y.BitLen() <= 63 {
+			return e.AppendInt64(b, y.Int64())
+		}
+
+		b = e.AppendTag(b, String, 0)
+		st := len(b)
+
+		b = y.Append(b, 10)
+
+		b = e.InsertLen(b, st, len(b)-st)
+
+		return b
+	})
 }
 
 func (e *Encoder) AppendKeyValue(b []byte, key string, v interface{}) []byte {
@@ -162,6 +189,13 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		switch v := v.(type) {
 		case TlogAppender:
 			return v.TlogAppend(b)
+		}
+
+		if r.Kind() == reflect.Pointer && r.IsNil() {
+			return e.AppendNil(b)
+		}
+
+		switch v := v.(type) {
 		case interface{ ProtoMessage() }:
 			// skip
 		case error:

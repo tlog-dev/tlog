@@ -51,6 +51,14 @@ type (
 
 		d int
 	}
+
+	dumpWrapper struct {
+		Span
+
+		loc loc.PC
+		msg string
+		key string
+	}
 )
 
 var (
@@ -432,8 +440,36 @@ func (s Span) IOWriter(d int) io.Writer {
 	}
 }
 
+func (l *Logger) DumpWriter(d int, msg, key string) io.Writer {
+	return dumpWrapper{
+		Span: Span{
+			Logger: l,
+		},
+
+		loc: loc.Caller(1 + d),
+		msg: msg,
+		key: key,
+	}
+}
+
+func (s Span) DumpWriter(d int, msg, key string) io.Writer {
+	return dumpWrapper{
+		Span: s,
+
+		loc: loc.Caller(1 + d),
+		msg: msg,
+		key: key,
+	}
+}
+
 func (w writeWrapper) Write(p []byte) (int, error) {
 	message(w.Logger, w.ID, w.d, p, nil)
+
+	return len(p), nil
+}
+
+func (w dumpWrapper) Write(p []byte) (int, error) {
+	message(w.Logger, w.ID, -1, w.msg, []any{KeyCaller, w.loc, w.key, p})
 
 	return len(p), nil
 }
