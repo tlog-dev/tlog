@@ -255,7 +255,7 @@ func (d LowDecoder) Signed(b []byte, st int) (v int64, i int) {
 		return int64(u), i
 	}
 
-	return int64(u) + 1, i
+	return -int64(u), i
 }
 
 func (d LowDecoder) Unsigned(b []byte, st int) (v uint64, i int) {
