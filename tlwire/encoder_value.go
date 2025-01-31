@@ -105,7 +105,7 @@ func init() {
 	SetEncoder((*url.URL)(nil), func(e *Encoder, b []byte, x interface{}) []byte {
 		u := x.(*url.URL)
 		if u == nil {
-			return e.AppendNil(b)
+			return e.AppendNull(b)
 		}
 
 		return e.AppendString(b, u.String())
@@ -137,7 +137,7 @@ func (e *Encoder) AppendValueSafe(b []byte, v interface{}) []byte {
 // Called through linkname hack as appendValue from (Encoder).AppendValue.
 func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 	if v == nil {
-		return append(b, Special|Nil)
+		return append(b, byte(Special|Nil))
 	}
 
 	r := reflect.ValueOf(v)
@@ -170,7 +170,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		}
 
 		if r.Kind() == reflect.Pointer && r.IsNil() {
-			return e.AppendNil(b)
+			return e.AppendNull(b)
 		}
 
 		switch v := v.(type) {
@@ -194,7 +194,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		return e.AppendFloat(b, r.Float())
 	case reflect.Ptr, reflect.Interface:
 		if r.IsNil() {
-			return append(b, Special|Nil)
+			return append(b, byte(Special|Nil))
 		}
 
 		if r.Kind() == reflect.Ptr {
@@ -205,7 +205,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			}
 
 			if _, ok := visited[ptr]; ok {
-				return append(b, Special|SelfRef)
+				return append(b, byte(Special|SelfRef))
 			}
 
 			visited[ptr] = struct{}{}
@@ -255,17 +255,17 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 		return e.appendStruct(b, r, visited)
 	case reflect.Bool:
 		if r.Bool() {
-			return append(b, Special|True)
+			return append(b, byte(Special|True))
 		} else { //nolint:golint
-			return append(b, Special|False)
+			return append(b, byte(Special|False))
 		}
 	case reflect.Func:
-		return append(b, Special|Undefined)
+		return append(b, byte(Special|Undefined))
 	case reflect.Uintptr:
-		b = append(b, Semantic|Hex)
+		b = append(b, byte(Semantic|Hex))
 		return e.AppendTag64(b, Int, r.Uint())
 	case reflect.UnsafePointer:
-		b = append(b, Semantic|Hex)
+		b = append(b, byte(Semantic|Hex))
 		return e.AppendTag64(b, Int, uint64(r.Pointer()))
 	default:
 		panic(r)
@@ -275,11 +275,11 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 func (e *Encoder) appendStruct(b []byte, r reflect.Value, visited ptrSet) []byte {
 	t := r.Type()
 
-	b = append(b, Map|LenBreak)
+	b = append(b, byte(Map|LenBreak))
 
 	b = e.appendStructFields(b, t, r, visited)
 
-	b = append(b, Special|Break)
+	b = append(b, byte(Special|Break))
 
 	return b
 }
@@ -307,7 +307,7 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 		b = e.AppendString(b, fc.Name)
 
 		if fc.Hex {
-			b = append(b, Semantic|Hex)
+			b = append(b, byte(Semantic|Hex))
 		}
 
 		b = e.appendRaw(b, fv, visited)

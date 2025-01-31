@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io"
 
+	"nikand.dev/go/cbor"
 	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/low"
 )
 
 type (
 	Dumper struct {
-		LowDecoder
+		cbor.Decoder
 
 		io.Writer
 		pos int64

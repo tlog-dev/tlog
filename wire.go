@@ -28,12 +28,12 @@ type (
 const KeyAuto = ""
 
 var (
-	Hidden        = RawMessage{tlwire.Special | tlwire.Hidden}
-	None          = RawMessage{tlwire.Special | tlwire.None}
-	Nil           = RawMessage{tlwire.Special | tlwire.Nil}
-	Break         = RawMessage{tlwire.Special | tlwire.Break}
-	NextAsHex     = Modify{tlwire.Semantic | tlwire.Hex}
-	NextAsMessage = Modify{tlwire.Semantic | WireMessage}
+	Hidden        = RawMessage{byte(tlwire.Special | tlwire.Hidden)}
+	None          = RawMessage{byte(tlwire.Special | tlwire.None)}
+	Nil           = RawMessage{byte(tlwire.Special | tlwire.Nil)}
+	Break         = RawMessage{byte(tlwire.Special | tlwire.Break)}
+	NextAsHex     = Modify{byte(tlwire.Semantic | tlwire.Hex)}
+	NextAsMessage = Modify{byte(tlwire.Semantic | WireMessage)}
 	NextAsType    = FormatNext("%T")
 )
 
@@ -73,8 +73,8 @@ func AppendLabels(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 
 		end = d.Skip(b, r)
 
-		if b[r] != tag {
-			b[w] = tag
+		if b[r] != byte(tag) {
+			b[w] = byte(tag)
 			w++
 		}
 
@@ -93,7 +93,7 @@ func NextIs(semantic int) Modify {
 	return Modify(tlwire.LowEncoder{}.AppendTag(nil, tlwire.Semantic, semantic))
 }
 
-func RawTag(tag byte, sub int) RawMessage {
+func RawTag(tag tlwire.Tag, sub int) RawMessage {
 	return RawMessage(tlwire.LowEncoder{}.AppendTag(nil, tag, sub))
 }
 
@@ -138,7 +138,7 @@ func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 
 	value:
 		if i == len(kvs) {
-			b = append(b, tlwire.Special|tlwire.Undefined)
+			b = append(b, byte(tlwire.Special|tlwire.Undefined))
 			break
 		}
 
@@ -157,7 +157,7 @@ func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 		case FormatNext:
 			i++
 			if i == len(kvs) {
-				b = append(b, tlwire.Special|tlwire.Undefined)
+				b = append(b, byte(tlwire.Special|tlwire.Undefined))
 				break
 			}
 
@@ -205,18 +205,18 @@ func (ek EventKind) String() string {
 
 func (id ID) TlogAppend(b []byte) []byte {
 	var e tlwire.LowEncoder
-	b = append(b, tlwire.Semantic|WireID)
+	b = append(b, byte(tlwire.Semantic|WireID))
 	return e.AppendBytes(b, id[:])
 }
 
 func (id *ID) TlogParse(p []byte, i int) int {
-	if p[i] != tlwire.Semantic|WireID {
+	if p[i] != byte(tlwire.Semantic|WireID) {
 		panic("not an id")
 	}
 
 	i++
 
-	if p[i] != tlwire.Bytes|16 {
+	if p[i] != byte(tlwire.Bytes|16) {
 		panic("not an id")
 	}
 
@@ -229,14 +229,14 @@ func (id *ID) TlogParse(p []byte, i int) int {
 
 func (ek EventKind) TlogAppend(b []byte) []byte {
 	var e tlwire.LowEncoder
-	b = append(b, tlwire.Semantic|WireEventKind)
+	b = append(b, byte(tlwire.Semantic|WireEventKind))
 	return e.AppendString(b, string(ek))
 }
 
 func (ek *EventKind) TlogParse(p []byte, i int) int {
 	var d tlwire.LowDecoder
 
-	if p[i] != tlwire.Semantic|WireEventKind {
+	if p[i] != byte(tlwire.Semantic|WireEventKind) {
 		panic("not an event type")
 	}
 
@@ -256,14 +256,14 @@ func (ek *EventKind) TlogParse(p []byte, i int) int {
 
 func (l LogLevel) TlogAppend(b []byte) []byte {
 	var e tlwire.LowEncoder
-	b = append(b, tlwire.Semantic|WireLogLevel)
+	b = append(b, byte(tlwire.Semantic|WireLogLevel))
 	return e.AppendInt(b, int(l))
 }
 
 func (l *LogLevel) TlogParse(p []byte, i int) int {
 	var d tlwire.LowDecoder
 
-	if p[i] != tlwire.Semantic|WireLogLevel {
+	if p[i] != byte(tlwire.Semantic|WireLogLevel) {
 		panic("not a log level")
 	}
 

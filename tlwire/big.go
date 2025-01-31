@@ -1,12 +1,14 @@
 package tlwire
 
-import "math/big"
+import (
+	"math/big"
+)
 
 func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
-	b = e.AppendSemantic(b, Big)
+	b = e.AppendLabeled(b, Big)
 
 	if x == nil {
-		return e.AppendNil(b)
+		return e.AppendNull(b)
 	}
 
 	if x.Sign() >= 0 && x.BitLen() <= 64 {
@@ -27,7 +29,7 @@ func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
 }
 
 func (d *Decoder) BigInt(p []byte, st int, x *big.Int) (i int, err error) {
-	if p[st] != Semantic|Big {
+	if Tag(p[st]) != Semantic|Big {
 		panic("not a big")
 	}
 

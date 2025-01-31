@@ -176,6 +176,8 @@ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EV
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+nikand.dev/go/cbor v0.0.0-20240927214417-98af9ca7872f h1:ni1YmHBWF8YI22c1TW7uTBG9nfyezWSC4n+9zZT7RHQ=
+nikand.dev/go/cbor v0.0.0-20240927214417-98af9ca7872f/go.mod h1:KU6mV3VAVKdPXXlzE9BtpUaVtV+Z/N/jFEeC5jXMkDg=
 nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7 h1:1I40D6BtUdwFVxWb2iWmAyt4p/UdjtjGmXXwbnEOiPk=
 nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7/go.mod h1:j1PHh2w3QhXwwB81piujER/+4F9fydpUl56LjYbmw3w=
 nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7 h1:fLiMDnIUq34ldRFwUK6FdU2gkodswcN+CynBL7jQRqc=

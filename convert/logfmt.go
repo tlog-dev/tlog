@@ -317,7 +317,7 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 	return b, i
 }
 
-func (w *Logfmt) appendAndQuote(b, s []byte, tag byte) []byte {
+func (w *Logfmt) appendAndQuote(b, s []byte, tag tlwire.Tag) []byte {
 	quote := tag == tlwire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
 	if !quote {
 		for _, c := range s {

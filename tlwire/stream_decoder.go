@@ -108,7 +108,7 @@ func (d *StreamDecoder) skip(st int) (i int) {
 			if i == len(d.b) {
 				return eUnexpectedEOF
 			}
-			if sub == -1 && d.b[i] == Special|Break {
+			if sub == -1 && Tag(d.b[i]) == Special|Break {
 				i++
 				break
 			}
@@ -181,14 +181,14 @@ func (d *StreamDecoder) more() (err error) {
 	return err
 }
 
-func readTag(b []byte, st int) (tag byte, sub int64, i int) {
+func readTag(b []byte, st int) (tag Tag, sub int64, i int) {
 	if st >= len(b) {
 		return tag, sub, eUnexpectedEOF
 	}
 
 	i = st
 
-	tag = b[i] & TagMask
+	tag = Tag(b[i]) & TagMask
 	sub = int64(b[i] & TagDetMask)
 	i++
 

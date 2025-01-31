@@ -38,7 +38,7 @@ type (
 	RenameFunc func(b, p, k []byte, st int) ([]byte, bool)
 
 	TagSub struct {
-		Tag byte
+		Tag tlwire.Tag
 		Sub int64
 	}
 

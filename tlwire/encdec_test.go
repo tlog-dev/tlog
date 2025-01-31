@@ -36,7 +36,7 @@ func TestAddr(tb *testing.T) {
 		assert.False(tb, y.IsValid())
 	}
 
-	b[0] = Semantic | NetAddr
+	b[0] = byte(Semantic | NetAddr)
 	b = e.AppendString(b[:1], "qweqwe")
 
 	_, _, _, err := d.Addr(b, 0)

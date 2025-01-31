@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/term v0.22.0
+	nikand.dev/go/cbor v0.0.0-20240927214417-98af9ca7872f
 	nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7
 	nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7
 	nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193

@@ -13,20 +13,20 @@ var (
 )
 
 func (e *Encoder) AppendPC(b []byte, pc loc.PC) []byte {
-	b = append(b, Semantic|Caller)
+	b = append(b, byte(Semantic|Caller))
 
 	if pc == 0 {
-		return append(b, Special|Nil)
+		return append(b, byte(Special|Nil))
 	}
 
 	return e.AppendUint64(b, uint64(pc))
 }
 
 func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
-	b = append(b, Semantic|Caller)
+	b = append(b, byte(Semantic|Caller))
 
 	if pcs == nil {
-		return append(b, Special|Nil)
+		return append(b, byte(Special|Nil))
 	}
 
 	b = e.AppendTag(b, Array, len(pcs))
@@ -39,13 +39,13 @@ func (e *Encoder) AppendPCs(b []byte, pcs loc.PCs) []byte {
 }
 
 func (e *Encoder) AppendCaller(b []byte, pc loc.PC) []byte {
-	b = append(b, Semantic|Caller)
+	b = append(b, byte(Semantic|Caller))
 
 	return e.appendPC(b, pc)
 }
 
 func (e *Encoder) AppendCallers(b []byte, pcs loc.PCs) []byte {
-	b = append(b, Semantic|Caller)
+	b = append(b, byte(Semantic|Caller))
 	b = e.AppendTag(b, Array, len(pcs))
 
 	for _, pc := range pcs {
@@ -57,7 +57,7 @@ func (e *Encoder) AppendCallers(b []byte, pcs loc.PCs) []byte {
 
 func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 	if pc == 0 {
-		return append(b, Special|Nil)
+		return append(b, byte(Special|Nil))
 	}
 
 	locmu.Lock()
@@ -77,7 +77,7 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 		l++
 	}
 
-	b = append(b, Map|l)
+	b = append(b, byte(Map)|l)
 
 	b = e.AppendString(b, "p")
 	b = e.AppendUint64(b, uint64(pc))
@@ -109,7 +109,7 @@ func (e *Encoder) appendPC(b []byte, pc loc.PC) []byte {
 }
 
 func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
-	if p[st] != Semantic|Caller {
+	if Tag(p[st]) != Semantic|Caller {
 		panic("not a caller")
 	}
 
@@ -141,7 +141,7 @@ func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 }
 
 func (d *Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
-	if p[st] != Semantic|Caller {
+	if Tag(p[st]) != Semantic|Caller {
 		panic("not a caller")
 	}
 

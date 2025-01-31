@@ -1,15 +1,28 @@
 package tlwire
 
+import "nikand.dev/go/cbor"
+
+type (
+	Tag = cbor.Tag
+
+	LowEncoder struct {
+		cbor.Encoder
+	}
+	LowDecoder struct {
+		cbor.Decoder
+	}
+)
+
 // Major types.
 const (
-	Int = iota << 5
-	Neg
-	Bytes
-	String
-	Array
-	Map
-	Semantic
-	Special
+	Int      = cbor.Int
+	Neg      = cbor.Neg
+	Bytes    = cbor.Bytes
+	String   = cbor.String
+	Array    = cbor.Array
+	Map      = cbor.Map
+	Semantic = cbor.Labeled
+	Special  = cbor.Simple
 
 	TagMask    = 0b111_00000
 	TagDetMask = 0b000_11111
@@ -17,10 +30,10 @@ const (
 
 // Len.
 const (
-	Len1 = 24 + iota
-	Len2
-	Len4
-	Len8
+	Len1 = cbor.Len1
+	Len2 = cbor.Len2
+	Len4 = cbor.Len4
+	Len8 = cbor.Len8
 	_
 	_
 	_
@@ -29,23 +42,22 @@ const (
 
 // Specials.
 const (
-	False = 20 + iota
-	True
-	Nil
-	Undefined
+	False     = cbor.False
+	True      = cbor.True
+	Nil       = cbor.Null
+	Undefined = cbor.Undefined
 
-	Float8
-	Float16
-	Float32
-	Float64
-	_
-	_
-	_
-	Break
+	Float8  = cbor.Float8
+	Float16 = cbor.Float16
+	Float32 = cbor.Float32
+	Float64 = cbor.Float64
 
-	None    = 19 // used to preserve padding
-	Hidden  = 18 // passwords, etc. when you want to preserve the key
-	SelfRef = 17 // self reference
+	Break = cbor.Break
+
+	None = cbor.None // used to preserve padding
+
+	SelfRef = 10 // self reference
+	Hidden  = 11 // passwords, etc. when you want to preserve the key
 )
 
 // Semantics.
@@ -84,3 +96,5 @@ func init() {
 		panic(Break)
 	}
 }
+
+func (e LowEncoder) AppendSemantic(b []byte, l int) []byte { return e.AppendLabeled(b, l) }

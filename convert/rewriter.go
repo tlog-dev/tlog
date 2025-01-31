@@ -94,7 +94,7 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 		subp := path
 
 		if tag == tlwire.Array {
-			subp = append(subp, []byte{tlwire.Array})
+			subp = append(subp, []byte{byte(tlwire.Array)})
 		}
 
 		for el := 0; sub == -1 || el < int(sub); el++ {
