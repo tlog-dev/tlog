@@ -3,13 +3,13 @@ package convert
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"path/filepath"
 	"strconv"
 	"time"
 
-	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/low"
 	"tlog.app/go/loc"
 
@@ -149,7 +149,7 @@ func (w *JSON) ConvertKey(b, p []byte, st int) (_ []byte, i int) {
 			b = append(b, k...)
 		}
 	default:
-		b = hfmt.Appendf(b, `UNSUPPORTED_KEY_TYPE_%x`, tag)
+		b = fmt.Appendf(b, `UNSUPPORTED_KEY_TYPE_%x`, tag)
 		i = w.d.Skip(p, st)
 	}
 
@@ -265,13 +265,13 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 					}
 
 					_, file, line := pc.NameFileLine()
-					b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
+					b = fmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 				}
 				b = append(b, ']')
 			} else {
 				_, file, line := pc.NameFileLine()
 
-				b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
+				b = fmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 			}
 		default:
 			b, i = w.ConvertValue(b, p, i)

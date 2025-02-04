@@ -2,13 +2,13 @@ package convert
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"golang.org/x/term"
-	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/low"
 	"tlog.app/go/loc"
 
@@ -244,9 +244,9 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 
 			switch {
 			case w.DurationFormat != "" && w.DurationDiv != 0:
-				b = hfmt.Appendf(b, w.DurationFormat, float64(d)/float64(w.DurationDiv))
+				b = fmt.Appendf(b, w.DurationFormat, float64(d)/float64(w.DurationDiv))
 			case w.DurationFormat != "":
-				b = hfmt.Appendf(b, w.DurationFormat, d)
+				b = fmt.Appendf(b, w.DurationFormat, d)
 			default:
 				b, i = w.ConvertValue(b, p, k, rawst)
 			}
@@ -271,13 +271,13 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 					}
 
 					_, file, line := pc.NameFileLine()
-					b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
+					b = fmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 				}
 				b = append(b, ']')
 			} else {
 				_, file, line := pc.NameFileLine()
 
-				b = hfmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
+				b = fmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
 			}
 		default:
 			b, i = w.ConvertValue(b, p, k, i)
@@ -303,7 +303,7 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 			f, i = w.d.Float(p, st)
 
 			if w.FloatFormat != "" {
-				b = hfmt.Appendf(b, w.FloatFormat, f)
+				b = fmt.Appendf(b, w.FloatFormat, f)
 			} else {
 				b = strconv.AppendFloat(b, f, w.FloatChar, w.FloatPrecision, 64)
 			}

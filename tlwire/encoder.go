@@ -1,10 +1,10 @@
 package tlwire
 
 import (
+	"fmt"
 	"net/netip"
 	"time"
 
-	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/htime"
 )
 
@@ -159,14 +159,14 @@ func (e *Encoder) AppendAddrPort(b []byte, a netip.AddrPort) []byte {
 	return b
 }
 
-func (e *Encoder) AppendFormat(b []byte, fmt string, args ...interface{}) []byte {
+func (e *Encoder) AppendFormat(b []byte, format string, args ...interface{}) []byte {
 	b = append(b, byte(String))
 	st := len(b)
 
-	if fmt == "" {
-		b = hfmt.Append(b, args...)
+	if format == "" {
+		b = fmt.Append(b, args...)
 	} else {
-		b = hfmt.Appendf(b, fmt, args...)
+		b = fmt.Appendf(b, format, args...)
 	}
 
 	l := len(b) - st

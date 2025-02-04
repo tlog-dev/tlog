@@ -182,12 +182,12 @@ nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7 h1:1I40D6BtUdwFVxWb2iWmAyt4
 nikand.dev/go/cli v0.0.0-20231112170903-c354aca481d7/go.mod h1:j1PHh2w3QhXwwB81piujER/+4F9fydpUl56LjYbmw3w=
 nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7 h1:fLiMDnIUq34ldRFwUK6FdU2gkodswcN+CynBL7jQRqc=
 nikand.dev/go/graceful v0.0.0-20231112170209-83e600cad2a7/go.mod h1:MjJf65Xs0DhePtE05fcxfSU33wAC3QmSzlgXcs2j9Fo=
-nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193 h1:d75lFac03AWf8ASWraYp66dNpyQcsrP3LcujUEeR7eQ=
-nikand.dev/go/hacked v0.0.0-20240728233820-70d839524193/go.mod h1:6AlZTLm8IESUc/BuOrkl+/kh6ZNaV44/nwo7KOj2Wks=
+nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782 h1:ZwZD4yU0BtLJ3dIuFGxGrvgCshSqR5QtF3p48Qyjzzo=
+nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782/go.mod h1:1Rg61dFquIgf7q9N6J5su45CvGWn/cDG5x2gXzDN5G0=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 tlog.app/go/eazy v0.4.1 h1:WxHqUQBRbOokUSq8kf8J/uoo/RSow/TC0jopCZulmSo=
 tlog.app/go/eazy v0.4.1/go.mod h1:qk9DSaqsW9Kn4TXRxQn3VZrqmlvrTBSk753g0RQMUy0=
-tlog.app/go/errors v0.10.0 h1:OSs6ylkS8+JT9puLAlo1SObpd/B0h3FF3WpjepABLV8=
-tlog.app/go/errors v0.10.0/go.mod h1:vDwxer8lgiVAyMKhN+zgmoMCB/9OHD3v387NiY23G/Y=
+tlog.app/go/errors v0.11.0 h1:tPziygVc2iyVVqYGirwSuxGLaYJ9yFE5gKGxtS30fKk=
+tlog.app/go/errors v0.11.0/go.mod h1:vDwxer8lgiVAyMKhN+zgmoMCB/9OHD3v387NiY23G/Y=
 tlog.app/go/loc v0.7.0 h1:G7JnaqgggmTwu87hhMsy+tLd4XxwOS9PPYfJEDTr+Kk=
 tlog.app/go/loc v0.7.0/go.mod h1:j4SIBNrXEK6Hqy/smwt3oRrHfMoSDI6Kg/Jf0GUHWCI=

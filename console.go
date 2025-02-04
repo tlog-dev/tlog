@@ -13,7 +13,6 @@ import (
 	"unsafe"
 
 	"golang.org/x/term"
-	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/htime"
 	"nikand.dev/go/hacked/low"
 	"tlog.app/go/errors"
@@ -366,7 +365,7 @@ func (w *ConsoleWriter) appendHeader(b []byte, t time.Time, lv LogLevel, pc loc.
 		case Fatal:
 			copy(b[i:], "FATAL")
 		default:
-			b = hfmt.Appendf(b[:i], "%*x", w.LevelWidth, lv)
+			b = fmt.Appendf(b[:i], "%*x", w.LevelWidth, lv)
 		}
 
 		end := len(b)
@@ -670,7 +669,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		}
 
 		if ff&cfHex != 0 {
-			b = hfmt.Appendf(b, "0x%02x", v)
+			b = fmt.Appendf(b, "0x%02x", v)
 			break
 		}
 
@@ -692,7 +691,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 		if tag == tlwire.Bytes {
 			if w.BytesFormat != "" {
-				b = hfmt.Appendf(b, w.BytesFormat, s)
+				b = fmt.Appendf(b, w.BytesFormat, s)
 				break
 			}
 
@@ -798,7 +797,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			f, i = w.d.Float(p, st)
 
 			if w.FloatFormat != "" {
-				b = hfmt.Appendf(b, w.FloatFormat, f)
+				b = fmt.Appendf(b, w.FloatFormat, f)
 			} else {
 				b = strconv.AppendFloat(b, f, w.FloatChar, w.FloatPrecision, 64)
 			}
@@ -827,9 +826,9 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 			switch {
 			case w.DurationFormat != "" && w.DurationDiv != 0:
-				b = hfmt.Appendf(b, w.DurationFormat, float64(d)/float64(w.DurationDiv))
+				b = fmt.Appendf(b, w.DurationFormat, float64(d)/float64(w.DurationDiv))
 			case w.DurationFormat != "":
-				b = hfmt.Appendf(b, w.DurationFormat, d)
+				b = fmt.Appendf(b, w.DurationFormat, d)
 			default:
 				b = w.AppendDuration(b, d)
 			}
@@ -849,7 +848,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			pc, pcs, i = w.d.Callers(p, st)
 
 			if pcs == nil {
-				b = hfmt.Appendf(b, w.CallerFormat, pc)
+				b = fmt.Appendf(b, w.CallerFormat, pc)
 				break
 			}
 
@@ -859,7 +858,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 					b = append(b, ' ')
 				}
 
-				b = hfmt.Appendf(b, w.CallerFormat, pc)
+				b = fmt.Appendf(b, w.CallerFormat, pc)
 			}
 			b = append(b, ']')
 		default:

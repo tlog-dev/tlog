@@ -3,10 +3,10 @@ package convert
 import (
 	_ "embed"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
-	"nikand.dev/go/hacked/hfmt"
 	"tlog.app/go/loc"
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/tlio"
@@ -47,7 +47,7 @@ func NewWeb(w io.Writer) *Web {
 		EventTimeFormat: "2006-01-02 15:04:05.000",
 		TimeFormat:      "2006-01-02 15:04:05.000",
 		PickTime:        true,
-		//PickCaller:      true,
+		// PickCaller:      true,
 		PickMessage: true,
 
 		c: tlog.NewConsoleWriter(nil, 0),
@@ -181,7 +181,7 @@ func (w *Web) buildEvent(b []byte, t time.Time, c loc.PC, m []byte) []byte {
 	b = append(b, `<tr class="event`...)
 
 	for _, s := range w.s {
-		b = hfmt.Appendf(b, " id%08v", s)
+		b = fmt.Appendf(b, " id%08v", s)
 	}
 
 	b = append(b, "\">\n"...)
@@ -191,14 +191,14 @@ func (w *Web) buildEvent(b []byte, t time.Time, c loc.PC, m []byte) []byte {
 	}
 
 	if w.PickCaller {
-		b = hfmt.Appendf(b, "<td class=caller>%s</td>\n", c.String())
+		b = fmt.Appendf(b, "<td class=caller>%s</td>\n", c.String())
 	}
 
 	if w.PickMessage {
-		b = hfmt.Appendf(b, "<td class=msg>%s</td>\n", m)
+		b = fmt.Appendf(b, "<td class=msg>%s</td>\n", m)
 	}
 
-	b = hfmt.Appendf(b, "<td class=kvs>%s</td>\n", w.b)
+	b = fmt.Appendf(b, "<td class=kvs>%s</td>\n", w.b)
 
 	b = append(b, "</tr>\n"...)
 
@@ -212,10 +212,10 @@ func (w *Web) buildTime(b []byte, t time.Time) []byte {
 	b = append(b, "<td class=ev-time>"...)
 
 	if c != 0 {
-		b = hfmt.Appendf(b, `<span class=ev-time-pref>%s</span>`, w.time[:c])
+		b = fmt.Appendf(b, `<span class=ev-time-pref>%s</span>`, w.time[:c])
 	}
 	if c != len(w.time) {
-		b = hfmt.Appendf(b, `<span class=ev-time-suff>%s</span>`, w.time[c:])
+		b = fmt.Appendf(b, `<span class=ev-time-suff>%s</span>`, w.time[c:])
 	}
 
 	b = append(b, "</td>\n"...)
@@ -226,7 +226,7 @@ func (w *Web) buildTime(b []byte, t time.Time) []byte {
 }
 
 func (w *Web) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
-	b = hfmt.Appendf(b, `<div class=kv><span class=key>%s=</span><div class=val>`, k)
+	b = fmt.Appendf(b, `<div class=kv><span class=key>%s=</span><div class=val>`, k)
 
 	b, i = w.c.ConvertValue(b, p, st, 0)
 
