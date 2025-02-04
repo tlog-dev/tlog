@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 
-	click "github.com/ClickHouse/ch-go"
+	ch "github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
 )
 
@@ -14,9 +14,9 @@ func NewPool(ctx context.Context, opts chpool.Options) (*chpool.Pool, error) {
 
 func DefaultPoolOptions(addr string) chpool.Options {
 	return chpool.Options{
-		ClientOptions: click.Options{
+		ClientOptions: ch.Options{
 			Address:     addr,
-			Compression: click.CompressionZSTD,
+			Compression: ch.CompressionZSTD,
 			ClientName:  "tlog agent",
 
 			TLS: &tls.Config{},
