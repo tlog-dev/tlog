@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"nikand.dev/go/hacked/hnet"
 	"nikand.dev/go/cli"
 	"nikand.dev/go/cli/flag"
 	"nikand.dev/go/graceful"
+	"nikand.dev/go/hacked/hnet"
 	"tlog.app/go/eazy"
 	"tlog.app/go/errors"
 
@@ -689,7 +689,6 @@ func (f *filereader) Read(p []byte) (n int, err error) {
 	}
 
 	n, err = f.f.Read(p)
-
 	if err != nil {
 		_ = f.f.Close()
 	}
@@ -699,7 +698,6 @@ func (f *filereader) Read(p []byte) (n int, err error) {
 
 func (w perrWriter) Write(p []byte) (n int, err error) {
 	n, err = w.WriteCloser.Write(p)
-
 	if err != nil {
 		tlog.Printw("write", "err", err)
 	}
@@ -709,7 +707,6 @@ func (w perrWriter) Write(p []byte) (n int, err error) {
 
 func (w perrWriter) Close() (err error) {
 	err = w.WriteCloser.Close()
-
 	if err != nil {
 		tlog.Printw("close", "err", err)
 	}

@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/ClickHouse/ch-go"
 	"github.com/ClickHouse/ch-go/chpool"
@@ -40,12 +41,12 @@ type (
 	}
 
 	cols struct {
-		tlog proto.ColStr
+		tlog proto.ColBytes
 		ls   *proto.ColArr[[]byte]
 		ts   proto.ColDateTime64Raw
 
-		json   proto.ColStr
-		labels proto.ColStr
+		json   proto.ColBytes
+		labels proto.ColBytes
 
 		input proto.Input
 		query ch.Query
@@ -127,6 +128,10 @@ func (d *Click) Write(p []byte) (int, error) {
 	addClose(&d.labels)
 
 	//
+
+	if ts == 0 {
+		ts = time.Now().UnixNano()
+	}
 
 	c := &d.cols
 
