@@ -42,7 +42,7 @@ func TestIDJSON(t *testing.T) {
 	data, err := json.Marshal(id)
 	assert.NoError(t, err)
 
-	t.Logf("json encoded id: %s (% x)", data, []byte(id[:]))
+	t.Logf("json encoded id: %s (% x)", data, id[:])
 
 	var back ID
 	err = json.Unmarshal(data, &back)

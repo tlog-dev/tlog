@@ -110,7 +110,7 @@ func (f *File) Write(p []byte) (n int, err error) {
 
 	if f.w == nil || f.size != 0 &&
 		(f.MaxFileSize != 0 && f.size+int64(len(p)) > f.MaxFileSize ||
-			f.MaxFileAge != 0 && time.Since(f.start) > f.MaxFileAge) {
+			f.MaxFileAge != 0 && time.Since(f.start) > f.MaxFileAge) { //nolint:whitespace
 
 		err = f.rotate()
 		if err != nil {
@@ -163,7 +163,6 @@ func (f *File) rotate() (err error) {
 	f.current = fname
 	f.size = 0
 	f.start = now
-	//	f.start = fileCtime(f.fstat, fname, now)
 
 	if f.symlink != nil {
 		link := filepath.Join(f.dir, f.pref+"LATEST"+f.suff)
@@ -173,7 +172,9 @@ func (f *File) rotate() (err error) {
 	}
 
 	if f.MaxTotalSize != 0 || f.MaxTotalAge != 0 || f.MaxTotalFiles != 0 {
-		go f.removeOld(f.dir, base, f.pref, f.suff, f.format, f.start)
+		go func(start time.Time) {
+			_ = f.removeOld(f.dir, base, f.pref, f.suff, f.format, start)
+		}(f.start)
 	}
 
 	return

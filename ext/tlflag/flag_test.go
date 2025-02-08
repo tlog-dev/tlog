@@ -113,8 +113,6 @@ func TestURLWriter(t *testing.T) { //nolint:dupl
 func TestRotatedWriter(t *testing.T) {
 	OpenFileWriter = TestingFileOpener
 
-	const CompressorBlockSize = 1 * eazy.MiB
-
 	with := func(f *rotating.File, wrap func(*rotating.File)) *rotating.File {
 		wrap(f)
 

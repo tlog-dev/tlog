@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"nikand.dev/go/hacked/hnet"
+	"nikand.dev/go/hacked/little"
 	"tlog.app/go/eazy"
 	"tlog.app/go/errors"
 
@@ -45,12 +46,10 @@ type (
 	Proto func(context.Context, net.Conn) error
 )
 
-var (
-	//go:embed index.html
-	//go:embed manifest.json
-	//go:embed static
-	static embed.FS
-)
+//go:embed index.html
+//go:embed manifest.json
+//go:embed static
+var static embed.FS
 
 func New(a Agent) (*Server, error) {
 	return &Server{
@@ -166,7 +165,7 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 			w = convert.NewLogfmt(w)
 		case ".html":
 			ww := convert.NewWeb(w)
-			defer closeWrap(ww, "close Web", &err)
+			defer little.Closer(ww, &err, "close Web")
 
 			w = ww
 		default:
@@ -179,9 +178,9 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 		}
 
 		return errors.Wrap(err, "process query")
+	default:
+		http.FileServer(s.FS).ServeHTTP(rw, req)
 	}
-
-	http.FileServer(s.FS).ServeHTTP(rw, req)
 
 	return nil
 }
@@ -222,13 +221,6 @@ func (r *response) Write(p []byte) (n int, err error) {
 	}
 
 	return
-}
-
-func closeWrap(c io.Closer, msg string, errp *error) {
-	e := c.Close()
-	if *errp == nil {
-		*errp = errors.Wrap(e, msg)
-	}
 }
 
 func pathExt(name string) string {

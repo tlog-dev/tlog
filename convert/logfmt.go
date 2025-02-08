@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"golang.org/x/term"
 	"nikand.dev/go/hacked/low"
-	"tlog.app/go/loc"
 
 	"tlog.app/go/tlog"
 	tlow "tlog.app/go/tlog/low"
@@ -259,26 +257,7 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 
 			id.FormatTo(b, bst, 'u')
 		case tlwire.Caller:
-			var pc loc.PC
-			var pcs loc.PCs
-			pc, pcs, i = w.d.Callers(p, st)
-
-			if pcs != nil {
-				b = append(b, '[')
-				for i, pc := range pcs {
-					if i != 0 {
-						b = append(b, ',')
-					}
-
-					_, file, line := pc.NameFileLine()
-					b = fmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
-				}
-				b = append(b, ']')
-			} else {
-				_, file, line := pc.NameFileLine()
-
-				b = fmt.Appendf(b, `"%v:%d"`, filepath.Base(file), line)
-			}
+			b, i = appendCallers(b, p, st, w.d)
 		default:
 			b, i = w.ConvertValue(b, p, k, i)
 		}

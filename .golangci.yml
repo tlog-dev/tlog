@@ -20,6 +20,7 @@ linters-settings:
     excludes:
       - G108
       - G114
+      - G115
   revive:
     rules:
       - name: unused-parameter
@@ -33,7 +34,6 @@ linters-settings:
           - github.com/getsentry/sentry-go
           - github.com/gin-gonic/gin
           - github.com/nikandfor/assert
-          - github.com/nikandfor/hacked
           - github.com/opentracing/opentracing-go
           - github.com/prometheus/client_golang
           - github.com/prometheus/client_model
@@ -41,8 +41,10 @@ linters-settings:
           - github.com/stretchr/testify/require
           - go.opentelemetry.io/otel
           - golang.org/x
+          - nikand.dev/go/cbor
           - nikand.dev/go/cli
           - nikand.dev/go/graceful
+          - nikand.dev/go/hacked
           - tlog.app/go/eazy
           - tlog.app/go/errors
           - tlog.app/go/loc
@@ -74,6 +76,8 @@ linters:
   enable-all: true
   disable:
     - cyclop
+    - dogsled
+    - err113
     - exhaustive
     - exhaustivestruct
     - exhaustruct
@@ -86,15 +90,16 @@ linters:
     - goconst
     - gocyclo
     - godox
-    - err113
     - golint
     - gomnd
-    - mnd
+    - gosmopolitan
     - ifshort
+    - inamedparam
     - ireturn
     - lll
     - maintidx
     - maligned
+    - mnd
     - nakedret
     - nestif
     - nlreturn
@@ -103,6 +108,9 @@ linters:
     - paralleltest
     - prealloc
     - predeclared
+    - recvcheck
+    - tagalign
+    - testifylint
     - testpackage
     - thelper
     - typecheck

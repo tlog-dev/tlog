@@ -29,13 +29,6 @@ type (
 		ptr unsafe.Pointer
 	}
 
-	//nolint:structcheck
-	reflectValue struct {
-		typ  unsafe.Pointer
-		ptr  unsafe.Pointer
-		flag uintptr
-	}
-
 	encoders map[unsafe.Pointer]ValueEncoder
 )
 
@@ -164,8 +157,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			return enc(e, b, v)
 		}
 
-		switch v := v.(type) {
-		case TlogAppender:
+		if v, ok := v.(TlogAppender); ok {
 			return v.TlogAppend(b)
 		}
 
@@ -315,36 +307,6 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 
 	return b
 }
-
-func value(v reflect.Value) reflectValue {
-	return *(*reflectValue)(unsafe.Pointer(&v))
-}
-
-func valueInterface(r reflect.Value) interface{} {
-	v := value(r)
-
-	if r.Kind() == reflect.Interface {
-		// Special case: return the element inside the interface.
-		// Empty interface has one layout, all interfaces with
-		// methods have a second layout.
-		if r.NumMethod() == 0 {
-			return *(*interface{})(v.ptr)
-		}
-		return *(*interface {
-			M()
-		})(v.ptr)
-	}
-
-	const flagAddr = 1 << 8
-
-	v.flag &^= flagAddr
-
-	return *(*interface{})(unsafe.Pointer(&v))
-	// return reflect_packEface(v)
-}
-
-//go:linkname reflect_packEface reflect.packEface
-func reflect_packEface(reflectValue) interface{}
 
 func raweface(x interface{}) eface {
 	return *(*eface)(unsafe.Pointer(&x))

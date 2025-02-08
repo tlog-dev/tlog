@@ -25,12 +25,9 @@ type (
 		PickMessage bool
 
 		d tlwire.Decoder
-		l Logfmt
-		j JSON
 		c *tlog.ConsoleWriter
 
 		s []tlog.ID
-		m []byte
 
 		time, last []byte
 

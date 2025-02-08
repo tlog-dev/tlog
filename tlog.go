@@ -441,7 +441,7 @@ func (s Span) IOWriter(d int) io.Writer {
 }
 
 func (l *Logger) DumpWriter(d int, msg, key string) io.Writer {
-	return dumpWrapper{
+	return &dumpWrapper{
 		Span: Span{
 			Logger: l,
 		},
@@ -453,7 +453,7 @@ func (l *Logger) DumpWriter(d int, msg, key string) io.Writer {
 }
 
 func (s Span) DumpWriter(d int, msg, key string) io.Writer {
-	return dumpWrapper{
+	return &dumpWrapper{
 		Span: s,
 
 		loc: loc.Caller(1 + d),
@@ -468,7 +468,7 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (w dumpWrapper) Write(p []byte) (int, error) {
+func (w *dumpWrapper) Write(p []byte) (int, error) {
 	message(w.Logger, w.ID, -1, w.msg, []any{KeyCaller, w.loc, w.key, p})
 
 	return len(p), nil

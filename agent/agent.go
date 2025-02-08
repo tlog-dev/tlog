@@ -30,7 +30,7 @@ type (
 		subs  []sub
 
 		streams []*stream
-		files   []*file
+		//	files   []*file
 
 		// end of mu
 
@@ -202,7 +202,7 @@ func (a *Agent) writeFile(s *stream, f *file, p []byte, ts int64) (n int, err er
 	tlog.Printw("write message", "i", geti(p))
 
 	s.zbuf = s.zbuf[:0]
-	n, err = s.z.Write(p)
+	_, err = s.z.Write(p)
 	if err != nil {
 		return 0, errors.Wrap(err, "eazy")
 	}
@@ -248,7 +248,7 @@ func (a *Agent) writeFile(s *stream, f *file, p []byte, ts int64) (n int, err er
 
 	if s.boff == 0 {
 		s.zbuf = s.zbuf[:0]
-		n, err = s.z.Write(p)
+		_, err = s.z.Write(p)
 		if err != nil {
 			return 0, errors.Wrap(err, "eazy")
 		}
@@ -307,13 +307,13 @@ func (a *Agent) newFile(s *stream, part, ts int64) (*file, error) {
 }
 
 func (a *Agent) padFile(s *stream, f *file) error {
-	if f.off%int64(a.BlockSize) == 0 {
+	if f.off%a.BlockSize == 0 {
 		s.boff = 0
 
 		return nil
 	}
 
-	off := f.off + int64(a.BlockSize) - f.off%int64(a.BlockSize)
+	off := f.off + a.BlockSize - f.off%a.BlockSize
 
 	if s, ok := f.w.(interface {
 		Truncate(int64) error

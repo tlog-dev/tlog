@@ -726,14 +726,15 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			}
 		}
 
-		if quote && haveQuotes && !haveBackQuotes && w.QuoteUseBackQuotes {
+		switch {
+		case quote && haveQuotes && !haveBackQuotes && w.QuoteUseBackQuotes:
 			b = append(b, '`')
 			b = append(b, s...)
 			b = append(b, '`')
-		} else if quote {
+		case quote:
 			ss := tlow.UnsafeBytesToString(s)
 			b = strconv.AppendQuote(b, ss)
-		} else {
+		default:
 			b = append(b, s...)
 		}
 
@@ -918,6 +919,7 @@ func (w *ConsoleWriter) AppendDuration(b []byte, d time.Duration) []byte {
 		d = add(d, time.Hour, 'h')
 		d = add(d, time.Minute, 'm')
 		d = add(d, time.Second, 's')
+		_ = d
 
 		return append(b, buf[:i]...)
 	}

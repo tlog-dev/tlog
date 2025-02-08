@@ -63,7 +63,7 @@ type (
 
 	WriterFunc func(p []byte) (int, error)
 
-	// base interfaces
+	// Base interfaces.
 
 	Flusher interface {
 		Flush() error
