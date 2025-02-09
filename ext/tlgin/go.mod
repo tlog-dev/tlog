@@ -1,6 +1,6 @@
 module tlog.app/go/tlog/ext/tlgin
 
-go 1.22.0
+go 1.22
 
 replace tlog.app/go/tlog => ../../
 

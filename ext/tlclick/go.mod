@@ -2,6 +2,8 @@ module tlog.app/go/tlog/ext/tlclick
 
 go 1.22.0
 
+toolchain go1.23.0
+
 replace tlog.app/go/tlog => ../../
 
 require (

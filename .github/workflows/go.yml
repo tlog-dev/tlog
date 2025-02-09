@@ -19,6 +19,7 @@ jobs:
           - os: "ubuntu-latest"
             go-ver: "1.23"
             cover: true
+            submodules: true
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -42,6 +43,14 @@ jobs:
 
       - name: Test Race
         run: go test -race -v ./...
+
+      - name: Test Submodules
+        run: find . -name go.mod | while read f; do go -C $(dirname $f) test ./...; done
+        if: ${{ matrix.submodules }}
+
+      - name: Test Race Submodules
+        run: find . -name go.mod | while read f; do go -C $(dirname $f) test -race ./...; done
+        if: ${{ matrix.submodules }}
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
