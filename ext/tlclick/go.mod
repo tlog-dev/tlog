@@ -37,7 +37,7 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/term v0.29.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
-	nikand.dev/go/cbor v0.0.0-20240927214417-98af9ca7872f // indirect
+	nikand.dev/go/cbor v0.0.0-20250209114510-2072ad4734c5 // indirect
 	nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782 // indirect
 	tlog.app/go/loc v0.7.0 // indirect
 )

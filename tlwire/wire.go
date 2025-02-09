@@ -21,7 +21,7 @@ const (
 	String   = cbor.String
 	Array    = cbor.Array
 	Map      = cbor.Map
-	Semantic = cbor.Labeled
+	Semantic = cbor.Label
 	Special  = cbor.Simple
 
 	TagMask    = 0b111_00000
@@ -97,4 +97,4 @@ func init() {
 	}
 }
 
-func (e LowEncoder) AppendSemantic(b []byte, l int) []byte { return e.AppendLabeled(b, l) }
+func (e LowEncoder) AppendSemantic(b []byte, l int) []byte { return e.AppendLabel(b, l) }

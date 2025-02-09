@@ -5,7 +5,7 @@ import (
 )
 
 func (e *Encoder) AppendBigInt(b []byte, x *big.Int) []byte {
-	b = e.AppendLabeled(b, Big)
+	b = e.AppendLabel(b, Big)
 
 	if x == nil {
 		return e.AppendNull(b)

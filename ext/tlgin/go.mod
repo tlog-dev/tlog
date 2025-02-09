@@ -37,7 +37,7 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	nikand.dev/go/cbor v0.0.0-20240927214417-98af9ca7872f // indirect
+	nikand.dev/go/cbor v0.0.0-20250209114510-2072ad4734c5 // indirect
 	nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782 // indirect
 	tlog.app/go/errors v0.11.0 // indirect
 	tlog.app/go/loc v0.7.0 // indirect
