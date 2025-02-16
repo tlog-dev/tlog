@@ -137,3 +137,5 @@ tlog.app/go/errors v0.11.0 h1:tPziygVc2iyVVqYGirwSuxGLaYJ9yFE5gKGxtS30fKk=
 tlog.app/go/errors v0.11.0/go.mod h1:vDwxer8lgiVAyMKhN+zgmoMCB/9OHD3v387NiY23G/Y=
 tlog.app/go/loc v0.7.0 h1:G7JnaqgggmTwu87hhMsy+tLd4XxwOS9PPYfJEDTr+Kk=
 tlog.app/go/loc v0.7.0/go.mod h1:j4SIBNrXEK6Hqy/smwt3oRrHfMoSDI6Kg/Jf0GUHWCI=
+tlog.app/go/tlog v0.25.2-0.20250211180435-0d82ae6285a8 h1:HV+lgPyAT3p2ldB7v1aos9oh6LoREqq4DzglxQUBHbs=
+tlog.app/go/tlog v0.25.2-0.20250211180435-0d82ae6285a8/go.mod h1:Ra9mVzbFXiVVavN/BR3O/klDUchnrtUWmJxu3+zQDS0=

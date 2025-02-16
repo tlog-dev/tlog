@@ -4,12 +4,10 @@ go 1.22.0
 
 toolchain go1.23.0
 
-replace tlog.app/go/tlog => ../../
-
 require (
 	github.com/ClickHouse/ch-go v0.64.1
 	tlog.app/go/errors v0.11.0
-	tlog.app/go/tlog v0.0.0-00010101000000-000000000000
+	tlog.app/go/tlog v0.25.2-0.20250211180435-0d82ae6285a8
 )
 
 require (

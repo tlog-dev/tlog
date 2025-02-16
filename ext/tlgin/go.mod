@@ -2,11 +2,9 @@ module tlog.app/go/tlog/ext/tlgin
 
 go 1.22
 
-replace tlog.app/go/tlog => ../../
-
 require (
 	github.com/gin-gonic/gin v1.10.0
-	tlog.app/go/tlog v0.0.0-00010101000000-000000000000
+	tlog.app/go/tlog v0.25.2-0.20250211180435-0d82ae6285a8
 )
 
 require (
