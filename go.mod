@@ -4,12 +4,12 @@ go 1.21
 
 require (
 	github.com/nikandfor/assert v0.0.0-20231112165957-bf2ce0a3555a
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/term v0.29.0
 	nikand.dev/go/cbor v0.0.0-20250209114510-2072ad4734c5
 	nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782
-	tlog.app/go/eazy v0.4.1
+	tlog.app/go/eazy v0.4.2
 	tlog.app/go/errors v0.11.0
 	tlog.app/go/loc v0.7.0
 )

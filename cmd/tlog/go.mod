@@ -4,11 +4,6 @@ go 1.22.0
 
 toolchain go1.23.0
 
-replace (
-	tlog.app/go/tlog => ../../
-	tlog.app/go/tlog/ext/tlclick => ../../ext/tlclick/
-)
-
 require (
 	github.com/fsnotify/fsnotify v1.8.0
 	nikand.dev/go/cli v0.0.0-20250208225017-de7159bfa4ce
@@ -16,8 +11,8 @@ require (
 	nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782
 	tlog.app/go/eazy v0.4.1
 	tlog.app/go/errors v0.11.0
-	tlog.app/go/tlog v0.0.0-00010101000000-000000000000
-	tlog.app/go/tlog/ext/tlclick v0.0.0-00010101000000-000000000000
+	tlog.app/go/tlog v0.25.2-0.20250216145453-98f39dcd7941
+	tlog.app/go/tlog/ext/tlclick v0.0.0-20250216145453-98f39dcd7941
 )
 
 require (
