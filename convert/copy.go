@@ -7,7 +7,7 @@ import (
 )
 
 func Copy(w io.Writer, r io.Reader) (int64, error) {
-	d := tlwire.NewStreamDecoder(r)
+	d := tlwire.NewReader(r)
 
 	return d.WriteTo(w)
 }

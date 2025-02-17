@@ -337,7 +337,7 @@ func agentRun(c *cli.Command) (err error) {
 							defer doWrap(f.Flush, &err, "flush db")
 						}
 
-						rr := tlwire.NewStreamDecoder(c)
+						rr := tlwire.NewReader(c)
 
 						_, err = rr.WriteTo(a)
 					}()
@@ -457,7 +457,7 @@ func cat(c *cli.Command) (err error) {
 			tlflag.Describe(tlog.Root(), rc)
 		}
 
-		rs[a] = tlwire.NewStreamDecoder(rc)
+		rs[a] = tlwire.NewReader(rc)
 
 		var w0 io.Writer = w
 

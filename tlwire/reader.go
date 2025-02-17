@@ -6,7 +6,7 @@ import (
 	"tlog.app/go/errors"
 )
 
-type StreamDecoder struct {
+type Reader struct {
 	io.Reader
 
 	b    []byte
@@ -20,13 +20,13 @@ const (
 	eBadSpecial
 )
 
-func NewStreamDecoder(r io.Reader) *StreamDecoder {
-	return &StreamDecoder{
+func NewReader(r io.Reader) *Reader {
+	return &Reader{
 		Reader: r,
 	}
 }
 
-func (d *StreamDecoder) Decode() (data []byte, err error) {
+func (d *Reader) ReadOne() (data []byte, err error) {
 	end, err := d.skipRead()
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (d *StreamDecoder) Decode() (data []byte, err error) {
 	return d.b[st:end:end], nil
 }
 
-func (d *StreamDecoder) Read(p []byte) (n int, err error) {
+func (d *Reader) Read(p []byte) (n int, err error) {
 	end, err := d.skipRead()
 	if err != nil {
 		return 0, err
@@ -54,9 +54,9 @@ func (d *StreamDecoder) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (d *StreamDecoder) WriteTo(w io.Writer) (n int64, err error) {
+func (d *Reader) WriteTo(w io.Writer) (n int64, err error) {
 	for {
-		data, err := d.Decode()
+		data, err := d.ReadOne()
 		if errors.Is(err, io.EOF) {
 			return n, nil
 		}
@@ -72,7 +72,7 @@ func (d *StreamDecoder) WriteTo(w io.Writer) (n int64, err error) {
 	}
 }
 
-func (d *StreamDecoder) skipRead() (end int, err error) {
+func (d *Reader) skipRead() (end int, err error) {
 	for {
 		end = d.skip(d.i)
 		//	println("skip", d.i, end)
@@ -91,7 +91,7 @@ func (d *StreamDecoder) skipRead() (end int, err error) {
 	}
 }
 
-func (d *StreamDecoder) skip(st int) (i int) {
+func (d *Reader) skip(st int) (i int) {
 	tag, sub, i := readTag(d.b, st)
 	//	println("tag", st, tag, sub, i)
 	if i < 0 {
@@ -154,7 +154,7 @@ func (d *StreamDecoder) skip(st int) (i int) {
 	return i
 }
 
-func (d *StreamDecoder) more() (err error) {
+func (d *Reader) more() (err error) {
 	copy(d.b, d.b[d.i:])
 	d.b = d.b[:len(d.b)-d.i]
 	d.boff += int64(d.i)
