@@ -11,7 +11,7 @@ import (
 
 type (
 	Dumper struct {
-		cbor.Decoder
+		cbor.Iterator
 
 		io.Writer
 		pos int64

@@ -6,26 +6,30 @@ type (
 	Tag = cbor.Tag
 
 	LowEncoder struct {
-		cbor.Encoder
+		cbor.Emitter
 	}
 	LowDecoder struct {
-		cbor.Decoder
+		cbor.Iterator
 	}
 )
 
 // Major types.
 const (
-	Int      = cbor.Int
-	Neg      = cbor.Neg
-	Bytes    = cbor.Bytes
-	String   = cbor.String
-	Array    = cbor.Array
-	Map      = cbor.Map
-	Semantic = cbor.Label
-	Special  = cbor.Simple
+	Int    = cbor.Int
+	Neg    = cbor.Neg
+	Bytes  = cbor.Bytes
+	String = cbor.String
+	Array  = cbor.Array
+	Map    = cbor.Map
+	Label  = cbor.Label
+	Simple = cbor.Simple
 
-	TagMask    = 0b111_00000
-	TagDetMask = 0b000_11111
+	Semantic = Label
+	Special  = Simple
+
+	TagMask    = cbor.TagMask
+	SubMask    = cbor.SubMask
+	TagDetMask = SubMask
 )
 
 // Len.
@@ -34,9 +38,7 @@ const (
 	Len2 = cbor.Len2
 	Len4 = cbor.Len4
 	Len8 = cbor.Len8
-	_
-	_
-	_
+
 	LenBreak = Break
 )
 
@@ -54,7 +56,7 @@ const (
 
 	Break = cbor.Break
 
-	None = cbor.None // used to preserve padding
+	None = cbor.None
 
 	SelfRef = 10 // self reference
 	Hidden  = 11 // passwords, etc. when you want to preserve the key
@@ -74,7 +76,8 @@ const (
 	_
 	Embedding
 
-	SemanticTlogBase = 10
+	LabelTlogBase    = 10
+	SemanticTlogBase = LabelTlogBase
 )
 
 // Meta.
@@ -87,14 +90,5 @@ const (
 
 const Magic = "\xc0\x64tlog"
 
-func init() {
-	if Break != TagDetMask {
-		panic(Break)
-	}
-
-	if Break != LenBreak {
-		panic(Break)
-	}
-}
-
 func (e LowEncoder) AppendSemantic(b []byte, l int) []byte { return e.AppendLabel(b, l) }
+func (e *Encoder) AppendSemantic(b []byte, l int) []byte   { return e.AppendLabel(b, l) }

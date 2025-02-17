@@ -3,11 +3,13 @@ package tlwire
 import (
 	"net/netip"
 	"time"
+
+	"nikand.dev/go/cbor"
 )
 
 type (
 	Decoder struct {
-		LowDecoder
+		cbor.Iterator
 	}
 )
 

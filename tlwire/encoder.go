@@ -5,12 +5,13 @@ import (
 	"net/netip"
 	"time"
 
+	"nikand.dev/go/cbor"
 	"nikand.dev/go/hacked/htime"
 )
 
 type (
 	Encoder struct {
-		LowEncoder
+		cbor.Emitter
 
 		custom encoders
 	}
@@ -178,5 +179,5 @@ func (e *Encoder) AppendFormat(b []byte, format string, args ...interface{}) []b
 // It is created for AppendFormat because we don't know the final message length.
 // But it can be also used in other similar situations.
 func (e *Encoder) InsertLen(b []byte, st, l int) []byte {
-	return e.Encoder.InsertLen(b, Tag(b[st-1])&TagMask, st, 0, l)
+	return e.Emitter.InsertLen(b, Tag(b[st-1])&TagMask, st, 0, l)
 }
