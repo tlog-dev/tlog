@@ -28,11 +28,11 @@ func InterfaceData(v interface{}) unsafe.Pointer {
 }
 
 func UnsafeString(ptr unsafe.Pointer, l int) string {
-	return *(*string)(unsafe.Pointer(&sh{p: ptr, l: l}))
+	return unsafe.String((*byte)(ptr), l)
 }
 
 func UnsafeBytesToString(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 func NoEscapeBuffer(b []byte) []byte {

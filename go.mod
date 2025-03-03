@@ -8,7 +8,7 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/term v0.29.0
 	nikand.dev/go/cbor v0.0.0-20250217185914-a319e53bb3df
-	nikand.dev/go/hacked v0.0.0-20250204131511-0939a5c9c782
+	nikand.dev/go/hacked v0.0.0-20250303011940-bcd287f6db83
 	tlog.app/go/eazy v0.4.2
 	tlog.app/go/errors v0.11.0
 	tlog.app/go/loc v0.7.0

@@ -174,9 +174,9 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 		case []byte:
 			l.b = e.AppendTagBytes(l.b, tlwire.String, msg)
 		case format:
-			l.b = e.AppendFormat(l.b, msg.Fmt, msg.Args...)
+			l.b = e.AppendFormatf(l.b, msg.Fmt, msg.Args...)
 		default:
-			l.b = e.AppendFormat(l.b, "%v", msg)
+			l.b = e.AppendFormat(l.b, msg)
 		}
 	}
 

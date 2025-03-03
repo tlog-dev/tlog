@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"nikand.dev/go/cbor"
+	"nikand.dev/go/hacked/hfmt"
 	"nikand.dev/go/hacked/htime"
-	"tlog.app/go/tlog/low"
 )
 
 type (
@@ -160,15 +160,22 @@ func (e *Encoder) AppendAddrPort(b []byte, a netip.AddrPort) []byte {
 	return b
 }
 
-func (e *Encoder) AppendFormat(b []byte, format string, args ...interface{}) []byte {
+func (e *Encoder) AppendFormat(b []byte, args ...interface{}) []byte {
 	b = append(b, byte(String))
 	st := len(b)
 
-	if format == "" {
-		b = low.Append(b, args...)
-	} else {
-		b = low.Appendf(b, format, args...)
-	}
+	b = hfmt.Append(b, args...)
+
+	l := len(b) - st
+
+	return e.InsertLen(b, st, l)
+}
+
+func (e *Encoder) AppendFormatf(b []byte, format string, args ...interface{}) []byte {
+	b = append(b, byte(String))
+	st := len(b)
+
+	b = hfmt.Appendf(b, format, args...)
 
 	l := len(b) - st
 
