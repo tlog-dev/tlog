@@ -27,7 +27,7 @@ func Close(f interface{}) error {
 
 func CloseWrap(f interface{}, name string, errp *error) { //nolint:gocritic
 	e := Close(f)
-	if *errp == nil {
+	if *errp == nil && e != nil {
 		*errp = errors.Wrap(e, "close %v", name)
 	}
 }

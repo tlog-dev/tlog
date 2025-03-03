@@ -1,12 +1,12 @@
 package tlwire
 
 import (
-	"fmt"
 	"net/netip"
 	"time"
 
 	"nikand.dev/go/cbor"
 	"nikand.dev/go/hacked/htime"
+	"tlog.app/go/tlog/low"
 )
 
 type (
@@ -165,9 +165,9 @@ func (e *Encoder) AppendFormat(b []byte, format string, args ...interface{}) []b
 	st := len(b)
 
 	if format == "" {
-		b = fmt.Append(b, args...)
+		b = low.Append(b, args...)
 	} else {
-		b = fmt.Appendf(b, format, args...)
+		b = low.Appendf(b, format, args...)
 	}
 
 	l := len(b) - st

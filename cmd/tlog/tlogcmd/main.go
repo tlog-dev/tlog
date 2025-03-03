@@ -16,7 +16,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"nikand.dev/go/cli"
-	"nikand.dev/go/cli/flag"
 	"nikand.dev/go/graceful"
 	"nikand.dev/go/hacked/hnet"
 	"tlog.app/go/eazy"
@@ -121,7 +120,7 @@ func App() *cli.Command {
 		Flags: []*cli.Flag{
 			cli.NewFlag("log", "stderr?dm", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
-			cli.NewFlag("debug", "", "debug address", flag.Hidden),
+			cli.NewFlag("debug", "", "debug address"),
 			cli.FlagfileFlag,
 			cli.HelpFlag,
 		},
@@ -281,8 +280,11 @@ func agentRun(c *cli.Command) (err error) {
 			if errors.Is(err, context.Canceled) {
 				err = nil
 			}
+			if err != nil {
+				return errors.Wrap(err, "serve http")
+			}
 
-			return errors.Wrap(err, "serve http")
+			return nil
 		})
 	}
 
