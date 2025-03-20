@@ -14,6 +14,8 @@ type (
 	}
 
 	CloserFunc func() error
+
+	MultiCloser []io.Closer
 )
 
 func Close(f interface{}) error {
@@ -51,10 +53,21 @@ func WrapCloserFunc(cf func() error, msg string, args ...interface{}) io.Closer 
 func (c WrappedCloser) Close() (err error) {
 	err = c.Closer.Close()
 	if err != nil {
-		return errors.WrapDepth(err, 1, c.Msg, c.Args...)
+		return errors.Wrap(err, c.Msg, c.Args...)
 	}
 
 	return nil
 }
 
 func (c CloserFunc) Close() error { return c() }
+
+func (c MultiCloser) Close() (err error) {
+	for i, c := range c {
+		e := c.Close()
+		if err == nil && e != nil {
+			err = errors.Wrap(e, "multi #%d (%T)", i, c)
+		}
+	}
+
+	return err
+}

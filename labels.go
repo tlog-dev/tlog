@@ -19,12 +19,13 @@ import (
 //	_hostname - local hostname
 //	_user - current user
 //	_pid - process pid
-//	_timezone - local timezone code (UTC, MSK)
+//	_timezone - local timezone code (UTC, CET, EDT)
 //	_goversion - go version
 //	_execmd5 - this binary md5 hash
 //	_execsha1 - this binary sha1 hash
 //	_execname - executable base name (project name)
 //	_randid - random id. May be used to distinguish different runs.
+//	_datetime - RFC3339-formatted timestamp. If used as label, it's static and represents the application's startup time.
 var AutoLabels = map[string]func() interface{}{
 	"_hostname":   func() interface{} { return Hostname() },
 	"_user":       func() interface{} { return User() },
@@ -46,7 +47,10 @@ var AutoLabels = map[string]func() interface{}{
 		return filepath.Base(os.Args[0])
 	},
 	"_randid": func() interface{} {
-		return MathRandID().StringFull()
+		return MathRandID().String()
+	},
+	"_datetime": func() interface{} {
+		return time.Now().Format(time.RFC3339)
 	},
 }
 
