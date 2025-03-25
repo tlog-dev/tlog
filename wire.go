@@ -161,7 +161,7 @@ func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 				break
 			}
 
-			b = e.AppendFormat(b, string(v), kvs[i])
+			b = e.AppendFormatf(b, string(v), kvs[i])
 		default:
 			b = e.AppendValue(b, v)
 		}
