@@ -93,15 +93,16 @@ func testLogfmtObj(t *testing.T, flat bool) {
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
-	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile("^" + exps[i] + "$")
+
+	for i, e := range exps {
+		re := regexp.MustCompile("^" + e + "$")
 
 		var have string
 		if i < len(ls) {
 			have = ls[i]
 		}
 
-		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", exps[i], have)
+		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", e, have)
 	}
 
 	for i := len(exps); i < len(ls); i++ {
@@ -144,15 +145,16 @@ func TestLogfmtRename(t *testing.T) {
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
-	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile("^" + exps[i] + "$")
+
+	for i, e := range exps {
+		re := regexp.MustCompile("^" + e + "$")
 
 		var have string
 		if i < len(ls) {
 			have = ls[i]
 		}
 
-		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", exps[i], have)
+		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", e, have)
 	}
 
 	for i := len(exps); i < len(ls); i++ {

@@ -20,7 +20,7 @@ func BenchmarkLogCompressOneline(b *testing.B) {
 
 	types := []string{"type_a", "value_b", "qweqew", "asdads"}
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		//	tr := l.Start("span_name")
 		tr.Printw("some example message", "i", i, "type", types[i%len(types)])
 		//	tr.Finish()
@@ -42,7 +42,7 @@ func BenchmarkLogCompressOnelineText(b *testing.B) {
 
 	types := []string{"type_a", "value_b", "qweqew", "asdads"}
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		//	tr := l.Start("span_name")
 		tr.Printw("some example message", "i", i, "type", types[i%len(types)])
 		//	tr.Finish()

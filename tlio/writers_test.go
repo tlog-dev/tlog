@@ -179,7 +179,7 @@ func BenchmarkReWriter(b *testing.B) {
 		"c", 4,
 		"d", "")
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Printw("message", "a", i+1000, "b", i+1001)
 	}
 }

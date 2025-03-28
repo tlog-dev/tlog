@@ -62,7 +62,7 @@ func BenchmarkIDStringUUID(b *testing.B) {
 
 	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = id.StringUUID()
 	}
 }
@@ -72,7 +72,7 @@ func BenchmarkIDFormat(b *testing.B) {
 
 	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		fmt.Fprintf(io.Discard, "%+x", id)
 	}
 }
@@ -83,7 +83,7 @@ func BenchmarkIDFormatTo(b *testing.B) {
 	var buf [40]byte
 	id := ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf}
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		if i&0xf == 0 {
 			ID{}.FormatTo(buf[:], 0, 'v')
 		} else {

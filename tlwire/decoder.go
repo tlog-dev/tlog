@@ -35,7 +35,7 @@ func (d *Decoder) Time(p []byte, st int) (t time.Time, i int) {
 		tzOff int64
 	)
 
-	for el := 0; el < int(sub); el++ {
+	for range sub {
 		k, i = d.Bytes(p, i)
 
 		switch string(k) {
@@ -83,7 +83,7 @@ func (d *Decoder) Timestamp(p []byte, st int) (ts int64, i int) {
 
 	var k []byte
 
-	for el := 0; el < int(sub); el++ {
+	for range sub {
 		k, i = d.Bytes(p, i)
 
 		switch string(k) {

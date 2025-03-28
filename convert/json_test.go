@@ -61,15 +61,16 @@ func TestJSONLogger(t *testing.T) {
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
-	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile("^" + exps[i] + "$")
+
+	for i, e := range exps {
+		re := regexp.MustCompile("^" + e + "$")
 
 		var have string
 		if i < len(ls) {
 			have = ls[i]
 		}
 
-		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", exps[i], have)
+		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", e, have)
 	}
 
 	for i := len(exps); i < len(ls); i++ {
@@ -112,15 +113,16 @@ func TestJSONRename(t *testing.T) {
 
 	exps := strings.Split(exp, "\n")
 	ls := strings.Split(string(b), "\n")
-	for i := 0; i < len(exps); i++ {
-		re := regexp.MustCompile("^" + exps[i] + "$")
+
+	for i, e := range exps {
+		re := regexp.MustCompile("^" + e + "$")
 
 		var have string
 		if i < len(ls) {
 			have = ls[i]
 		}
 
-		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", exps[i], have)
+		assert.True(t, re.MatchString(have), "expected\n%s\ngot\n%s", e, have)
 	}
 
 	for i := len(exps); i < len(ls); i++ {
@@ -158,7 +160,7 @@ func BenchmarkJSONConvert(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _ = w.Write(buf[st:])
 	}
 }
@@ -174,7 +176,7 @@ func BenchmarkJSONPrintw(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Printw("message", "a", i+1000, "b", i+1000)
 	}
 }

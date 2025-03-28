@@ -65,7 +65,7 @@ func (l *Handler) Handle(ctx context.Context, r slog.Record) error { //nolint:go
 
 	r.Attrs(l.attr)
 
-	for i := 0; i < l.depth; i++ {
+	for range l.depth {
 		l.b = l.AppendBreak(l.b)
 	}
 

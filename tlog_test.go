@@ -46,7 +46,7 @@ func TestLoggerSmokeConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for i := 0; i < N; i++ {
+		for i := range N {
 			l.Printf("printf %v %v", i+1000, i+1001)
 		}
 	}()
@@ -55,7 +55,7 @@ func TestLoggerSmokeConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for i := 0; i < N; i++ {
+		for i := range N {
 			l.Printw("printw", "i0", i+1000, "i1", i+1001)
 		}
 	}()
@@ -64,7 +64,7 @@ func TestLoggerSmokeConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for i := 0; i < N; i++ {
+		for i := range N {
 			tr := l.Start("span")
 			tr.Printw("span.printw", "i0", i+1000, "i1", i+1001)
 			tr.Finish()
@@ -75,7 +75,7 @@ func TestLoggerSmokeConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for i := 0; i < N; i++ {
+		for i := range N {
 			tr := l.Start("span_observer")
 			_ = tr.Event("value", i+1000)
 			tr.Finish()
@@ -188,7 +188,7 @@ func BenchmarkLoggerPrintw(b *testing.B) {
 
 	l := New(io.Discard)
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
 	}
 }
@@ -198,7 +198,7 @@ func BenchmarkLoggerPrintf(b *testing.B) {
 
 	l := New(io.Discard)
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Printf("message a %v b %v c %v", i+1000, i+1000, "str")
 	}
 }
@@ -208,7 +208,7 @@ func BenchmarkLoggerStartPrintwFinish(b *testing.B) {
 
 	l := New(io.Discard)
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		tr := l.Start("span_name")
 		tr.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
 		tr.Finish()

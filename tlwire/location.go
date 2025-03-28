@@ -164,7 +164,7 @@ func (d *Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
 
 	pcs = make(loc.PCs, sub)
 
-	for el := 0; el < int(sub); el++ {
+	for el := range int(sub) {
 		pcs[el], i = d.caller(p, i)
 	}
 
@@ -193,7 +193,7 @@ func (d *Decoder) caller(p []byte, st int) (pc loc.PC, i int) {
 	var name, file []byte
 	var line int
 
-	for el := 0; el < int(sub); el++ {
+	for range int(sub) {
 		k, i = d.Bytes(p, i)
 
 		switch string(k) {

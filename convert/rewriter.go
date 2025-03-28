@@ -237,7 +237,7 @@ func (w *KeyRenamer) cmp(x, y []tlog.RawMessage) (r int) {
 	//	defer func() {
 	//		fmt.Printf("cmp %q %q -> %d  from %v\n", x, y, r, loc.Caller(1))
 	//	}()
-	for i := 0; i < min(len(x), len(y)); i++ {
+	for i := range min(len(x), len(y)) {
 		r = bytes.Compare(x[i], y[i])
 		if r != 0 {
 			return r
@@ -253,12 +253,4 @@ func (w *KeyRenamer) cmp(x, y []tlog.RawMessage) (r int) {
 	}
 
 	return 0
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
 }

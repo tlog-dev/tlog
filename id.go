@@ -63,7 +63,7 @@ func IDFromBytes(b []byte) (id ID, err error) {
 func IDFromString(s string) (id ID, err error) {
 	var j int
 
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		var c byte
 
 		switch {
@@ -246,8 +246,8 @@ func (id *ID) UnmarshalJSON(b []byte) error {
 }
 
 func MathRandID() (id ID) {
-	lo := rand.Uint64()
-	hi := rand.Uint64()
+	lo := rand.Uint64() //nolint:gosec
+	hi := rand.Uint64() //nolint:gosec
 
 	binary.BigEndian.PutUint64(id[:8], hi)
 	binary.BigEndian.PutUint64(id[8:], lo)

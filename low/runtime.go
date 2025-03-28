@@ -7,11 +7,6 @@ type (
 		t unsafe.Pointer
 		p unsafe.Pointer
 	}
-
-	sh struct {
-		p unsafe.Pointer
-		l int
-	}
 )
 
 func UnpackInterface(v interface{}) (t, p unsafe.Pointer) {

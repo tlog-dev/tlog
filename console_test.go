@@ -117,7 +117,7 @@ func BenchmarkConsolePrintw(b *testing.B) {
 	w := NewConsoleWriter(io.Discard, LdetFlags)
 	l := New(w)
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		l.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
 	}
 }
@@ -128,7 +128,7 @@ func BenchmarkConsoleStartPrintwFinish(b *testing.B) {
 	w := NewConsoleWriter(io.Discard, LdetFlags)
 	l := New(w)
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		tr := l.Start("span_name")
 		tr.Printw("message", "a", i+1000, "b", i+1000, "c", "str")
 		tr.Finish()

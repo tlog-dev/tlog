@@ -225,7 +225,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 
 		b = e.AppendTag(b, Array, l)
 
-		for i := 0; i < l; i++ {
+		for i := range l {
 			b = e.appendRaw(b, r.Index(i), visited)
 		}
 

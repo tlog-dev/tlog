@@ -41,7 +41,7 @@ func parseStruct(tp reflect.Type) (s *rawStruct) { //nolint:gocognit
 
 	ff := tp.NumField()
 
-	for i := 0; i < ff; i++ {
+	for i := range ff {
 		f := tp.Field(i)
 
 		sf := rawField{
