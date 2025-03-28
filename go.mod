@@ -1,6 +1,6 @@
 module tlog.app/go/tlog
 
-go 1.21
+go 1.22
 
 require (
 	github.com/nikandfor/assert v0.0.0-20231112165957-bf2ce0a3555a

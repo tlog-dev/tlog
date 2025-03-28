@@ -1,10 +1,11 @@
 package tlog
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"testing"
 
@@ -12,16 +13,21 @@ import (
 )
 
 func testRandID(seed int64) func() ID {
+	var s [32]byte
+	binary.BigEndian.PutUint64(s[:], uint64(seed))
+
 	var mu sync.Mutex
-	rnd := rand.New(rand.NewSource(seed)) //nolint:gosec
+	rnd := rand.NewChaCha8(s)
 
 	return func() (id ID) {
 		defer mu.Unlock()
 		mu.Lock()
 
-		for id == (ID{}) {
-			_, _ = rnd.Read(id[:])
-		}
+		lo := rnd.Uint64()
+		hi := rnd.Uint64()
+
+		binary.BigEndian.PutUint64(id[:8], hi)
+		binary.BigEndian.PutUint64(id[8:], lo)
 
 		return
 	}

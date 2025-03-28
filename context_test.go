@@ -28,7 +28,7 @@ func TestContextWithSpan(t *testing.T) {
 
 	tr = SpawnFromContext(ctx, "spawn_1")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "spawn_1                       _s=2f8282cb  _k=s  _p=0a140000\n", string(buf))
+		assert.Equal(t, "spawn_1                       _s=18a5ee85  _k=s  _p=0a140000\n", string(buf))
 	}
 
 	//
@@ -49,7 +49,7 @@ func TestContextWithSpan(t *testing.T) {
 
 	tr = SpawnFromContext(ctx, "spawn_2")
 	if assert.NotZero(t, tr) {
-		assert.Equal(t, "spawn_2                       _s=d967dc28  _k=s  _p=0a140000\n", string(bufl))
+		assert.Equal(t, "spawn_2                       _s=a2f88f88  _k=s  _p=0a140000\n", string(bufl))
 	}
 }
 

@@ -1,11 +1,10 @@
 package tlog
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
-	"sync"
-	"time"
+	"math/rand/v2"
 
 	"tlog.app/go/errors"
 
@@ -19,14 +18,7 @@ type (
 	ShortIDError struct {
 		Bytes int // Bytes successfully parsed
 	}
-
-	concurrentRand struct {
-		mu sync.Mutex
-		r  *rand.Rand
-	}
 )
-
-var rnd = &concurrentRand{r: rand.New(rand.NewSource(time.Now().UnixNano()))} //nolint:gosec
 
 // String returns short string representation.
 //
@@ -254,13 +246,11 @@ func (id *ID) UnmarshalJSON(b []byte) error {
 }
 
 func MathRandID() (id ID) {
-	rnd.mu.Lock()
+	lo := rand.Uint64()
+	hi := rand.Uint64()
 
-	for id == (ID{}) {
-		_, _ = rnd.r.Read(id[:])
-	}
-
-	rnd.mu.Unlock()
+	binary.BigEndian.PutUint64(id[:8], hi)
+	binary.BigEndian.PutUint64(id[8:], lo)
 
 	return
 }
