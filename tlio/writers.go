@@ -34,15 +34,19 @@ type (
 
 	TailWriter struct {
 		io.Writer
-		n int
-
-		i   int
-		buf [][]byte
+		RingWriter
 	}
 
 	HeadWriter struct {
 		io.Writer
 		N int
+	}
+
+	RingWriter struct {
+		n int
+
+		i   int
+		buf [][]byte
 	}
 
 	// CountingIODiscard discards data but counts writes and bytes.
@@ -288,36 +292,18 @@ func (w *DeLabels) Unwrap() interface{} {
 
 func NewTailWriter(w io.Writer, n int) *TailWriter {
 	return &TailWriter{
-		Writer: w,
-		n:      n,
-		buf:    make([][]byte, n),
+		Writer:     w,
+		RingWriter: RingWriter{},
 	}
-}
-
-func (w *TailWriter) Write(p []byte) (n int, err error) {
-	i := w.i % w.n
-	w.buf[i] = append(w.buf[i][:0], p...)
-
-	w.i++
-
-	return len(p), nil
 }
 
 func (w *TailWriter) Flush() (err error) {
-	for i := w.i; i < w.i+w.n; i++ {
-		b := w.buf[i%w.n]
-
-		if len(b) == 0 {
-			continue
-		}
-
-		_, err = w.Writer.Write(b)
-		if err != nil {
-			return err
-		}
-
-		w.buf[i%w.n] = b[:0]
+	_, err = w.RingWriter.WriteTo(w.Writer)
+	if err != nil {
+		return err
 	}
+
+	w.RingWriter.Reset()
 
 	if f, ok := w.Writer.(Flusher); ok {
 		return f.Flush()
@@ -328,6 +314,46 @@ func (w *TailWriter) Flush() (err error) {
 
 func (w *TailWriter) Unwrap() interface{} {
 	return w.Writer
+}
+
+func NewRingWriter(n int) *RingWriter {
+	return &RingWriter{
+		n:   n,
+		buf: make([][]byte, n),
+	}
+}
+
+func (w *RingWriter) Write(p []byte) (n int, err error) {
+	i := w.i % w.n
+	w.buf[i] = append(w.buf[i][:0], p...)
+
+	w.i++
+
+	return len(p), nil
+}
+
+func (w *RingWriter) WriteTo(wr io.Writer) (n int64, err error) {
+	for i := w.i; i < w.i+w.n; i++ {
+		b := w.buf[i%w.n]
+
+		if len(b) == 0 {
+			continue
+		}
+
+		m, err := wr.Write(b)
+		n += int64(m)
+		if err != nil {
+			return n, err
+		}
+	}
+
+	return n, nil
+}
+
+func (w *RingWriter) Reset() {
+	for i := range w.buf {
+		w.buf[i] = w.buf[i][:0]
+	}
 }
 
 func NewHeadWriter(w io.Writer, n int) *HeadWriter {
