@@ -12,7 +12,7 @@ require (
 	tlog.app/go/eazy v0.4.2
 	tlog.app/go/errors v0.20.0
 	tlog.app/go/tlog v0.26.0
-	tlog.app/go/tlog/ext/tlclick v0.0.0-20250415083105-8396b1e0249c
+	tlog.app/go/tlog/ext/tlclick v0.0.0-20250415084057-0c3ebb900beb
 )
 
 require (
@@ -32,7 +32,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

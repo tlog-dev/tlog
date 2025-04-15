@@ -83,5 +83,5 @@ tlog.app/go/loc v0.7.2 h1:vm7ni7uE8LjKrRQHumslljjF2qTMely37DKadngAgO0=
 tlog.app/go/loc v0.7.2/go.mod h1:j4SIBNrXEK6Hqy/smwt3oRrHfMoSDI6Kg/Jf0GUHWCI=
 tlog.app/go/tlog v0.26.0 h1:/1zV8HpsJfgzvH0d/Twz8mXyRot8eVi2AfcPq/ivOwU=
 tlog.app/go/tlog v0.26.0/go.mod h1:1eAGGA2Z1NjeNoEqInC1R4yfZrTzM98Jdt5FfkXb1wM=
-tlog.app/go/tlog/ext/tlclick v0.0.0-20250415083105-8396b1e0249c h1:HIp+ELEspyhstf/QZxCKcvIMA+HtUIef9X2kcbA1/tM=
-tlog.app/go/tlog/ext/tlclick v0.0.0-20250415083105-8396b1e0249c/go.mod h1:/RhbhoP0+QjrVhmIGzWCmzlk4A4wOpqXOmz4rEFKwz4=
+tlog.app/go/tlog/ext/tlclick v0.0.0-20250415084057-0c3ebb900beb h1:GKanRPjYPPzurR8MquE52yZ2EIDQmL86rJuBH8KJeuU=
+tlog.app/go/tlog/ext/tlclick v0.0.0-20250415084057-0c3ebb900beb/go.mod h1:6XnWZFtT9nrB/XnLQdLFH2XDYkco55/sXovQtAXCWNc=
