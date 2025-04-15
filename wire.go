@@ -143,10 +143,12 @@ func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 		}
 
 		switch v := kvs[i].(type) {
-		case string:
-			b = e.AppendString(b, v)
 		case int:
 			b = e.AppendInt(b, v)
+		case string:
+			b = e.AppendString(b, v)
+		case []byte:
+			b = e.AppendBytes(b, v)
 		case RawMessage:
 			b = append(b, v...)
 		case Modify:

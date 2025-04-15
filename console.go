@@ -58,6 +58,7 @@ type (
 		BytesFormat    string
 
 		StringOnNewLineMinLen int
+		BytesDumpMinLen       int
 
 		PairSeparator string
 		KVSeparator   string
@@ -171,6 +172,7 @@ func NewConsoleWriter(w io.Writer, f int) *ConsoleWriter {
 		CallerFormat:   "%v",
 
 		StringOnNewLineMinLen: 71,
+		BytesDumpMinLen:       10,
 
 		PairSeparator: "  ",
 		KVSeparator:   "=",
@@ -678,7 +680,7 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		var s []byte
 		s, i = w.d.Bytes(p, st)
 
-		if tag == tlwire.Bytes && w.StringOnNewLineMinLen != 0 && len(s) >= w.StringOnNewLineMinLen {
+		if tag == tlwire.Bytes && w.BytesDumpMinLen != 0 && len(s) >= w.BytesDumpMinLen {
 			b = append(b, '\\', '\n')
 
 			h := hex.Dumper(noescapeByteWriter(&b))
