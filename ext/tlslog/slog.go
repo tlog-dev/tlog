@@ -12,8 +12,8 @@ import (
 
 type (
 	Handler struct {
-		*tlog.Logger
-		Level slog.Level
+		Logger *tlog.Logger
+		Level  slog.Level
 
 		b []byte
 
@@ -37,27 +37,27 @@ func (l *Handler) Handle(ctx context.Context, r slog.Record) error { //nolint:go
 		return nil
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	defer l.Logger.Unlock()
+	l.Logger.Lock()
 
-	l.b = l.AppendMap(l.b[:0], -1)
+	l.b = l.Logger.AppendMap(l.b[:0], -1)
 
 	if r.Time != (time.Time{}) {
-		l.b = l.AppendString(l.b, tlog.KeyTimestamp)
-		l.b = l.AppendTime(l.b, r.Time)
+		l.b = l.Logger.AppendString(l.b, tlog.KeyTimestamp)
+		l.b = l.Logger.AppendTime(l.b, r.Time)
 	}
 
 	if r.PC != 0 {
-		l.b = l.AppendKey(l.b, tlog.KeyCaller)
-		l.b = l.AppendCaller(l.b, loc.PC(r.PC))
+		l.b = l.Logger.AppendKey(l.b, tlog.KeyCaller)
+		l.b = l.Logger.AppendCaller(l.b, loc.PC(r.PC))
 	}
 
-	l.b = l.AppendKey(l.b, tlog.KeyMessage)
-	l.b = l.AppendSemantic(l.b, tlog.WireMessage)
-	l.b = l.Encoder.AppendString(l.b, r.Message)
+	l.b = l.Logger.AppendKey(l.b, tlog.KeyMessage)
+	l.b = l.Logger.AppendSemantic(l.b, tlog.WireMessage)
+	l.b = l.Logger.AppendString(l.b, r.Message)
 
 	if r.Level != 0 {
-		l.b = l.AppendKey(l.b, tlog.KeyLogLevel)
+		l.b = l.Logger.AppendKey(l.b, tlog.KeyLogLevel)
 		l.b = level(r.Level).TlogAppend(l.b)
 	}
 
@@ -66,14 +66,14 @@ func (l *Handler) Handle(ctx context.Context, r slog.Record) error { //nolint:go
 	r.Attrs(l.attr)
 
 	for range l.depth {
-		l.b = l.AppendBreak(l.b)
+		l.b = l.Logger.AppendBreak(l.b)
 	}
 
 	l.b = append(l.b, l.Logger.Labels()...)
 
-	l.b = l.AppendBreak(l.b)
+	l.b = l.Logger.AppendBreak(l.b)
 
-	_, err := l.Writer.Write(l.b)
+	_, err := l.Logger.Writer.Write(l.b)
 
 	return err
 }
@@ -83,8 +83,8 @@ func (l *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		return l
 	}
 
-	defer l.Unlock()
-	l.Lock()
+	defer l.Logger.Unlock()
+	l.Logger.Lock()
 
 	b := l.b
 	l.b = append([]byte{}, l.prefix...)
@@ -111,8 +111,8 @@ func (l *Handler) WithGroup(name string) slog.Handler {
 
 	p := append([]byte{}, l.prefix...)
 
-	p = l.AppendKey(p, name)
-	p = l.AppendMap(p, -1)
+	p = l.Logger.AppendKey(p, name)
+	p = l.Logger.AppendMap(p, -1)
 
 	return &Handler{
 		Logger: l.Logger,
@@ -132,8 +132,8 @@ func (l *Handler) attr(a slog.Attr) bool {
 	val := a.Value.Resolve()
 
 	if kind != slog.KindGroup {
-		l.b = l.AppendKey(l.b, a.Key)
-		l.b = l.AppendValue(l.b, val.Any())
+		l.b = l.Logger.AppendKey(l.b, a.Key)
+		l.b = l.Logger.AppendValue(l.b, val.Any())
 
 		return true
 	}
@@ -145,8 +145,8 @@ func (l *Handler) attr(a slog.Attr) bool {
 	}
 
 	if a.Key != "" {
-		l.b = l.AppendKey(l.b, a.Key)
-		l.b = l.AppendMap(l.b, len(gr))
+		l.b = l.Logger.AppendKey(l.b, a.Key)
+		l.b = l.Logger.AppendMap(l.b, len(gr))
 	}
 
 	for _, a := range gr {

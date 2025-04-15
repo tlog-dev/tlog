@@ -1,110 +1,31 @@
-run:
-  #modules-download-mode: readonly
-linters-settings:
-  govet:
-    check-shadowing: false
-  golint:
-    min-confidence: 0
-  gocognit:
-    min-complexity: 30
-  cyclop:
-    max-complexity: 30
-  fieldalignment:
-    suggest-new: true
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  gosec:
-    excludes:
-      - G108
-      - G114
-      - G115
-  revive:
-    rules:
-      - name: unused-parameter
-        disabled: true
-  depguard:
-    rules:
-      main:
-        allow:
-          - $gostd
-          - github.com/fsnotify/fsnotify
-          - github.com/getsentry/sentry-go
-          - github.com/gin-gonic/gin
-          - github.com/nikandfor/assert
-          - github.com/opentracing/opentracing-go
-          - github.com/prometheus/client_golang
-          - github.com/prometheus/client_model
-          - github.com/stretchr/testify/assert
-          - github.com/stretchr/testify/require
-          - go.opentelemetry.io/otel
-          - golang.org/x
-          - nikand.dev/go/cbor
-          - nikand.dev/go/cli
-          - nikand.dev/go/graceful
-          - nikand.dev/go/hacked
-          - tlog.app/go/eazy
-          - tlog.app/go/errors
-          - tlog.app/go/loc
-          - tlog.app/go/tlog
-  misspell:
-  lll:
-    line-length: 170
-  goimports:
-    local-prefixes: github.com/nikandfor/tlog
-  prealloc:
-    simple: true
-    for-loops: true
-  gocritic:
-    enabled-tags:
-      - experimental
-      - performance
-      - style
-    disabled-checks:
-      - appendAssign
-      - appendCombine
-      - builtinShadow
-      - commentedOutCode
-      - octalLiteral
-      - unnamedResult
-      - whyNoLint
-      - yodaStyleExpr
-
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
     - cyclop
     - dogsled
     - err113
     - exhaustive
-    - exhaustivestruct
     - exhaustruct
     - forcetypeassert
+    - funcorder
     - funlen
-    - gci
     - gochecknoglobals
     - gochecknoinits
     - gocognit
     - goconst
     - gocyclo
     - godox
-    - golint
-    - gomnd
     - gosmopolitan
-    - ifshort
     - inamedparam
     - ireturn
     - lll
     - maintidx
-    - maligned
     - mnd
     - nakedret
     - nestif
     - nlreturn
     - nonamedreturns
-    - nosnakecase
     - paralleltest
     - prealloc
     - predeclared
@@ -113,8 +34,96 @@ linters:
     - testifylint
     - testpackage
     - thelper
-    - typecheck
     - unparam
     - varnamelen
     - wrapcheck
     - wsl
+  settings:
+    cyclop:
+      max-complexity: 30
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/ClickHouse/ch-go
+            - github.com/fsnotify/fsnotify
+            - github.com/getsentry/sentry-go
+            - github.com/gin-gonic/gin
+            - github.com/nikandfor/assert
+            - github.com/opentracing/opentracing-go
+            - github.com/prometheus/client_golang
+            - github.com/prometheus/client_model
+            - github.com/stretchr/testify/assert
+            - github.com/stretchr/testify/require
+            - go.opentelemetry.io/otel
+            - golang.org/x
+            - nikand.dev/go/cbor
+            - nikand.dev/go/cli
+            - nikand.dev/go/graceful
+            - nikand.dev/go/hacked
+            - tlog.app/go/eazy
+            - tlog.app/go/errors
+            - tlog.app/go/loc
+            - tlog.app/go/tlog
+    dupl:
+      threshold: 100
+    gocognit:
+      min-complexity: 30
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - appendAssign
+        - appendCombine
+        - builtinShadow
+        - commentedOutCode
+        - octalLiteral
+        - unnamedResult
+        - whyNoLint
+        - yodaStyleExpr
+      enabled-tags:
+        - experimental
+        - performance
+        - style
+    gosec:
+      excludes:
+        - G108
+        - G114
+        - G115
+    lll:
+      line-length: 170
+    prealloc:
+      simple: true
+      for-loops: true
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/nikandfor/tlog
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -364,7 +364,7 @@ func splitPattern(name string) (dir, pref, suff, format string) {
 
 func findPattern(name string) (string, int) {
 	var pattern string
-	var pos int = -1
+	pos := -1
 
 	for _, pat := range patterns {
 		p := strings.LastIndex(name, pat)

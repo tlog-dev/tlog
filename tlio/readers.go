@@ -24,7 +24,7 @@ type (
 	}
 
 	ReReader struct {
-		ReadSeeker
+		ReadSeeker ReadSeeker
 
 		Hook func(old, cur int64)
 
@@ -34,7 +34,7 @@ type (
 	DumpReader struct {
 		io.Reader
 
-		tlog.Span
+		Span tlog.Span
 
 		Pos int64
 	}

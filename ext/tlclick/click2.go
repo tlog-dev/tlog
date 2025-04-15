@@ -199,11 +199,3 @@ func next(b []byte, i int, c byte) int {
 
 	return i
 }
-
-func csel[T any](c bool, t, e T) T {
-	if c {
-		return t
-	} else {
-		return e
-	}
-}

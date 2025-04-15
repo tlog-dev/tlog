@@ -3,7 +3,6 @@ package tlogcmd
 import (
 	"context"
 	"io"
-	"io/fs"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -38,11 +37,6 @@ type (
 
 	perrWriter struct {
 		io.WriteCloser
-	}
-
-	listenerClose struct {
-		net.Listener
-		def []io.Closer
 	}
 )
 
@@ -306,8 +300,8 @@ func agentRun(c *cli.Command) (err error) {
 			return errors.Wrap(err, "listen %v", host)
 		}
 
-		switch {
-		case u.Scheme == "unix", u.Scheme == "tcp":
+		switch u.Scheme {
+		case "unix", "tcp":
 			group.Add(func(ctx context.Context) error {
 				var wg sync.WaitGroup
 
@@ -333,7 +327,7 @@ func agentRun(c *cli.Command) (err error) {
 
 						defer tr.Finish("err", &err)
 
-						defer closeWrap(c, &err, "close conn")
+						defer closer(c, &err, "close conn")
 
 						if f, ok := a.(tlio.Flusher); ok {
 							defer doWrap(f.Flush, &err, "flush db")
@@ -347,7 +341,7 @@ func agentRun(c *cli.Command) (err error) {
 			}, graceful.WithStop(func(ctx context.Context) error {
 				return l.Close()
 			}))
-		case u.Scheme == "unixgram", u.Scheme == "udp":
+		case "unixgram", "udp":
 			group.Add(func(ctx context.Context) error {
 				buf := make([]byte, 0x1000)
 
@@ -385,7 +379,7 @@ func cat(c *cli.Command) (err error) {
 		tlflag.Describe(tlog.Root(), w)
 	}
 
-	var fs *fsnotify.Watcher //nolint:gocritic
+	var fs *fsnotify.Watcher
 
 	if c.Bool("follow") {
 		fs, err = fsnotify.NewWatcher()
@@ -716,26 +710,6 @@ func (w perrWriter) Close() (err error) {
 	return
 }
 
-func isDir(name string) bool {
-	inf, err := os.Stat(name)
-	if err != nil {
-		return false
-	}
-
-	return inf.IsDir()
-}
-
-func isFifo(name string) bool {
-	inf, err := os.Stat(name)
-	if err != nil {
-		return false
-	}
-
-	mode := inf.Mode()
-
-	return mode&fs.ModeNamedPipe != 0
-}
-
 func listen(netw, addr string) (l net.Listener, p net.PacketConn, err error) {
 	switch netw {
 	case "unix", "unixgram":
@@ -767,44 +741,13 @@ func listen(netw, addr string) (l net.Listener, p net.PacketConn, err error) {
 	return l, p, nil
 }
 
-func (p listenerClose) SetDeadline(t time.Time) error {
-	return p.Listener.(interface{ SetDeadline(time.Time) error }).SetDeadline(t)
-}
-
-func (p listenerClose) Close() (err error) {
-	err = p.Listener.Close()
-
-	for i := len(p.def) - 1; i >= 0; i-- {
-		e := p.def[i].Close()
-		if err == nil {
-			err = e
-		}
-	}
-
-	return
-}
-
-func closeWrap(c io.Closer, errp *error, msg string) {
+func closer(c io.Closer, errp *error, msg string) { //nolint:gocritic
 	doWrap(c.Close, errp, msg)
 }
 
-func flushWrap(x interface{}, errp *error, msg string) {
-	if f, ok := x.(tlio.Flusher); ok {
-		doWrap(f.Flush, errp, msg)
-	}
-}
-
-func doWrap(f func() error, errp *error, msg string) {
-	e := f()
+func doWrap(f func() error, errp *error, msg string) { //nolint:gocritic
+	err := f()
 	if *errp == nil {
-		*errp = errors.Wrap(e, msg)
+		*errp = errors.Wrap(err, msg)
 	}
-}
-
-func closeIfErr(c io.Closer, errp *error) {
-	if *errp == nil {
-		return
-	}
-
-	_ = c.Close()
 }

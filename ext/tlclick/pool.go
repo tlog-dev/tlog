@@ -8,7 +8,7 @@ import (
 	"github.com/ClickHouse/ch-go/chpool"
 )
 
-func NewPool(ctx context.Context, opts chpool.Options) (*chpool.Pool, error) {
+func NewPool(ctx context.Context, opts chpool.Options) (*chpool.Pool, error) { //nolint:gocritic
 	return chpool.New(ctx, opts)
 }
 
@@ -19,7 +19,9 @@ func DefaultPoolOptions(addr string) chpool.Options {
 			Compression: ch.CompressionZSTD,
 			ClientName:  "tlog agent",
 
-			TLS: &tls.Config{},
+			TLS: &tls.Config{
+				MinVersion: tls.VersionTLS13,
+			},
 		},
 	}
 }

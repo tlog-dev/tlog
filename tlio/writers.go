@@ -34,7 +34,7 @@ type (
 
 	TailWriter struct {
 		io.Writer
-		RingWriter
+		RingWriter RingWriter
 	}
 
 	HeadWriter struct {

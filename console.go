@@ -1003,7 +1003,7 @@ func (w *ConsoleWriter) AppendDuration(b []byte, d time.Duration) []byte {
 }
 
 func (w *ConsoleWriter) AppendBytes(b, s []byte) []byte {
-	const hex = "0123456789abcdef"
+	const digits = "0123456789abcdef"
 
 	b = append(b, '[')
 
@@ -1012,7 +1012,7 @@ func (w *ConsoleWriter) AppendBytes(b, s []byte) []byte {
 			b = append(b, ' ')
 		}
 
-		b = append(b, hex[c>>4], hex[c&0xf])
+		b = append(b, digits[c>>4], digits[c&0xf])
 	}
 
 	b = append(b, ']')
