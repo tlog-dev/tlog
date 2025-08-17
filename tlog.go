@@ -58,6 +58,10 @@ type (
 		loc loc.PC
 		msg string
 		key string
+
+		ctx []byte
+
+		buf [24]byte
 	}
 )
 
@@ -440,26 +444,22 @@ func (s Span) IOWriter(d int) io.Writer {
 	}
 }
 
-func (l *Logger) DumpWriter(d int, msg, key string) io.Writer {
-	return &dumpWrapper{
-		Span: Span{
-			Logger: l,
-		},
-
-		loc: loc.Caller(1 + d),
-		msg: msg,
-		key: key,
-	}
+func (l *Logger) DumpWriter(d int, msg, key string, kvs ...any) io.Writer {
+	return Span{Logger: l}.DumpWriter(d, msg, key, kvs...)
 }
 
-func (s Span) DumpWriter(d int, msg, key string) io.Writer {
-	return &dumpWrapper{
+func (s Span) DumpWriter(d int, msg, key string, kvs ...any) io.Writer {
+	w := &dumpWrapper{
 		Span: s,
 
 		loc: loc.Caller(1 + d),
 		msg: msg,
 		key: key,
 	}
+
+	w.ctx = AppendKVs(&s.Logger.Encoder, w.buf[:0], kvs)
+
+	return w
 }
 
 func (w writeWrapper) Write(p []byte) (int, error) {
@@ -469,9 +469,13 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 }
 
 func (w *dumpWrapper) Write(p []byte) (int, error) {
-	message(w.Logger, w.ID, -1, w.msg, []any{KeyCaller, w.loc, w.key, p})
+	message(w.Logger, w.ID, -1, w.msg, []any{KeyCaller, w.loc, w, w.key, p})
 
 	return len(p), nil
+}
+
+func (w *dumpWrapper) TlogAppend(b []byte) []byte {
+	return append(b, w.ctx...)
 }
 
 func (l *Logger) Write(p []byte) (int, error) {

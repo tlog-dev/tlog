@@ -881,7 +881,7 @@ func (w *ConsoleWriter) AppendDuration(b []byte, d time.Duration) []byte {
 
 	var buf [32]byte
 
-	if d >= 99*time.Second {
+	if lim := 99 * time.Second; d >= lim || -d >= lim {
 		const MaxGroups = 2
 		group := 0
 		i := 0

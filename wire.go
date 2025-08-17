@@ -85,10 +85,6 @@ func AppendLabels(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	return b[:w]
 }
 
-func AppendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
-	return appendKVs0(e, b, kvs)
-}
-
 func NextIs(semantic int) Modify {
 	return Modify(tlwire.LowEncoder{}.AppendTag(nil, tlwire.Semantic, semantic))
 }
@@ -99,6 +95,10 @@ func RawTag(tag tlwire.Tag, sub int) RawMessage {
 
 func Special(value int) RawMessage {
 	return RawMessage(tlwire.LowEncoder{}.AppendTag(nil, tlwire.Special, value))
+}
+
+func AppendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
+	return appendKVs0(e, b, kvs)
 }
 
 //go:linkname appendKVs0 tlog.app/go/tlog.appendKVs
