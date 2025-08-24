@@ -55,7 +55,7 @@ type (
 	dumpWrapper struct {
 		Span
 
-		loc loc.PC
+		d   int
 		msg string
 		key string
 
@@ -452,7 +452,7 @@ func (s Span) DumpWriter(d int, msg, key string, kvs ...any) io.Writer {
 	w := &dumpWrapper{
 		Span: s,
 
-		loc: loc.Caller(1 + d),
+		d:   d,
 		msg: msg,
 		key: key,
 	}
@@ -469,7 +469,7 @@ func (w writeWrapper) Write(p []byte) (int, error) {
 }
 
 func (w *dumpWrapper) Write(p []byte) (int, error) {
-	message(w.Logger, w.ID, -1, w.msg, []any{KeyCaller, w.loc, w, w.key, p})
+	message(w.Logger, w.ID, w.d, w.msg, []any{w, w.key, p})
 
 	return len(p), nil
 }
