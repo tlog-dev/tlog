@@ -2,7 +2,7 @@ package tlog
 
 import (
 	"unicode/utf8"
-	_ "unsafe"
+	"unsafe"
 
 	"nikand.dev/go/hacked/low"
 	"tlog.app/go/loc"
@@ -16,6 +16,9 @@ type (
 	Modify []byte
 
 	Timestamp int64
+
+	Tag  string
+	Tags []Tag
 
 	FormatNext string
 
@@ -45,7 +48,7 @@ const (
 	WireEventKind
 	WireLogLevel
 
-	_
+	WireTag
 	_
 	_
 	_
@@ -122,10 +125,6 @@ func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 			}
 
 			i++
-		case RawMessage:
-			b = append(b, el...)
-			i++
-			continue
 		case tlwire.TlogAppender:
 			b = el.TlogAppend(b)
 			i++
@@ -174,7 +173,7 @@ func appendKVs(e *tlwire.Encoder, b []byte, kvs []interface{}) []byte {
 	return b
 }
 
-func autoKey(kvs []interface{}) (k string) {
+func autoKey(kvs []any) (k string) {
 	if len(kvs) == 1 {
 		return "MISSING_VALUE"
 	}
@@ -194,6 +193,8 @@ func autoKey(kvs []interface{}) (k string) {
 		k = KeyCaller
 	case loc.PCs:
 		k = KeyCaller
+	case Tag, Tags:
+		k = KeyTag
 	default:
 		k = "UNSUPPORTED_AUTO_KEY"
 	}
@@ -268,7 +269,6 @@ func (l *LogLevel) TlogParse(p []byte, i int) int {
 	if p[i] != byte(tlwire.Semantic|WireLogLevel) {
 		panic("not a log level")
 	}
-
 	i++
 
 	v, i := d.Signed(p, i)
@@ -286,5 +286,62 @@ func (r *RawMessage) TlogParse(p []byte, st int) (i int) {
 	var d tlwire.LowDecoder
 	i = d.Skip(p, st)
 	*r = append((*r)[:0], p[st:i]...)
+	return i
+}
+
+func (t Tag) TlogAppend(b []byte) []byte {
+	var e tlwire.Encoder
+	b = e.AppendSemantic(b, WireTag)
+	b = e.AppendString(b, string(t))
+	return b
+}
+
+func (ts Tags) TlogAppend(b []byte) []byte {
+	if len(ts) == 0 {
+		return b
+	}
+
+	var e tlwire.Encoder
+	b = e.AppendSemantic(b, WireTag)
+	b = e.AppendArray(b, len(ts))
+
+	for _, t := range ts {
+		b = e.AppendString(b, string(t))
+	}
+
+	return b
+}
+
+func IterTags(p []byte, st int, f func(Tag)) int {
+	var d tlwire.Decoder
+	var b []byte
+
+	if p[st] != byte(tlwire.Semantic|WireTag) {
+		panic("not a tag")
+	}
+	st++
+
+	tag, sub, i := d.Tag(p, st)
+	if tag == tlwire.String {
+		b, i = d.Bytes(p, st)
+
+		f(Tag(unsafe.String(unsafe.SliceData(b), len(b))))
+
+		return i
+	}
+
+	for el := 0; sub == -1 || el < int(sub); el++ {
+		if sub == -1 && d.Break(p, &i) {
+			break
+		}
+		if d.TagOnly(p, i) != tlwire.String {
+			panic("not a tag")
+		}
+
+		b, i = d.Bytes(p, i)
+
+		f(Tag(unsafe.String(unsafe.SliceData(b), len(b))))
+	}
+
 	return i
 }

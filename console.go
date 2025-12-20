@@ -68,6 +68,9 @@ type (
 		QuoteEmptyValue    bool
 		QuoteUseBackQuotes bool
 
+		TagsInclude map[Tag]struct{}
+		TagsExclude map[Tag]struct{}
+
 		ColorScheme
 
 		pad map[string]int
@@ -228,6 +231,8 @@ more:
 	w.ls = w.ls[:0]
 	b := w.b
 
+	include := len(w.TagsInclude) == 0
+
 	tag, els, i := w.d.Tag(p, i)
 	if tag != tlwire.Map {
 		return 0, errors.New("expected map")
@@ -276,6 +281,14 @@ more:
 			_ = tp.TlogParse(p, st)
 
 			b, i = w.appendPair(b, p, k, st)
+		case sub == WireTag && string(k) == KeyTag:
+			i = IterTags(p, st, func(t Tag) {
+				_, ok := w.TagsInclude[t]
+				include = include || ok
+
+				_, ok = w.TagsExclude[t]
+				include = include && !ok
+			})
 		case sub == WireLabel:
 			i = w.d.Skip(p, st)
 			w.ls = append(w.ls, p[pairst:i]...)
@@ -284,16 +297,18 @@ more:
 		}
 	}
 
-	h = w.appendHeader(h, t, lv, pc, m, len(b))
+	if include {
+		h = w.appendHeader(h, t, lv, pc, m, len(b))
 
-	h = append(h, b...)
+		h = append(h, b...)
 
-	if w.AllLabels || !bytes.Equal(w.lastls, w.ls) {
-		h = w.convertLabels(h, w.ls)
-		w.lastls = append(w.lastls[:0], w.ls...)
+		if w.AllLabels || !bytes.Equal(w.lastls, w.ls) {
+			h = w.convertLabels(h, w.ls)
+			w.lastls = append(w.lastls[:0], w.ls...)
+		}
+
+		h.NewLine()
 	}
-
-	h.NewLine()
 
 	if i < len(p) {
 		goto more
@@ -302,7 +317,9 @@ more:
 	w.b = b[:0]
 	w.h = h[:0]
 
-	_, err = w.Writer.Write(h)
+	if len(h) != 0 {
+		_, err = w.Writer.Write(h)
+	}
 
 	return len(p), err
 }
@@ -560,9 +577,9 @@ func (w *ConsoleWriter) appendTime(b []byte, t time.Time) []byte {
 			b = append(b, '.')
 		}
 
-		ns := t.Nanosecond() / 1e3
+		ns := t.Nanosecond()
 		if w.Flags&Lmilliseconds != 0 {
-			ns /= 1000
+			ns /= 1e6
 
 			b = append(b,
 				byte(ns/100%10)+'0',
@@ -570,6 +587,8 @@ func (w *ConsoleWriter) appendTime(b []byte, t time.Time) []byte {
 				byte(ns/1%10)+'0',
 			)
 		} else {
+			ns /= 1e3
+
 			b = append(b,
 				byte(ns/100000%10)+'0',
 				byte(ns/10000%10)+'0',

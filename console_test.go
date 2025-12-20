@@ -1,6 +1,7 @@
 package tlog
 
 import (
+	"bytes"
 	"io"
 	"testing"
 	"time"
@@ -41,7 +42,7 @@ func TestConsoleLocations(t *testing.T) {
 	buf = buf[:0]
 
 	_ = l.Event("callers", cc)
-	assert.Equal(t, "callers=[location.go:71 console_test.go:26]\n", string(buf))
+	assert.Equal(t, "callers=[location.go:71 console_test.go:27]\n", string(buf))
 
 	t.Logf("dump:\n%v", tlwire.Dump(raw))
 }
@@ -109,6 +110,70 @@ func TestAppendDuration(t *testing.T) {
 	t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
 	d = 999999 * time.Microsecond
 	t.Logf("%-10s is %v", w.AppendDuration(nil, d), d)
+}
+
+func TestTags(tb *testing.T) {
+	var buf low.Buf
+
+	br := len(buf)
+	buf = Tag("a").TlogAppend(buf)
+	if !bytes.Equal(buf[br:], []byte{byte(tlwire.Semantic) | WireTag, byte(tlwire.String | 1), 'a'}) {
+		tb.Errorf("tag append: % x", buf)
+	}
+
+	br = len(buf)
+	buf = Tags{"a", "b"}.TlogAppend(buf)
+	if !bytes.Equal(buf[br:], []byte{byte(tlwire.Semantic) | WireTag, byte(tlwire.Array) | 2, byte(tlwire.String) | 1, 'a', byte(tlwire.String) | 1, 'b'}) {
+		tb.Errorf("tag append: % x", buf)
+	}
+
+	i := IterTags(buf, 0, func(t Tag) {})
+	if i != br {
+		tb.Errorf("iter tags to %d instead of %d", i, br)
+	}
+
+	i = IterTags(buf, i, func(t Tag) {})
+	if i != len(buf) {
+		tb.Errorf("iter tags to %d instead of %d", i, len(buf))
+	}
+}
+
+func TestConsoleTags(tb *testing.T) {
+	var buf low.Buf
+
+	w := NewConsoleWriter(&buf, 0)
+
+	l := New(w)
+	LoggerSetTimeNow(l, nil, nil)
+	LoggerSetCallers(l, 0, nil)
+
+	l.Printw("hello a", "", Tag("a"))
+	l.Printw("hello b", "", Tag("b"))
+
+	if string(buf) != "hello a\nhello b\n" {
+		tb.Errorf("expected a and b, got\n%s", buf)
+	}
+
+	buf.Reset()
+	w.TagsExclude = map[Tag]struct{}{"b": {}}
+
+	l.Printw("hello a", "", Tag("a"))
+	l.Printw("hello b", "", Tag("b"))
+
+	if string(buf) != "hello a\n" {
+		tb.Errorf("expected a, got\n%s", buf)
+	}
+
+	buf.Reset()
+	w.TagsInclude = map[Tag]struct{}{"a": {}}
+	w.TagsExclude = nil
+
+	l.Printw("hello a", "", Tag("a"))
+	l.Printw("hello b", "", Tag("b"))
+
+	if string(buf) != "hello a\n" {
+		tb.Errorf("expected a, got\n%s", buf)
+	}
 }
 
 func BenchmarkConsolePrintw(b *testing.B) {
