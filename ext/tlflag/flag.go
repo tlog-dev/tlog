@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -407,11 +406,11 @@ func openrfile(u *url.URL) (interface{}, error) {
 }
 
 func openrurl(u *url.URL) (interface{}, error) {
-	if u.Scheme == "file" {
+	switch u.Scheme {
+	case "file":
 		return openrfile(u)
-	}
-
-	switch u.Scheme { //nolint:gocritic
+	case "pipe", "fifo":
+		return OSOpenFile(u.Path, os.O_RDONLY, 0)
 	default:
 		return nil, errors.New("unsupported scheme: %v", u.Scheme)
 	}
@@ -542,10 +541,10 @@ func ParseURL(d string) (u *url.URL, err error) {
 		return nil, errors.New("unexpected opaque url")
 	}
 
-	if (u.Scheme == "file" || u.Scheme == "unix" || u.Scheme == "unixgram") && u.Host != "" {
-		u.Path = path.Join(u.Host, u.Path)
-		u.Host = ""
-	}
+	//	if (u.Scheme == "file" || u.Scheme == "unix" || u.Scheme == "unixgram" || u.Scheme == "pipe" || u.Scheme == "fifo") && u.Host != "" {
+	//		u.Path = path.Join(u.Host, u.Path)
+	//		u.Host = ""
+	//	}
 
 	return u, nil
 }

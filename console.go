@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unsafe"
 
 	"golang.org/x/term"
 	"nikand.dev/go/hacked/htime"
@@ -699,14 +698,17 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 		var s []byte
 		s, i = w.d.Bytes(p, st)
 
+		if len(s) == 0 && w.QuoteEmptyValue {
+			b = append(b, '"', '"')
+			break
+		}
+		if len(s) == 0 {
+			break
+		}
+
 		if tag == tlwire.Bytes && w.BytesDumpMinLen != 0 && len(s) >= w.BytesDumpMinLen {
 			b = append(b, '\\', '\n')
-
-			h := hex.Dumper(noescapeByteWriter(&b))
-
-			_, _ = h.Write(s)
-			_ = h.Close()
-
+			b = appendHexDump(b, s)
 			break
 		}
 
@@ -726,36 +728,35 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			b = append(b, '\\', '\n')
 		}
 
-		quote := tag == tlwire.Bytes || w.QuoteAnyValue || len(s) == 0 && w.QuoteEmptyValue
-		haveQuotes, haveBackQuotes := false, false
-		if !quote {
-			for _, c := range s {
-				if c < 0x20 || c >= 0x80 {
-					quote = true
-					break
-				}
+		var quote, control, haveDouble, haveBack bool
 
+		for _, c := range s {
+			control = control || c < 0x20 || c >= 0x80
+			quote = quote || control
+
+			if !quote {
 				for _, q := range w.QuoteChars {
-					if byte(q) == c {
-						quote = true
-						break
-					}
+					quote = quote || byte(q) == c
 				}
-
-				haveQuotes = haveQuotes || c == '"'
-				haveBackQuotes = haveBackQuotes || c == '`'
 			}
+
+			haveDouble = haveDouble || c == '"'
+			haveBack = haveBack || c == '`'
 		}
 
 		switch {
-		case quote && haveQuotes && !haveBackQuotes && w.QuoteUseBackQuotes:
+		case quote && !control && haveDouble && !haveBack && w.QuoteUseBackQuotes:
 			b = append(b, '`')
 			b = append(b, s...)
 			b = append(b, '`')
-		case quote:
+		case quote && !control:
 			ss := tlow.UnsafeBytesToString(s)
 			b = strconv.AppendQuote(b, ss)
 		default:
+			if len(s) > 0 && s[0] == '\n' {
+				s = s[1:]
+			}
+
 			b = append(b, s...)
 		}
 
@@ -1086,7 +1087,81 @@ func common(x, y []byte) (n int) {
 	return
 }
 
-func noescapeByteWriter(b *[]byte) *low.Buf {
-	//	return (*low.Buf)(b)
-	return (*low.Buf)(noescape(unsafe.Pointer(b)))
+func appendHexDump(b, d []byte) []byte {
+	// format      `01234567  xx xx xx xx xx xx xx xx  yy yy yy yy yy yy yy yy  |0123456789abcdef|` + "\n"
+	const spaces = `                                                                               `
+	const digits = "0123456789abcdef"
+	const width = len(spaces)
+	const sh = width - 18
+
+	w := len(b)
+	lines := len(d)/16 + 1
+	b = append(b, make([]byte, lines*width)...)
+
+	i := 0
+
+	for i < len(d) {
+		chars := w + sh
+
+		copy(b[w:], spaces)
+
+		for j := range 4 {
+			shift := 8 * (3 - j)
+
+			b[w] = digits[byte(i>>shift)>>4]
+			w++
+			b[w] = digits[byte(i>>shift)&0xf]
+			w++
+		}
+
+		end := 16
+
+		for j := range 16 {
+			if j%8 == 0 {
+				b[w] = ' '
+				w++
+			}
+
+			b[w] = ' '
+			w++
+
+			if i < len(d) {
+				b[w] = digits[d[i]>>4]
+				w++
+				b[w] = digits[d[i]&0xf]
+				w++
+			} else {
+				b[w] = ' '
+				w++
+				b[w] = ' '
+				w++
+			}
+
+			if i < len(d) && d[i] >= 0x20 && d[i] < 0x80 {
+				b[chars+j] = byte(d[i])
+			} else if i < len(d) {
+				b[chars+j] = '.'
+			} else {
+				end = min(end, j)
+			}
+
+			i++
+		}
+
+		b[w] = ' '
+		w++
+		b[w] = ' '
+		w++
+		b[w] = '|'
+		w++
+
+		w += end
+
+		b[w] = '|'
+		w++
+		b[w] = '\n'
+		w++
+	}
+
+	return b[:w]
 }

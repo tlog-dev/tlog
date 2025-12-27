@@ -47,7 +47,7 @@ func App() *cli.Command {
 		Action:      cat,
 		Args:        cli.Args{},
 		Flags: []*cli.Flag{
-			cli.NewFlag("output,out,o", "-?dm", "output file (empty is stderr, - is stdout)"),
+			cli.NewFlag("output,out,o", "-?console=dm", "output file (empty is stderr, - is stdout)"),
 			cli.NewFlag("follow,f", false, "wait for changes until terminated"),
 			cli.NewFlag("head", 0, "skip all except first n events"),
 			cli.NewFlag("tail", 0, "skip all except last n events"),
@@ -112,7 +112,7 @@ func App() *cli.Command {
 		Description: "tlog cli",
 		Before:      before,
 		Flags: []*cli.Flag{
-			cli.NewFlag("log", "stderr?dm", "log output file (or stderr)"),
+			cli.NewFlag("log", "stderr?console=dm", "log output file (or stderr)"),
 			cli.NewFlag("verbosity,v", "", "logger verbosity topics"),
 			cli.NewFlag("debug", "", "debug address"),
 			cli.FlagfileFlag,
@@ -404,7 +404,7 @@ func cat(c *cli.Command) (err error) {
 
 	var addFile func(a string) error
 	addFile = func(a string) (err error) {
-		a = filepath.Clean(a)
+		//	a = filepath.Clean(a)
 
 		inf, err := os.Stat(a)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
