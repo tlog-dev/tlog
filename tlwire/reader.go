@@ -128,6 +128,8 @@ func (d *Reader) skip(st int) (i int) {
 	case Semantic:
 		return d.skip(i)
 	case Special:
+		sub := Tag(d.b[st]) & SubMask
+
 		switch sub {
 		case False,
 			True,
@@ -181,15 +183,15 @@ func (d *Reader) more() (err error) {
 	return err
 }
 
-func readTag(b []byte, st int) (tag Tag, sub int64, i int) {
+func readTag(b []byte, st int) (tag Tag, l int64, i int) {
 	if st >= len(b) {
-		return tag, sub, eUnexpectedEOF
+		return tag, l, eUnexpectedEOF
 	}
 
 	i = st
 
 	tag = Tag(b[i]) & TagMask
-	sub = int64(b[i] & TagDetMask)
+	sub := Tag(b[i]) & TagDetMask
 	i++
 
 	if tag == Special {
@@ -197,44 +199,44 @@ func readTag(b []byte, st int) (tag Tag, sub int64, i int) {
 	}
 
 	if sub < Len1 {
-		return
+		return tag, int64(sub), i
 	}
 
 	switch sub {
 	case LenBreak:
-		sub = -1
+		l = -1
 	case Len1:
 		if i+1 > len(b) {
-			return tag, sub, eUnexpectedEOF
+			return tag, l, eUnexpectedEOF
 		}
 
-		sub = int64(b[i])
+		l = int64(b[i])
 		i++
 	case Len2:
 		if i+2 > len(b) {
-			return tag, sub, eUnexpectedEOF
+			return tag, l, eUnexpectedEOF
 		}
 
-		sub = int64(b[i])<<8 | int64(b[i+1])
+		l = int64(b[i])<<8 | int64(b[i+1])
 		i += 2
 	case Len4:
 		if i+4 > len(b) {
-			return tag, sub, eUnexpectedEOF
+			return tag, l, eUnexpectedEOF
 		}
 
-		sub = int64(b[i])<<24 | int64(b[i+1])<<16 | int64(b[i+2])<<8 | int64(b[i+3])
+		l = int64(b[i])<<24 | int64(b[i+1])<<16 | int64(b[i+2])<<8 | int64(b[i+3])
 		i += 4
 	case Len8:
 		if i+8 > len(b) {
-			return tag, sub, eUnexpectedEOF
+			return tag, l, eUnexpectedEOF
 		}
 
-		sub = int64(b[i])<<56 | int64(b[i+1])<<48 | int64(b[i+2])<<40 | int64(b[i+3])<<32 |
+		l = int64(b[i])<<56 | int64(b[i+1])<<48 | int64(b[i+2])<<40 | int64(b[i+3])<<32 |
 			int64(b[i+4])<<24 | int64(b[i+5])<<16 | int64(b[i+6])<<8 | int64(b[i+7])
 		i += 8
 	default:
-		return tag, sub, eBadFormat
+		return tag, l, eBadFormat
 	}
 
-	return tag, sub, i
+	return tag, l, i
 }

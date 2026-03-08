@@ -113,13 +113,13 @@ func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 		panic("not a caller")
 	}
 
-	tag, sub, i := d.Tag(p, st+1)
+	tag, l, i := d.Tag(p, st+1)
 
 	if tag == Int || tag == Map {
 		return d.caller(p, st+1)
 	}
 
-	if tag == Special && sub == Nil {
+	if tag == Special && d.Simple(p, st+1) == Nil {
 		return
 	}
 
@@ -127,13 +127,13 @@ func (d *Decoder) Caller(p []byte, st int) (pc loc.PC, i int) {
 		panic(fmt.Sprintf("unsupported caller tag: %x", tag))
 	}
 
-	if sub == 0 {
+	if l == 0 {
 		return
 	}
 
 	pc, i = d.caller(p, i)
 
-	for el := 1; el < int(sub); el++ {
+	for el := 1; el < int(l); el++ {
 		_, i = d.caller(p, i)
 	}
 
@@ -145,26 +145,26 @@ func (d *Decoder) Callers(p []byte, st int) (pc loc.PC, pcs loc.PCs, i int) {
 		panic("not a caller")
 	}
 
-	tag, sub, i := d.Tag(p, st+1)
+	tag, l, i := d.Tag(p, st+1)
 
 	switch {
 	case tag == Int, tag == Map:
 		pc, i = d.caller(p, st+1)
 		return
 	case tag == Array:
-	case tag == Special && sub == Nil:
+	case tag == Special && d.Simple(p, st+1) == Nil:
 		return
 	default:
 		panic(fmt.Sprintf("unsupported caller tag: %x", tag))
 	}
 
-	if sub == 0 {
+	if l == 0 {
 		return
 	}
 
-	pcs = make(loc.PCs, sub)
+	pcs = make(loc.PCs, l)
 
-	for el := range int(sub) {
+	for el := range int(l) {
 		pcs[el], i = d.caller(p, i)
 	}
 

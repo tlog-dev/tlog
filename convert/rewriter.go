@@ -78,7 +78,7 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 		return b, st, nil
 	}
 
-	tag, sub, i := w.Tag(p, st)
+	tag, l, i := w.Tag(p, st)
 
 	if kst != -1 && tag != tlwire.Semantic {
 		b = append(b, p[kst:st]...)
@@ -97,8 +97,8 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 			subp = append(subp, []byte{byte(tlwire.Array)})
 		}
 
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.Break(p, &i) {
+		for el := 0; l == -1 || el < int(l); el++ {
+			if l == -1 && w.Break(p, &i) {
 				break
 			}
 
@@ -115,7 +115,7 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 			}
 		}
 
-		if sub == -1 {
+		if l == -1 {
 			b = w.AppendBreak(b)
 		}
 
@@ -125,6 +125,8 @@ func (w *Rewriter) Rewrite(b, p []byte, path []tlog.RawMessage, kst, st int) (r 
 
 		return w.Rewrite(b, p, path, kst, i)
 	case tlwire.Special:
+		sub := w.Decoder.Simple(p, st)
+
 		switch sub {
 		case tlwire.False,
 			tlwire.True,

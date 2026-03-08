@@ -676,7 +676,7 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 }
 
 func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) {
-	tag, sub, i := w.d.Tag(p, st)
+	tag, l, i := w.d.Tag(p, st)
 
 	switch tag {
 	case tlwire.Int, tlwire.Neg:
@@ -766,8 +766,8 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 	case tlwire.Array:
 		b = append(b, '[')
 
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.d.Break(p, &i) {
+		for el := 0; l == -1 || el < int(l); el++ {
+			if l == -1 && w.d.Break(p, &i) {
 				break
 			}
 
@@ -782,8 +782,8 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 	case tlwire.Map:
 		b = append(b, '{')
 
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.d.Break(p, &i) {
+		for el := 0; l == -1 || el < int(l); el++ {
+			if l == -1 && w.d.Break(p, &i) {
 				break
 			}
 
@@ -800,6 +800,8 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 
 		b = append(b, '}')
 	case tlwire.Special:
+		sub := w.d.Simple(p, st)
+
 		switch sub {
 		case tlwire.False:
 			b = append(b, "false"...)
@@ -828,6 +830,8 @@ func (w *ConsoleWriter) ConvertValue(b, p []byte, st, ff int) (_ []byte, i int) 
 			panic(sub)
 		}
 	case tlwire.Semantic:
+		sub := w.d.Simple(p, st)
+
 		switch sub {
 		case tlwire.Time:
 			var t time.Time

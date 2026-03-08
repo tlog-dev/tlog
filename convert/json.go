@@ -159,17 +159,17 @@ func (w *JSON) ConvertKey(b, p []byte, st int) (_ []byte, i int) {
 }
 
 func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
-	tag, sub, i := w.d.Tag(p, st)
+	tag, l, i := w.d.Tag(p, st)
 
 	switch tag {
 	case tlwire.Int:
-		b = strconv.AppendUint(b, uint64(sub), 10)
+		b = strconv.AppendUint(b, uint64(l), 10)
 	case tlwire.Neg:
-		b = strconv.AppendInt(b, -sub-1, 10)
+		b = strconv.AppendInt(b, -l-1, 10)
 	case tlwire.Bytes:
 		b = append(b, '"')
 
-		m := base64.StdEncoding.EncodedLen(int(sub))
+		m := base64.StdEncoding.EncodedLen(int(l))
 		bst := len(b)
 
 		for cap(b) < bst+m {
@@ -178,24 +178,24 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 
 		b = b[:bst+m]
 
-		base64.StdEncoding.Encode(b[bst:], p[i:i+int(sub)])
+		base64.StdEncoding.Encode(b[bst:], p[i:i+int(l)])
 
 		b = append(b, '"')
 
-		i += int(sub)
+		i += int(l)
 	case tlwire.String:
 		b = append(b, '"')
 
-		b = tlow.AppendSafe(b, p[i:i+int(sub)])
+		b = tlow.AppendSafe(b, p[i:i+int(l)])
 
 		b = append(b, '"')
 
-		i += int(sub)
+		i += int(l)
 	case tlwire.Array:
 		b = append(b, '[')
 
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.d.Break(p, &i) {
+		for el := 0; l == -1 || el < int(l); el++ {
+			if l == -1 && w.d.Break(p, &i) {
 				break
 			}
 
@@ -210,8 +210,8 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 	case tlwire.Map:
 		b = append(b, '{')
 
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && w.d.Break(p, &i) {
+		for el := 0; l == -1 || el < int(l); el++ {
+			if l == -1 && w.d.Break(p, &i) {
 				break
 			}
 
@@ -228,6 +228,8 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 
 		b = append(b, '}')
 	case tlwire.Semantic:
+		sub := w.d.Simple(p, st)
+
 		switch sub {
 		case tlwire.Time:
 			var t time.Time
@@ -258,6 +260,8 @@ func (w *JSON) ConvertValue(b, p []byte, st int) (_ []byte, i int) {
 			b, i = w.ConvertValue(b, p, i)
 		}
 	case tlwire.Special:
+		sub := w.d.Simple(p, st)
+
 		switch sub {
 		case tlwire.False:
 			b = append(b, "false"...)

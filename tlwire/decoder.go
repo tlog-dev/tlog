@@ -102,17 +102,17 @@ func (d *Decoder) Duration(p []byte, st int) (dr time.Duration, i int) {
 		panic("not a duration")
 	}
 
-	tag, sub, i := d.Tag(p, st+1)
+	tag, v, i := d.Tag(p, st+1)
 
 	if tag != Int && tag != Neg {
 		panic("unsupported duration")
 	}
 
 	if tag == Neg {
-		sub = -sub
+		v = -v
 	}
 
-	return time.Duration(sub), i
+	return time.Duration(v), i
 }
 
 func (d *Decoder) Addr(p []byte, st int) (a netip.Addr, ap netip.AddrPort, i int, err error) {
@@ -120,16 +120,16 @@ func (d *Decoder) Addr(p []byte, st int) (a netip.Addr, ap netip.AddrPort, i int
 		panic("not an address")
 	}
 
-	tag, sub, i := d.Tag(p, st+1)
-	if tag == Special && sub == Nil {
+	tag, l, i := d.Tag(p, st+1)
+	if tag == Special && d.Simple(p, st+1) == Nil {
 		return
 	}
 	if tag != String {
 		panic("unsupported address encoding")
 	}
 
-	ab := p[i : i+int(sub)]
-	i += int(sub)
+	ab := p[i : i+int(l)]
+	i += int(l)
 
 	err = a.UnmarshalText(ab)
 	if err != nil {

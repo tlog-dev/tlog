@@ -33,8 +33,8 @@ func (d *Decoder) BigInt(p []byte, st int, x *big.Int) (i int, err error) {
 		panic("not a big")
 	}
 
-	tag, sub, i := d.Tag(p, st+1)
-	if tag == Special && sub == Nil {
+	tag, l, i := d.Tag(p, st+1)
+	if tag == Special && d.Simple(p, st+1) == Nil {
 		x.SetInt64(0)
 		return i, nil
 	}
@@ -42,10 +42,10 @@ func (d *Decoder) BigInt(p []byte, st int, x *big.Int) (i int, err error) {
 		panic("unsupported big encoding")
 	}
 
-	bs := p[i : i+int(sub)]
-	i += int(sub)
+	bs := p[i : i+int(l)]
+	i += int(l)
 
-	err = x.UnmarshalJSON(bs)
+	err = x.UnmarshalText(bs)
 	if err != nil {
 		return st, err
 	}

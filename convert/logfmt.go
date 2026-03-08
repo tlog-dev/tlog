@@ -201,13 +201,15 @@ func (w *Logfmt) appendPair(b, p, k []byte, st int, first bool) (_ []byte, i int
 }
 
 func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
-	tag, sub, i := w.d.Tag(p, st)
+	tag, _, i := w.d.Tag(p, st)
 
 	switch tag {
 	case tlwire.Int:
-		b = strconv.AppendUint(b, uint64(sub), 10)
+		v, _ := w.d.Unsigned(p, st)
+		b = strconv.AppendUint(b, v, 10)
 	case tlwire.Neg:
-		b = strconv.AppendInt(b, -sub-1, 10)
+		v, _ := w.d.Signed(p, st)
+		b = strconv.AppendInt(b, v, 10)
 	case tlwire.Bytes, tlwire.String:
 		var s []byte
 		s, i = w.d.Bytes(p, st)
@@ -218,6 +220,8 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 	case tlwire.Map:
 		b, i = w.convertArray(b, p, k, st, false)
 	case tlwire.Semantic:
+		sub := w.d.Simple(p, st)
+
 		switch sub {
 		case tlwire.Time:
 			var t time.Time
@@ -262,6 +266,8 @@ func (w *Logfmt) ConvertValue(b, p, k []byte, st int) (_ []byte, i int) {
 			b, i = w.ConvertValue(b, p, k, i)
 		}
 	case tlwire.Special:
+		sub := w.d.Simple(p, st)
+
 		switch sub {
 		case tlwire.False:
 			b = append(b, "false"...)

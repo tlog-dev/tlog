@@ -80,7 +80,7 @@ func (d *Dumper) Write(p []byte) (n int, err error) {
 }
 
 func (d *Dumper) dump(p []byte, st, depth int) (i int) {
-	tag, sub, i := d.Tag(p, st)
+	tag, l, i := d.Tag(p, st)
 
 	if !d.NoGlobalOffset {
 		d.b = fmt.Appendf(d.b, "%8x  ", d.pos+int64(st))
@@ -109,10 +109,10 @@ func (d *Dumper) dump(p []byte, st, depth int) (i int) {
 			tg = "map"
 		}
 
-		d.b = fmt.Appendf(d.b, "%v: len %v\n", tg, sub)
+		d.b = fmt.Appendf(d.b, "%v: len %v\n", tg, l)
 
-		for el := 0; sub == -1 || el < int(sub); el++ {
-			if sub == -1 && d.Break(p, &i) {
+		for el := 0; l == -1 || el < int(l); el++ {
+			if l == -1 && d.Break(p, &i) {
 				i = d.dump(p, i-1, depth+1)
 				break
 			}
@@ -124,10 +124,12 @@ func (d *Dumper) dump(p []byte, st, depth int) (i int) {
 			}
 		}
 	case Semantic:
-		d.b = fmt.Appendf(d.b, "semantic %2x\n", sub)
+		d.b = fmt.Appendf(d.b, "semantic %2x\n", l)
 
 		i = d.dump(p, i, depth+1)
 	case Special:
+		sub := d.Simple(p, st)
+
 		switch sub {
 		case False:
 			d.b = fmt.Appendf(d.b, "false\n")

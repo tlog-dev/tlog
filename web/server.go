@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"nikand.dev/go/hacked/hnet"
-	"nikand.dev/go/hacked/low"
 	"tlog.app/go/eazy"
 	"tlog.app/go/errors"
 
@@ -165,7 +164,7 @@ func (s *Server) HandleRequest(ctx context.Context, rw http.ResponseWriter, req 
 			w = convert.NewLogfmt(w)
 		case ".html":
 			ww := convert.NewWeb(w)
-			defer low.Closer(ww, &err, "close Web")
+			defer hnet.Closer(ww, &err, "close Web")
 
 			w = ww
 		default:
