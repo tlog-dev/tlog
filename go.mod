@@ -7,7 +7,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/term v0.38.0
-	nikand.dev/go/cbor v0.0.0-20260308033210-6c85ae0ecd87
+	nikand.dev/go/cbor v0.0.0-20260409133519-40e912daa897
 	nikand.dev/go/hacked v0.0.0-20250913095209-07820a7901d9
 	tlog.app/go/eazy v0.4.2
 	tlog.app/go/errors v0.20.0

@@ -24,8 +24,8 @@ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntN
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-nikand.dev/go/cbor v0.0.0-20260308033210-6c85ae0ecd87 h1:WdADrtzaNq/iBpOU7h64ErhP/3feZiLZ0ZgxHTZtQSE=
-nikand.dev/go/cbor v0.0.0-20260308033210-6c85ae0ecd87/go.mod h1:KU6mV3VAVKdPXXlzE9BtpUaVtV+Z/N/jFEeC5jXMkDg=
+nikand.dev/go/cbor v0.0.0-20260409133519-40e912daa897 h1:Zswh8oA0QG/uUJ167Vi4CyFmdvV9ZUjpFqL7n5rSQmM=
+nikand.dev/go/cbor v0.0.0-20260409133519-40e912daa897/go.mod h1:KU6mV3VAVKdPXXlzE9BtpUaVtV+Z/N/jFEeC5jXMkDg=
 nikand.dev/go/hacked v0.0.0-20250913095209-07820a7901d9 h1:Dj0zCKPD34lnQJCBBZjNXmGVL/6wQp1LIJSffurwaEA=
 nikand.dev/go/hacked v0.0.0-20250913095209-07820a7901d9/go.mod h1:3/xzwKPKrKRkfShFa8jMa27vTMHQRqzgrkF6L1cdrJw=
 tlog.app/go/eazy v0.4.2 h1:Pa///lJlpkUUaApgI2A5xwtB+DnFG6ENDOtrRHDJsNk=

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"golang.org/x/term"
+	"nikand.dev/go/cbor"
 	"nikand.dev/go/hacked/htime"
 	"nikand.dev/go/hacked/low"
 	"tlog.app/go/errors"
@@ -646,30 +647,38 @@ func (w *ConsoleWriter) appendPair(b, p, k []byte, st int) (_ []byte, i int) {
 	}
 
 	vst := len(b)
+	pst := i
 
 	b, i = w.ConvertValue(b, p, i, 0)
 
-	vw := len(b) - vst
+	if w.d.TagRaw(p, pst) == cbor.Simple|cbor.True { // pad true to match false width
+		b = append(b, ' ')
+	}
 
 	// NOTE: Value width can be incorrect for non-ascii symbols.
 	// We can calc it by iterating utf8.DecodeRune() but should we?
+	vw := len(b) - vst
+
+	mw := w.pad[tlow.UnsafeBytesToString(k)]
+
+	if vw < mw {
+		w.addpad = mw - vw
+	}
+
+	if mw < vw && vw <= w.MaxValPad {
+		w.pad[string(k)] = vw
+	}
+
+	if tag := w.d.TagOnly(p, pst); (tag == tlwire.Int || tag == tlwire.Neg) && w.addpad > 0 { // align integers to the right
+		b = append(b, low.Spaces[:w.addpad]...)
+		copy(b[vst+w.addpad:], b[vst:])
+		copy(b[vst:vst+w.addpad], low.Spaces)
+
+		w.addpad = 0
+	}
 
 	if w.Colorize && len(w.ValColor) != 0 {
 		b = append(b, ResetColor...)
-	}
-
-	nw := w.pad[tlow.UnsafeBytesToString(k)]
-
-	if vw < nw {
-		w.addpad = nw - vw
-	}
-
-	if nw < vw && vw <= w.MaxValPad {
-		if vw > w.MaxValPad {
-			vw = w.MaxValPad
-		}
-
-		w.pad[string(k)] = vw
 	}
 
 	return b, i

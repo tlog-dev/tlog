@@ -139,15 +139,10 @@ func (e *Encoder) appendValue(b []byte, v interface{}) []byte {
 }
 
 func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { //nolint:gocognit,cyclop
-	if r.CanInterface() {
-		v := r.Interface()
-		//	v := valueInterface(r)
-
-		//	if r.Type().Comparable() && v != r.Interface() {
-		//		panic(fmt.Sprintf("not equal interface %v: %x %v %v", r, value(r), raweface(v), raweface(r.Interface())))
-		//	}
-
-		ef := raweface(v)
+	{
+		// v := r.Interface()
+		v := valueInterface(r)
+		ef := unpack(v)
 
 		if enc, ok := e.custom[ef.typ]; ok {
 			return enc(e, b, v)
@@ -213,8 +208,10 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			if r.Kind() == reflect.Array {
 				if r.CanAddr() {
 					r = r.Slice(0, r.Len())
-				} else {
+				} else if r.CanInterface() {
 					return e.AppendTagString(b, Bytes, low.UnsafeString(low.InterfaceData(r.Interface()), r.Len()))
+				} else if !r.CanAddr() {
+					return e.AppendSimple(b, Undefined)
 				}
 			}
 
@@ -287,6 +284,15 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 		if fc.OmitEmpty && fv.IsZero() {
 			continue
 		}
+		if fc.OmitZero {
+			isZero := fv.MethodByName("IsZero")
+			if isZero.IsValid() && valueInterface(fv).(interface{ IsZero() bool }).IsZero() {
+				continue
+			}
+			if !isZero.IsValid() && fv.IsZero() {
+				continue
+			}
+		}
 
 		ft := fv.Type()
 
@@ -306,8 +312,4 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 	}
 
 	return b
-}
-
-func raweface(x interface{}) eface {
-	return *(*eface)(unsafe.Pointer(&x))
 }

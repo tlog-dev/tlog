@@ -16,6 +16,7 @@ type (
 		TagName    string
 		Idx        int
 		OmitEmpty  bool
+		OmitZero   bool
 		Unexported bool
 		Embed      bool
 		Hex        bool
@@ -86,6 +87,8 @@ func parseStruct(tp reflect.Type) (s *rawStruct) { //nolint:gocognit
 			switch s {
 			case "omitempty":
 				sf.OmitEmpty = true
+			case "omitzero":
+				sf.OmitZero = true
 			case "embed":
 				sf.Embed = true
 			case "hex":
