@@ -389,7 +389,7 @@ func cat(c *cli.Command) (err error) {
 
 		defer func() {
 			e := fs.Close()
-			if err == nil {
+			if err == nil && e != nil {
 				err = errors.Wrap(e, "close watcher")
 			}
 		}()
@@ -481,7 +481,7 @@ func cat(c *cli.Command) (err error) {
 
 		if f, ok := w0.(tlio.Flusher); ok {
 			e := f.Flush()
-			if err == nil {
+			if err == nil && e != nil {
 				err = errors.Wrap(e, "flush: %v", a)
 			}
 		}

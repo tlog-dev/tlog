@@ -201,7 +201,7 @@ func (f *File) removeOld(dir, base, pref, suff, format string, now time.Time) er
 		n := filepath.Join(dir, name)
 
 		e := f.remove(n)
-		if err == nil {
+		if err == nil && e != nil {
 			err = errors.Wrap(e, "remove %v", name)
 		}
 	}

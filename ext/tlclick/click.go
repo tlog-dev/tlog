@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"tlog.app/go/errors"
 	"tlog.app/go/loc"
+
 	"tlog.app/go/tlog"
 	"tlog.app/go/tlog/convert"
 	"tlog.app/go/tlog/tlwire"
@@ -181,8 +182,7 @@ func (d *Click) writeEvent(p []byte, st int) (next int, err error) {
 func (d *Click) Flush() (err error) {
 	if d.b != nil {
 		e := d.b.Send()
-		tlog.Printw("flush", "err", e)
-		if err == nil {
+		if err == nil && e != nil {
 			err = errors.Wrap(e, "flush batch")
 		}
 
@@ -304,7 +304,7 @@ func (d *Click) parseEvent(p []byte, st int) (ts int64, i int, err error) {
 
 			u := UUID(id)
 
-			//tlog.Printw("parsed id", "id", id, "key", string(k), "key_span", d.KeySpan)
+			// tlog.Printw("parsed id", "id", id, "key", string(k), "key_span", d.KeySpan)
 
 			if string(k) == d.KeySpan {
 				d.spans = append(d.spans, u)

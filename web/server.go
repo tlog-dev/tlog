@@ -83,7 +83,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener, proto Proto) (err er
 func (s *Server) HandleConn(ctx context.Context, c net.Conn) (err error) {
 	defer func() {
 		e := c.Close()
-		if err == nil {
+		if err == nil && e != nil {
 			err = errors.Wrap(e, "close conn")
 		}
 	}()

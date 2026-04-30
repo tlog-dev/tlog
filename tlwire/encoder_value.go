@@ -5,7 +5,9 @@ import (
 	"math/big"
 	"net/netip"
 	"net/url"
+	"path"
 	"reflect"
+	"runtime"
 	"time"
 	"unsafe"
 
@@ -249,7 +251,7 @@ func (e *Encoder) appendRaw(b []byte, r reflect.Value, visited ptrSet) []byte { 
 			return append(b, byte(Special|False))
 		}
 	case reflect.Func:
-		return append(b, byte(Special|Undefined))
+		return e.appendFunc(b, r)
 	case reflect.Uintptr:
 		b = append(b, byte(Semantic|Hex))
 		return e.AppendTag64(b, Int, r.Uint())
@@ -312,4 +314,36 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 	}
 
 	return b
+}
+
+func (e *Encoder) appendFunc(b []byte, r reflect.Value) []byte {
+	name := funcBaseName(r)
+	if name == "" {
+		name = "unknown"
+	}
+
+	return e.AppendString(b, name)
+}
+
+func FuncName(fn any) string {
+	return funcName(reflect.ValueOf(fn))
+}
+
+func FuncBaseName(fn any) string {
+	name := FuncName(fn)
+
+	return path.Base(name)
+}
+
+func funcName(r reflect.Value) string {
+	ptr := r.Pointer()
+	f := runtime.FuncForPC(ptr)
+
+	return f.Name()
+}
+
+func funcBaseName(r reflect.Value) string {
+	name := funcName(r)
+
+	return path.Base(name)
 }
