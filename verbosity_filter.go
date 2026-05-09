@@ -3,6 +3,7 @@ package tlog
 import (
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,10 +26,13 @@ type (
 	}
 )
 
+// Verbosity returns current verbosity of default logger.
 func Verbosity() string {
 	return DefaultLogger.Verbosity()
 }
 
+// SetVerbosity sets default logger verbosity.
+// Refer to [Logger.SetVerbosity] for more info.
 func SetVerbosity(vfilter string) {
 	DefaultLogger.SetVerbosity(vfilter)
 }
@@ -42,6 +46,41 @@ func (l *Logger) Verbosity() string {
 	return f.f
 }
 
+/*
+SetVerbosity sets verbosity expression,
+which is used to evaluate verbose logging
+such as [Logger.V], [Logger.If], [Span.V], [Span.If].
+
+	Empty filter selectis nothing.
+	# "*" selects everything.
+
+	# `filter` is a chain of selectors, each selector selects or unselects some logs
+	# adding or removing logs to a set of matching.
+	# "-" in the beginning of selector negates the selector, ie unselects matching logs.
+	# That allows to implement logic "this all, but not this".
+	# Initial chain state is "matches nothing".
+	# If the first selector is negated (starts with "-"), it's assumed initial chain state was "matches all".
+	filter ::= [ "-" ] selector { "," [ "-" ] selector }
+
+	# `selector` selects topics at location.
+	# both can be empty, which selects everything.
+	# if there is no "=", selector is treated as topics in any location.
+	# `topics` is equal to `*=topics` and is equal to `=topics`
+	# `location=*` is equal to `location=`
+	selector ::= [ location "=" ] topics
+
+	# `location` matches file path or full type.
+	# Selector matches any part of the location, ie
+	# all the selectors `a`, `b`, `d`, `d.go`, `b/c/d.go` match file_path `a/b/c/d.go`,
+	# all the selectors `pkg`, `subpkg`, `pkg/subpkg`, `Type`, `Func`, `Type.Func` match type_name `pkg/subpkg.Type.Func`
+	location  ::= file_path | type_name
+	file_path ::= { dirname "/" } [ dirname | basename ]
+
+	# `topics` is set of multiple topics.
+	# `loc=topic1+topic2` is equivalent to loc=topic1,loc=topic2
+	topics ::= topic { "+" topic }
+	topic  ::= alphanumeric_string
+*/
 func (l *Logger) SetVerbosity(vfilter string) {
 	var f *filter
 
@@ -157,27 +196,29 @@ func (f *filter) match(pc loc.PC, topics string) (r bool) {
 func (f *filter) matchPattern(name, file, topics string) (r bool) {
 	ts := strings.Split(topics, ",")
 
-	if f.f != "" && f.f[0] == '!' {
+	if f.f != "" && (f.f[0] == '-' || f.f[0] == '!') {
 		r = true
 	}
 
-	for _, ff := range strings.Split(f.f, ",") {
+	for ff := range strings.SplitSeq(f.f, ",") {
 		if ff == "" {
 			continue
 		}
 
-		set := ff[0] != '!'
-		ff = strings.TrimPrefix(ff, "!")
+		set := (ff[0] != '!' && ff[0] != '-')
+		ff = strings.TrimLeft(ff, "!-")
 
 		p := strings.IndexByte(ff, '=')
 
 		if p != -1 && ff[:p] != "" {
-			if !f.matchPath(ff[:p], file) && !f.matchType(ff[:p], name) {
+			loc := ff[:p]
+
+			if !f.matchPath(loc, file) && !f.matchType(loc, name) {
 				continue
 			}
 		}
 
-		if !f.matchTopics(ff[p+1:], ts) {
+		if topics := ff[p+1:]; topics != "" && !f.matchTopics(topics, ts) {
 			continue
 		}
 
@@ -188,7 +229,7 @@ func (f *filter) matchPattern(name, file, topics string) (r bool) {
 }
 
 func (f *filter) matchTopics(filt string, ts []string) bool {
-	for _, ff := range strings.Split(filt, "+") {
+	for ff := range strings.SplitSeq(filt, "+") {
 		if ff == "" {
 			continue
 		}
@@ -196,10 +237,8 @@ func (f *filter) matchTopics(filt string, ts []string) bool {
 			return true
 		}
 
-		for _, t := range ts {
-			if ff == t {
-				return true
-			}
+		if slices.Contains(ts, ff) {
+			return true
 		}
 	}
 
@@ -231,6 +270,8 @@ func (f *filter) matchPath(pt, file string) bool {
 	return re.MatchString(file) || re.MatchString(path.Dir(file))
 }
 
+var typere = regexp.MustCompile(`(\w+)(\.\((\*?)(\w+)\))?\.((\w+)(\.\w+)*)`)
+
 func (f *filter) matchType(pt, name string) bool {
 	tp := path.Base(name)
 
@@ -260,14 +301,14 @@ func (f *filter) matchType(pt, name string) bool {
 		return true
 	}
 
-	s := regexp.MustCompile(`(\w+)(\.\((\*?)(\w+)\))?\.((\w+)(\.\w+)*)`).FindStringSubmatch(tp)
+	s := typere.FindStringSubmatch(tp)
 	s = s[1:]
 
 	if pt == s[0] { // pkg
 		return true
 	}
 
-	if s[1] == "" { // no (*Type) (It's function)
+	if s[1] == "" { // no (*Type) (It's a function)
 		return false
 	}
 

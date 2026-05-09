@@ -14,11 +14,14 @@ import (
 )
 
 type (
+	// Logger encodes structured events and writes them to underlaying [io.Writer].
+	// Nil Logger is a valid state, which ignores all the events.
 	Logger struct {
 		io.Writer // protected by Mutex below
 
 		tlwire.Encoder
 
+		// NowID customizes id generation.
 		NewID func() ID `deep:"compare=pointer"` // must be threadsafe
 
 		now  func() time.Time `deep:"compare=pointer"`
@@ -35,6 +38,10 @@ type (
 		ls []byte
 	}
 
+	// Span is a tracing span.
+	// It's essentially a [Logger] + span [ID].
+	// Events logged with the same Span have the same spanID,
+	// thus grouping them.
 	Span struct {
 		Logger    *Logger
 		ID        ID
@@ -43,6 +50,7 @@ type (
 
 	LogLevel int
 
+	// EventKind classifies event kind: span_start, span_end, untyped_event.
 	EventKind rune
 
 	// for like stdlib log.SetOutput(l).
@@ -80,7 +88,7 @@ const (
 	Debug LogLevel = -1
 )
 
-// Predefined keys.
+// Predefined canonical keys.
 var (
 	KeySpan      = "_s"
 	KeyParent    = "_p"
@@ -101,12 +109,16 @@ const (
 	EventMetric     EventKind = 'm'
 )
 
+// DefaultLogger is a global logger used by package level functions.
 var DefaultLogger = New(NewConsoleWriter(os.Stderr, LdetFlags))
 
+// Root wraps default logger into span without ID (kinda casts type).
 func Root() Span { return Span{Logger: DefaultLogger} }
 
+// Root wraps Logger into Span (kinda casts type).
 func (l *Logger) Root() Span { return Span{Logger: l} }
 
+// New creates new [Logger].
 func New(w io.Writer) *Logger {
 	return &Logger{
 		Writer:  w,
@@ -138,7 +150,7 @@ func (s Span) Copy(w io.Writer) Span {
 	}
 }
 
-func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
+func message(l *Logger, id ID, d int, msg any, kvs []any) {
 	if l == nil {
 		return
 	}
@@ -194,7 +206,7 @@ func message(l *Logger, id ID, d int, msg interface{}, kvs []interface{}) {
 	_, _ = l.Writer.Write(l.b)
 }
 
-func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
+func newspan(l *Logger, par ID, d int, n string, kvs []any) (s Span) {
 	if l == nil {
 		return
 	}
@@ -253,7 +265,8 @@ func newspan(l *Logger, par ID, d int, n string, kvs []interface{}) (s Span) {
 	return
 }
 
-func (s Span) Finish(kvs ...interface{}) {
+// Finish emits finish event adding provided key-values pairs.
+func (s Span) Finish(kvs ...any) {
 	if s.Logger == nil {
 		return
 	}
@@ -296,10 +309,12 @@ func (s Span) Finish(kvs ...interface{}) {
 	_, _ = l.Writer.Write(l.b)
 }
 
+// SetLabels sets static key-value pairs, that are appended to each event.
 func SetLabels(kvs ...interface{}) {
 	DefaultLogger.SetLabels(kvs...)
 }
 
+// SetLabels sets static key-value pairs, that are appended to each event.
 func (l *Logger) SetLabels(kvs ...interface{}) {
 	if l == nil {
 		return
@@ -315,10 +330,13 @@ func (l *Logger) Labels() RawMessage {
 	return l.ls
 }
 
-func Start(name string, kvs ...interface{}) Span {
+// Start starts a new Span.
+// It emit start event and returns its id, so subsequent events are assigned the same span [ID].
+func Start(name string, kvs ...any) Span {
 	return newspan(DefaultLogger, ID{}, 0, name, kvs)
 }
 
+// Or returns `l` if it's not nil, or `l2`.
 func (l *Logger) Or(l2 *Logger) *Logger {
 	if l != nil {
 		return l
@@ -327,6 +345,7 @@ func (l *Logger) Or(l2 *Logger) *Logger {
 	return l2
 }
 
+// Or returns `s` if its Logger is not nil, or `s2`.
 func (s Span) Or(s2 Span) Span {
 	if s.Logger != nil {
 		return s
@@ -335,7 +354,8 @@ func (s Span) Or(s2 Span) Span {
 	return s2
 }
 
-func (l *Logger) Event(kvs ...interface{}) (err error) {
+// Event emits generic event without adding default keys, such as time and caller.
+func (l *Logger) Event(kvs ...any) (err error) {
 	if l == nil {
 		return nil
 	}
@@ -356,6 +376,7 @@ func (l *Logger) Event(kvs ...interface{}) (err error) {
 	return
 }
 
+// Event emits generic event without adding default keys, such as time and caller.
 func (s Span) Event(kvs ...interface{}) (err error) {
 	if s.Logger == nil {
 		return nil
@@ -385,50 +406,65 @@ func (s Span) Event(kvs ...interface{}) (err error) {
 	return
 }
 
-func (l *Logger) NewSpan(d int, par ID, name string, kvs ...interface{}) Span {
+// NewSpan is a general form of [Start]/[Spawn] if caller depth or parent ID need to be customized.
+func (l *Logger) NewSpan(d int, par ID, name string, kvs ...any) Span {
 	return newspan(l, par, d, name, kvs)
 }
 
-func (l *Logger) NewMessage(d int, id ID, msg interface{}, kvs ...interface{}) {
+// NewMessage is a general form of [Printw] if caller depth id span ID need to be customized.
+func (l *Logger) NewMessage(d int, id ID, msg any, kvs ...any) {
 	message(l, id, d, msg, kvs)
 }
 
-func (s Span) NewMessage(d int, msg interface{}, kvs ...interface{}) {
+// NewMessage is a general form of [Printw] if caller depth needs to be customized.
+func (s Span) NewMessage(d int, msg any, kvs ...any) {
 	message(s.Logger, s.ID, d, msg, kvs)
 }
 
-func (l *Logger) Start(name string, kvs ...interface{}) Span {
+// Start emits start event with given name and key-value pairs.
+// Generated span has no parent.
+func (l *Logger) Start(name string, kvs ...any) Span {
 	return newspan(l, ID{}, 0, name, kvs)
 }
 
-func (s Span) Spawn(name string, kvs ...interface{}) Span {
+// Spawn emits start event with given name and key-value pairs.
+// Generated span is a child of `s`.
+func (s Span) Spawn(name string, kvs ...any) Span {
 	return newspan(s.Logger, s.ID, 0, name, kvs)
 }
 
-func Printw(msg string, kvs ...interface{}) {
+// Printw emits event with message and and an array or key-values pairs.
+func Printw(msg string, kvs ...any) {
 	message(DefaultLogger, ID{}, 0, msg, kvs)
 }
 
-func (l *Logger) Printw(msg string, kvs ...interface{}) {
+// Printw emits event with message and and an array or key-values pairs.
+func (l *Logger) Printw(msg string, kvs ...any) {
 	message(l, ID{}, 0, msg, kvs)
 }
 
-func (s Span) Printw(msg string, kvs ...interface{}) {
+// Printw emits event with message and and an array or key-values pairs.
+func (s Span) Printw(msg string, kvs ...any) {
 	message(s.Logger, s.ID, 0, msg, kvs)
 }
 
-func Printf(fmt string, args ...interface{}) {
+// Printf emits event similar to log.Printf.
+func Printf(fmt string, args ...any) {
 	message(DefaultLogger, ID{}, 0, format{Fmt: fmt, Args: args}, nil)
 }
 
-func (l *Logger) Printf(fmt string, args ...interface{}) {
+// Printf emits event similar to log.Printf.
+func (l *Logger) Printf(fmt string, args ...any) {
 	message(l, ID{}, 0, format{Fmt: fmt, Args: args}, nil)
 }
 
-func (s Span) Printf(fmt string, args ...interface{}) {
+// Printf emits event similar to log.Printf.
+func (s Span) Printf(fmt string, args ...any) {
 	message(s.Logger, s.ID, 0, format{Fmt: fmt, Args: args}, nil)
 }
 
+// IOWriter creates io.Writer, which emits one event per one Write.
+// It's suitable to provide it to other logger.
 func (l *Logger) IOWriter(d int) io.Writer {
 	return writeWrapper{
 		Span: Span{
@@ -438,6 +474,8 @@ func (l *Logger) IOWriter(d int) io.Writer {
 	}
 }
 
+// IOWriter creates io.Writer, which emits one event per one Write.
+// It's suitable to provide it to other logger.
 func (s Span) IOWriter(d int) io.Writer {
 	return writeWrapper{
 		Span: s,
@@ -445,10 +483,14 @@ func (s Span) IOWriter(d int) io.Writer {
 	}
 }
 
+// DumpWriter creates io.Writer, similar to IOWriter,
+// but bytes are written as `key` value instead of message.
 func (l *Logger) DumpWriter(d int, msg, key string, kvs ...any) io.Writer {
 	return Span{Logger: l}.DumpWriter(d, msg, key, kvs...)
 }
 
+// DumpWriter creates io.Writer, similar to IOWriter,
+// but bytes are written as `key` value instead of message.
 func (s Span) DumpWriter(d int, msg, key string, kvs ...any) io.Writer {
 	w := &dumpWrapper{
 		Span: s,
@@ -479,6 +521,9 @@ func (w *dumpWrapper) TlogAppend(b []byte) []byte {
 	return append(b, w.ctx...)
 }
 
+// Write implements [io.Writer].
+// p is expected to be tlog encoded event(s).
+// It acts as [io.Writer] for the other [Logger] for some reason.
 func (l *Logger) Write(p []byte) (int, error) {
 	if l == nil || l.Writer == nil {
 		return len(p), nil
@@ -490,28 +535,23 @@ func (l *Logger) Write(p []byte) (int, error) {
 	return l.Writer.Write(p)
 }
 
+// OK returns true if logger is not nil.
 func (l *Logger) OK() bool { return l != nil }
-func (s Span) OK() bool    { return s.Logger != nil }
 
+// OK returns true if underlaying logger is not nil.
+func (s Span) OK() bool { return s.Logger != nil }
+
+// LoggerSetTimeNow overrides standard [time.Now] and [time,Now().UnixNano()]
+// or disables adding time to events if nil provided.
+// Mostly used for testing.
 func LoggerSetTimeNow(l *Logger, now func() time.Time, nano func() int64) {
 	l.now = now
 	l.nano = nano
 }
 
+// LoggerSetCallers overrides standard [runtime.Caller]
+// or disables adding caller info to events if nil provided.
 func LoggerSetCallers(l *Logger, skip int, callers func(skip int, pc []uintptr) int) {
 	l.callers = *(*func(int, *loc.PC, int, int) int)(unsafe.Pointer(&callers))
 	l.callersSkip = skip + 1
-	/*
-		l.callers = func(skip int, pc *loc.PC, len, cap int) int {
-			return callers(skip+2, *(*[]uintptr)(unsafe.Pointer(&struct {
-				Ptr *loc.PC
-				Len int
-				Cap int
-			}{
-				Ptr: pc,
-				Len: len,
-				Cap: cap,
-			})))
-		}
-	*/
 }
