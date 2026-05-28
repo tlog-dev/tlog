@@ -317,6 +317,10 @@ func (e *Encoder) appendStructFields(b []byte, t reflect.Type, r reflect.Value, 
 }
 
 func (e *Encoder) appendFunc(b []byte, r reflect.Value) []byte {
+	if r.IsNil() {
+		return e.AppendNull(b)
+	}
+
 	name := funcBaseName(r)
 	if name == "" {
 		name = "unknown"
